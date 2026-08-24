@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WikiConnect · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#ffffff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    min-height:100vh; padding:28px 16px 60px;
+  }
+  .wrap{max-width:900px;margin:0 auto;}
+  .back{
+    display:inline-block; text-decoration:none; color:var(--muted);
+    font-size:15px; margin-bottom:18px;
+  }
+  .back:hover{color:var(--ink);}
+  header{text-align:center;margin-bottom:28px;}
+  .wordmark{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;
+    font-weight:900; font-size:clamp(40px,8vw,72px);
+    transform:rotate(-1.5deg); display:inline-block; line-height:.95;
+  }
+  .wordmark .w1{color:var(--sky);} .wordmark .w2{color:var(--ink);}
+  .subtitle{color:var(--muted);margin-top:10px;font-size:16px;}
+
+  .card{
+    border:2px solid var(--ink); border-radius:14px; background:#fff;
+    box-shadow:5px 5px 0 var(--ink); padding:18px; margin-bottom:18px;
+  }
+  .inputs{display:flex;flex-wrap:wrap;gap:10px;}
+  .inputs input{
+    flex:1;min-width:220px;padding:12px;border:2px solid var(--ink);
+    border-radius:10px;font-family:inherit;font-size:15px;
+  }
+  .inputs input:focus{outline:none;border-color:var(--sky);}
+  .inputs button{
+    padding:12px 22px;border:2px solid var(--ink);border-radius:10px;
+    background:var(--sun);color:var(--ink);font-family:inherit;font-weight:700;
+    font-size:15px;cursor:pointer;box-shadow:3px 3px 0 var(--ink);
+    transition:transform .1s ease, box-shadow .1s ease;
+  }
+  .inputs button:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);}
+  .inputs button:disabled{opacity:.5;cursor:default;}
+  #status{font-size:14px;color:var(--muted);min-height:22px;margin-top:10px;}
+
+  #pathBar{display:none;flex-wrap:wrap;gap:8px;align-items:center;
+    font-size:14px;margin-bottom:18px;}
+  .chip{
+    border:2px solid var(--ink);border-radius:20px;padding:4px 12px;background:#fff;
+  }
+  .chip.here{background:var(--sun);font-weight:700;}
+  .chip.done{background:#e4f4df;border-color:var(--moss);}
+  .arrow{color:var(--muted);}
+
+  /* the recreated wikipedia "browser" */
+  #browser{display:none;border:2px solid var(--ink);border-radius:14px;
+    box-shadow:5px 5px 0 var(--ink);overflow:hidden;background:#fff;}
+  #urlbar{
+    display:flex;align-items:center;gap:8px;
+    border-bottom:2px solid var(--ink);padding:9px 12px;background:#f6f6f6;
+    font-size:13px;color:#444;
+  }
+  #urlbar .dots{display:flex;gap:5px;}
+  #urlbar .dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink);}
+  #urlbar .d1{background:var(--coral);} #urlbar .d2{background:var(--sun);} #urlbar .d3{background:var(--moss);}
+  #urlText{
+    flex:1;background:#fff;border:1.5px solid var(--line);border-radius:8px;
+    padding:5px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  #article{
+    height:62vh;overflow-y:auto;padding:20px 24px;
+    font-family:Georgia,"Times New Roman",serif;font-size:15px;line-height:1.55;
+  }
+  #article h1.wc-title{
+    font-size:26px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:12px;
+    font-family:Georgia,serif;font-weight:400;
+  }
+  #article a{color:#3366cc;text-decoration:none;cursor:default;}
+  #article img{max-width:100%;height:auto;}
+  #article table{max-width:100%;font-size:12px;border-collapse:collapse;margin:8px 0;}
+  #article table td,#article table th{border:1px solid var(--line);padding:3px 6px;}
+  #article .infobox{float:right;max-width:270px;margin:0 0 12px 14px;background:#f8f9fa;}
+  #article p{margin-bottom:10px;}
+  #article h2,#article h3{margin:16px 0 8px;font-family:Georgia,serif;font-weight:400;
+    border-bottom:1px solid var(--line);padding-bottom:3px;}
+  #article ul,#article ol{margin:0 0 10px 24px;}
+  #article .mw-editsection{display:none;}
+
+  .wc-target{
+    background:var(--sun); outline:3px solid var(--coral); border-radius:3px;
+    padding:0 3px; animation:pulse 0.8s ease infinite alternate;
+    color:var(--ink) !important; font-weight:700;
+  }
+  @keyframes pulse{from{outline-offset:0;}to{outline-offset:4px;}}
+
+  #doneCard{display:none;margin-top:18px;text-align:center;font-size:18px;}
+  #doneCard.ok{border-color:var(--moss);box-shadow:5px 5px 0 var(--moss);}
+  #doneCard.bad{border-color:var(--coral);box-shadow:5px 5px 0 var(--coral);}
+  #doneCard .big{font-size:26px;font-weight:900;margin-bottom:6px;}
+  .foot{margin-top:22px;font-size:12px;color:var(--muted);text-align:center;}
+  .foot a{color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark"><span class="w1">Wiki</span><span class="w2">Connect</span></div>
+    <div class="subtitle">two pages. one bot. watch it click its way across Wikipedia.</div>
+  </header>
+
+  <div class="card">
+    <div class="inputs">
+      <input id="startIn" placeholder="start page (URL or title, e.g. Cheese)">
+      <input id="endIn" placeholder="target page (URL or title, e.g. Moon)">
+      <button id="goBtn">CONNECT</button>
+    </div>
+    <div id="status">ready.</div>
+  </div>
+
+  <div id="pathBar"></div>
+
+  <div id="browser">
+    <div id="urlbar">
+      <div class="dots"><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span></div>
+      <div id="urlText">en.wikipedia.org</div>
+    </div>
+    <div id="article"></div>
+  </div>
+
+  <div class="card" id="doneCard"></div>
+
+  <div class="foot">
+    article content from <a href="https://en.wikipedia.org" target="_blank">Wikipedia</a>,
+    licensed CC BY-SA &middot; a Kai.fun experiment
+  </div>
+</div>
+
+<script>
+const API = "https://en.wikipedia.org/w/api.php";
+const statusEl = document.getElementById("status");
+const goBtn = document.getElementById("goBtn");
+const browser = document.getElementById("browser");
+const articleEl = document.getElementById("article");
+const urlText = document.getElementById("urlText");
+const pathBar = document.getElementById("pathBar");
+const doneCard = document.getElementById("doneCard");
+
+function say(m){ statusEl.textContent = m; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function toTitle(input){
+  input = (input||"").trim();
+  const m = input.match(/wikipedia\.org\/wiki\/([^#?]+)/i);
+  if(m) input = decodeURIComponent(m[1]);
+  return input.replace(/_/g," ").trim();
+}
+
+// API call with retries - fixes most transient errors
+async function api(params, tries=3){
+  for(let t=1;;t++){
+    try{
+      const url = API + "?" + new URLSearchParams({format:"json", origin:"*", ...params});
+      const res = await fetch(url);
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      return await res.json();
+    }catch(e){
+      if(t>=tries) throw e;
+      await sleep(600*t);
+    }
+  }
+}
+
+async function getLinks(title, cap=1500){
+  const out = new Set(); let cont = {};
+  while(out.size < cap){
+    const data = await api({action:"query", prop:"links", titles:title,
+      pllimit:"500", plnamespace:"0", redirects:"1", ...cont});
+    const pages = data?.query?.pages || {};
+    for(const id in pages) for(const l of (pages[id].links||[])) out.add(l.title);
+    if(data.continue) cont = data.continue; else break;
+  }
+  return out;
+}
+
+async function getBacklinks(title, cap=1500){
+  const out = new Set(); let cont = {};
+  while(out.size < cap){
+    const data = await api({action:"query", prop:"linkshere", titles:title,
+      lhlimit:"500", lhnamespace:"0", lhshow:"!redirect", ...cont});
+    const pages = data?.query?.pages || {};
+    for(const id in pages) for(const l of (pages[id].linkshere||[])) out.add(l.title);
+    if(data.continue) cont = data.continue; else break;
+  }
+  return out;
+}
+
+async function resolve(title){
+  const data = await api({action:"query", titles:title, redirects:"1"});
+  const pages = data?.query?.pages || {};
+  for(const id in pages){ if(id==="-1") return null; return pages[id].title; }
+  return null;
+}
+
+function lowerMap(set){ const m=new Map(); for(const t of set) m.set(t.toLowerCase(),t); return m; }
+
+// ===== pathfinding: direct, then one middle page, then two, capped =====
+async function findPath(start, end){
+  say("resolving pages\u2026");
+  const S = await resolve(start), E = await resolve(end);
+  if(!S) throw new Error("start page not found: "+start);
+  if(!E) throw new Error("target page not found: "+end);
+  if(S===E) return [S];
+
+  say("reading links from \u201C"+S+"\u201D\u2026");
+  const sLinks = await getLinks(S);
+  if(lowerMap(sLinks).has(E.toLowerCase())) return [S,E];
+
+  say("reading pages that link to \u201C"+E+"\u201D\u2026");
+  const eBack = lowerMap(await getBacklinks(E));
+
+  for(const t of sLinks){
+    const hit = eBack.get(t.toLowerCase());
+    if(hit) return [S,t,E];
+  }
+
+  const sample = [...sLinks].sort(()=>Math.random()-0.5).slice(0,15);
+  for(let i=0;i<sample.length;i++){
+    say("searching deeper via \u201C"+sample[i]+"\u201D ("+(i+1)+"/"+sample.length+")\u2026");
+    let aLinks; try{ aLinks = await getLinks(sample[i], 800); }catch(e){ continue; }
+    for(const t of aLinks){
+      const hit = eBack.get(t.toLowerCase());
+      if(hit){
+        const path = [S,sample[i],t,E];
+        return path.filter((v,ix)=>path.indexOf(v)===ix);
+      }
+    }
+  }
+  return null;
+}
+
+// ===== full-article rendering =====
+async function renderArticle(title){
+  urlText.textContent = "en.wikipedia.org/wiki/" + title.replace(/ /g,"_");
+  articleEl.innerHTML = '<p style="color:#888">loading article\u2026</p>';
+  const data = await api({action:"parse", page:title, prop:"text",
+    redirects:"1", disableeditsection:"1"});
+  let html = data?.parse?.text?.["*"] || "<p>(couldn't load)</p>";
+  articleEl.innerHTML = '<h1 class="wc-title">'+esc(data?.parse?.title||title)+'</h1>' + html;
+
+  // strip scripts; make links inert (this is a replay, not a browser)
+  articleEl.querySelectorAll("script").forEach(s=>s.remove());
+  articleEl.querySelectorAll("a").forEach(a=>{
+    a.addEventListener("click", e=>e.preventDefault());
+    a.removeAttribute("target");
+  });
+  articleEl.scrollTop = 0;
+}
+
+// find the anchor in the rendered article that points at `next`
+function findAnchor(next){
+  const want = next.toLowerCase();
+  const anchors = articleEl.querySelectorAll('a[href^="/wiki/"]');
+  for(const a of anchors){
+    let t = a.getAttribute("href").slice(6);
+    try{ t = decodeURIComponent(t); }catch(e){}
+    t = t.split("#")[0].replace(/_/g," ").toLowerCase();
+    if(t === want) return a;
+    if((a.getAttribute("title")||"").toLowerCase() === want) return a;
+  }
+  return null;
+}
+
+function showPath(path, at){
+  pathBar.style.display = "flex";
+  pathBar.innerHTML = path.map((t,i)=>{
+    const cls = i<at ? "chip done" : (i===at ? "chip here" : "chip");
+    return '<span class="'+cls+'">'+esc(t)+'</span>' + (i<path.length-1?'<span class="arrow">\u2192</span>':"");
+  }).join("");
+}
+
+async function playDemo(path){
+  browser.style.display = "block";
+  for(let i=0;i<path.length;i++){
+    const here = path[i], next = path[i+1];
+    showPath(path, i);
+    say("reading \u201C"+here+"\u201D\u2026");
+    await renderArticle(here);
+    await sleep(1500);
+    if(!next) break;
+
+    const anchor = findAnchor(next);
+    if(anchor){
+      say("found the link to \u201C"+next+"\u201D \u2014 scrolling to it\u2026");
+      anchor.scrollIntoView({behavior:"smooth", block:"center"});
+      await sleep(1600);
+      anchor.classList.add("wc-target");
+      say("clicking \u201C"+next+"\u201D\u2026");
+      await sleep(1700);
+    }else{
+      say("the link to \u201C"+next+"\u201D is tucked in a template \u2014 clicking it anyway\u2026");
+      await sleep(1800);
+    }
+  }
+  showPath(path, path.length-1);
+}
+
+goBtn.onclick = async () => {
+  const start = toTitle(document.getElementById("startIn").value);
+  const end = toTitle(document.getElementById("endIn").value);
+  doneCard.style.display = "none";
+  browser.style.display = "none";
+  pathBar.style.display = "none";
+  if(!start || !end){ say("enter both pages."); return; }
+
+  goBtn.disabled = true;
+  try{
+    const t0 = performance.now();
+    const path = await findPath(start, end);
+    if(!path){
+      doneCard.className = "card bad"; doneCard.style.display = "block";
+      doneCard.innerHTML = '<div class="big">no path found</div>within my search limits, anyway. try more common pages.';
+      say(""); return;
+    }
+    const secs = ((performance.now()-t0)/1000).toFixed(1);
+    say("path found in "+secs+"s \u2014 running the demo\u2026");
+    await playDemo(path);
+    doneCard.className = "card ok"; doneCard.style.display = "block";
+    doneCard.innerHTML = '<div class="big">connected! \uD83C\uDF89</div>'
+      + esc(path[0]) + " \u2192 " + esc(path[path.length-1])
+      + " in " + (path.length-1) + " click" + ((path.length-1)===1?"":"s")
+      + " \u00B7 " + secs + "s to find";
+    say("");
+  }catch(e){
+    say("error: " + (e.message||e) + " \u2014 try again, Wikipedia hiccuped.");
+  }finally{
+    goBtn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
