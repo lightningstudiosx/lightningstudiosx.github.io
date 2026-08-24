@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internet Art Gallery</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#111111;
+    --dim:#777777;
+    --frame:#444444;
+    --accent:#000000;
+    --stickman:#000000;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Courier New",monospace;
+    min-height:100vh;
+    padding:16px;
+    line-height:1.25;
+  }
+  header{
+    text-align:center;
+    border:1px solid var(--dim);
+    padding:10px;
+    margin-bottom:14px;
+  }
+  header pre{color:var(--accent);font-size:12px;line-height:1.1;}
+  .sub{color:var(--dim);font-size:13px;margin-top:6px;}
+
+  .layout{display:flex;gap:14px;align-items:flex-start;}
+  .sidebar{
+    flex:0 0 240px;
+    border:1px solid var(--dim);
+    padding:10px;
+    font-size:13px;
+    max-height:82vh;
+    overflow:auto;
+  }
+  .sidebar h3{color:var(--accent);font-size:13px;margin-bottom:6px;}
+  .museum-btn{
+    display:block;width:100%;text-align:left;
+    background:none;border:1px dashed transparent;
+    color:var(--ink);font-family:inherit;font-size:13px;
+    padding:4px 6px;cursor:pointer;
+  }
+  .museum-btn:hover{border-color:var(--dim);}
+  .museum-btn.active{border-color:var(--accent);color:var(--accent);}
+
+  .stage{flex:1;min-width:0;}
+  .room{
+    border:1px solid var(--dim);
+    padding:12px;
+    position:relative;
+    overflow:hidden;
+    min-height:70vh;
+  }
+  .room-title{color:var(--accent);font-size:14px;margin-bottom:2px;}
+  .room-sub{color:var(--dim);font-size:12px;margin-bottom:12px;}
+
+  .walls{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:18px;
+  }
+  .art{
+    border:1px solid var(--frame);
+    padding:8px;
+    background:#f4f4f4;
+    display:flex;flex-direction:column;
+  }
+  .art .matte{
+    border:6px solid #dddddd;
+    outline:1px solid var(--frame);
+    background:#eaeaea;
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .art img{max-width:100%;max-height:100%;display:block;image-rendering:auto;filter:grayscale(1) contrast(1.05);}
+  .art .loading{color:var(--dim);font-size:11px;}
+  .art .plate{
+    margin-top:7px;font-size:11px;color:var(--ink);
+    border-top:1px solid var(--dim);padding-top:5px;
+    min-height:26px;
+  }
+  .art .plate .by{color:var(--dim);}
+
+  /* stickmen wander in an overlay layer */
+  .wanderers{
+    position:absolute;inset:0;pointer-events:none;
+    font-size:11px;
+  }
+  .stickman{
+    position:absolute;
+    color:var(--stickman);
+    white-space:pre;
+    transition:left .9s linear, top .9s linear;
+    text-shadow:0 0 3px rgba(255,255,255,.9);
+  }
+  .stickman .name{
+    display:block;font-size:9px;color:#000;
+    background:rgba(255,255,255,.7);padding:0 2px;
+    max-width:120px;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  .controls{margin:10px 0;font-size:12px;color:var(--dim);}
+  .controls button{
+    background:none;border:1px solid var(--dim);color:var(--ink);
+    font-family:inherit;padding:4px 10px;cursor:pointer;margin-right:6px;
+  }
+  .controls button:hover{border-color:var(--accent);color:var(--accent);}
+  .credit{margin-top:12px;font-size:11px;color:var(--dim);text-align:center;}
+  .credit a{color:var(--dim);}
+</style>
+</head>
+<body>
+  <header>
+<pre>
+ ___       _                     _     _   ___       _   
+|_ _|_ _  | |_ ___ _ _ _ _  ___ | |_  /_\ | _ \_ _  | |_ 
+ | || ' \ |  _/ -_) '_| ' \/ -_)|  _|/ _ \|   / _|  _|
+|___|_||_| \__\___|_| |_||_\___| \__/_/ \_\_|_\__|\__|
+</pre>
+    <div class="sub">wandering an endless gallery of images pulled live from Wikimedia &middot; best on Chrome</div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>MUSEUMS</h3>
+      <div id="museumList"></div>
+    </aside>
+
+    <div class="stage">
+      <div class="controls">
+        <button id="prevExhibit">&larr; prev exhibit</button>
+        <span id="exhibitLabel">exhibit 1 / 1</span>
+        <button id="nextExhibit">next exhibit &rarr;</button>
+        <button id="refreshBtn">refresh art</button>
+        <span id="statusLine" style="margin-left:10px;color:var(--dim)"></span>
+      </div>
+      <div class="room">
+        <div class="room-title" id="roomTitle">&mdash;</div>
+        <div class="room-sub" id="roomSub">&mdash;</div>
+        <div class="walls" id="walls"></div>
+        <div class="wanderers" id="wanderers"></div>
+      </div>
+      <div class="credit">
+        images &amp; text from <a href="https://commons.wikimedia.org" target="_blank">Wikimedia Commons</a>,
+        used under their free licenses &middot; each plate links its source
+      </div>
+    </div>
+  </div>
+
+<script>
+// ============ WORLD STRUCTURE ============
+// 10 museums, each with a handful of exhibits, each exhibit a wall of images.
+const MUSEUM_NAMES = [
+  "Museum 1.111111111111111111111111111111111111111111\u2026",
+  "Museum e",
+  "Museum \u03C0",
+  "Museum \u03B4",           // Feigenbaum constant symbol
+  "Museum 1340/268",
+  "Museum \u03C4",           // Tau
+  "Museum 22",
+  "Museum \u221E",           // infinity
+  "Museum no",
+  "Museum 0b1010"
+];
+const EXHIBIT_NAMES = [
+  "Portraits", "Landscapes", "Still Life", "The Old World", "Creatures",
+  "Machines", "Faces in the Crowd", "Distant Places", "Studies", "Fragments",
+  "Blue Rooms", "The Long Hallway", "Miniatures", "Night Pieces", "Curiosities"
+];
+
+// Wikimedia Commons categories that skew safe + visual. We pull random files
+// from these via the API.
+const SAFE_CATEGORIES = [
+  "Paintings", "Landscape paintings", "Portrait paintings", "Still life paintings",
+  "Impressionist paintings", "Baroque paintings", "Watercolor paintings",
+  "Cats", "Birds", "Mountains", "Castles", "Lighthouses", "Flowers",
+  "Vintage photographs", "Sculptures", "Illuminated manuscripts"
+];
+
+const ARTS_PER_EXHIBIT = 6;
+const EXHIBITS_PER_MUSEUM = 4;
+const STICKMEN_COUNT = 6;
+
+// ============ RANDOM STICKMAN NAMES ============
+// 20 characters of any letter/symbol (printable ASCII).
+function randomName(){
+  let s = "";
+  for(let i=0;i<20;i++){
+    s += String.fromCharCode(33 + Math.floor(Math.random()*94)); // '!'..'~'
+  }
+  return s;
+}
+const STICK_POSES = ["\\o/","<o>","o/","\\o"," o ","-o-"];
+
+// ============ STATE ============
+let currentMuseum = 0;
+let currentExhibit = 0;
+// cache of fetched image lists per category so we don't refetch constantly
+let catCache = {};
+
+// ============ WIKIMEDIA FETCH ============
+// Pull a batch of random image file URLs from a Commons category.
+function setStatus(msg){
+  const el = document.getElementById("statusLine");
+  if(el) el.textContent = msg;
+}
+
+// Build a directly-embeddable image URL from a Commons file title.
+// Special:FilePath serves the raster with permissive CORS and no 2nd API call.
+function filePathUrl(fileTitle, width){
+  const name = fileTitle.replace(/^File:/,"");
+  return "https://commons.wikimedia.org/wiki/Special:FilePath/"
+       + encodeURIComponent(name) + "?width=" + (width||400);
+}
+
+async function fetchImages(category, count){
+  if(catCache[category] && catCache[category].length >= count){
+    return shuffle(catCache[category]).slice(0, count);
+  }
+  // One API call: just the list of file titles in the category.
+  const url = "https://commons.wikimedia.org/w/api.php?" + new URLSearchParams({
+    action:"query", format:"json", origin:"*",
+    list:"categorymembers",
+    cmtitle:"Category:"+category,
+    cmtype:"file",
+    cmlimit:"50"
+  });
+  try{
+    const res = await fetch(url);
+    if(!res.ok){
+      window.__galleryError = "HTTP " + res.status;
+      setStatus("fetch error: HTTP " + res.status);
+      return [];
+    }
+    const data = await res.json();
+    const members = data?.query?.categorymembers || [];
+    const items = [];
+    for(const m of members){
+      const title = m.title || "";
+      // only raster images that embed nicely
+      if(!/\.(jpe?g|png|gif|webp)$/i.test(title)) continue;
+      items.push({
+        thumb: filePathUrl(title, 400),
+        full: "https://commons.wikimedia.org/wiki/" + encodeURIComponent(title),
+        title: title.replace(/^File:/,"").replace(/\.[^.]+$/,""),
+        artist: "Wikimedia Commons"
+      });
+    }
+    catCache[category] = items;
+    window.__galleryError = null;
+    setStatus("loaded " + items.length + " images from \u201C" + category + "\u201D");
+    return shuffle(items).slice(0, count);
+  }catch(e){
+    window.__galleryError = e.message || String(e);
+    console.error("[gallery] fetch failed for", category, e);
+    setStatus("fetch failed: " + (e.message||e));
+    return [];
+  }
+}
+
+function stripHtml(s){
+  if(!s) return "";
+  const d = document.createElement("div");
+  d.innerHTML = s;
+  return (d.textContent||"").trim().slice(0,40);
+}
+function shuffle(a){
+  a = a.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+// ============ RENDER ============
+const wallsEl = document.getElementById("walls");
+const roomTitle = document.getElementById("roomTitle");
+const roomSub = document.getElementById("roomSub");
+const exhibitLabel = document.getElementById("exhibitLabel");
+
+function exhibitTitle(m, e){
+  // deterministic-ish name per museum/exhibit
+  return EXHIBIT_NAMES[(m*3 + e*5) % EXHIBIT_NAMES.length];
+}
+
+async function renderExhibit(){
+  const museum = MUSEUM_NAMES[currentMuseum];
+  const exTitle = exhibitTitle(currentMuseum, currentExhibit);
+  roomTitle.textContent = museum;
+  roomSub.textContent = "Exhibit: " + exTitle;
+  exhibitLabel.textContent = `exhibit ${currentExhibit+1} / ${EXHIBITS_PER_MUSEUM}`;
+
+  // placeholders while loading
+  wallsEl.innerHTML = "";
+  const slots = [];
+  for(let i=0;i<ARTS_PER_EXHIBIT;i++){
+    const art = document.createElement("div");
+    art.className = "art";
+    art.innerHTML = `<div class="matte"><span class="loading">[ loading... ]</span></div>
+                     <div class="plate">&nbsp;</div>`;
+    wallsEl.appendChild(art);
+    slots.push(art);
+  }
+
+  // choose a category influenced by the exhibit theme, fetch a batch
+  const category = pick(SAFE_CATEGORIES);
+  const images = await fetchImages(category, ARTS_PER_EXHIBIT);
+
+  slots.forEach((art, i) => {
+    const img = images[i];
+    const matte = art.querySelector(".matte");
+    const plate = art.querySelector(".plate");
+    if(img){
+      const el = document.createElement("img");
+      el.src = img.thumb;
+      el.alt = img.title;
+      el.loading = "lazy";
+      el.onerror = () => { matte.innerHTML = '<span class="loading">[ image gone ]</span>'; };
+      matte.innerHTML = "";
+      matte.appendChild(el);
+      plate.innerHTML = `<a href="${img.full}" target="_blank" style="color:var(--ink);text-decoration:none">${escapeHtml(img.title).slice(0,42)}</a>
+                         <span class="by">— ${escapeHtml(img.artist)}</span>`;
+    }else{
+      matte.innerHTML = '<span class="loading">[ empty frame ]</span>';
+      plate.innerHTML = '<span class="by">— nothing here —</span>';
+    }
+  });
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+// ============ MUSEUM LIST ============
+const museumList = document.getElementById("museumList");
+MUSEUM_NAMES.forEach((name, i) => {
+  const b = document.createElement("button");
+  b.className = "museum-btn";
+  b.textContent = (i+1).toString().padStart(2,"0") + "  " + name;
+  b.onclick = () => {
+    currentMuseum = i;
+    currentExhibit = 0;
+    setActive();
+    renderExhibit();
+  };
+  museumList.appendChild(b);
+});
+function setActive(){
+  [...museumList.children].forEach((b,i)=>{
+    b.classList.toggle("active", i===currentMuseum);
+  });
+}
+
+// ============ CONTROLS ============
+document.getElementById("nextExhibit").onclick = () => {
+  currentExhibit = (currentExhibit+1) % EXHIBITS_PER_MUSEUM;
+  renderExhibit();
+};
+document.getElementById("prevExhibit").onclick = () => {
+  currentExhibit = (currentExhibit-1+EXHIBITS_PER_MUSEUM) % EXHIBITS_PER_MUSEUM;
+  renderExhibit();
+};
+document.getElementById("refreshBtn").onclick = () => {
+  // clear the current category cache so we get fresh images
+  catCache = {};
+  renderExhibit();
+};
+
+// ============ WANDERING STICKMEN ============
+const wanderersEl = document.getElementById("wanderers");
+const stickmen = [];
+function spawnStickmen(){
+  wanderersEl.innerHTML = "";
+  stickmen.length = 0;
+  for(let i=0;i<STICKMEN_COUNT;i++){
+    const el = document.createElement("div");
+    el.className = "stickman";
+    el.innerHTML = `<span class="name">${escapeHtml(randomName())}</span><span class="body">${pick(STICK_POSES)}</span>`;
+    el.style.left = Math.random()*90 + "%";
+    el.style.top = Math.random()*80 + "%";
+    wanderersEl.appendChild(el);
+    stickmen.push(el);
+  }
+}
+function wander(){
+  for(const el of stickmen){
+    // occasionally rename (someone new walks in)
+    if(Math.random() < 0.03){
+      el.querySelector(".name").textContent = randomName();
+    }
+    el.querySelector(".body").textContent = pick(STICK_POSES);
+    el.style.left = Math.max(0, Math.min(92, parseFloat(el.style.left) + (Math.random()*20-10))) + "%";
+    el.style.top  = Math.max(0, Math.min(85, parseFloat(el.style.top)  + (Math.random()*16-8)))  + "%";
+  }
+}
+
+// ============ BOOT ============
+setActive();
+renderExhibit();
+spawnStickmen();
+setInterval(wander, 1000);
+</script>
+</body>
+</html>
