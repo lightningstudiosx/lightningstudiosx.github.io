@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>confirm</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Helvetica,Arial,sans-serif;}
+  html,body{height:100%;}
+  body{background:#fff;color:#000;overflow:hidden;user-select:none;-webkit-user-select:none;}
+  #arena{position:fixed;inset:0;background:#fff;overflow:hidden;}
+  #counter{position:fixed;top:12px;left:14px;font-size:12px;z-index:40;letter-spacing:1px;cursor:pointer;}
+  #counter:hover{text-decoration:underline;}
+  #tp{position:fixed;top:34px;left:14px;z-index:40;display:none;grid-template-columns:repeat(10,26px);gap:3px;}
+  #tp.show{display:grid;}
+  #tp button{width:26px;height:26px;border:1px solid #000;background:#000;color:#fff;
+    font-size:10px;font-weight:700;cursor:pointer;border-radius:0;font-family:inherit;}
+  #tp button.lk{background:#fff;color:#ccc;border-color:#ccc;cursor:default;}
+  #tp button.cur{background:#fff;color:#000;}
+  #homeLink{position:fixed;bottom:10px;left:14px;font-size:11px;color:#999;z-index:40;text-decoration:none;}
+  #homeLink:hover{color:#000;}
+  #reset{position:fixed;bottom:10px;right:14px;font-size:11px;color:#999;z-index:40;background:none;border:none;cursor:pointer;}
+  #reset:hover{color:#000;}
+  .cbtn{background:#000;color:#fff;border:none;border-radius:0;font-size:16px;font-weight:700;
+    padding:14px 34px;cursor:pointer;letter-spacing:1px;}
+  .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  .tinp{border:1px solid #000;border-radius:0;font-size:16px;padding:10px 12px;width:220px;
+    font-family:inherit;text-align:center;outline:none;}
+  #dark{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle 60px at var(--mx,50vw) var(--my,50vh),
+      transparent 0, transparent 46px, #000 62px);}
+  .slot{position:absolute;border:1px solid #eee;}
+  .piece{position:absolute;cursor:grab;overflow:hidden;background:#fff;border:1px solid #000;z-index:5;}
+  .piece .inner{position:absolute;width:300px;height:120px;display:flex;align-items:center;
+    justify-content:center;background:#000;color:#fff;font-weight:700;font-size:34px;letter-spacing:2px;}
+  .hundred{position:absolute;inset:24px;display:grid;
+    grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);gap:3px;}
+  .hundred button{background:#000;color:#fff;border:none;border-radius:0;font-size:10px;
+    font-weight:700;cursor:pointer;padding:0;}
+  .hundred button.gone{visibility:hidden;}
+  #cardGame{position:absolute;inset:0;padding:16px;display:flex;flex-direction:column;}
+  #botRow,#handRow{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:80px;}
+  #tableRow{flex:1;display:flex;align-items:center;justify-content:center;gap:18px;}
+  .card{width:60px;height:86px;border:1px solid #000;border-radius:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;cursor:pointer;
+    text-align:center;padding:2px;}
+  .card.small{width:40px;height:58px;font-size:0;background:#000;}
+  .card .big{font-size:20px;}
+  .cG{background:#1c7c3c;} .cR{background:#b0261d;} .cB{background:#1c4f8f;} .cY{background:#c9a20c;}
+  .cW{background:linear-gradient(135deg,#1c7c3c,#b0261d,#1c4f8f,#c9a20c);}
+  #cardMsg{text-align:center;font-size:12px;min-height:16px;font-weight:700;}
+  .colorPick{display:flex;gap:6px;justify-content:center;margin-top:5px;}
+  .mini{background:#000;color:#fff;border:none;border-radius:0;font-size:12px;font-weight:700;
+    padding:7px 14px;cursor:pointer;}
+  .shufBtn{position:absolute;transition:left .45s ease,top .45s ease;}
+  .shufBtn.mark{background:#fff;color:#000;outline:1px solid #000;}
+  #holdWrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;}
+  #holdBar{width:320px;height:18px;border:1px solid #000;overflow:hidden;margin:16px auto 0;background:#fff;}
+  #holdFill{height:100%;width:0%;background:#000;}
+  #timeWrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;}
+  #timeBar{position:relative;width:420px;height:34px;border:1px solid #000;background:#fff;margin:0 auto;}
+  #timeZone{position:absolute;top:0;height:100%;background:#000;}
+  #timeMark{position:absolute;top:-6px;width:3px;height:46px;background:#b0261d;}
+  #timeDots{margin-top:14px;font-size:18px;letter-spacing:6px;}
+  .simonGrid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    display:grid;grid-template-columns:130px 130px;grid-template-rows:130px 130px;gap:8px;}
+  .simonSq{border:1px solid #000;cursor:pointer;opacity:.35;}
+  .simonSq.lit{opacity:1;}
+  .wall{position:absolute;background:#000;}
+  .mzPad{position:absolute;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;border:1px solid #000;}
+  .loGrid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    display:grid;grid-template-columns:repeat(3,80px);grid-template-rows:repeat(3,80px);gap:6px;}
+  .loCell{border:1px solid #000;cursor:pointer;background:#fff;}
+  .loCell.on{background:#000;}
+  .popup{position:absolute;border:1px solid #000;background:#fff;z-index:10;}
+  .popup .bar{display:flex;justify-content:flex-end;border-bottom:1px solid #000;background:#f2f2f2;}
+  .popup .x{width:22px;height:20px;border:none;background:#000;color:#fff;font-size:11px;
+    font-weight:700;cursor:pointer;}
+  .popup .body{padding:14px 18px;font-size:11px;color:#666;}
+  #winScreen{display:none;position:fixed;inset:0;background:#000;z-index:60;text-align:center;padding-top:32vh;}
+  #winScreen.show{display:block;}
+  #winScreen .huge{color:#fff;font-weight:700;font-size:clamp(40px,9vw,90px);letter-spacing:4px;}
+  #winScreen button{margin-top:36px;background:#fff;color:#000;border:none;border-radius:0;
+    font-size:14px;font-weight:700;padding:12px 28px;cursor:pointer;}
+  #winScreen a{display:block;margin-top:18px;color:#777;font-size:12px;text-decoration:none;}
+  #winScreen a:hover{color:#fff;}
+</style>
+</head>
+<body>
+<div id="arena"></div>
+<div id="counter"></div>
+<div id="tp"></div>
+<a id="homeLink" href="index.html">&larr; kai.fun</a>
+<button id="reset" onclick="wipe()">reset</button>
+
+<div id="winScreen">
+  <div class="huge">CONFIRMED.</div>
+  <button onclick="location.reload()">AGAIN</button>
+  <a href="index.html">&larr; kai.fun</a>
+</div>
+
+<script>
+// ================= CORE =================
+const arena = document.getElementById("arena");
+const KEY = "confirm_save_v3";
+const TOTAL = 20;
+let maxStage = 1;
+try{ maxStage = Math.min(TOTAL, Number(localStorage.getItem(KEY)) || 1); }catch(e){}
+let stage = maxStage;
+function saveStage(){ try{ localStorage.setItem(KEY, maxStage); }catch(e){} }
+function wipe(){ localStorage.removeItem(KEY); location.reload(); }
+function renderCounter(){ document.getElementById("counter").textContent = stage + " / " + TOTAL; renderTp(); }
+
+// ---- teleporter: jump to any stage you've already reached ----
+const tpEl = document.getElementById("tp");
+document.getElementById("counter").onclick = ()=>tpEl.classList.toggle("show");
+function renderTp(){
+  tpEl.innerHTML = "";
+  for(let i=1;i<=TOTAL;i++){
+    const b = document.createElement("button");
+    b.textContent = i;
+    if(i > maxStage){ b.className = "lk"; }
+    else{
+      if(i === stage) b.className = "cur";
+      b.onclick = ()=>{ stage = i; tpEl.classList.remove("show"); startStage(); };
+    }
+    tpEl.appendChild(b);
+  }
+}
+
+let cleanup = [];
+function clearArena(){
+  cleanup.forEach(f=>{try{f();}catch(e){}});
+  cleanup = [];
+  arena.innerHTML = "";
+  arena.style.background = "#fff";
+  document.title = "confirm";
+}
+function nextStage(){
+  stage++;
+  if(stage > maxStage) maxStage = stage;
+  saveStage();
+  if(stage > TOTAL){ winGame(); return; }
+  setTimeout(startStage, 350);
+}
+function winGame(){
+  document.getElementById("winScreen").classList.add("show");
+  try{ localStorage.removeItem(KEY); }catch(e){}
+}
+function startStage(){ clearArena(); renderCounter(); STAGES[stage](); }
+function mk(tag, cls, parent){
+  const el = document.createElement(tag);
+  if(cls) el.className = cls;
+  (parent||arena).appendChild(el);
+  return el;
+}
+function rand(a,b){ return a + Math.random()*(b-a); }
+const W = ()=>window.innerWidth, H = ()=>window.innerHeight;
+
+// ================= STAGES =================
+const STAGES = {};
+
+// ---- 1: click it ----
+STAGES[1] = function(){
+  const b = mk("button","cbtn center");
+  b.textContent = "CONFIRM";
+  b.onclick = nextStage;
+};
+
+// ---- 2: moves on hover ----
+STAGES[2] = function(){
+  const b = mk("button","cbtn");
+  b.textContent = "CONFIRM";
+  b.style.position = "absolute";
+  let x = W()/2-80, y = H()/2-25, hops = 0;
+  function place(){ b.style.left = x+"px"; b.style.top = y+"px"; }
+  place();
+  b.addEventListener("mouseenter", ()=>{
+    hops++;
+    if(hops > 15 && Math.random() < 0.3) return;
+    setTimeout(()=>{ x = rand(10, W()-190); y = rand(10, H()-70); place(); }, 55);
+  });
+  b.onclick = nextStage;
+};
+
+// ---- 3: lights out ----
+STAGES[3] = function(){
+  arena.style.background = "#000";
+  const b = mk("button","");
+  b.style.cssText = "position:absolute;width:9px;height:9px;border:none;border-radius:0;"
+    +"background:#fff;cursor:pointer;padding:0;"
+    +"left:"+rand(3,96)+"%;top:"+rand(3,95)+"%;";
+  b.onclick = nextStage;
+  const dark = mk("div"); dark.id = "dark";
+  dark.style.setProperty("--mx", (W()/2)+"px");
+  dark.style.setProperty("--my", (H()/2)+"px");
+  const onMove = (e)=>{
+    dark.style.setProperty("--mx", e.clientX+"px");
+    dark.style.setProperty("--my", e.clientY+"px");
+  };
+  window.addEventListener("pointermove", onMove);
+  cleanup.push(()=>window.removeEventListener("pointermove", onMove));
+};
+
+// ---- 4: 9-piece puzzle ----
+STAGES[4] = function(){
+  const PW = 100, PH = 40;
+  const gx = W()/2 - 150, gy = H()/2 - 130;
+  const slots = [];
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+    const s = mk("div","slot");
+    s.style.cssText = "left:"+(gx+c*PW)+"px;top:"+(gy+r*PH)+"px;width:"+PW+"px;height:"+PH+"px;";
+    slots.push({x:gx+c*PW, y:gy+r*PH});
+  }
+  const placed = new Array(9).fill(false);
+  for(let i=0;i<9;i++){
+    const r = Math.floor(i/3), c = i%3;
+    const p = mk("div","piece");
+    p.style.width = PW+"px"; p.style.height = PH+"px";
+    const inner = mk("div","inner",p);
+    inner.textContent = "CONFIRM";
+    inner.style.left = (-c*PW)+"px";
+    inner.style.top = (-r*PH)+"px";
+    p.style.left = rand(10, W()-120) + "px";
+    p.style.top = (H()*0.62 + rand(0, H()*0.3-60)) + "px";
+    let drag = null;
+    p.addEventListener("pointerdown", (e)=>{
+      if(placed[i]) return;
+      drag = {ox: e.clientX - p.offsetLeft, oy: e.clientY - p.offsetTop};
+      p.setPointerCapture(e.pointerId);
+      p.style.zIndex = 20;
+    });
+    p.addEventListener("pointermove", (e)=>{
+      if(!drag) return;
+      p.style.left = (e.clientX - drag.ox) + "px";
+      p.style.top = (e.clientY - drag.oy) + "px";
+    });
+    p.addEventListener("pointerup", ()=>{
+      if(!drag) return; drag = null;
+      p.style.zIndex = 5;
+      const s = slots[i];
+      if(Math.abs(p.offsetLeft-s.x)<14 && Math.abs(p.offsetTop-s.y)<14){
+        p.style.left = s.x+"px"; p.style.top = s.y+"px";
+        p.style.cursor = "default";
+        placed[i] = true;
+        if(placed.every(Boolean)){
+          const done = mk("button","cbtn");
+          done.textContent = "CONFIRM";
+          done.style.cssText = "position:absolute;width:"+(PW*3)+"px;height:"+(PH*3)+"px;"
+            +"font-size:34px;letter-spacing:2px;left:"+gx+"px;top:"+gy+"px;z-index:30;";
+          done.onclick = nextStage;
+        }
+      }
+    });
+  }
+};
+
+// ---- 5: 100 buttons ----
+STAGES[5] = function(){
+  const g = mk("div","hundred");
+  const real = Math.floor(Math.random()*100);
+  for(let i=0;i<100;i++){
+    const b = mk("button","",g);
+    b.textContent = "CONFIRM";
+    if(i===real) b.onclick = nextStage;
+    else b.onclick = ()=>b.classList.add("gone");
+  }
+};
+
+// ---- 6: CONFIRMO ----
+STAGES[6] = function(){
+  const COLORS = ["G","R","B","Y"];
+  const CNAME = {G:"GREEN",R:"RED",B:"BLUE",Y:"YELLOW"};
+  function buildDeck(){
+    const d = [];
+    for(const c of COLORS){
+      for(let n=1;n<=5;n++) d.push({c, k:"n"+n, label:"CONFIRM "+n});
+      d.push({c, k:"deny", label:"DENY"});
+      d.push({c, k:"retry", label:"RETRY"});
+      d.push({c, k:"spam", label:"SPAM +2"});
+    }
+    for(let i=0;i<4;i++) d.push({c:"W", k:"maybe", label:"MAYBE"});
+    return d.sort(()=>Math.random()-0.5);
+  }
+  let deck = buildDeck();
+  let hand = deck.splice(0,7), bot = deck.splice(0,7);
+  let top = deck.shift();
+  while(top.c==="W"){ deck.push(top); top = deck.shift(); }
+  let activeColor = top.c;
+
+  const ui = mk("div"); ui.id = "cardGame";
+  const botRow = mk("div","",ui); botRow.id = "botRow";
+  const tableRow = mk("div","",ui); tableRow.id = "tableRow";
+  const msg = mk("div","",ui); msg.id = "cardMsg";
+  const handRow = mk("div","",ui); handRow.id = "handRow";
+
+  function cardEl(card, small){
+    const el = document.createElement("div");
+    el.className = "card " + (small?"small":("c"+card.c));
+    if(!small){
+      const big = document.createElement("div"); big.className="big";
+      big.textContent = card.k.startsWith("n") ? card.k.slice(1) :
+        ({deny:"X",retry:"R",spam:"+2",maybe:"?"})[card.k];
+      el.appendChild(big);
+      const t = document.createElement("div"); t.textContent = card.label;
+      el.appendChild(t);
+    }
+    return el;
+  }
+  function canPlay(card){ return card.c==="W" || card.c===activeColor || card.k===top.k; }
+  function draw(who, n){
+    for(let i=0;i<n;i++){
+      if(deck.length===0) deck = buildDeck();
+      who.push(deck.shift());
+    }
+  }
+  function render(){
+    botRow.innerHTML = ""; handRow.innerHTML = ""; tableRow.innerHTML = "";
+    bot.forEach(()=>botRow.appendChild(cardEl({},true)));
+    tableRow.appendChild(cardEl(top,false));
+    const drawB = document.createElement("button");
+    drawB.className = "mini"; drawB.textContent = "DRAW";
+    drawB.onclick = ()=>{ draw(hand,1); render(); };
+    tableRow.appendChild(drawB);
+    const cc = document.createElement("div");
+    cc.textContent = CNAME[activeColor];
+    cc.style.cssText = "font-size:12px;font-weight:700;";
+    tableRow.appendChild(cc);
+    hand.forEach((card,i)=>{
+      const el = cardEl(card,false);
+      if(!canPlay(card)) el.style.opacity = .35;
+      el.onclick = ()=>{ if(canPlay(card)) playCard(i); };
+      handRow.appendChild(el);
+    });
+  }
+  function playCard(i){
+    const card = hand.splice(i,1)[0];
+    top = card;
+    if(card.c!=="W") activeColor = card.c;
+    let skipBot = (card.k==="deny" || card.k==="retry");
+    if(card.k==="spam"){ draw(bot,2); skipBot = true; }
+    if(card.k==="maybe"){ pickColor(()=>afterPlay(skipBot)); return; }
+    afterPlay(skipBot);
+  }
+  function pickColor(then){
+    msg.innerHTML = "";
+    const pk = document.createElement("div"); pk.className="colorPick";
+    for(const c of COLORS){
+      const b = document.createElement("button");
+      b.className = "mini"; b.textContent = CNAME[c];
+      b.onclick = ()=>{ activeColor = c; pk.remove(); then(); };
+      pk.appendChild(b);
+    }
+    msg.appendChild(pk);
+  }
+  function afterPlay(skipBot){
+    if(hand.length===0){ render(); setTimeout(nextStage, 900); return; }
+    render();
+    if(!skipBot) setTimeout(botTurn, 800);
+  }
+  function botTurn(){
+    let idx = bot.findIndex(canPlay);
+    if(idx === -1){ draw(bot,1);
+      idx = bot.length-1;
+      if(!canPlay(bot[idx])){ render(); return; } }
+    const card = bot.splice(idx,1)[0];
+    top = card;
+    if(card.c!=="W") activeColor = card.c;
+    else activeColor = COLORS[Math.floor(Math.random()*4)];
+    if(card.k==="spam"){ draw(hand,2); render(); setTimeout(botTurn, 800); return; }
+    if(card.k==="deny"||card.k==="retry"){ render(); setTimeout(botTurn, 800); return; }
+    if(bot.length===0){ render(); setTimeout(STAGES[6], 1000); return; }
+    render();
+  }
+  render();
+};
+
+// ---- 7: shuffle ----
+STAGES[7] = function(){
+  const rounds = [
+    {swaps:7, ms:480},
+    {swaps:12, ms:310},
+    {swaps:20, ms:190},
+  ];
+  let round = 0;
+  function playRound(){
+    arena.innerHTML = "";
+    const N = 8, btns = [], pos = [];
+    const cw = W(), chh = H();
+    for(let i=0;i<N;i++){
+      pos.push({x: cw*0.12 + (i%4)*(cw*0.20), y: chh*0.25 + Math.floor(i/4)*(chh*0.3)});
+    }
+    const target = Math.floor(Math.random()*N);
+    for(let i=0;i<N;i++){
+      const b = mk("button","cbtn shufBtn");
+      b.textContent = "CONFIRM";
+      b.style.left = pos[i].x+"px"; b.style.top = pos[i].y+"px";
+      if(i===target) b.classList.add("mark");
+      b.disabled = true;
+      btns.push(b);
+    }
+    setTimeout(()=>{
+      btns[target].classList.remove("mark");
+      let n = 0;
+      const iv = setInterval(()=>{
+        const a = Math.floor(Math.random()*N);
+        let b2 = Math.floor(Math.random()*N);
+        if(b2===a) b2 = (b2+1)%N;
+        const t = {x:btns[a].offsetLeft, y:btns[a].offsetTop};
+        btns[a].style.left = btns[b2].offsetLeft+"px"; btns[a].style.top = btns[b2].offsetTop+"px";
+        btns[b2].style.left = t.x+"px"; btns[b2].style.top = t.y+"px";
+        if(++n >= rounds[round].swaps){
+          clearInterval(iv);
+          btns.forEach((bb,i)=>{
+            bb.disabled = false;
+            bb.onclick = ()=>{
+              if(i===target){
+                round++;
+                if(round >= 3) nextStage(); else playRound();
+              }else{
+                setTimeout(playRound, 500);
+              }
+            };
+          });
+        }
+      }, rounds[round].ms);
+      cleanup.push(()=>clearInterval(iv));
+    }, 1400);
+  }
+  playRound();
+};
+
+// ---- 8: hold 30s ----
+STAGES[8] = function(){
+  const w = mk("div"); w.id = "holdWrap";
+  const b = mk("button","cbtn",w);
+  b.textContent = "HOLD";
+  const bar = mk("div","",w); bar.id = "holdBar";
+  const fill = mk("div","",bar); fill.id = "holdFill";
+  let p = 0, holding = false;
+  const iv = setInterval(()=>{
+    if(holding){ p = Math.min(100, p + (100/300)); }
+    else { p = Math.max(0, p - (100/150)); }
+    fill.style.width = p+"%";
+    if(p>=100){ clearInterval(iv); nextStage(); }
+  }, 100);
+  cleanup.push(()=>clearInterval(iv));
+  b.addEventListener("pointerdown", ()=>holding=true);
+  const up = ()=>holding=false;
+  window.addEventListener("pointerup", up);
+  cleanup.push(()=>window.removeEventListener("pointerup", up));
+};
+
+// ---- 9: stop the marker ----
+STAGES[9] = function(){
+  const w = mk("div"); w.id = "timeWrap";
+  const bar = mk("div","",w); bar.id = "timeBar";
+  const zone = mk("div","",bar); zone.id = "timeZone";
+  const mark = mk("div","",bar); mark.id = "timeMark";
+  const dots = mk("div","",w); dots.id = "timeDots";
+  const BW = 420;
+  let wins = 0, pos = 0, dir = 1, speed = 4.2, zoneW = 90, zoneX = 0, live = true;
+  function newZone(){
+    zoneX = rand(20, BW - zoneW - 20);
+    zone.style.left = zoneX+"px";
+    zone.style.width = zoneW+"px";
+  }
+  function renderDots(){
+    dots.textContent = "\u25CF".repeat(wins) + "\u25CB".repeat(3-wins);
+  }
+  newZone(); renderDots();
+  const iv = setInterval(()=>{
+    if(!live) return;
+    pos += speed * dir;
+    if(pos <= 0){ pos = 0; dir = 1; }
+    if(pos >= BW-3){ pos = BW-3; dir = -1; }
+    mark.style.left = pos+"px";
+  }, 12);
+  cleanup.push(()=>clearInterval(iv));
+  function attempt(){
+    if(!live) return;
+    if(pos >= zoneX && pos <= zoneX + zoneW){
+      wins++;
+      renderDots();
+      if(wins >= 3){
+        live = false;
+        clearInterval(iv);
+        const done = mk("button","cbtn",w);
+        done.textContent = "CONFIRM";
+        done.style.cssText = "display:block;margin:18px auto 0;";
+        done.onclick = nextStage;
+        return;
+      }
+      zoneW = Math.max(34, zoneW - 26);   // zone shrinks
+      speed += 1.6;                        // marker speeds up
+      newZone();
+    }else{
+      wins = 0; renderDots();
+      zoneW = 90; speed = 4.2;
+      newZone();
+    }
+  }
+  bar.addEventListener("pointerdown", attempt);
+  const onKey = (e)=>{ if(e.code === "Space"){ e.preventDefault(); attempt(); } };
+  window.addEventListener("keydown", onKey);
+  cleanup.push(()=>window.removeEventListener("keydown", onKey));
+};
+
+// ---- 10: captcha ----
+STAGES[10] = function(){
+  const w = mk("div","center");
+  w.style.textAlign = "center";
+  const cv = mk("canvas","",w);
+  cv.width = 260; cv.height = 80;
+  cv.style.border = "1px solid #000";
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0,0,260,80);
+  for(let i=0;i<8;i++){
+    ctx.strokeStyle = "rgba(0,0,0,"+rand(.1,.35)+")";
+    ctx.beginPath();
+    ctx.moveTo(rand(0,260), rand(0,80));
+    ctx.lineTo(rand(0,260), rand(0,80));
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#000";
+  for(let i=0;i<6;i++){
+    ctx.save();
+    ctx.translate(28 + i*38, 45 + rand(-8,8));
+    ctx.rotate(rand(-0.45, 0.45));
+    ctx.font = (rand(26,34)|0)+"px Helvetica";
+    ctx.fillText(code[i], 0, 0);
+    ctx.restore();
+  }
+  const inp = mk("input","tinp",w);
+  inp.style.cssText += "display:block;margin:14px auto 0;";
+  inp.maxLength = 6;
+  const ok = mk("button","cbtn",w);
+  ok.textContent = "CONFIRM";
+  ok.style.cssText = "display:block;margin:12px auto 0;";
+  function tryIt(){
+    if(inp.value.trim().toUpperCase() === code) nextStage();
+    else { inp.value = ""; inp.placeholder = "no"; }
+  }
+  ok.onclick = tryIt;
+  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") tryIt(); });
+  inp.focus();
+};
+
+// ---- 11: math gate ----
+STAGES[11] = function(){
+  const a = Math.floor(rand(2,9)), b = Math.floor(rand(2,9)), c = Math.floor(rand(2,9));
+  const answer = a + b * c;   // order of operations
+  const w = mk("div","center");
+  w.style.textAlign = "center";
+  const q = mk("div","",w);
+  q.style.cssText = "font-size:34px;font-weight:700;letter-spacing:3px;";
+  q.textContent = a + " + " + b + " \u00D7 " + c;
+  const inp = mk("input","tinp",w);
+  inp.type = "number";
+  inp.style.cssText += "display:block;margin:16px auto 0;";
+  const ok = mk("button","cbtn",w);
+  ok.textContent = "CONFIRM";
+  ok.style.cssText = "display:block;margin:12px auto 0;";
+  function tryIt(){
+    if(Number(inp.value) === answer) nextStage();
+    else { inp.value = ""; inp.placeholder = "no"; }
+  }
+  ok.onclick = tryIt;
+  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") tryIt(); });
+  inp.focus();
+};
+
+// ---- 12: repeat the sequence ----
+STAGES[12] = function(){
+  const colors = ["#1c7c3c","#b0261d","#1c4f8f","#c9a20c"];
+  const gridEl = mk("div","simonGrid");
+  const sqs = colors.map(c=>{
+    const s = mk("div","simonSq",gridEl);
+    s.style.background = c;
+    return s;
+  });
+  const seq = [];
+  let inputPos = 0, accepting = false;
+  function flash(i, ms){
+    return new Promise(res=>{
+      sqs[i].classList.add("lit");
+      setTimeout(()=>{ sqs[i].classList.remove("lit"); setTimeout(res, 140); }, ms||380);
+    });
+  }
+  async function playback(){
+    accepting = false;
+    await new Promise(r=>setTimeout(r,600));
+    for(const i of seq) await flash(i);
+    inputPos = 0;
+    accepting = true;
+  }
+  function extend(){
+    seq.push(Math.floor(Math.random()*4));
+    playback();
+  }
+  sqs.forEach((s,i)=>{
+    s.onclick = async ()=>{
+      if(!accepting) return;
+      flash(i, 160);
+      if(i === seq[inputPos]){
+        inputPos++;
+        if(inputPos >= seq.length){
+          if(seq.length >= 5){ setTimeout(nextStage, 500); }
+          else setTimeout(extend, 500);
+        }
+      }else{
+        seq.length = 0;
+        setTimeout(extend, 700);
+      }
+    };
+  });
+  extend();
+};
+
+// ---- 13: the corridor ----
+STAGES[13] = function(){
+  const cw = W(), chh = H();
+  // start pad
+  const start = mk("div","mzPad");
+  start.textContent = "START";
+  start.style.cssText += "left:"+(cw*0.04)+"px;top:"+(chh*0.42)+"px;width:90px;height:90px;background:#fff;";
+  // goal
+  const goal = mk("button","cbtn");
+  goal.textContent = "CONFIRM";
+  goal.style.cssText = "position:absolute;left:"+(cw*0.86)+"px;top:"+(chh*0.44)+"px;";
+  // walls forming a winding corridor
+  const walls = [
+    [cw*0.16, 0,        cw*0.02, chh*0.62],
+    [cw*0.16, chh*0.80, cw*0.02, chh*0.20],
+    [cw*0.34, chh*0.28, cw*0.02, chh*0.72],
+    [cw*0.34, 0,        cw*0.02, chh*0.10],
+    [cw*0.52, 0,        cw*0.02, chh*0.62],
+    [cw*0.52, chh*0.80, cw*0.02, chh*0.20],
+    [cw*0.70, chh*0.28, cw*0.02, chh*0.72],
+    [cw*0.70, 0,        cw*0.02, chh*0.10],
+  ];
+  let armed = false;
+  for(const [x,y,w2,h2] of walls){
+    const el = mk("div","wall");
+    el.style.cssText = "left:"+x+"px;top:"+y+"px;width:"+w2+"px;height:"+h2+"px;";
+    el.addEventListener("mouseenter", ()=>{ armed = false; start.style.background = "#fff"; });
+  }
+  start.addEventListener("mouseenter", ()=>{ armed = true; start.style.background = "#c9a20c"; });
+  goal.onclick = ()=>{ if(armed) nextStage(); };
+};
+
+// ---- 14: all lights on ----
+STAGES[14] = function(){
+  const g = mk("div","loGrid");
+  // start all-on, apply random presses -> guaranteed solvable
+  let cells = new Array(9).fill(true);
+  function press(i, silent){
+    const r = Math.floor(i/3), c = i%3;
+    const flips = [[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+    for(const [rr,cc] of flips){
+      if(rr>=0&&rr<3&&cc>=0&&cc<3) cells[rr*3+cc] = !cells[rr*3+cc];
+    }
+    if(!silent) render();
+  }
+  for(let i=0;i<6;i++) press(Math.floor(Math.random()*9), true);
+  if(cells.every(Boolean)) press(4, true);
+  const els = [];
+  function render(){
+    els.forEach((el,i)=>el.classList.toggle("on", cells[i]));
+    if(cells.every(Boolean)){
+      const done = mk("button","cbtn");
+      done.textContent = "CONFIRM";
+      done.style.cssText = "position:absolute;left:50%;top:78%;transform:translateX(-50%);";
+      done.onclick = nextStage;
+    }
+  }
+  for(let i=0;i<9;i++){
+    const el = mk("div","loCell",g);
+    el.onclick = ()=>press(i);
+    els.push(el);
+  }
+  render();
+};
+
+// ---- 15: reaction ----
+STAGES[15] = function(){
+  const b = mk("button","cbtn center");
+  b.style.cssText += "background:#ddd;color:#999;min-width:220px;";
+  b.textContent = "WAIT";
+  let live = false, timer = null;
+  function arm(){
+    live = false;
+    b.style.background = "#ddd"; b.style.color = "#999";
+    b.textContent = "WAIT";
+    timer = setTimeout(()=>{
+      live = true;
+      b.style.background = "#000"; b.style.color = "#fff";
+      b.textContent = "NOW";
+      timer = setTimeout(()=>{ arm(); }, 350);
+    }, rand(1200, 3200));
+  }
+  cleanup.push(()=>clearTimeout(timer));
+  b.onclick = ()=>{
+    if(live) nextStage();
+    else { clearTimeout(timer); arm(); }
+  };
+  arm();
+};
+
+// ---- 16: close all the popups ----
+STAGES[16] = function(){
+  let open = 12;
+  const done = mk("button","cbtn center");
+  done.textContent = "CONFIRM";
+  done.style.visibility = "hidden";
+  done.onclick = nextStage;
+  for(let i=0;i<12;i++){
+    const p = mk("div","popup");
+    const pw = rand(150, 240), ph = rand(70, 120);
+    p.style.cssText += "width:"+pw+"px;height:"+ph+"px;"
+      +"left:"+rand(6, W()-pw-16)+"px;top:"+rand(6, H()-ph-16)+"px;z-index:"+(10+i)+";";
+    const bar = mk("div","bar",p);
+    const x = mk("button","x",bar);
+    x.textContent = "\u00D7";
+    const body = mk("div","body",p);
+    body.textContent = "confirm?";
+    let dodged = false;
+    if(i % 4 === 0){                 // some popups dodge once
+      x.addEventListener("mouseenter", ()=>{
+        if(dodged) return;
+        dodged = true;
+        p.style.left = rand(6, W()-pw-16)+"px";
+        p.style.top = rand(6, H()-ph-16)+"px";
+      });
+    }
+    x.onclick = ()=>{
+      p.remove();
+      if(--open === 0) done.style.visibility = "visible";
+    };
+  }
+};
+
+// ---- 17: the code is somewhere ----
+STAGES[17] = function(){
+  const code = String(Math.floor(rand(1000, 9999)));
+  document.title = code;           // it's in the browser tab
+  const w = mk("div","center");
+  w.style.textAlign = "center";
+  const q = mk("div","",w);
+  q.style.cssText = "font-size:15px;font-weight:700;letter-spacing:2px;";
+  q.textContent = "ENTER THE CODE";
+  const inp = mk("input","tinp",w);
+  inp.maxLength = 4;
+  inp.style.cssText += "display:block;margin:14px auto 0;";
+  inp.placeholder = "look around";
+  const ok = mk("button","cbtn",w);
+  ok.textContent = "CONFIRM";
+  ok.style.cssText = "display:block;margin:12px auto 0;";
+  function tryIt(){
+    if(inp.value.trim() === code) nextStage();
+    else { inp.value = ""; inp.placeholder = "it is not hidden well"; }
+  }
+  ok.onclick = tryIt;
+  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") tryIt(); });
+  inp.focus();
+};
+
+// ---- 18: catch it mid-air ----
+STAGES[18] = function(){
+  const b = mk("button","cbtn");
+  b.textContent = "CONFIRM";
+  b.style.position = "absolute";
+  let x = W()/2-80, y = 40, vx = rand(3.5,5.5)*(Math.random()<0.5?-1:1), vy = 0;
+  const G = 0.45, BOUNCE = 0.92;
+  const iv = setInterval(()=>{
+    vy += G;
+    x += vx; y += vy;
+    const bw = b.offsetWidth||160, bh = b.offsetHeight||50;
+    if(x < 0){ x = 0; vx = -vx; }
+    if(x > W()-bw){ x = W()-bw; vx = -vx; }
+    if(y > H()-bh){ y = H()-bh; vy = -Math.abs(vy)*BOUNCE - 6; }
+    if(y < 0){ y = 0; vy = Math.abs(vy); }
+    b.style.left = x+"px"; b.style.top = y+"px";
+  }, 16);
+  cleanup.push(()=>clearInterval(iv));
+  b.onclick = ()=>{ clearInterval(iv); nextStage(); };
+};
+
+// ---- 19: deny ----
+STAGES[19] = function(){
+  const b = mk("button","cbtn center");
+  const labels = ["DENY","DENY","DENY?","...","CONFIRM"];
+  let n = 0;
+  b.textContent = labels[0];
+  b.onclick = ()=>{
+    n++;
+    if(n >= labels.length-1){
+      b.textContent = "CONFIRM";
+      b.onclick = nextStage;
+    }else{
+      b.textContent = labels[n];
+    }
+  };
+};
+
+// ---- 20: it clicks you ----
+STAGES[20] = function(){
+  const ch = mk("div");
+  ch.style.position = "absolute";
+  const b = mk("button","cbtn",ch);
+  b.textContent = "CONFIRM";
+  b.style.cssText += "font-size:24px;padding:20px 46px;pointer-events:none;";
+  let x = W()/2-100, y = H()/2-40;
+  let mx = -999, my = -999, seen = false;
+  ch.style.left = x+"px"; ch.style.top = y+"px";
+  const onMove = (e)=>{ mx = e.clientX; my = e.clientY; seen = true; };
+  window.addEventListener("mousemove", onMove);
+  cleanup.push(()=>window.removeEventListener("mousemove", onMove));
+  const iv = setInterval(()=>{
+    if(!seen) return;
+    const cx = x+100, cy = y+35;
+    const dx = mx-cx, dy = my-cy;
+    const dist = Math.hypot(dx,dy);
+    const sp = 4.6;
+    if(dist > 6){
+      x += (dx/dist)*sp; y += (dy/dist)*sp;
+      ch.style.left = x+"px"; ch.style.top = y+"px";
+    }
+    if(dist < 30){
+      clearInterval(iv);
+      arena.style.background = "#000";
+      setTimeout(()=>{ stage = TOTAL+1; winGame(); }, 500);
+    }
+  }, 28);
+  cleanup.push(()=>clearInterval(iv));
+};
+
+// ================= BOOT =================
+renderCounter();
+startStage();
+</script>
+</body>
+</html>
