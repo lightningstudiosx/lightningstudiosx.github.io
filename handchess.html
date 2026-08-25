@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hand chess · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#fff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    min-height:100vh;padding:16px 12px 40px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  .back{display:inline-block;text-decoration:none;color:var(--muted);font-size:14px;}
+  .back:hover{color:var(--ink);}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 10px;}
+  .wordmark{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;
+    font-weight:900;font-size:40px;transform:rotate(-1.5deg);
+  }
+  .wordmark .h{color:var(--moss);}
+  .tag{color:var(--muted);font-size:13px;}
+  .cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+  #left{flex:0 1 520px;min-width:320px;}
+  #right{flex:1 1 300px;min-width:280px;}
+  .card{
+    border:2px solid var(--ink);border-radius:14px;background:#fff;
+    box-shadow:4px 4px 0 var(--ink);padding:12px;margin-bottom:12px;
+  }
+  #board{
+    display:grid;grid-template-columns:repeat(8,1fr);
+    border:2px solid var(--ink);border-radius:8px;overflow:hidden;user-select:none;
+  }
+  .sq{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(22px,5vw,34px);position:relative;line-height:1;
+  }
+  .sq.l{background:#f2e8d8;} .sq.d{background:#c9a97a;}
+  .sq.hover{outline:4px solid var(--moss);outline-offset:-4px;z-index:2;}
+  .sq.from{outline:4px solid var(--sun);outline-offset:-4px;}
+  .sq.mv::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(111,184,92,.6);}
+  .sq.cap::after{content:"";position:absolute;inset:6%;border-radius:50%;border:3px solid rgba(255,107,94,.85);}
+  .sq.chk{background:#ffb3ab !important;}
+  #status{margin-top:10px;font-weight:900;font-size:15px;min-height:40px;text-align:center;}
+  #ctrl{display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
+  button.b{
+    border:2px solid var(--ink);border-radius:10px;background:var(--sun);
+    font-family:inherit;font-weight:900;font-size:13px;padding:9px 13px;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  button.b:hover{transform:translate(-1px,-1px);}
+  #cursor{
+    position:fixed;width:26px;height:26px;border-radius:50%;
+    border:3px solid var(--moss);background:rgba(111,184,92,.2);
+    pointer-events:none;z-index:40;transform:translate(-50%,-50%);display:none;
+  }
+  #cursor.pinch{background:var(--sun);border-color:var(--ink);}
+  #dragGhost{
+    position:fixed;font-size:38px;pointer-events:none;z-index:41;
+    transform:translate(-50%,-60%);display:none;filter:drop-shadow(2px 3px 2px rgba(0,0,0,.3));
+  }
+  #cam{
+    position:fixed;top:8px;right:8px;width:150px;height:112px;z-index:30;
+    border:2px solid var(--ink);border-radius:10px;transform:scaleX(-1);
+    object-fit:cover;background:#141414;display:none;
+  }
+  ol{padding-left:18px;font-size:12.5px;line-height:1.65;}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark"><span class="h">hand</span> chess 🤏</div>
+    <div class="tag">no mouse. no calibration. pinch to grab, drag, release to drop.</div>
+  </header>
+  <div class="cols">
+    <div id="left">
+      <div class="card">
+        <div id="board"></div>
+        <div id="status">loading hand tracker…</div>
+        <div id="ctrl">
+          <button class="b" id="startBtn">🎥 START CAMERA</button>
+          <button class="b" id="newBtn">🔄 NEW GAME</button>
+        </div>
+      </div>
+    </div>
+    <div id="right">
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:6px;">HOW IT WORKS</div>
+        <ol>
+          <li><b>START CAMERA</b> and allow webcam access</li>
+          <li>hold your hand up — a green dot follows your <b>index finger</b></li>
+          <li>move the dot over one of your pieces</li>
+          <li><b>pinch</b> thumb + index together to GRAB it 🤏</li>
+          <li>keep pinching and <b>drag</b> to a green/red square</li>
+          <li><b>release</b> the pinch to drop the piece</li>
+          <li>drop anywhere illegal and it snaps back home</li>
+        </ol>
+        <div class="hint">
+          works instantly — no calibration, your hand IS the mouse.
+          camera is processed entirely in your browser (mediapipe),
+          nothing is uploaded. the mouse also still works if your arm gets tired.
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:6px;">STATE</div>
+        <div id="stateLine" class="hint">tracker not started</div>
+      </div>
+    </div>
+  </div>
+</div>
+<video id="cam" playsinline></video>
+<div id="cursor"></div>
+<div id="dragGhost"></div>
+
+<script>
+// ================= CHESS CORE (standard, no en passant) =================
+const KN=[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const DIAG=[[1,1],[1,-1],[-1,1],[-1,-1]], ORTH=[[1,0],[-1,0],[0,1],[0,-1]];
+function rc(i){ return [Math.floor(i/8), i%8]; }
+function idx(r,c){ return r*8+c; }
+function ok(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+let S=null;
+function newGame(){
+  S={bd:Array(64).fill(null), turn:0, over:false};
+  const back=["r","n","b","q","k","b","n","r"];
+  for(let c=0;c<8;c++){
+    S.bd[8+c]={t:"p",c:1}; S.bd[48+c]={t:"p",c:0};
+    S.bd[c]={t:back[c],c:1,m:0}; S.bd[56+c]={t:back[c],c:0,m:0};
+  }
+  grab=null;
+  setStatus("⬜ WHITE to move — pinch a piece to grab it");
+  render();
+}
+function pieceMoves(st,i){
+  const p=st.bd[i]; if(!p) return [];
+  const [r,c]=rc(i); const out=[]; const me=p.c, fwd=me===0?-1:1;
+  function add(tr,tc){ if(!ok(tr,tc))return false;
+    const q=st.bd[idx(tr,tc)];
+    if(q&&q.c===me) return false;
+    out.push({from:i,to:idx(tr,tc),cap:!!q}); return !q; }
+  function ray(dirs){ for(const [dr,dc] of dirs){ let cr=r,cc=c;
+    while(true){ cr+=dr; cc+=dc; if(!add(cr,cc)) break; } } }
+  if(p.t==="p"){
+    if(ok(r+fwd,c)&&!st.bd[idx(r+fwd,c)]){
+      out.push({from:i,to:idx(r+fwd,c),cap:false});
+      const sr=me===0?6:1;
+      if(r===sr&&!st.bd[idx(r+2*fwd,c)]) out.push({from:i,to:idx(r+2*fwd,c),cap:false});
+    }
+    for(const dc of [-1,1]){ const tr=r+fwd,tc=c+dc;
+      if(ok(tr,tc)&&st.bd[idx(tr,tc)]&&st.bd[idx(tr,tc)].c!==me)
+        out.push({from:i,to:idx(tr,tc),cap:true}); }
+  }
+  else if(p.t==="n"){ for(const [dr,dc] of KN) add(r+dr,c+dc); }
+  else if(p.t==="b"){ ray(DIAG); }
+  else if(p.t==="r"){ ray(ORTH); }
+  else if(p.t==="q"){ ray(DIAG.concat(ORTH)); }
+  else if(p.t==="k"){
+    for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc) add(r+dr,c+dc);
+    if(!p.m && !inCheck(st,me)){
+      const row=me===0?7:0;
+      const rk=st.bd[idx(row,7)];
+      if(rk&&rk.t==="r"&&!rk.m&&!st.bd[idx(row,5)]&&!st.bd[idx(row,6)]
+        && !sqAttacked(st,idx(row,5),1-me))
+        out.push({from:i,to:idx(row,6),cap:false,castle:"k"});
+      const rq=st.bd[idx(row,0)];
+      if(rq&&rq.t==="r"&&!rq.m&&!st.bd[idx(row,1)]&&!st.bd[idx(row,2)]&&!st.bd[idx(row,3)]
+        && !sqAttacked(st,idx(row,3),1-me))
+        out.push({from:i,to:idx(row,2),cap:false,castle:"q"});
+    }
+  }
+  return out;
+}
+function allPseudo(st,color){
+  let out=[];
+  st.bd.forEach((p,i)=>{ if(p&&p.c===color) out=out.concat(pieceMoves(st,i)); });
+  return out;
+}
+function kingPos(st,color){ let k=-1; st.bd.forEach((p,i)=>{if(p&&p.t==="k"&&p.c===color)k=i;}); return k; }
+function sqAttacked(st,sq,by){
+  return st.bd.some((p,i)=>{
+    if(!p||p.c!==by) return false;
+    if(p.t==="k"){
+      const [r1,c1]=rc(i),[r2,c2]=rc(sq);
+      return Math.max(Math.abs(r1-r2),Math.abs(c1-c2))===1;
+    }
+    return pieceMoves(st,i).some(m=>m.to===sq&&(p.t!=="p"||m.cap));
+  });
+}
+function inCheck(st,color){ const k=kingPos(st,color); return k>=0&&sqAttacked(st,k,1-color); }
+function cloneS(st){ return {bd:st.bd.map(p=>p?{...p}:null), turn:st.turn, over:st.over}; }
+function doMove(st,mv){
+  const p=st.bd[mv.from];
+  st.bd[mv.to]=p; st.bd[mv.from]=null; p.m=1;
+  if(mv.castle){
+    const row=p.c===0?7:0;
+    if(mv.castle==="k"){ st.bd[idx(row,5)]=st.bd[idx(row,7)]; st.bd[idx(row,7)]=null; }
+    else{ st.bd[idx(row,3)]=st.bd[idx(row,0)]; st.bd[idx(row,0)]=null; }
+  }
+  if(p.t==="p"){ const [tr]=rc(mv.to); if(tr===(p.c===0?0:7)) p.t="q"; }
+}
+function legalMoves(st){
+  return allPseudo(st,st.turn).filter(mv=>{
+    const st2=cloneS(st); doMove(st2,mv);
+    return !inCheck(st2, st.turn);
+  });
+}
+const VAL={p:1,n:3,b:3.2,r:5,q:9,k:200};
+function botMove(){
+  if(S.over||S.turn!==1) return;
+  const mvs=legalMoves(S);
+  if(!mvs.length){ finishNoMoves(); return; }
+  let best=null,bestV=-1e9;
+  for(const mv of mvs){
+    const st2=cloneS(S); doMove(st2,mv);
+    let v=0;
+    st2.bd.forEach(p=>{ if(p) v+=(p.c===1?1:-1)*VAL[p.t]; });
+    let worst=0;
+    for(const r2 of allPseudo(st2,0)) if(r2.cap) worst=Math.max(worst,VAL[st2.bd[r2.to].t]);
+    v-=worst*0.9; v+=Math.random()*0.1;
+    if(v>bestV){ bestV=v; best=mv; }
+  }
+  doMove(S,best);
+  S.turn=0;
+  afterTurn();
+}
+function finishNoMoves(){
+  S.over=true;
+  if(inCheck(S,S.turn))
+    setStatus((S.turn===0?"⬛ BLACK":"⬜ WHITE")+" WINS by checkmate! 🏆");
+  else setStatus("stalemate — draw.");
+  render();
+}
+function afterTurn(){
+  render();
+  if(S.over) return;
+  const mvs=legalMoves(S);
+  if(!mvs.length){ finishNoMoves(); return; }
+  if(S.turn===0)
+    setStatus("⬜ WHITE to move — pinch to grab"+(inCheck(S,0)?" · CHECK!":""));
+  else{
+    setStatus("⬛ bot is thinking…");
+    setTimeout(botMove, 500);
+  }
+}
+
+// ================= UI & DRAG =================
+const GLYPH={0:{p:"♙",n:"♘",b:"♗",r:"♖",q:"♕",k:"♔"},1:{p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚"}};
+const boardEl=document.getElementById("board");
+let grab=null;        // {from, moves, glyph}
+let hoverSq=-1;
+for(let i=0;i<64;i++){
+  const d=document.createElement("div");
+  const [r,c]=rc(i);
+  d.className="sq "+((r+c)%2===0?"l":"d");
+  boardEl.appendChild(d);
+}
+// mouse fallback: click-drag too
+let mouseDown=false;
+boardEl.addEventListener("pointerdown",e=>{
+  mouseDown=true;
+  const i=sqAt(e.clientX,e.clientY);
+  if(i>=0) tryGrab(i, e.clientX, e.clientY);
+});
+addEventListener("pointermove",e=>{
+  if(mouseDown&&grab) moveCursor(e.clientX,e.clientY,true,true);
+});
+addEventListener("pointerup",e=>{
+  if(mouseDown){ mouseDown=false;
+    if(grab) tryDrop(sqAt(e.clientX,e.clientY)); }
+});
+function sqAt(x,y){
+  const r0=boardEl.getBoundingClientRect();
+  const c=Math.floor((x-r0.left)/(r0.width/8));
+  const r=Math.floor((y-r0.top)/(r0.height/8));
+  return (r>=0&&r<8&&c>=0&&c<8)? idx(r,c) : -1;
+}
+function tryGrab(i,x,y){
+  if(S.over||S.turn!==0) return;
+  const p=S.bd[i];
+  if(!p||p.c!==0) return;
+  const mvs=legalMoves(S).filter(m=>m.from===i);
+  if(!mvs.length){ setStatus("that piece has no legal moves"); return; }
+  grab={from:i, moves:mvs, glyph:GLYPH[p.c][p.t]};
+  const g=document.getElementById("dragGhost");
+  g.textContent=grab.glyph; g.style.display="block";
+  g.style.left=x+"px"; g.style.top=y+"px";
+  render();
+}
+function tryDrop(i){
+  if(!grab) return;
+  const mv=grab.moves.find(m=>m.to===i);
+  document.getElementById("dragGhost").style.display="none";
+  if(mv){
+    doMove(S,mv);
+    grab=null;
+    S.turn=1;
+    afterTurn();
+  }else{
+    grab=null;
+    setStatus("dropped somewhere illegal — snapped back");
+    render();
+  }
+}
+function render(){
+  for(let i=0;i<64;i++){
+    const d=boardEl.children[i], p=S.bd[i];
+    d.textContent = (grab&&grab.from===i)? "" : (p?GLYPH[p.c][p.t]:"");
+    d.classList.toggle("from",!!grab&&grab.from===i);
+    d.classList.toggle("hover",hoverSq===i&&!!grab);
+    d.classList.toggle("mv",!!grab&&grab.moves.some(m=>m.to===i&&!m.cap));
+    d.classList.toggle("cap",!!grab&&grab.moves.some(m=>m.to===i&&m.cap));
+    const kW=kingPos(S,0),kB=kingPos(S,1);
+    d.classList.toggle("chk",(i===kW&&inCheck(S,0))||(i===kB&&inCheck(S,1)));
+  }
+}
+function setStatus(t){ document.getElementById("status").textContent=t; }
+function stateLine(t){ document.getElementById("stateLine").textContent=t; }
+function moveCursor(x,y,pinched,skipCursor){
+  const cur=document.getElementById("cursor");
+  if(!skipCursor){
+    cur.style.display="block";
+    cur.style.left=x+"px"; cur.style.top=y+"px";
+    cur.classList.toggle("pinch",pinched);
+  }
+  if(grab){
+    const g=document.getElementById("dragGhost");
+    g.style.left=x+"px"; g.style.top=y+"px";
+  }
+  const i=sqAt(x,y);
+  if(i!==hoverSq){ hoverSq=i; render(); }
+}
+
+// ================= HAND TRACKING (mediapipe) =================
+let handsReady=false, pinched=false;
+let smX=null, smY=null;
+function loadScript(u){
+  return new Promise((res,rej)=>{
+    const sc=document.createElement("script");
+    sc.src=u; sc.onload=res; sc.onerror=rej;
+    document.head.appendChild(sc);
+  });
+}
+(async ()=>{
+  try{
+    await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
+    await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
+    handsReady=true;
+    setStatus("hand tracker loaded — START CAMERA");
+    stateLine("tracker loaded, camera off");
+  }catch(e){
+    setStatus("couldn't load the hand tracker — mouse mode still works");
+    stateLine("NO TRACKER — mouse mode");
+  }
+})();
+document.getElementById("startBtn").onclick=async ()=>{
+  if(!handsReady){ setStatus("tracker not loaded — mouse mode only"); return; }
+  const video=document.getElementById("cam");
+  const hands=new Hands({locateFile:f=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands/"+f});
+  hands.setOptions({maxNumHands:1, modelComplexity:1,
+    minDetectionConfidence:0.6, minTrackingConfidence:0.5});
+  hands.onResults(onHands);
+  try{
+    const cam=new Camera(video,{
+      onFrame: async ()=>{ await hands.send({image:video}); },
+      width:640, height:480,
+    });
+    await cam.start();
+    video.style.display="block";
+    document.getElementById("startBtn").style.display="none";
+    setStatus("camera on! hold up your hand 🖐");
+    stateLine("tracking — no calibration needed");
+  }catch(e){
+    setStatus("camera blocked — allow webcam access and try again");
+  }
+};
+function onHands(res){
+  const cur=document.getElementById("cursor");
+  if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){
+    stateLine("no hand in view — hold it up, palm to camera");
+    return;
+  }
+  const lm=res.multiHandLandmarks[0];
+  const tipI=lm[8], tipT=lm[4];          // index tip, thumb tip
+  // mirror x (selfie view), map to full window
+  const rawX=(1-(tipI.x+tipT.x)/2)*innerWidth;
+  const rawY=((tipI.y+tipT.y)/2)*innerHeight;
+  smX = smX===null? rawX : smX*0.6+rawX*0.4;
+  smY = smY===null? rawY : smY*0.6+rawY*0.4;
+  // pinch: thumb-index distance vs hand size, with hysteresis
+  const span=Math.hypot(lm[0].x-lm[9].x, lm[0].y-lm[9].y)||0.001;
+  const pd=Math.hypot(tipI.x-tipT.x, tipI.y-tipT.y)/span;
+  const wasPinched=pinched;
+  if(!pinched && pd<0.32) pinched=true;
+  else if(pinched && pd>0.45) pinched=false;
+  moveCursor(smX, smY, pinched, false);
+  stateLine("hand tracked · pinch="+(pinched?"YES 🤏":"no")+" · "+(pd).toFixed(2));
+  if(pinched && !wasPinched){          // pinch started -> grab
+    const i=sqAt(smX,smY);
+    if(i>=0) tryGrab(i, smX, smY);
+  }
+  if(!pinched && wasPinched){          // pinch released -> drop
+    if(grab) tryDrop(sqAt(smX,smY));
+  }
+}
+document.getElementById("newBtn").onclick=newGame;
+newGame();
+</script>
+</body>
+</html>
