@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>calculations</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;}
+  body{background:#f4f2ec;font-family:"Comic Sans MS","Trebuchet MS",cursive;}
+  #scroller{position:fixed;inset:0;overflow:auto;cursor:grab;}
+  #scroller.panning{cursor:grabbing;}
+  #board{display:block;}
+  #barWrap{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+  }
+  #bar{
+    width:min(520px,88vw);padding:12px 16px;font-family:inherit;font-size:17px;
+    border:3px solid #141414;border-radius:14px;background:#fff;
+    box-shadow:3px 3px 0 rgba(20,20,20,.75);outline:none;
+  }
+  #bar:focus{border-color:#2456d8;}
+  #lvlRow{
+    margin-top:7px;display:flex;align-items:center;gap:10px;
+    background:#fff;border:3px solid #141414;border-radius:12px;
+    padding:7px 14px;box-shadow:3px 3px 0 rgba(20,20,20,.75);
+  }
+  #lvlRow input{flex:1;accent-color:#c62828;}
+  #lvlRow span{font-size:13px;white-space:nowrap;font-weight:700;}
+  #home{
+    position:fixed;bottom:10px;left:12px;z-index:5;font-size:13px;
+    color:#999;text-decoration:none;font-family:"Trebuchet MS",sans-serif;
+  }
+  #home:hover{color:#141414;}
+</style>
+</head>
+<body>
+<div id="scroller"><canvas id="board"></canvas></div>
+<div id="barWrap">
+  <input id="bar" placeholder="type any equation… like 2+2" autocomplete="off" spellcheck="false">
+  <div id="lvlRow">
+    <input type="range" id="lvl" min="1" max="10" value="5">
+    <span id="lvlLab">expansion: 5</span>
+  </div>
+</div>
+<a id="home" href="index.html">&larr; kai.fun</a>
+
+<script>
+// ============ SAFE MATH PARSER ============
+function evalExpr(src){
+  let i=0; const s=src.replace(/\s+/g,"").replace(/=+$/,"").replace(/×/g,"*").replace(/÷/g,"/");
+  if(!s) throw "empty";
+  if(/[^0-9+\-*/^().]/.test(s)) throw "letters";
+  function peek(){ return s[i]; }
+  function num(){
+    let st=i;
+    while(i<s.length && /[0-9.]/.test(s[i])) i++;
+    if(st===i) throw "syntax";
+    const v=parseFloat(s.slice(st,i));
+    if(isNaN(v)) throw "syntax";
+    return v;
+  }
+  function factor(){
+    if(peek()==="-"){ i++; return -factor(); }
+    if(peek()==="+"){ i++; return factor(); }
+    if(peek()==="("){
+      i++; const v=expr();
+      if(peek()!==")") throw "syntax";
+      i++; return pow(v);
+    }
+    return pow(num());
+  }
+  function pow(base){
+    if(peek()==="^"){ i++; return Math.pow(base, factor()); }
+    return base;
+  }
+  function term(){
+    let v=factor();
+    while(peek()==="*"||peek()==="/"){
+      const op=s[i++]; const r=factor();
+      if(op==="/"){ if(r===0) throw "divzero"; v/=r; }
+      else v*=r;
+    }
+    return v;
+  }
+  function expr(){
+    let v=term();
+    while(peek()==="+"||peek()==="-"){
+      const op=s[i++]; const r=term();
+      v = op==="+"? v+r : v-r;
+    }
+    return v;
+  }
+  const v=expr();
+  if(i<s.length) throw "syntax";
+  if(!isFinite(v)) throw "divzero";
+  return {value:v, clean:s};
+}
+function fmt(n){
+  if(Math.abs(n-Math.round(n))<1e-9) return String(Math.round(n));
+  return String(Math.round(n*10000)/10000);
+}
+const SUP="⁰¹²³⁴⁵⁶⁷⁸⁹", SUB="₀₁₂₃₄₅₆₇₈₉";
+function sup(n){ return String(n).split("").map(c=>c==="-"?"⁻":c==="."?"·":SUP[+c]||c).join(""); }
+function sub(n){ return String(n).split("").map(c=>SUB[+c]||c).join(""); }
+
+// ============ THE COMPLICATOR ============
+function toRoman(n){
+  if(n<=0||n>=4000||Math.round(n)!==n) return null;
+  const R=[[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],
+    [50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];
+  let out=""; let v=Math.round(n);
+  for(const [k,r] of R){ while(v>=k){ out+=r; v-=k; } }
+  return out;
+}
+function complicate(nStr, depth){
+  const n=parseFloat(nStr);
+  const isInt = Math.abs(n-Math.round(n))<1e-9 && Math.abs(n)<50 && n>=0;
+  const forms=[];
+  forms.push(["√("+nStr+sup(2)+")","square roots build character"]);
+  forms.push(["ln(e"+sup(nStr)+")","e is always watching"]);
+  forms.push(["log₁₀(10"+sup(nStr)+")","logs never lie"]);
+  forms.push([nStr+"·(sin"+sup(2)+"θ+cos"+sup(2)+"θ)","that bracket is 1. look it up"]);
+  forms.push(["-e^(iπ)·"+nStr,"euler made me do it"]);
+  forms.push(["det[ "+nStr+" 0 ; 0 1 ]","a matrix. for no reason"]);
+  forms.push(["("+fmt(n*10)+")/10","big number energy"]);
+  if(isInt && n>=1){
+    forms.push(["Σ"+sub("i=1")+sup(String(Math.round(n)))+" 1","counting, but fancy"]);
+    forms.push(["∫"+sub(0)+sup(String(Math.round(n)))+" dx","calculus for a "+nStr]);
+  }
+  if(isInt && n>=2 && n<=6){
+    forms.push([Math.round(n)+"!/"+(Math.round(n)-1)+"!","factorials cancel. trust"]);
+  }
+  let [form, note] = forms[Math.floor(Math.random()*forms.length)];
+  if(depth>1 && form.includes(nStr)){
+    const inner = complicate(nStr, depth-1);
+    form = form.replace(nStr, "("+inner[0]+")");
+    note = note+" — and yes, that "+nStr+" is also complicated";
+  }
+  return [form, note];
+}
+function buildSteps(clean, value, L, target){
+  const steps=[];
+  const say=(t,c)=>steps.push({t, c:c||"#1a1a1a"});
+  const therefore=()=>steps.push({t:"THEREFORE:  "+clean+" = "+fmt(value), c:"#c62828", big:true});
+  const iv=Math.round(value);
+  const isInt=Math.abs(value-iv)<1e-9;
+
+  if(L<=1){                              // level 1: just the answer.
+    steps.push({t:clean+" = "+fmt(value), c:"#1a1a1a", big:true});
+    return steps;
+  }
+  say("problem:  "+clean);
+  if(L===2){ therefore(); say("done. level 2 doesn't mess around.","#8a8a8a"); return steps; }
+
+  const allNums=[...new Set((clean.match(/\d+(\.\d+)?/g)||[]))];
+  const nSubs = L>=7? Math.min(3,allNums.length) : L>=5? Math.min(2,allNums.length) : Math.min(1,allNums.length);
+  const depth = L>=9? 2 : 1;
+  let rewritten=clean;
+  allNums.slice(0,nSubs).forEach(nm=>{
+    const [form, note]=complicate(nm, depth);
+    say("note that "+nm+" = "+form, "#2456d8");
+    say("   ("+note+")", "#8a8a8a");
+    rewritten=rewritten.split(nm).join("("+form+")");
+  });
+  if(nSubs) say("so really:  "+rewritten);
+
+  const oneForms=[["(7/7)","seven sevenths of pure power"],
+    ["(sin"+sup(2)+"θ+cos"+sup(2)+"θ)","the identity strikes again"],
+    ["(0! )","zero factorial. it's 1. don't argue"],
+    ["(-e^(iπ))","euler's identity, working overtime"]];
+  const mulCount = L>=8? 2 : L>=4? 1 : 0;
+  const used=[];
+  for(let i2=0;i2<mulCount;i2++){
+    let pick;
+    do{ pick=Math.floor(Math.random()*oneForms.length); }while(used.includes(pick));
+    used.push(pick);
+    say("multiply everything by "+oneForms[pick][0]+"  ["+oneForms[pick][1]+"]", "#2456d8");
+  }
+  if(L>=5)
+    say("add (φ"+sup(2)+"−φ−1). that's zero. the golden ratio says hi.", "#8a8a8a");
+  if(L>=5){
+    say("let x = all of that. then:");
+    say("10x = "+fmt(value*10));
+    say("x = "+fmt(value));
+  }
+  if(L>=6 && isInt && iv>=0 && iv<1024)
+    say("(= "+iv.toString(2)+sub(2)+" for the robots)", "#8a8a8a");
+  if(L>=7){
+    const rom=toRoman(value);
+    if(rom) say("(= "+rom+" in ancient times)", "#8a8a8a");
+    say("sanity check: "+fmt(value)+" = "+fmt(value)+"  ✓", "#8a8a8a");
+  }
+  if(L>=8){
+    say("suppose "+clean+" ≠ "+fmt(value)+".");
+    say("that would be embarrassing. contradiction. ∎", "#8a8a8a");
+    say("derivative check: d/dx("+fmt(value)+") = 0. constant. stable. good.", "#8a8a8a");
+  }
+  if(L>=9 && isInt && iv>=0)
+    say("(= "+iv.toString(7)+"₇ if you think in weeks)", "#8a8a8a");
+
+  // levels 7+ pad with lemmas until the board is suitably full
+  let li=1;
+  while(L>=7 && target && steps.length < target-2 && li<40){
+    const k=Math.floor(Math.random()*9)+1;
+    const [f,note]=complicate(String(k), L>=10?2:1);
+    say("lemma "+li+":  "+k+" = "+f, li%2? "#1a1a1a" : "#2456d8");
+    if(steps.length < target-2) say("   ("+note+")", "#8a8a8a");
+    li++;
+  }
+  therefore();
+  const outro=["that was the easy way","level "+L+" complete","the whiteboard is satisfied","never doubt the process"];
+  say("Q.E.D. ∎  ("+outro[Math.floor(Math.random()*outro.length)]+")", "#8a8a8a");
+  return steps;
+}
+
+// ============ WHITEBOARD ============
+// drawing ops are recorded so growth/resize can replay them instantly
+let ops=[];
+function record(fn){ ops.push(fn); fn(); }
+function replay(){ const o=ops; ops=[]; o.forEach(fn=>{ ops.push(fn); fn(); }); }
+const cv=document.getElementById("board");
+const scroller=document.getElementById("scroller");
+const ctx=cv.getContext("2d");
+const DPR=Math.min(devicePixelRatio||1, 1.5);
+let W=0, H=0;                 // virtual whiteboard size (bigger than the screen)
+function setupCanvas(){
+  cv.width=W*DPR; cv.height=H*DPR;
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize", ()=>{
+  if(innerWidth>W){ W=innerWidth; setupCanvas(); replay(); }
+});
+// drag to pan (mouse); touch uses native scrolling
+let pan=null;
+scroller.addEventListener("pointerdown",(e)=>{
+  if(e.pointerType!=="mouse") return;
+  pan={x:e.clientX,y:e.clientY,sl:scroller.scrollLeft,st:scroller.scrollTop};
+  scroller.classList.add("panning");
+});
+addEventListener("pointermove",(e)=>{
+  if(!pan) return;
+  scroller.scrollLeft=pan.sl-(e.clientX-pan.x);
+  scroller.scrollTop=pan.st-(e.clientY-pan.y);
+});
+addEventListener("pointerup",()=>{ pan=null; scroller.classList.remove("panning"); });
+// remember when the human scrolls so auto-follow backs off
+let lastUserScroll=0, lastAutoScroll=0;
+scroller.addEventListener("scroll",()=>{
+  if(performance.now()-lastAutoScroll>80) lastUserScroll=performance.now();
+});
+function smudgesBand(y0,y1){
+  for(let i=0;i<8;i++){
+    const px=Math.random()*W, py=y0+Math.random()*(y1-y0);
+    const rot=(Math.random()-0.5)*0.6, al=0.045+Math.random()*0.03;
+    const fs=16+Math.random()*20, txt=["x=","∴","(2)","dx","≈","??","=0","∞"][i%8];
+    record(()=>{
+      ctx.save(); ctx.globalAlpha=al; ctx.translate(px,py); ctx.rotate(rot);
+      ctx.fillStyle="#555"; ctx.font=fs+"px Comic Sans MS"; ctx.fillText(txt,0,0);
+      ctx.restore();
+    });
+  }
+  for(let i=0;i<5;i++){
+    const px=Math.random()*W, py=y0+Math.random()*(y1-y0);
+    const rot=(Math.random()-0.5)*1;
+    record(()=>{
+      ctx.save(); ctx.globalAlpha=0.05; ctx.fillStyle="#999";
+      ctx.translate(px,py); ctx.rotate(rot); ctx.fillRect(-60,-9,120,18);
+      ctx.restore();
+    });
+  }
+}
+function wipe(){
+  ops=[];
+  record(()=>{                      // background + faint grid, sized dynamically
+    ctx.fillStyle="#f9f8f4";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="rgba(20,20,20,.05)";
+    for(let gy=100; gy<H; gy+=100)
+      for(let gx=60; gx<W; gx+=100)
+        ctx.fillRect(gx,gy,2,2);
+  });
+  smudgesBand(0,H);
+}
+function growBoard(){
+  const old=H;
+  H+=900;
+  setupCanvas();
+  replay();
+  smudgesBand(old,H);
+}
+
+
+
+function marker(ch, x, y, size, color){
+  record(()=>{
+    ctx.save();
+    ctx.translate(x+(Math.random()-0.5)*1.2, y+(Math.random()-0.5)*2.4);
+    ctx.rotate((Math.random()-0.5)*0.09);
+    ctx.font="bold "+(size+(Math.random()-0.5)*2)+"px Comic Sans MS";
+    ctx.fillStyle=color;
+    ctx.globalAlpha=0.82+Math.random()*0.15;
+    ctx.fillText(ch,0,0);
+    if(Math.random()<0.12){ ctx.globalAlpha=0.25; ctx.fillText(ch,0.8,0.6); }
+    ctx.restore();
+  });
+}
+function wobblyOval(cx,cy,rx,ry,color,loops){
+  const segs=[];
+  const n=40*loops;
+  for(let i=0;i<=n;i++){
+    const a=i/40*Math.PI*2 - 0.4;
+    segs.push([
+      cx+Math.cos(a)*(rx+(Math.random()-0.5)*7)+(i/n)*4,
+      cy+Math.sin(a)*(ry+(Math.random()-0.5)*5),
+    ]);
+  }
+  return segs.map((p,i)=> i? {a:segs[i-1], b:p, color} : null).filter(Boolean);
+}
+function strokeSeg(sg){
+  record(()=>{
+    ctx.save();
+    ctx.strokeStyle=sg.color; ctx.lineWidth=3.2; ctx.lineCap="round";
+    ctx.globalAlpha=0.85;
+    ctx.beginPath(); ctx.moveTo(sg.a[0],sg.a[1]); ctx.lineTo(sg.b[0],sg.b[1]); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+// ============ ANIMATION QUEUE ============
+let tasks=[], penY=90, colX=40, colW=0, epoch=0;
+function measure(t,size){
+  ctx.font="bold "+size+"px Comic Sans MS";
+  return ctx.measureText(t).width;
+}
+function queueLine(step){
+  const myEpoch=epoch;
+  tasks.push({run:()=>{
+    if(myEpoch!==epoch) return;
+    let size = step.big? 30 : 21;
+    // shrink to fit column
+    while(size>13 && measure(step.t,size) > colW-20) size-=1;
+    // wrap if still too long
+    const words=step.t.split(" ");
+    const lines=[]; let cur="";
+    words.forEach(w=>{
+      if(measure(cur+" "+w,size) > colW-20 && cur){ lines.push(cur); cur=w; }
+      else cur = cur? cur+" "+w : w;
+    });
+    lines.push(cur);
+    lines.forEach(ln=>{
+      let x=colX + (Math.random()*14);
+      const y0=penY;
+      for(const ch of ln){
+        const w=measure(ch,size);
+        const yy=y0+(Math.random()-0.5)*1.5;
+        const chX=x;   // snapshot! (capturing x itself drew every char at line end)
+        tasks.push({d:16, run:()=>{ if(myEpoch===epoch) marker(ch,chX,yy,size,step.c); }});
+        x+=w*0.98+ (ch===" "?2:0.4);
+      }
+      penY += size*1.55;
+      tasks.push({d:60, run:()=>{}});
+    });
+    if(step.big){
+      const wTot=Math.min(measure(step.t,size)+50, colW);
+      const cx=colX+wTot/2-10, cy=penY - size*1.55 - size*0.35;
+      wobblyOval(cx,cy,wTot/2+16,size*1.15,"#c62828",2).forEach(sg=>{
+        tasks.push({d:6, run:()=>{ if(myEpoch===epoch) strokeSeg(sg); }});
+      });
+      penY += 16;
+    }
+    // board running out below -> grow the whiteboard (scroll to explore)
+    if(penY > H-280) growBoard();
+  }});
+}
+let lastT=0;
+function pump(now){
+  requestAnimationFrame(pump);
+  if(!tasks.length) return;
+  if(now-lastT < (tasks[0].d||0)) return;
+  lastT=now;
+  let n=0;
+  while(tasks.length && n<3){
+    const t=tasks.shift();
+    t.run(); n++;
+    if(tasks.length && tasks[0].d>30) break;
+  }
+  if(tasks.length && performance.now()-lastUserScroll>1600){
+    const want=Math.max(0, penY-innerHeight*0.55);
+    if(Math.abs(scroller.scrollTop-want)>30){
+      lastAutoScroll=performance.now();
+      scroller.scrollTop=want;
+    }
+  }
+}
+requestAnimationFrame(pump);
+
+// ============ GO ============
+function calculate(src){
+  epoch++;
+  tasks=[]; ops=[];
+  wipe();
+  penY=90; colX=40; colW=Math.min(W-120, 940);
+  scroller.scrollTo(0,0); lastUserScroll=0;
+  let parsed;
+  try{ parsed=evalExpr(src); }
+  catch(e){
+    const msg = e==="divzero" ? [
+      {t:"you tried to divide by zero.", c:"#c62828"},
+      {t:"the board refuses.", c:"#c62828", big:true},
+      {t:"(╯°□°)╯  try something else", c:"#8a8a8a"},
+    ] : [
+      {t:"hmm. that's not math i recognize.", c:"#1a1a1a"},
+      {t:"try something like:  (3+4)*2   or   2^10/8", c:"#2456d8"},
+    ];
+    msg.forEach(queueLine);
+    return;
+  }
+  const L=+document.getElementById("lvl").value;
+  const capScreen=Math.max(6, Math.floor((innerHeight-150)/33));
+  const frac={7:0.9, 8:1.4, 9:2.0, 10:2.8}[L];
+  const target=frac? Math.floor(capScreen*frac) : 0;
+  buildSteps(parsed.clean, parsed.value, L, target).forEach(queueLine);
+}
+const lvlEl=document.getElementById("lvl");
+const lvlLab=document.getElementById("lvlLab");
+try{ const sv=localStorage.getItem("calc_level"); if(sv) lvlEl.value=sv; }catch(e){}
+function lvlText(){
+  const names={1:"just answer it",2:"barely",3:"a little",4:"noticeable",5:"standard nonsense",
+    6:"getting silly",7:"academic",8:"unhinged",9:"thesis mode",10:"THE WHOLE BOARD"};
+  lvlLab.textContent="expansion "+lvlEl.value+": "+names[+lvlEl.value];
+}
+lvlEl.oninput=()=>{ lvlText(); try{ localStorage.setItem("calc_level", lvlEl.value); }catch(e){} };
+lvlText();
+const bar=document.getElementById("bar");
+bar.addEventListener("keydown",(e)=>{
+  if(e.key==="Enter" && bar.value.trim()){
+    calculate(bar.value.trim());
+    bar.select();
+  }
+});
+W=Math.max(1600, innerWidth); H=1400;
+setupCanvas();
+wipe();
+// opening doodle
+[{t:"the whiteboard is ready.", c:"#1a1a1a"},
+ {t:"give me an equation. the slider decides how much worse it gets.", c:"#2456d8"}].forEach(queueLine);
+</script>
+</body>
+</html>
