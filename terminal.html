@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>terminal</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#0c0c0c; overflow:hidden;
+    font-family:"Cascadia Mono","Consolas","Courier New",monospace;
+  }
+  #screen{
+    position:fixed; inset:0; padding:10px 12px 34px;
+    overflow-y:auto; font-size:15px; line-height:1.35;
+    white-space:pre-wrap; word-break:break-word;
+    color:#cccccc; cursor:text;
+  }
+  #screen.scanlines::after{
+    content:""; position:fixed; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+  }
+  .line{min-height:1.35em;}
+  #inLine{display:flex;flex-wrap:wrap;align-items:baseline;}
+  #prompt{white-space:pre;}
+  #typed{white-space:pre-wrap;word-break:break-all;}
+  #cursor{display:inline-block;width:9px;height:1.15em;transform:translateY(3px);
+    background:currentColor;animation:blink 1s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+  #hiddenIn{position:absolute;left:-9999px;top:0;opacity:0;}
+  #homeLink{
+    position:fixed;bottom:8px;left:12px;font-size:11px;z-index:900;
+    color:#555;text-decoration:none;font-family:inherit;
+  }
+  #homeLink:hover{color:#aaa;}
+
+  /* ---- mini windows (editor / python) ---- */
+  .twin{
+    position:fixed; background:#101010; border:1px solid #3a3a3a;
+    box-shadow:0 8px 30px rgba(0,0,0,.6); display:flex; flex-direction:column;
+    min-width:280px; z-index:100; color:#ddd;
+  }
+  .twin .tbar{
+    display:flex; align-items:center; gap:8px; padding:6px 8px;
+    background:#1c1c1c; border-bottom:1px solid #3a3a3a; cursor:move;
+    font-size:12px; user-select:none;
+  }
+  .twin .tbar .tname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .twin .tbar button{
+    background:#2a2a2a; border:1px solid #444; color:#ddd; font-family:inherit;
+    font-size:11px; padding:3px 9px; cursor:pointer;
+  }
+  .twin .tbar button:hover{background:#3a3a3a;}
+  .twin .tbar .xbtn{background:#5a1c1c;}
+  .twin textarea{
+    width:100%; flex:1; background:#0c0c0c; color:#e6e6e6; border:none;
+    font-family:inherit; font-size:14px; line-height:1.4; padding:10px;
+    resize:none; outline:none; tab-size:4;
+  }
+  .twin .fname{
+    background:#0c0c0c; border:1px solid #444; color:#e6e6e6;
+    font-family:inherit; font-size:12px; padding:3px 7px; width:170px;
+  }
+  .twin .pyout{
+    flex:1; overflow-y:auto; padding:10px; font-size:13px; line-height:1.4;
+    white-space:pre-wrap; word-break:break-word; background:#0c0c0c;
+  }
+  .twin .pyin{
+    display:flex; border-top:1px solid #3a3a3a; background:#0c0c0c;
+  }
+  .twin .pyin span{padding:6px 0 6px 10px; color:#6fba6f;}
+  .twin .pyin input{
+    flex:1; background:transparent; border:none; color:#e6e6e6;
+    font-family:inherit; font-size:13px; padding:6px 10px 6px 6px; outline:none;
+  }
+  .pyerr{color:#ff7b72;}
+  .pyok{color:#9ecbff;}
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<a id="homeLink" href="index.html">&larr; kai.fun</a>
+<input id="hiddenIn" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+<script>
+// ==================== SHELLS ====================
+const SHELLS = {
+  cmd: { name:"Command Prompt (Windows 11)", bg:"#0c0c0c", fg:"#cccccc", scan:false,
+    prompt:()=> dosPath()+">",
+    banner:()=>"Microsoft Windows [Version 10.0.26100.4088]\n(c) Kai Corporation. Definitely the real one.\n" },
+  xp: { name:"Command Prompt (Windows XP)", bg:"#000000", fg:"#ffffff", scan:false,
+    prompt:()=> dosPath()+">",
+    banner:()=>"Microsoft Windows XP [Version 5.1.2600]\n(c) it is 2003 in here forever.\n" },
+  win95: { name:"MS-DOS Prompt (Windows 95)", bg:"#000000", fg:"#c0c0c0", scan:true,
+    prompt:()=> dosPath()+">",
+    banner:()=>"Microsoft(R) Windows 95\n(C) 1995, allegedly.\n" },
+  msdos: { name:"KaiDOS 6.22", bg:"#000000", fg:"#aaaaaa", scan:true,
+    prompt:()=> dosPath()+">",
+    banner:()=>"Starting KaiDOS...\n\nKaiDOS Version 6.22\nHIMEM is testing extended memory... done.\n" },
+  powershell: { name:"PowerShell", bg:"#012456", fg:"#eeedf0", scan:false,
+    prompt:()=> "PS "+dosPath()+">",
+    banner:()=>"Windows PowerShell\nInstall the latest PowerShell for new features and improved socks.\n" },
+  bash: { name:"bash (Ubuntu)", bg:"#300a24", fg:"#eeeeec", scan:false,
+    prompt:()=> "kai@ubuntu:"+nixPath()+"$",
+    banner:()=>"Welcome to Ubuntu 24.04 LTS (kernel 6.8.0-kai)\n\n * Documentation: type 'help'\n * Socks folded:  0\n" },
+  zsh: { name:"zsh (macOS)", bg:"#1d1f21", fg:"#d4d4d4", scan:false,
+    prompt:()=> "kai@macbook "+nixTail()+" %",
+    banner:()=>"Last login: "+new Date().toDateString()+" on ttys000\n" },
+  retro: { name:"KAI-80 (1982)", bg:"#001600", fg:"#33ff66", scan:true,
+    prompt:()=> "READY.",
+    banner:()=>"*** KAI-80 PERSONAL COMPUTER ***\n64K RAM SYSTEM  38911 BASIC BYTES FREE\n" },
+};
+
+// ==================== FILE SYSTEM (persistent) ====================
+const DEFAULT_FS = {
+  "GAMES": {
+    "CONFIRM.LNK":"[shortcut] type: open confirm",
+    "SOKS.LNK":"[shortcut] type: open soks",
+    "WIKICONNECT.LNK":"[shortcut] type: open wikiconnect",
+  },
+  "SOCKS": {
+    "LEFT_SOCK.TXT":"one (1) left sock. slightly warm.",
+    "RIGHT_SOCK.TXT":"file not found in the dryer. last seen 2019.",
+    "DRAWER.LOG":"socks in: 341\nsocks out: 340\nunexplained: 1",
+  },
+  "SECRETS": {
+    "DO_NOT_OPEN.TXT":"you opened it. of course you did.\n\nthe magic word is: disco",
+    "PASSWORDS.TXT":"nice try.",
+  },
+  "README.TXT":"TERMINAL \u2014 a kai.fun experiment.\ntype 'help' for commands. 'shells' to change era.\nmake things: mkdir, edit, newcmd. run things: python file.py",
+  "TODO.TXT":"1. fold socks\n2. click the button\n3. write a .py file and run it",
+  "HELLO.PY":"# a real python file. run it with:  python hello.py\nfor i in range(3):\n    print('hello from python', i)\nprint('2 + 2 =', 2 + 2)",
+};
+const FS_KEY = "terminal_fs_v1";
+let FS;
+try{ FS = JSON.parse(localStorage.getItem(FS_KEY)) || null; }catch(e){ FS = null; }
+if(!FS || typeof FS !== "object") FS = JSON.parse(JSON.stringify(DEFAULT_FS));
+function saveFS(){ try{ localStorage.setItem(FS_KEY, JSON.stringify(FS)); }catch(e){} }
+
+// ==================== CUSTOM COMMANDS (persistent) ====================
+const CC_KEY = "terminal_cmds_v1";
+let CUSTOM = {};
+try{ CUSTOM = JSON.parse(localStorage.getItem(CC_KEY)) || {}; }catch(e){ CUSTOM = {}; }
+function saveCustom(){ try{ localStorage.setItem(CC_KEY, JSON.stringify(CUSTOM)); }catch(e){} }
+
+let shell = "cmd";
+try{ shell = localStorage.getItem("terminal_shell") || "cmd"; }catch(e){}
+if(!SHELLS[shell]) shell = "cmd";
+let cwd = [];
+let history = [];
+let histIdx = -1;
+let colorOverride = null;
+
+function dosPath(){ return "C:\\Users\\kai" + (cwd.length? "\\"+cwd.join("\\") : ""); }
+function nixPath(){ return "~" + (cwd.length? "/"+cwd.join("/").toLowerCase() : ""); }
+function nixTail(){ return cwd.length ? cwd[cwd.length-1].toLowerCase() : "~"; }
+function curDir(){
+  let d = FS;
+  for(const seg of cwd){ if(!d[seg] || typeof d[seg]!=="object"){ cwd=[]; return FS; } d = d[seg]; }
+  return d;
+}
+function findKey(dir, name, wantDir){
+  const up = (name||"").toUpperCase();
+  return Object.keys(dir).find(k => k.toUpperCase()===up &&
+    (wantDir===undefined || (typeof dir[k]==="object")===wantDir)) || null;
+}
+
+// ==================== SCREEN ====================
+const screen = document.getElementById("screen");
+const hiddenIn = document.getElementById("hiddenIn");
+let inLine=null, promptEl=null, typedEl=null;
+
+function applyTheme(){
+  const t = SHELLS[shell];
+  document.body.style.background = colorOverride?.bg || t.bg;
+  screen.style.color = colorOverride?.fg || t.fg;
+  screen.classList.toggle("scanlines", !!t.scan);
+}
+function print(text){
+  const div = document.createElement("div");
+  div.className = "line";
+  div.textContent = text;
+  screen.insertBefore(div, inLine);
+  screen.scrollTop = screen.scrollHeight;
+}
+function newPrompt(){
+  if(inLine) inLine.remove();
+  inLine = document.createElement("div");
+  inLine.id = "inLine";
+  promptEl = document.createElement("span");
+  promptEl.id = "prompt";
+  promptEl.textContent = SHELLS[shell].prompt() + (shell==="retro" ? "\n" : " ");
+  typedEl = document.createElement("span");
+  typedEl.id = "typed";
+  const cur = document.createElement("span");
+  cur.id = "cursor";
+  inLine.append(promptEl, typedEl, cur);
+  screen.appendChild(inLine);
+  screen.scrollTop = screen.scrollHeight;
+}
+function echoCommand(raw){
+  const div = document.createElement("div");
+  div.className = "line";
+  div.textContent = SHELLS[shell].prompt() + " " + raw;
+  screen.insertBefore(div, inLine);
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ==================== MINI WINDOWS ====================
+let zTop = 100, winCount = 0;
+function makeWin(title, w, h){
+  const el = document.createElement("div");
+  el.className = "twin";
+  const off = (winCount++ % 6) * 26;
+  el.style.width = w+"px"; el.style.height = h+"px";
+  el.style.left = Math.max(8, (innerWidth-w)/2 + off - 60)+"px";
+  el.style.top = Math.max(8, (innerHeight-h)/2 + off - 60)+"px";
+  el.style.zIndex = ++zTop;
+  const bar = document.createElement("div");
+  bar.className = "tbar";
+  const tname = document.createElement("span");
+  tname.className = "tname"; tname.textContent = title;
+  const xbtn = document.createElement("button");
+  xbtn.className = "xbtn"; xbtn.textContent = "\u00D7";
+  xbtn.onclick = ()=>el.remove();
+  bar.append(tname);
+  el.append(bar);
+  document.body.append(el);
+  el.addEventListener("pointerdown", ()=>{ el.style.zIndex = ++zTop; });
+  // drag
+  let drag=null;
+  bar.addEventListener("pointerdown",(e)=>{
+    if(e.target.tagName==="BUTTON"||e.target.tagName==="INPUT") return;
+    drag={x:e.clientX-el.offsetLeft, y:e.clientY-el.offsetTop};
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener("pointermove",(e)=>{
+    if(!drag) return;
+    el.style.left=(e.clientX-drag.x)+"px";
+    el.style.top=Math.max(0,(e.clientY-drag.y))+"px";
+  });
+  bar.addEventListener("pointerup",()=>drag=null);
+  return {el, bar, tname, xbtn};
+}
+
+// ==================== EDITOR ====================
+// mode: "file" (saves into FS at dir) or "cmd" (saves a custom command)
+function openEditor(name, content, mode, dirRef){
+  const W = Math.min(680, innerWidth-30), H = Math.min(460, innerHeight-60);
+  const win = makeWin(mode==="cmd" ? "command editor" : "edit", W, H);
+  const fname = document.createElement("input");
+  fname.className = "fname";
+  fname.value = name || (mode==="cmd" ? "mycommand" : "NEWFILE.TXT");
+  fname.spellcheck = false;
+  const saveB = document.createElement("button"); saveB.textContent = "SAVE";
+  const saveCloseB = document.createElement("button"); saveCloseB.textContent = "SAVE+CLOSE";
+  const dlB = document.createElement("button"); dlB.textContent = "DOWNLOAD";
+  win.bar.append(fname, saveB, saveCloseB, dlB, win.xbtn);
+  const ta = document.createElement("textarea");
+  ta.value = content || "";
+  ta.spellcheck = false;
+  win.el.append(ta);
+  ta.focus();
+  // tab inserts spaces
+  ta.addEventListener("keydown",(e)=>{
+    if(e.key==="Tab"){
+      e.preventDefault();
+      const s = ta.selectionStart;
+      ta.value = ta.value.slice(0,s)+"    "+ta.value.slice(ta.selectionEnd);
+      ta.selectionStart = ta.selectionEnd = s+4;
+    }
+  });
+  function doSave(){
+    const n = fname.value.trim();
+    if(!n){ win.tname.textContent = "needs a name"; return false; }
+    if(mode==="cmd"){
+      const cn = n.toLowerCase().replace(/\s+/g,"");
+      CUSTOM[cn] = ta.value;
+      saveCustom();
+      win.tname.textContent = "saved command: "+cn;
+      print("[saved custom command '"+cn+"' \u2014 run it by typing: "+cn+"]");
+    }else{
+      const dir = dirRef || curDir();
+      // if renamed, remove old key with same content slot
+      const existing = findKey(dir, name, false);
+      if(existing && existing.toUpperCase() !== n.toUpperCase()) delete dir[existing];
+      dir[n.toUpperCase()] = ta.value;
+      saveFS();
+      win.tname.textContent = "saved "+n.toUpperCase();
+      if(n.toUpperCase().endsWith(".PY"))
+        print("[saved "+n.toUpperCase()+" \u2014 run it with: python "+n.toLowerCase()+"]");
+    }
+    return true;
+  }
+  saveB.onclick = doSave;
+  saveCloseB.onclick = ()=>{ if(doSave()) win.el.remove(); };
+  dlB.onclick = ()=>{
+    const blob = new Blob([ta.value], {type:"text/plain"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fname.value.trim() || "file.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+}
+
+// ==================== PYTHON (Pyodide) ====================
+// several sources, tried in order — so one blocked CDN can't kill python
+const PY_SOURCES = [
+  {js:"https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js",
+   index:"https://cdn.jsdelivr.net/pyodide/v0.26.4/full/", label:"jsdelivr (pyodide cdn)"},
+  {js:"https://cdn.jsdelivr.net/npm/pyodide@0.26.4/pyodide.js",
+   index:"https://cdn.jsdelivr.net/npm/pyodide@0.26.4/", label:"jsdelivr (npm)"},
+  {js:"https://unpkg.com/pyodide@0.26.4/pyodide.js",
+   index:"https://unpkg.com/pyodide@0.26.4/", label:"unpkg"},
+];
+let pyodidePromise = null;
+let pyState = "not loaded yet";
+
+function loadScript(src, timeoutMs){
+  return new Promise((resolve, reject)=>{
+    const el = document.createElement("script");
+    const killer = setTimeout(()=>{ el.remove(); reject(new Error("timed out")); }, timeoutMs);
+    el.src = src;
+    el.onload = ()=>{ clearTimeout(killer); resolve(); };
+    el.onerror = ()=>{ clearTimeout(killer); el.remove(); reject(new Error("blocked or unreachable")); };
+    document.head.append(el);
+  });
+}
+
+function loadPy(statusCb){
+  if(pyodidePromise) return pyodidePromise;
+  pyodidePromise = (async ()=>{
+    for(let i=0; i<PY_SOURCES.length; i++){
+      const src = PY_SOURCES[i];
+      statusCb("downloading python runtime \u2014 source "+(i+1)+"/"+PY_SOURCES.length
+        +" ("+src.label+")\u2026 first time is ~10 MB, be patient");
+      try{
+        await loadScript(src.js, 30000);
+        if(typeof loadPyodide !== "function") throw new Error("loader script was empty");
+        statusCb("starting python\u2026");
+        const py = await loadPyodide({indexURL: src.index});
+        // self-test: prove code actually executes
+        const test = py.runPython("1 + 1");
+        if(test !== 2) throw new Error("self-test failed");
+        pyState = "loaded from "+src.label+" \u00b7 "+py.runPython("import sys; sys.version.split()[0]");
+        statusCb("python ready ("+pyState+")");
+        return py;
+      }catch(e){
+        statusCb("source "+(i+1)+" failed: "+(e.message||e));
+        await sleep(400);
+      }
+    }
+    pyodidePromise = null;
+    pyState = "failed \u2014 all sources blocked or offline";
+    throw new Error("couldn't load python from any source. your network may block CDNs \u2014 run 'pycheck' for details.");
+  })();
+  return pyodidePromise;
+}
+function pyWindow(title){
+  const W = Math.min(620, innerWidth-30), H = Math.min(420, innerHeight-60);
+  const win = makeWin(title, W, H);
+  win.bar.append(win.xbtn);
+  const out = document.createElement("div");
+  out.className = "pyout";
+  const inRow = document.createElement("div");
+  inRow.className = "pyin";
+  const mark = document.createElement("span"); mark.textContent = ">>>";
+  const inp = document.createElement("input");
+  inp.spellcheck = false;
+  inRow.append(mark, inp);
+  win.el.append(out, inRow);
+  function say(t, cls){
+    const d = document.createElement("div");
+    if(cls) d.className = cls;
+    d.textContent = t;
+    out.append(d);
+    out.scrollTop = out.scrollHeight;
+  }
+  return {win, out, inp, say};
+}
+async function runPython(code, title, argv){
+  const w = pyWindow(title + (argv && argv.length ? " " + argv.join(" ") : ""));
+  let py;
+  try{
+    py = await loadPy((m)=>w.say(m,"pyok"));
+  }catch(e){
+    w.say("python failed to load: "+(e.message||e), "pyerr");
+    w.say("try: pycheck   (tests each download source)", "pyok");
+    return;
+  }
+  py.setStdout({batched:(t)=>w.say(t)});
+  py.setStderr({batched:(t)=>w.say(t,"pyerr")});
+  py.setStdin({stdin:()=>window.prompt("python input():") ?? ""});
+  if(code !== null){
+    // give the script real command-line arguments: sys.argv
+    try{
+      py.globals.set("__kai_argv", [title].concat(argv || []));
+      py.runPython("import sys; sys.argv = list(__kai_argv)");
+    }catch(e){ /* argv is a nicety; keep going */ }
+    w.say("--- running ---","pyok");
+    try{ await py.runPythonAsync(code); w.say("--- done ---","pyok"); }
+    catch(e){ w.say(String(e.message||e), "pyerr"); }
+  }else{
+    w.say("python (pyodide) \u2014 interactive. type code below.","pyok");
+  }
+  // live REPL input (works after a script too)
+  w.inp.addEventListener("keydown", async (e)=>{
+    if(e.key !== "Enter") return;
+    const line = w.inp.value;
+    w.inp.value = "";
+    w.say(">>> "+line);
+    try{
+      const r = await py.runPythonAsync(line);
+      if(r !== undefined && r !== null) w.say(String(r));
+    }catch(err){ w.say(String(err.message||err), "pyerr"); }
+  });
+  w.inp.focus();
+}
+
+// ==================== COMMANDS ====================
+const CMDS = {
+  help(){
+    print(
+"  \u2500\u2500 basics \u2500\u2500\n"+
+"  help \u00b7 shells \u00b7 use <shell> \u00b7 cls/clear \u00b7 echo \u00b7 ver \u00b7 whoami \u00b7 date \u00b7 time \u00b7 history \u00b7 exit\n"+
+"  \u2500\u2500 files (yours to keep \u2014 saved in this browser) \u2500\u2500\n"+
+"  dir/ls \u00b7 cd <dir> \u00b7 type/cat <f> \u00b7 tree\n"+
+"  mkdir <dir> \u00b7 touch <f> \u00b7 edit <f> \u00b7 ren <old> <new> \u00b7 del/rm <f> (rm -r <dir>)\n"+
+"  download <f> \u00b7 resetfs\n"+
+"  \u2500\u2500 code \u2500\u2500\n"+
+"  newcmd <name>   write your own command in javascript\n"+
+"  cmds \u00b7 delcmd <name> \u00b7 cmdedit <name>\n"+
+"  python          open a python window (real python!)\n"+
+"  python <f.py>   run a .py file from your files\n"+
+"  pycheck         test whether python can download on this network\n"+
+"  \u2500\u2500 toys \u2500\u2500\n"+
+"  ping \u00b7 ipconfig \u00b7 color 0A \u00b7 neofetch \u00b7 matrix \u00b7 cowsay \u00b7 sudo \u00b7 format \u00b7 open <game>");
+  },
+  shells(){
+    print("available shells (use <name>):\n");
+    for(const id in SHELLS) print("  "+(id===shell?"> ":"  ")+id.padEnd(12)+SHELLS[id].name);
+  },
+  use(args){
+    const id = (args[0]||"").toLowerCase();
+    if(!SHELLS[id]){ print("unknown shell: "+(args[0]||"")+"  (try 'shells')"); return; }
+    shell = id; colorOverride = null;
+    try{ localStorage.setItem("terminal_shell", shell); }catch(e){}
+    applyTheme();
+    print("");
+    SHELLS[shell].banner().split("\n").forEach(l=>print(l));
+  },
+  dir(){
+    const d = curDir();
+    const unix = (shell==="bash"||shell==="zsh");
+    if(unix){
+      const items = Object.keys(d).map(k=>typeof d[k]==="object"?k.toLowerCase()+"/":k.toLowerCase());
+      print(items.join("  ") || "(empty)");
+    }else{
+      print(" Directory of "+dosPath()+"\n");
+      let files=0, dirs=0;
+      for(const k in d){
+        if(typeof d[k]==="object"){ print("    <DIR>          "+k); dirs++; }
+        else{ print("           "+String(d[k].length).padStart(6)+" "+k); files++; }
+      }
+      if(!files && !dirs) print("    (empty)");
+      print("\n     "+files+" File(s)     "+dirs+" Dir(s)   38,911 bytes free");
+    }
+  },
+  ls(a){ CMDS.dir(a); },
+  cd(args){
+    const arg = args.join(" ");
+    if(!arg){ print(dosPath()); return; }
+    if(arg===".."){ cwd.pop(); return; }
+    const d = curDir();
+    const key = findKey(d, arg.replace(/\//g,"\\").replace(/\\$/,""), true);
+    if(key) cwd.push(key);
+    else print("The system cannot find the path specified: "+arg);
+  },
+  type(args){
+    const f = findKey(curDir(), args.join(" "), false);
+    if(!f){ print("file not found: "+(args.join(" ")||"?")); return; }
+    print(curDir()[f]);
+  },
+  cat(a){ CMDS.type(a); },
+  tree(){
+    print(dosPath());
+    const walk=(d,pre)=>{
+      const keys=Object.keys(d);
+      keys.forEach((k,i)=>{
+        const last=i===keys.length-1;
+        print(pre+(last?"\u2514\u2500\u2500 ":"\u251C\u2500\u2500 ")+k);
+        if(typeof d[k]==="object") walk(d[k], pre+(last?"    ":"\u2502   "));
+      });
+    };
+    walk(curDir(),"");
+  },
+  mkdir(args){
+    const n = args.join(" ").trim();
+    if(!n){ print("usage: mkdir <name>"); return; }
+    const d = curDir();
+    if(findKey(d,n)){ print("already exists: "+n); return; }
+    d[n.toUpperCase()] = {};
+    saveFS();
+    print("created "+n.toUpperCase()+"\\");
+  },
+  touch(args){
+    const n = args.join(" ").trim();
+    if(!n){ print("usage: touch <name>"); return; }
+    const d = curDir();
+    if(findKey(d,n)){ print("already exists: "+n); return; }
+    d[n.toUpperCase()] = "";
+    saveFS();
+    print("created "+n.toUpperCase());
+  },
+  edit(args){
+    const n = args.join(" ").trim();
+    if(!n){ print("usage: edit <filename>   (created if it doesn't exist)"); return; }
+    const d = curDir();
+    const key = findKey(d, n, false);
+    openEditor(key || n.toUpperCase(), key ? d[key] : "", "file", d);
+  },
+  ren(args){
+    if(args.length<2){ print("usage: ren <old> <new>"); return; }
+    const d = curDir();
+    const key = findKey(d, args[0]);
+    if(!key){ print("not found: "+args[0]); return; }
+    d[args[1].toUpperCase()] = d[key];
+    delete d[key];
+    saveFS();
+    print("renamed to "+args[1].toUpperCase());
+  },
+  del(args){ CMDS.rm(args); },
+  rm(args){
+    let recursive = false;
+    args = args.filter(a=>{
+      if(a==="-r"||a==="-rf"||a==="/s"){ recursive=true; return false; }
+      return true;
+    });
+    const n = args.join(" ").trim();
+    if(!n){ print("usage: del <file>   \u00b7   rm -r <folder>"); return; }
+    if(n==="*.*"||n==="*"){ print("everything? use 'resetfs' if you truly mean it."); return; }
+    const d = curDir();
+    const key = findKey(d, n);
+    if(!key){ print("not found: "+n); return; }
+    if(typeof d[key]==="object"){
+      if(!recursive && Object.keys(d[key]).length){ print("folder not empty. use: rm -r "+n); return; }
+    }
+    delete d[key];
+    saveFS();
+    print("deleted "+key);
+  },
+  download(args){
+    const d = curDir();
+    const key = findKey(d, args.join(" "), false);
+    if(!key){ print("file not found."); return; }
+    const blob = new Blob([d[key]], {type:"text/plain"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = key.toLowerCase();
+    a.click();
+    URL.revokeObjectURL(a.href);
+    print("downloading "+key.toLowerCase()+"\u2026");
+  },
+  resetfs(){
+    FS = JSON.parse(JSON.stringify(DEFAULT_FS));
+    cwd = [];
+    saveFS();
+    print("file system restored to factory socks.");
+  },
+  newcmd(args){
+    const n = (args[0]||"").toLowerCase().replace(/\s+/g,"");
+    if(!n){ print("usage: newcmd <name>   \u2014 opens the command editor"); return; }
+    if(CMDS[n]){ print("'"+n+"' is a built-in. pick another name."); return; }
+    const template =
+"// custom command: "+n+"\n"+
+"// you can use:\n"+
+"//   print(text)        write to the terminal\n"+
+"//   args               array of words after the command\n"+
+"//   raw                the full typed line\n"+
+"//   await sleep(ms)    wait\n"+
+"//   read(file)         read a file in the current folder (or null)\n"+
+"//   write(file, text)  create/overwrite a file in the current folder\n\n"+
+"print('hello from "+n+"! you said: ' + args.join(' '));\n";
+    openEditor(n, CUSTOM[n] || template, "cmd");
+  },
+  cmdedit(args){
+    const n = (args[0]||"").toLowerCase();
+    if(!CUSTOM[n]){ print("no custom command called '"+n+"'. see: cmds"); return; }
+    openEditor(n, CUSTOM[n], "cmd");
+  },
+  cmds(){
+    const keys = Object.keys(CUSTOM);
+    if(!keys.length){ print("no custom commands yet. make one:  newcmd <name>"); return; }
+    keys.forEach(k=>print("  "+k));
+  },
+  delcmd(args){
+    const n = (args[0]||"").toLowerCase();
+    if(!CUSTOM[n]){ print("no custom command called '"+n+"'."); return; }
+    delete CUSTOM[n];
+    saveCustom();
+    print("deleted command '"+n+"'.");
+  },
+  python(args){
+    const n = (args[0]||"").trim();
+    if(!n){ runPython(null, "python", []); return; }
+    const d = curDir();
+    const key = findKey(d, n, false);
+    if(!key){ print("file not found: "+n+"  (make one:  edit "+(n||"script.py")+")"); return; }
+    if(!key.toUpperCase().endsWith(".PY")){ print("that's not a .py file."); return; }
+    // everything after the filename becomes sys.argv for the script
+    runPython(d[key], key.toLowerCase(), args.slice(1));
+  },
+  py(a){ CMDS.python(a); },
+  run(a){ CMDS.python(a); },
+  echo(args, raw){ print(raw.replace(/^echo\s?/i,"") || ""); },
+  cls(){ screen.querySelectorAll(".line").forEach(l=>l.remove()); },
+  clear(){ CMDS.cls(); },
+  ver(){ print(SHELLS[shell].banner().split("\n")[0]); },
+  whoami(){ print((shell==="bash"||shell==="zsh") ? "kai" : "kai-pc\\kai"); },
+  date(){ print(new Date().toDateString()); },
+  time(){ print(new Date().toLocaleTimeString()); },
+  async ping(args){
+    const host = args[0] || "kai.fun";
+    print("Pinging "+host+" with 32 bytes of pure optimism:");
+    for(let i=0;i<4;i++){
+      await sleep(650);
+      print("Reply from "+host+": bytes=32 time="+Math.floor(8+Math.random()*40)+"ms TTL=64");
+    }
+    print("\nPing statistics: everything is probably fine.");
+  },
+  ipconfig(){
+    print("Ethernet adapter Sock Area Connection:\n\n"+
+"   IPv4 Address. . . . . . : 192.168.1.67\n"+
+"   Subnet Mask . . . . . . : 255.255.255.0\n"+
+"   Default Gateway . . . . : the hallway\n"+
+"   DNS Suffix  . . . . . . : kai.fun");
+  },
+  ifconfig(){ CMDS.ipconfig(); },
+  color(args){
+    const MAP = {0:"#000000",1:"#000080",2:"#008000",3:"#008080",4:"#800000",5:"#800080",
+      6:"#808000",7:"#c0c0c0",8:"#808080",9:"#0000ff",A:"#00ff00",B:"#00ffff",
+      C:"#ff0000",D:"#ff00ff",E:"#ffff00",F:"#ffffff"};
+    const a = (args[0]||"").toUpperCase();
+    if(a === "RESET" || !a){ colorOverride = null; applyTheme(); print("colors reset."); return; }
+    if(a.length===2 && MAP[a[0]] && MAP[a[1]]){
+      colorOverride = { bg: MAP[a[0]], fg: MAP[a[1]] };
+      applyTheme();
+    }else print("usage: color <bg><fg>  e.g. color 0A   \u00b7   color reset");
+  },
+  neofetch(){
+    const t = SHELLS[shell];
+    print(
+" \u2588\u2588\u2557  \u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\n"+
+" \u2588\u2588\u2551 \u2588\u2588\u2554\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551      OS: "+t.name+"\n"+
+" \u2588\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551      Host: kai.fun\n"+
+" \u2588\u2588\u2554\u2550\u2588\u2588\u2557 \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2551      Uptime: since you opened this tab\n"+
+" \u2588\u2588\u2551  \u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551      Files: yours now (localStorage)\n"+
+" \u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D      Shell: "+shell);
+  },
+  systeminfo(){ CMDS.neofetch(); },
+  async matrix(){
+    const chars = "01\u30A2\u30AB\u30B5\u30BF\u30CA\u30CF\u30DE\u30E4\u30E9\u30EF$#%&";
+    const old = screen.style.color;
+    screen.style.color = "#33ff66";
+    for(let i=0;i<26;i++){
+      let l="";
+      for(let j=0;j<Math.floor(screen.clientWidth/11);j++)
+        l += Math.random()<0.7 ? " " : chars[Math.floor(Math.random()*chars.length)];
+      print(l);
+      await sleep(70);
+    }
+    screen.style.color = old;
+    print("\nwake up, kai.");
+  },
+  cowsay(args, raw){
+    const msg = raw.replace(/^cowsay\s?/i,"").trim() || "moo";
+    const top = " " + "_".repeat(msg.length+2);
+    const bot = " " + "-".repeat(msg.length+2);
+    print(top+"\n< "+msg+" >\n"+bot+"\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||");
+  },
+  sudo(args){
+    if(!args.length){ print("usage: sudo <something you shouldn't>"); return; }
+    print("kai is not in the sudoers file. this incident will be reported to no one.");
+  },
+  async format(){
+    print("WARNING: ALL DATA ON DRIVE C: WILL BE LOST!\nFormatting");
+    for(let i=0;i<=100;i+=20){ await sleep(400); print("  "+i+"% ..."); }
+    await sleep(500);
+    print("\njust kidding. (if you truly want a wipe: resetfs)");
+  },
+  disco: async function(){
+    const cols = ["#ff0055","#00ffcc","#ffee00","#7744ff","#00ff44"];
+    for(let i=0;i<10;i++){
+      document.body.style.background = cols[i%cols.length];
+      await sleep(120);
+    }
+    applyTheme();
+    print("\uD83E\uDE29 disco complete.");
+  },
+  history(){ history.slice(-20).forEach((h,i)=>print("  "+(i+1)+"  "+h)); },
+  open(args){
+    const map = {confirm:"confirm.html", soks:"soks.html", wikiconnect:"wikiconnect.html",
+      updates:"updates.html", cafe:"stickman-cafe.html", home:"index.html"};
+    const t = map[(args[0]||"").toLowerCase()];
+    if(!t){ print("open what? confirm / soks / wikiconnect / updates / cafe"); return; }
+    print("opening "+args[0]+"\u2026");
+    setTimeout(()=>location.href = t, 500);
+  },
+  exit(){
+    print("logout\n\u2026see you.");
+    setTimeout(()=>location.href = "index.html", 700);
+  },
+  async pycheck(){
+    print("python runtime status: "+pyState);
+    print("testing download sources\u2026");
+    for(const src of PY_SOURCES){
+      try{
+        const ctl = new AbortController();
+        const t = setTimeout(()=>ctl.abort(), 8000);
+        const res = await fetch(src.js, {method:"HEAD", signal:ctl.signal});
+        clearTimeout(t);
+        print("  "+(res.ok?"OK      ":"HTTP "+res.status+"  ")+src.label);
+      }catch(e){
+        print("  BLOCKED  "+src.label+" ("+(e.name==="AbortError"?"timeout":"unreachable")+")");
+      }
+    }
+    print("if all are BLOCKED, this network doesn't allow the python download.");
+  },
+  pystatus(){ print("python: "+pyState); },
+  socks(){ print("  __\n /  \\_____\n \\        \\\n  \\_____   \\\n        \\__/\n\none sock. the other is in SOCKS\\ somewhere."); },
+};
+CMDS["get-childitem"] = CMDS.dir;  CMDS.gci = CMDS.dir;
+CMDS["get-content"] = CMDS.type;
+CMDS["get-help"] = CMDS.help;      CMDS.man = CMDS.help;
+CMDS["get-date"] = CMDS.date;
+CMDS.pwd = function(){ print((shell==="bash"||shell==="zsh") ? nixPath() : dosPath()); };
+CMDS.uname = function(){ print("KaiOS kai-pc 6.22 #1 SMP PREEMPT sock/one"); };
+CMDS.home = CMDS.exit;
+CMDS.nano = CMDS.edit; CMDS.vim = CMDS.edit; CMDS.notepad = CMDS.edit;
+
+// run user-defined commands with a small safe-ish toolkit
+async function runCustom(name, args, raw){
+  const body = CUSTOM[name];
+  const read = (f)=>{ const k = findKey(curDir(), f, false); return k ? curDir()[k] : null; };
+  const write = (f, text)=>{ curDir()[String(f).toUpperCase()] = String(text); saveFS(); };
+  try{
+    const fn = new Function("print","args","raw","sleep","read","write",
+      "return (async()=>{\n"+body+"\n})()");
+    await fn(print, args, raw, sleep, read, write);
+  }catch(e){
+    print("error in custom command '"+name+"': "+(e.message||e));
+    print("fix it with:  cmdedit "+name);
+  }
+}
+
+// ==================== INPUT LOOP ====================
+let busy = false;
+async function run(raw){
+  raw = raw.trim();
+  echoCommand(raw);
+  if(!raw){ newPrompt(); return; }
+  history.push(raw); histIdx = history.length;
+  const parts = raw.split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  busy = true;
+  if(CMDS[cmd]){
+    try{ await CMDS[cmd](parts.slice(1), raw); }catch(e){ print("error: "+e.message); }
+  }else if(CUSTOM[cmd]){
+    await runCustom(cmd, parts.slice(1), raw);
+  }else{
+    print((shell==="bash"||shell==="zsh")
+      ? cmd+": command not found"
+      : "'"+cmd+"' is not recognized as an internal or external command,\noperable program or batch file.");
+  }
+  busy = false;
+  newPrompt();
+}
+
+hiddenIn.addEventListener("keydown", (e)=>{
+  if(busy){ e.preventDefault(); return; }
+  if(e.key === "Enter"){
+    const v = hiddenIn.value;
+    hiddenIn.value = "";
+    typedEl.textContent = "";
+    run(v);
+  }else if(e.key === "ArrowUp"){
+    e.preventDefault();
+    if(histIdx > 0){ histIdx--; hiddenIn.value = history[histIdx] || ""; typedEl.textContent = hiddenIn.value; }
+  }else if(e.key === "ArrowDown"){
+    e.preventDefault();
+    if(histIdx < history.length){ histIdx++; hiddenIn.value = history[histIdx] || ""; typedEl.textContent = hiddenIn.value; }
+  }else if(e.key === "Tab"){
+    e.preventDefault();
+    const v = hiddenIn.value;
+    const parts = v.split(/\s+/);
+    const last = parts[parts.length-1].toUpperCase();
+    if(!last) return;
+    let pool;
+    if(parts.length === 1) pool = Object.keys(CMDS).concat(Object.keys(CUSTOM));
+    else pool = Object.keys(curDir());
+    const hit = pool.find(k => k.toUpperCase().startsWith(last));
+    if(hit){
+      parts[parts.length-1] = parts.length===1 ? hit.toLowerCase() : hit;
+      hiddenIn.value = parts.join(" ");
+      typedEl.textContent = hiddenIn.value;
+    }
+  }
+});
+hiddenIn.addEventListener("input", ()=>{ typedEl.textContent = hiddenIn.value; });
+// clicking the terminal focuses it — but never steal focus from editor/python windows
+document.addEventListener("click", (e)=>{
+  if(e.target.closest(".twin")) return;
+  hiddenIn.focus();
+});
+
+// ==================== BOOT ====================
+applyTheme();
+newPrompt();
+SHELLS[shell].banner().split("\n").forEach(l=>print(l));
+print("type 'help' \u00b7 'shells' for eras \u00b7 make things: edit, mkdir, newcmd, python");
+print("");
+newPrompt();
+hiddenIn.focus();
+</script>
+</body>
+</html>
