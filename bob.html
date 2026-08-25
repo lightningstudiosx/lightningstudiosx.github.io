@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>everlasting bob · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:#fdfcf8;color:#141414;
+    font-family:"Courier New",Courier,monospace;
+    min-height:100vh;padding:18px 12px 40px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  a.back{color:#8a8a8a;text-decoration:none;font-size:13px;}
+  a.back:hover{color:#141414;}
+  .cols{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;}
+  #main{flex:1 1 480px;min-width:320px;}
+  #sidebar{flex:0 1 360px;min-width:300px;}
+  pre{
+    font-family:inherit;font-size:13px;line-height:1.25;
+    white-space:pre;overflow-x:auto;
+  }
+  #scene{font-size:14px;min-height:270px;}
+  #bars{margin-top:6px;}
+  #acts{margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:2px;}
+  #acts button{
+    font-family:inherit;font-size:14px;font-weight:700;
+    background:none;border:none;color:#141414;cursor:pointer;padding:6px 4px;
+  }
+  #acts button:hover:not(:disabled){background:#141414;color:#fdfcf8;}
+  #acts button:disabled{color:#b5b5b5;cursor:default;}
+  #msg{font-size:12px;color:#8a8a8a;min-height:16px;margin-top:2px;}
+  #sidebar pre{font-size:11.5px;color:#141414;}
+  .dim{color:#8a8a8a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&lt;-- kai.fun</a>
+  <div class="cols">
+
+    <div id="main">
+      <pre id="scene"></pre>
+      <pre id="bars"></pre>
+      <div id="acts">
+        <button data-a="feed">[ FEED ]</button>
+        <button data-a="play">[ PLAY ]</button>
+        <button data-a="wash">[ WASH ]</button>
+        <button data-a="sleep">[ SLEEP ]</button>
+        <button data-a="talk">[ TALK ]</button>
+      </div>
+      <div id="msg"></div>
+    </div>
+
+    <div id="sidebar"><pre id="side"></pre></div>
+
+  </div>
+</div>
+
+<script>
+// ================== SAVE ==================
+const SAVE="bob_save_v1";
+const now = ()=>Date.now();
+function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function yesterday(){ const d=new Date(Date.now()-86400000); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+let S = {
+  born: now(), last: now(),
+  hunger: 80, energy: 80, fun: 80, clean: 80,
+  streak: 0, lastDay: "", logins: 0,
+  stuff: [], stage: -1, poop: 0,
+};
+try{ const d=JSON.parse(localStorage.getItem(SAVE)); if(d) S=Object.assign(S,d); }catch(e){}
+function save(){ S.last=now(); try{ localStorage.setItem(SAVE, JSON.stringify(S)); }catch(e){} }
+setInterval(save, 6000);
+let bubble="", bubbleT=0;
+function say(t){ bubble=t; bubbleT=now(); }
+
+// ================== TIME & DECAY ==================
+function clamp(v){ return Math.max(0, Math.min(100, v)); }
+function applyDecay(hours){
+  S.hunger = clamp(S.hunger - 4*hours);
+  S.energy = clamp(S.energy - 2.5*hours);
+  S.fun    = clamp(S.fun    - 5*hours);
+  S.clean  = clamp(S.clean  - 3*hours);
+  S.poop   = Math.min(4, S.poop + hours/5);
+}
+const awayH = (now()-S.last)/3600000;
+if(awayH > 0.02) applyDecay(awayH);
+setInterval(()=>applyDecay(1/60), 60000);
+
+// ================== DAILY LOGIN ==================
+const GIFTS = [
+"a tiny hat", "a bouncy ball (o)", "one (1) stick", "a cool rock",
+"a flower  -,-'-{@", "a mystery box [?]", "a golden mustache {===}",
+"a bone", "a leaf", "half a sandwich", "a shiny button (*)", "a very good stick",
+];
+let dailyMsg = "";
+(function(){
+  const t = today();
+  if(S.lastDay !== t){
+    S.streak = (S.lastDay === yesterday()) ? S.streak+1 : 1;
+    S.lastDay = t; S.logins++;
+    const g = GIFTS[Math.floor(Math.random()*GIFTS.length)];
+    if(!S.stuff.includes(g)) S.stuff.push(g);
+    S.hunger=clamp(S.hunger+10); S.energy=clamp(S.energy+10);
+    S.fun=clamp(S.fun+15); S.clean=clamp(S.clean+5);
+    dailyMsg = "DAILY VISIT! streak "+S.streak+" -- bob found: "+g;
+    say("you came back!!");
+  }
+})();
+
+// ================== STAGES ==================
+function ageDays(){ return Math.floor((now()-S.born)/86400000); }
+const STAGES=[
+[0,"Egg"],[1,"Blob"],[3,"Bob"],[7,"Big Bob"],[14,"Elder Bob"],[30,"Eternal Bob"],
+];
+function stageIdx(){
+  const a=ageDays(); let i=0;
+  STAGES.forEach((st,j)=>{ if(a>=st[0]) i=j; });
+  return i;
+}
+// evolution notice
+(function(){
+  const cur=stageIdx();
+  if(S.stage!==-1 && cur>S.stage) say("bob evolved into "+STAGES[cur][1].toUpperCase()+"!!");
+  S.stage=cur;
+})();
+
+// ================== MOOD ==================
+function mood(){
+  if(sleeping) return "sleep";
+  const mn=Math.min(S.hunger,S.energy,S.fun,S.clean);
+  const avg=(S.hunger+S.energy+S.fun+S.clean)/4;
+  if(avg<15) return "feral";
+  if(mn<25) return "sad";
+  if(avg>70) return "happy";
+  return "ok";
+}
+function needLine(){
+  if(S.hunger<25) return "bob is HUNGRY";
+  if(S.energy<25) return "bob is EXHAUSTED";
+  if(S.fun<25) return "bob is BORED";
+  if(S.clean<25) return "bob is FILTHY";
+  return null;
+}
+
+// ================== ASCII ART ==================
+const hasHat = ()=> S.stuff.includes("a tiny hat");
+const hasStache = ()=> S.stuff.includes("a golden mustache {===}");
+function eyes(m, blink){
+  if(m==="sleep") return ["-","-"];
+  if(blink) return ["-","-"];
+  if(m==="feral") return ["x","x"];
+  if(m==="sad") return ["o","o"];
+  if(m==="happy") return ["^","^"];
+  return ["o","o"];
+}
+function mouth(m){
+  if(m==="happy") return "\\___/";
+  if(m==="sad")   return "/---\\";
+  if(m==="feral") return "~~~~~";
+  if(m==="sleep") return " ___ ";
+  return " ___ ";
+}
+function bobArt(stg, m, blink){
+  const [eL,eR]=eyes(m,blink);
+  const mo=mouth(m);
+  const hat = hasHat() ? "      _n_" : "";
+  const st = hasStache()&&stg>=3 ? " {===} " : "  "+mo+"  ";
+  if(stg===0) return [
+"       .-\"\"-.",
+"      /      \\",
+"     |  .  .  |",
+"     |   ..   |",
+"      \\      /",
+"       '----'   ",
+"      (the egg wiggles)",
+].join("\n");
+  if(stg===1) return [
+hat,
+"      .-----.",
+"     ( "+eL+"   "+eR+" )",
+"      \\ "+mo.slice(1,4)+" /",
+"       '---'",
+].join("\n");
+  if(stg===2) return [
+hat,
+"     .---------.",
+"    |  "+eL+"     "+eR+"  |",
+"    |   "+mo+"   |",
+"     '---------'",
+"       |     |",
+"      _|     |_",
+].join("\n");
+  if(stg===3) return [
+hat,
+"    .-------------.",
+"   |   "+eL+"       "+eR+"   |",
+"   |    "+mo+"      |",
+"    '-------------'",
+"   __|         |__",
+"  /  |         |  \\",
+"     |_       _|",
+].join("\n");
+  if(stg===4) return [
+hat,
+"    .-------------.",
+"   |   "+eL+"       "+eR+"   |",
+"   |   "+st+"    |",
+"   |    \\~~~~~/    |",
+"    '-------------'",
+"      |         |",
+"     _|         |_",
+].join("\n");
+  return [
+"        *  .  *",
+hat||"      *       *",
+"    .=============.",
+"   ||   "+eL+"       "+eR+"  ||",
+"   ||    "+mo+"     ||",
+"    '============='",
+"      *   | |   *",
+"        (float)",
+].join("\n");
+}
+function poopArt(){
+  let s="";
+  for(let i=0;i<Math.floor(S.poop);i++) s += "   (@)";
+  return s;
+}
+const LINES=[
+"bob.", "hello. i am bob.", "everlasting means FOREVER",
+"is it tomorrow yet?", "bob has thoughts. all of them: bob",
+"the ceiling is my sky", "i counted to 4 today", "feed bob a number",
+"you look nice today", "*existing noises*", "bob remembers when you left. bob forgives.",
+"one day bob will see the ocean", "this is the best day (so far)",
+];
+
+// ================== SLEEP ==================
+let sleeping=false, sleepEnd=0;
+function tickSleep(){
+  if(sleeping){
+    S.energy = clamp(S.energy + 0.25);
+    if(now()>sleepEnd || S.energy>=100){ sleeping=false; say("*yawn* bob is awake"); }
+  }
+}
+setInterval(tickSleep, 500);
+
+// ================== ACTIONS ==================
+const CD={feed:20,play:25,wash:30,sleep:60,talk:6};
+const cdUntil={};
+function act(a){
+  if(cdUntil[a] && now()<cdUntil[a]) return;
+  if(sleeping && a!=="sleep"){ say("shh... bob is sleeping"); return; }
+  if(a==="feed"){ S.hunger=clamp(S.hunger+30); S.clean=clamp(S.clean-4); say("nom nom nom"); }
+  if(a==="play"){ S.fun=clamp(S.fun+30); S.energy=clamp(S.energy-8); say("wheee!!"); }
+  if(a==="wash"){ S.clean=100; S.poop=0; say("*sparkling*"); }
+  if(a==="sleep"){
+    if(sleeping){ sleeping=false; say("bob got up early"); }
+    else{ sleeping=true; sleepEnd=now()+45000; say("zzz..."); }
+  }
+  if(a==="talk"){ say(LINES[Math.floor(Math.random()*LINES.length)]); }
+  cdUntil[a]=now()+CD[a]*1000;
+  render();
+}
+document.querySelectorAll("#acts button").forEach(b=>{
+  b.onclick=()=>act(b.dataset.a);
+});
+
+// ================== RENDER ==================
+function bar(v){
+  const n=Math.round(v/5);
+  return "["+"#".repeat(n)+"-".repeat(20-n)+"] "+Math.round(v)+"%";
+}
+let blink=false;
+setInterval(()=>{ blink=true; setTimeout(()=>blink=false, 220); }, 3400);
+
+function bubbleArt(t){
+  if(!t) return "";
+  const w=t.length;
+  return "    ."+"-".repeat(w+2)+".\n"+
+         "   ( "+t+" )\n"+
+         "    '"+"-".repeat(w+2)+"'\n";
+}
+function render(){
+  if(now()-bubbleT>5000) bubble="";
+  const m=mood();
+  const stg=stageIdx();
+  // evolution check live
+  if(stg>S.stage){ S.stage=stg; say("bob evolved into "+STAGES[stg][1].toUpperCase()+"!!"); }
+  let scene = "\n"+bubbleArt(bubble);
+  scene += bobArt(stg, m, blink)+"\n";
+  if(m==="sleep") scene += "        z z Z\n";
+  scene += "\n=========================================\n";
+  scene += poopArt() + (S.clean<25? "   ~ ~ (flies) ~":"") + "\n";
+  const need=needLine();
+  scene += need? "\n  !! "+need+" !!" : "";
+  document.getElementById("scene").textContent = scene;
+  document.getElementById("bars").textContent =
+    " FOOD   "+bar(S.hunger)+"\n"+
+    " ENERGY "+bar(S.energy)+"\n"+
+    " FUN    "+bar(S.fun)+"\n"+
+    " CLEAN  "+bar(S.clean);
+  // buttons
+  document.querySelectorAll("#acts button").forEach(b=>{
+    const a=b.dataset.a;
+    const wait = cdUntil[a] ? Math.ceil((cdUntil[a]-now())/1000) : 0;
+    b.disabled = wait>0;
+    const label=a.toUpperCase();
+    b.textContent = wait>0 ? "[ "+label+" "+wait+"s ]" :
+      (a==="sleep"&&sleeping? "[ WAKE ]" : "[ "+label+" ]");
+  });
+  document.getElementById("msg").textContent = dailyMsg;
+  renderSide(stg, m);
+}
+function renderSide(stg, m){
+  const a=ageDays();
+  let s="";
+  s += " ______________________________ \n";
+  s += "|                              |\n";
+  s += "|  E V E R L A S T I N G       |\n";
+  s += "|   ____    ___   ____         |\n";
+  s += "|  | __ )  / _ \\ | __ )        |\n";
+  s += "|  |  _ \\ | | | ||  _ \\        |\n";
+  s += "|  | |_) || |_| || |_) |       |\n";
+  s += "|  |____/  \\___/ |____/        |\n";
+  s += "|                              |\n";
+  s += "|______________________________|\n";
+  s += "\n";
+  s += " +--------- HOW TO BOB --------+\n";
+  s += " | bob is yours now.           |\n";
+  s += " | bob cannot die. ever.       |\n";
+  s += " | but bob CAN be sad.         |\n";
+  s += " |                             |\n";
+  s += " | > visit EVERY DAY for       |\n";
+  s += " |   streaks + gifts           |\n";
+  s += " | > FEED when FOOD is low     |\n";
+  s += " | > PLAY when FUN is low      |\n";
+  s += " | > WASH when there is (@)    |\n";
+  s += " | > SLEEP refills energy      |\n";
+  s += " | > stats drain in real time  |\n";
+  s += " |   even while you're gone    |\n";
+  s += " +-----------------------------+\n";
+  s += "\n";
+  s += " +---------- STATUS -----------+\n";
+  s += " | name   : bob                |\n";
+  s += " | stage  : "+pad(STAGES[stg][1],19)+"|\n";
+  s += " | age    : "+pad(a+" day"+(a===1?"":"s"),19)+"|\n";
+  s += " | mood   : "+pad(m,19)+"|\n";
+  s += " | streak : "+pad(S.streak+" day"+(S.streak===1?"":"s"),19)+"|\n";
+  s += " | visits : "+pad(String(S.logins),19)+"|\n";
+  s += " +-----------------------------+\n";
+  s += "\n";
+  s += " +-------- BOB'S STUFF --------+\n";
+  if(S.stuff.length===0) s += " |  (nothing yet -- come back  |\n |   tomorrow!)                |\n";
+  S.stuff.forEach(it=>{ s += " |  * "+pad(it,25)+"|\n"; });
+  s += " +-----------------------------+\n";
+  s += "\n";
+  s += "  next stage: "+(stg<STAGES.length-1 ? "day "+STAGES[stg+1][0] : "(final form)")+"\n";
+  document.getElementById("side").textContent=s;
+}
+function pad(t,n){ t=String(t); return t.length>n? t.slice(0,n) : t+" ".repeat(n-t.length); }
+
+setInterval(render, 400);
+render();
+if(dailyMsg==="") dailyMsg = "bob missed you. (next daily bonus: tomorrow)";
+</script>
+</body>
+</html>
