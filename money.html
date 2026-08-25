@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>money visualizer · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#ffffff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    overflow:hidden; height:100vh; display:flex;
+  }
+  #side{
+    width:310px; min-width:310px; height:100vh; overflow-y:auto;
+    border-right:2px solid var(--ink); padding:14px; background:#fff;
+  }
+  #side .back{display:inline-block;text-decoration:none;color:var(--muted);font-size:14px;margin-bottom:10px;}
+  #side .back:hover{color:var(--ink);}
+  #side h1{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;
+    font-weight:900;font-size:24px;transform:rotate(-1.5deg);margin-bottom:2px;
+  }
+  #side h1 .g{color:var(--moss);}
+  #side .tag{font-size:11px;color:var(--muted);margin-bottom:10px;}
+  #curr{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+  .chip{
+    border:2px solid var(--line);border-radius:16px;background:#fff;
+    font-family:inherit;font-size:11.5px;font-weight:700;padding:5px 9px;cursor:pointer;
+  }
+  .chip:hover{border-color:var(--ink);}
+  .chip.on{border-color:var(--ink);background:var(--sun);box-shadow:2px 2px 0 var(--ink);}
+  #filter, #amount{
+    width:100%;padding:10px;border:2px solid var(--ink);border-radius:10px;
+    font-family:inherit;font-size:14px;margin-bottom:8px;
+  }
+  #filter:focus,#amount:focus{outline:none;border-color:var(--moss);}
+  #amountRow{display:flex;gap:6px;margin-bottom:10px;}
+  #amountRow button{
+    border:2px solid var(--ink);border-radius:10px;background:var(--sun);
+    font-family:inherit;font-weight:700;font-size:13px;padding:0 14px;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  #list{display:flex;flex-direction:column;gap:5px;}
+  .person{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    border:2px solid var(--line);border-radius:10px;padding:8px 10px;
+    cursor:pointer;font-size:13px;background:#fff;text-align:left;
+    font-family:inherit;width:100%;
+  }
+  .person:hover{border-color:var(--ink);}
+  .person.on{border-color:var(--moss);background:#e9f7e4;box-shadow:2px 2px 0 var(--moss);}
+  .person .nw{color:var(--moss);font-weight:900;white-space:nowrap;}
+  #src{font-size:10px;color:var(--muted);margin:10px 0 30px;}
+
+  #view{flex:1;height:100vh;overflow-y:scroll;position:relative;}
+  #world{position:relative;width:100%;}
+  #stars{
+    position:absolute;left:0;right:0;top:0;pointer-events:none;
+    background-image:
+      radial-gradient(#ffffff 1px, transparent 1.6px),
+      radial-gradient(#cfd8ff 1px, transparent 1.6px);
+    background-size:140px 170px, 210px 260px;
+    background-position:20px 30px, 90px 110px;
+  }
+  #stack{
+    position:absolute;bottom:0;left:110px;width:150px;
+    border:2px solid rgba(0,0,0,.55);border-bottom:none;border-radius:3px 3px 0 0;
+    box-shadow:inset -14px 0 18px rgba(0,0,0,.20), inset 14px 0 18px rgba(255,255,255,.16);
+  }
+  #stackCap{
+    position:absolute;top:-30px;left:-2px;right:-2px;height:28px;
+    border:2px solid rgba(0,0,0,.55);border-radius:4px;
+    color:#fff;font-weight:900;text-align:center;line-height:24px;
+    text-shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+  #ground{
+    position:absolute;bottom:0;left:0;right:0;height:26px;
+    background:#8a6f4d;border-top:3px solid var(--ink);
+  }
+  .mark{position:absolute;left:0;right:0;height:0;border-top:2px dashed rgba(90,110,125,.75);}
+  .mark .lbl{
+    position:absolute;left:290px;top:-11px;background:#fff;
+    border:2px solid var(--ink);border-radius:9px;padding:2px 10px;
+    font-size:12px;white-space:nowrap;box-shadow:2px 2px 0 var(--ink);
+  }
+  .mark.man{border-top-color:var(--coral);}
+  .mark.man .lbl{border-color:var(--coral);box-shadow:2px 2px 0 var(--coral);}
+  #hud{
+    position:sticky;top:12px;margin:0 14px 0 auto;width:fit-content;max-width:70%;
+    background:#fff;border:2px solid var(--ink);border-radius:12px;
+    box-shadow:3px 3px 0 var(--ink);padding:10px 16px;z-index:5;
+  }
+  #hud .who{font-weight:900;font-size:16px;}
+  #hud .big{color:var(--moss);font-weight:900;font-size:14px;}
+  #hud .sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5;}
+  #topBtn{
+    position:fixed;bottom:14px;right:14px;z-index:6;
+    border:2px solid var(--ink);border-radius:10px;background:var(--sun);
+    font-family:inherit;font-weight:700;font-size:12px;padding:9px 13px;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  @media (max-width:720px){
+    body{flex-direction:column;}
+    #side{width:100%;min-width:0;height:44vh;border-right:none;border-bottom:2px solid var(--ink);}
+    #view{height:56vh;}
+    .mark .lbl{left:270px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="side">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <h1><span class="g">money</span> visualizer</h1>
+  <div class="tag">any fortune, stacked one unit at a time. pick your currency. scroll to climb.</div>
+  <div id="curr"></div>
+  <input id="filter" placeholder="search a name…">
+  <div id="amountRow">
+    <input id="amount" placeholder="amount: 1000 = $1,000 · 2.5b, 800m, 1k">
+    <button id="goAmt">GO</button>
+  </div>
+  <div id="list"></div>
+  <div id="src"></div>
+</div>
+
+<div id="view">
+  <div id="world">
+    <div id="stars"></div>
+    <div id="hud">
+      <div class="who"></div>
+      <div class="big"></div>
+      <div class="sub"></div>
+    </div>
+    <div id="stack"><div id="stackCap"></div></div>
+    <div id="ground"></div>
+  </div>
+</div>
+<button id="topBtn">▲ TO THE TOP</button>
+
+<script>
+// ================= CURRENCIES (unit value $, unit height meters — approximate) =================
+const CURRENCIES = [
+ {id:"one",     label:"💵 $1 bills",    unit:"$1 bill",        v:1,        h:0.00010922,
+  c:["#7ac97a","#8fd48f","#6db86d"], cap:"#4e9e57", capTxt:"$", skyLow:"#dff0fa", skyHigh:"#9fc9ea"},
+ {id:"hundred", label:"💴 $100 bills",  unit:"$100 bill",      v:100,      h:0.00010922,
+  c:["#5eb989","#74c79b","#4daa7a"], cap:"#2e8b62", capTxt:"$100", skyLow:"#e2f4ea", skyHigh:"#a5d8c0"},
+ {id:"penny",   label:"🪙 pennies",     unit:"penny",          v:0.01,     h:0.00152,
+  c:["#b87333","#c98747","#a5652b"], cap:"#8f5623", capTxt:"1¢", skyLow:"#fae7d6", skyHigh:"#e6b98d"},
+ {id:"quarter", label:"🪙 quarters",    unit:"quarter",        v:0.25,     h:0.00175,
+  c:["#c9ccd1","#dadde2","#b3b7bd"], cap:"#9ea3aa", capTxt:"25¢", skyLow:"#eef0f4", skyHigh:"#c2cbd6"},
+ {id:"goldcoin",label:"🥇 gold coins",  unit:"1oz gold coin",  v:2700,     h:0.00287,
+  c:["#e0b13c","#f0c65a","#c9992e"], cap:"#b8860b", capTxt:"1oz", skyLow:"#fdf3d7", skyHigh:"#f3d489"},
+ {id:"goldbar", label:"🧈 gold bars",   unit:"400oz gold bar", v:1100000,  h:0.04,
+  c:["#e8b923","#f6d158","#cfa019"], cap:"#a8791a", capTxt:"999.9", skyLow:"#fdf0cf", skyHigh:"#eec96a"},
+ {id:"silver",  label:"⬜ silver bars", unit:"1kg silver bar", v:1100,     h:0.017,
+  c:["#d5d9de","#e8ebef","#bfc4cb"], cap:"#a3a9b1", capTxt:"1kg", skyLow:"#f0f2f5", skyHigh:"#ccd4de"},
+ {id:"diamond", label:"💎 diamonds",    unit:"1-carat diamond",v:5000,     h:0.0041,
+  c:["#cfeffc","#e8fbff","#aadcf2"], cap:"#7cc4e8", capTxt:"1ct", skyLow:"#eaf7fd", skyHigh:"#b6e2f5"},
+ {id:"emerald", label:"🟩 emeralds",    unit:"1-carat emerald",v:1500,     h:0.004,
+  c:["#2fbf71","#4fd68c","#249a5b"], cap:"#1b7a46", capTxt:"1ct", skyLow:"#e4f9ec", skyHigh:"#9fe3bd"},
+ {id:"ruby",    label:"🟥 rubies",      unit:"1-carat ruby",   v:2000,     h:0.004,
+  c:["#d3405c","#e75f78","#b32e48"], cap:"#8f2038", capTxt:"1ct", skyLow:"#fbe6ea", skyHigh:"#f0a9b8"},
+ {id:"sapphire",label:"🟦 sapphires",   unit:"1-carat sapphire",v:1200,    h:0.004,
+  c:["#2f5dbf","#4a77d6","#24479a"], cap:"#1b357a", capTxt:"1ct", skyLow:"#e5ecfb", skyHigh:"#a9c0f0"},
+ {id:"btc",     label:"🟠 bitcoin",     unit:"BTC (coin)",     v:100000,   h:0.003,
+  c:["#f7931a","#ffab40","#d97c0e"], cap:"#b56408", capTxt:"₿", skyLow:"#fdeedd", skyHigh:"#f5c184"},
+];
+let currency = CURRENCIES[0];
+
+// ================= PEOPLE DATA =================
+const BUILTIN = [
+["Elon Musk",420],["Larry Ellison",250],["Jeff Bezos",230],["Mark Zuckerberg",220],
+["Bernard Arnault",180],["Larry Page",170],["Sergey Brin",160],["Warren Buffett",150],
+["Steve Ballmer",150],["Jensen Huang",130],["Michael Dell",120],["Amancio Ortega",120],
+["Jim Walton",110],["Rob Walton",110],["Alice Walton",110],["Bill Gates",105],
+["Michael Bloomberg",105],["Mukesh Ambani",100],["Francoise Bettencourt Meyers",90],
+["Carlos Slim",85],["Gautam Adani",80],["Julia Koch",74],["Charles Koch",65],
+["Zhang Yiming",65],["Zhong Shanshan",55],["Jeff Yass",50],["Ma Huateng",45],
+["Dieter Schwarz",45],["Tadashi Yanai",45],["Phil Knight",40],["Giovanni Ferrero",40],
+["MacKenzie Scott",35],["Savitri Jindal",35],["Len Blavatnik",32],["Masayoshi Son",30],
+["Jack Ma",25],["Rupert Murdoch",22],["Donald Trump",6],["George Lucas",5.5],
+["Steven Spielberg",5.3],["Michael Jordan",3.5],["Oprah Winfrey",3],["Jay-Z",2.5],
+["Kim Kardashian",1.7],["Taylor Swift",1.6],["Peter Jackson",1.5],["Rihanna",1.4],
+["LeBron James",1.3],["Tiger Woods",1.3],["Magic Johnson",1.2],["Bruce Springsteen",1.2],
+["MrBeast",1],["Dolly Parton",0.65],["Average US household",0.0002],
+];
+let people = BUILTIN.map(([n,b])=>({name:n, billions:b}));
+let dataSrc = "built-in snapshot \u00b7 all figures & unit prices approximate";
+const srcEl = document.getElementById("src");
+srcEl.textContent = "data: "+dataSrc;
+
+(async ()=>{
+  try{
+    const ctl = new AbortController();
+    const t = setTimeout(()=>ctl.abort(), 7000);
+    const res = await fetch("https://forbes400.onrender.com/api/forbes400?limit=400", {signal:ctl.signal});
+    clearTimeout(t);
+    if(!res.ok) throw 0;
+    const arr = await res.json();
+    const live = arr.map(p=>({
+      name: p.personName || p.person?.name || "",
+      billions: (p.finalWorth || 0)/1000,
+    })).filter(p=>p.name && p.billions>0);
+    if(live.length > 50){
+      const names = new Set(live.map(p=>p.name.toLowerCase()));
+      for(const p of people) if(!names.has(p.name.toLowerCase())) live.push(p);
+      people = live;
+      dataSrc = "live Forbes 400 \u00b7 celebs & unit prices approximate";
+      srcEl.textContent = "data: "+dataSrc;
+      renderList(document.getElementById("filter").value);
+    }
+  }catch(e){}
+})();
+
+// ================= HELPERS =================
+function fmtMoney(b){
+  if(b >= 1000) return "$"+(b/1000).toFixed(2)+" trillion";
+  if(b >= 1) return "$"+(b>=100 ? Math.round(b).toLocaleString() : b.toFixed(1))+" billion";
+  if(b >= 0.001) return "$"+Math.round(b*1000)+" million";
+  return "$"+Math.round(b*1e9).toLocaleString();
+}
+function fmtDist(m){
+  if(m >= 1000) return (m/1000 >= 100 ? Math.round(m/1000).toLocaleString() : (m/1000).toFixed(1))+" km";
+  if(m >= 1) return m.toFixed(m<10?1:0)+" m";
+  if(m >= 0.01) return (m*100).toFixed(m<0.1?1:0)+" cm";
+  return (m*1000).toFixed(m<0.001?2:1)+" mm";
+}
+function unitName(c, n){ return Math.round(n)===1 ? c.unit : c.unit+"s"; }
+function fmtCount(n){
+  if(n >= 1e12) return (n/1e12).toFixed(2)+" trillion";
+  if(n >= 1e9) return (n/1e9).toFixed(2)+" billion";
+  if(n >= 1e6) return (n/1e6).toFixed(1)+" million";
+  return Math.round(n).toLocaleString();
+}
+
+const LANDMARKS = [
+  [0.15,"an iPhone"],
+  [0.3,"a school ruler"],
+  [1.1,"a golden retriever"],
+  [1.8,"you (6 ft)","man"],
+  [2.72,"the tallest human ever recorded"],
+  [3.05,"a basketball hoop"],
+  [5.5,"a giraffe"],
+  [8,"a two-story house"],
+  [12,"a telephone pole"],
+  [25,"a blue whale standing on its tail"],
+  [52,"Niagara Falls"],
+  [93,"Statue of Liberty"],
+  [139,"Great Pyramid of Giza"],
+  [169,"Washington Monument"],
+  [227,"Golden Gate Bridge towers"],
+  [330,"Eiffel Tower"],
+  [443,"Empire State Building"],
+  [541,"One World Trade Center"],
+  [828,"Burj Khalifa (tallest building)"],
+  [900,"El Capitan's rock wall"],
+  [979,"Angel Falls"],
+  [1800,"the Grand Canyon, flipped upward"],
+  [3776,"Mount Fuji"],
+  [4810,"Mont Blanc"],
+  [5895,"Kilimanjaro"],
+  [8849,"Mount Everest"],
+  [10600,"airliner cruising altitude"],
+  [10935,"the Mariana Trench, flipped upward"],
+  [20000,"spy planes flew up here"],
+  [35000,"weather balloons pop here"],
+  [39000,"the highest skydive ever (39 km)"],
+  [100000,"the edge of space (K\u00E1rm\u00E1n line)"],
+  [150000,"auroras glow here"],
+  [408000,"the International Space Station"],
+  [540000,"the Hubble telescope"],
+  [2000000,"2,000 km up"],
+  [20200000,"GPS satellites"],
+  [35786000,"geostationary satellites"],
+  [384400000,"THE MOON"],
+];
+
+// ================= RENDER =================
+const view = document.getElementById("view");
+const world = document.getElementById("world");
+const stackEl = document.getElementById("stack");
+const capEl = document.getElementById("stackCap");
+const starsEl = document.getElementById("stars");
+const hudWho = document.querySelector("#hud .who");
+const hudBig = document.querySelector("#hud .big");
+const hudSub = document.querySelector("#hud .sub");
+
+let cur = null, pxPerM = 1, totalM = 1, unitCount = 0;
+
+function build(person){
+  if(person) cur = person;
+  if(!cur) return;
+  unitCount = cur.billions*1e9 / currency.v;
+  totalM = unitCount * currency.h;
+
+  const MAXPX = 1500000;
+  if(totalM*4 >= 900){
+    pxPerM = Math.min(4, MAXPX/totalM);          // big stacks: zoomed out, capped page
+  }else{
+    // small stacks: zoom IN so one unit is a visible ~4px band,
+    // but never stretch the stack itself past ~900px
+    pxPerM = Math.min(4/currency.h, 900/totalM);
+  }
+  const towerPx = totalM*pxPerM;
+  // keep the "you (6ft)" line reachable for tiny stacks, within reason
+  const worldPx = Math.max(towerPx + 700, Math.min(1.8*pxPerM + 600, 300000));
+  world.style.height = worldPx + "px";
+  stackEl.style.height = towerPx + "px";
+
+  // --- stack texture: bands sized to the real unit where visible ---
+  const [c1,c2,c3] = currency.c;
+  let band = currency.h * pxPerM;
+  const honest = band >= 2.5;
+  if(!honest) band = 4;   // decorative when units are subpixel
+  band = Math.min(band, 80);
+  stackEl.style.background =
+    "repeating-linear-gradient(0deg,"
+    + c1+" 0px,"+c2+" "+(band*0.35).toFixed(2)+"px,"
+    + c3+" "+(band*0.75).toFixed(2)+"px,"+c1+" "+band.toFixed(2)+"px)";
+  capEl.style.background = currency.cap;
+  capEl.textContent = currency.capTxt;
+  capEl.style.display = towerPx < 44 ? "none" : "block";
+
+  // --- background: theme sky fading to space with altitude ---
+  const yPx = (alt)=> 26 + alt*pxPerM;                 // px from bottom
+  const topPct = (alt)=> Math.max(0, Math.min(100, (1 - yPx(alt)/worldPx) * 100));
+  const skyTopAlt = 12000, spaceAlt = 85000;
+  if(yPx(skyTopAlt) >= worldPx){
+    world.style.background = "linear-gradient(180deg,"+currency.skyHigh+" 0%,"+currency.skyLow+" 100%)";
+    starsEl.style.display = "none";
+  }else{
+    const pSpace = topPct(spaceAlt);
+    const pSky = topPct(skyTopAlt);
+    world.style.background = "linear-gradient(180deg,"
+      + "#05060f 0%, #0a0e22 "+pSpace.toFixed(2)+"%, "
+      + currency.skyHigh+" "+pSky.toFixed(2)+"%, "
+      + currency.skyLow+" 100%)";
+    const starBottom = yPx(spaceAlt*0.7);
+    starsEl.style.display = "block";
+    starsEl.style.height = Math.max(0, worldPx - starBottom) + "px";
+  }
+
+  // --- landmarks ---
+  world.querySelectorAll(".mark").forEach(m=>m.remove());
+  let shownAbove = false;
+  let lastY = -1e9;
+  for(const [h, label, cls] of LANDMARKS){
+    if(h > totalM){
+      if(shownAbove) continue;
+      shownAbove = true;
+      if(h*pxPerM > towerPx*40) continue;
+    }
+    const y = h*pxPerM;
+    if(y < 8) continue;
+    if(y - lastY < 28 && cls !== "man") continue;   // labels need breathing room
+    lastY = y;
+    const m = document.createElement("div");
+    m.className = "mark"+(cls?" "+cls:"");
+    m.style.bottom = (26 + y) + "px";
+    m.innerHTML = '<span class="lbl">'+label+' \u00b7 '+fmtDist(h)+'</span>';
+    world.appendChild(m);
+  }
+
+  hudWho.textContent = cur.name;
+  if(unitCount <= 1.0001){
+    hudBig.textContent = fmtMoney(cur.billions)+" = exactly 1 "+currency.unit
+      + " ("+fmtDist(totalM)+" tall). that's it. that's the stack.";
+  }else{
+    hudBig.textContent = fmtMoney(cur.billions)+" = "+fmtCount(unitCount)+" "
+      + unitName(currency, unitCount)+", a "+fmtDist(totalM)+" tall stack";
+  }
+  view.scrollTop = view.scrollHeight;
+  onScroll();
+  document.querySelectorAll(".person").forEach(b=>{
+    b.classList.toggle("on", b.dataset.name === cur.name);
+  });
+}
+
+function onScroll(){
+  if(!cur) return;
+  const fromBottomPx = (view.scrollHeight - view.scrollTop - view.clientHeight/2) - 26;
+  const hM = Math.max(0, fromBottomPx/pxPerM);
+  const capM = Math.min(hM, totalM);
+  const unitsHere = capM/currency.h;
+  const valueHere = unitsHere*currency.v;
+  const pct = Math.min(100, capM/totalM*100);
+  const bandPx = currency.h*pxPerM;
+  const scaleLine = bandPx >= 2.5
+    ? "every band on the stack is one real "+currency.unit
+    : "1 pixel \u2248 "+Math.max(1,Math.round(1/pxPerM/currency.h)).toLocaleString()
+      +" "+unitName(currency, 2);
+  hudSub.innerHTML =
+    "altitude: <b>"+fmtDist(hM)+"</b>"
+    + " \u00b7 below you: <b>"+fmtCount(unitsHere)+" "+unitName(currency, unitsHere)+"</b>"
+    + " (\u2248 $"+fmtCount(valueHere)+")"
+    + " \u00b7 "+pct.toFixed(pct<1?2:0)+"%"
+    + "<br>"+scaleLine
+    + " \u00b7 unit prices approximate \u00b7 keep scrolling.";
+}
+view.addEventListener("scroll", onScroll, {passive:true});
+document.getElementById("topBtn").onclick = ()=>{
+  view.scrollTo({top:0, behavior: totalM*pxPerM > 300000 ? "auto" : "smooth"});
+};
+
+// ================= SIDEBAR =================
+function renderCurrencies(){
+  const box = document.getElementById("curr");
+  box.innerHTML = "";
+  CURRENCIES.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip"+(c.id===currency.id?" on":"");
+    b.textContent = c.label;
+    b.onclick = ()=>{ currency = c; renderCurrencies(); build(); };
+    box.appendChild(b);
+  });
+}
+renderCurrencies();
+
+function renderList(q){
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  const ql = (q||"").toLowerCase();
+  people.slice().sort((a,b)=>b.billions-a.billions)
+    .filter(p=>!ql || p.name.toLowerCase().includes(ql))
+    .slice(0, 120)
+    .forEach(p=>{
+      const b = document.createElement("button");
+      b.className = "person";
+      b.dataset.name = p.name;
+      b.innerHTML = '<span>'+p.name+'</span><span class="nw">'+fmtMoney(p.billions)+'</span>';
+      b.onclick = ()=>build(p);
+      list.appendChild(b);
+    });
+}
+document.getElementById("filter").addEventListener("input", e=>renderList(e.target.value));
+renderList("");
+
+function parseAmount(s){
+  const m = String(s).trim().toLowerCase().replace(/[$,\s]/g,"")
+    .match(/^([\d.]+)(t|trillion|b|billion|m|million|k)?$/);
+  if(!m) return null;
+  let v = Number(m[1]);
+  if(isNaN(v) || v<=0) return null;
+  const u = m[2];
+  if(!u) v /= 1e9;                           // no unit = plain dollars, always
+  else if(u.startsWith("t")) v *= 1000;
+  else if(u.startsWith("m")) v /= 1000;
+  else if(u.startsWith("k")) v /= 1e6;
+  return v;
+}
+document.getElementById("goAmt").onclick = ()=>{
+  const v = parseAmount(document.getElementById("amount").value);
+  if(v === null) return;
+  build({name:"your pile", billions:v});
+};
+document.getElementById("amount").addEventListener("keydown", e=>{
+  if(e.key==="Enter") document.getElementById("goAmt").click();
+});
+
+build(people.slice().sort((a,b)=>b.billions-a.billions)[0]);
+</script>
+</body>
+</html>
