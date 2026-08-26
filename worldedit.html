@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Edit · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --muted:#8a8a8a;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;}
+  body{font-family:"Trebuchet MS",system-ui,sans-serif;background:#bcd8e8;}
+  #map{position:fixed;inset:0;display:block;}
+  #tools{
+    position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:10;
+    display:flex;gap:5px;flex-wrap:wrap;justify-content:center;max-width:96vw;
+    background:#fff;border:2px solid var(--ink);border-radius:14px;
+    box-shadow:3px 3px 0 var(--ink);padding:7px;
+  }
+  #tools button{
+    border:2px solid var(--ink);border-radius:10px;background:#fff;
+    font-family:inherit;font-weight:900;font-size:12.5px;padding:8px 10px;
+    cursor:pointer;white-space:nowrap;
+  }
+  #tools button:hover{background:#f5f5f5;}
+  #tools button.on{background:var(--sun);box-shadow:2px 2px 0 var(--ink);}
+  #tools button.danger{color:var(--coral);border-color:var(--coral);}
+  #status{
+    position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:10;
+    background:rgba(255,255,255,.94);border:2px solid var(--ink);border-radius:12px;
+    padding:8px 16px;font-size:12.5px;font-weight:700;max-width:92vw;text-align:center;
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  #home{
+    position:fixed;top:12px;left:12px;z-index:10;font-size:13px;color:#666;
+    text-decoration:none;background:rgba(255,255,255,.9);border:2px solid var(--ink);
+    border-radius:10px;padding:6px 10px;font-weight:700;
+  }
+  #home:hover{background:#fff;}
+  #soon{
+    position:fixed;bottom:10px;right:12px;z-index:10;font-size:12px;font-weight:700;
+    background:rgba(255,255,255,.92);border:2px solid var(--ink);border-radius:10px;
+    padding:6px 10px;color:#555;
+  }
+  #loading{
+    position:fixed;inset:0;z-index:50;background:#bcd8e8;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:900;font-size:18px;gap:10px;
+  }
+  #loading .sub{font-size:13px;color:#456;font-weight:600;}
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+<a id="home" href="index.html">&larr; kai.fun</a>
+<div id="soon">🌍 more countries coming soon™</div>
+<div id="tools">
+  <button id="prevBtn">◀</button>
+  <button id="nextBtn">▶</button>
+  <button data-t="pan" class="on">🖐 PAN</button>
+  <button data-t="blob">🫧 SELECT</button>
+  <button data-t="move">✥ MOVE</button>
+  <button data-t="erase">🧽 ERASE</button>
+  <button data-t="draw">✏️ DRAW LAND</button>
+  <button data-t="rename">🏷 RENAME</button>
+  <button id="delBtn" class="danger">🗑 DELETE</button>
+  <button id="undoBtn">↩ UNDO</button>
+  <button id="dlBtn">📷 DOWNLOAD</button>
+  <button id="resetBtn" class="danger">🌍 RESET</button>
+</div>
+<div id="status">loading the planet…</div>
+<div id="loading">
+  <div>🌍 WORLD EDIT</div>
+  <div class="sub" id="loadSub">downloading the earth…</div>
+</div>
+
+<script>
+// ============ MERCATOR WORLD SPACE ============
+// everything lives in "world pixels": a 1000x1000 web-mercator square.
+const MW=1000;
+function wx(lon){ return (lon+180)/360*MW; }
+function wy(lat){
+  const la=Math.max(-85,Math.min(85,lat))*Math.PI/180;
+  return MW*(0.5 - Math.log(Math.tan(Math.PI/4+la/2))/(2*Math.PI));
+}
+// ============ MODEL ============
+// feature: {name, color, polys:[[ [x,y],… ]], bites:[{x,y,r}], _bbox}
+let world=[];
+let selection=new Set();
+const SAVE="worldedit_v4";
+function pastel(str){
+  let h=0; for(const c of str) h=(h*31+c.charCodeAt(0))%360;
+  return "hsl("+h+",52%,78%)";
+}
+function bbox(f){
+  if(f._bbox) return f._bbox;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const ring of f.polys) for(const [x,y] of ring){
+    if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
+  }
+  return f._bbox=[x0,y0,x1,y1];
+}
+function dirty(f){ f._bbox=null; }
+function inBite(f,x,y){
+  return f.bites.some(b=>Math.hypot(x-b.x,y-b.y)<b.r);
+}
+function polyContains(f,x,y){
+  if(inBite(f,x,y)) return false;
+  let inside=false;
+  for(const ring of f.polys){
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+      if((yi>y)!==(yj>y) && x < (xj-xi)*(y-yi)/(yj-yi)+xi) inside=!inside;
+    }
+  }
+  return inside;
+}
+
+// ============ LOAD ============
+function loadScript(u){ return new Promise((res,rej)=>{
+  const sc2=document.createElement("script"); sc2.src=u;
+  sc2.onload=res; sc2.onerror=rej; document.head.appendChild(sc2); }); }
+async function fetchAny(urls){
+  for(const u of urls){
+    try{ const r=await fetch(u); if(r.ok) return await r.json(); }catch(e){}
+  }
+  throw new Error("mirrors failed");
+}
+function geoToFeature(g,name){
+  const polys=[];
+  const conv=r=>r.map(p=>[wx(p[0]>150? p[0]-360 : p[0]), wy(p[1])]);
+  if(g.type==="Polygon") g.coordinates.forEach(r=>polys.push(conv(r)));
+  else if(g.type==="MultiPolygon") g.coordinates.forEach(pg=>pg.forEach(r=>polys.push(conv(r))));
+  return {name, color:pastel(name), polys, bites:[]};
+}
+async function loadEarth(){
+  const sub=document.getElementById("loadSub");
+  try{
+    const saved=localStorage.getItem(SAVE);
+    if(saved){ world=JSON.parse(saved); world.forEach(f=>f.bites=f.bites||[]);
+      sub.textContent="restoring your edited earth…"; return; }
+  }catch(e){}
+  sub.textContent="loading map tools…";
+  await loadScript("https://cdn.jsdelivr.net/npm/topojson-client@3")
+    .catch(()=>loadScript("https://unpkg.com/topojson-client@3"));
+  sub.textContent="downloading america…";
+  const st=await fetchAny([
+    "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json",
+    "https://unpkg.com/us-atlas@3/states-10m.json",
+  ]);
+  topojson.feature(st, st.objects.states).features.forEach(f=>{
+    world.push(geoToFeature(f.geometry, f.properties.name));
+  });
+}
+
+// ============ CAMERA ============
+const cv=document.getElementById("map");
+const ctx=cv.getContext("2d");
+let W=0,H=0,ox=0,oy=0,sc=1;
+function resize(){
+  W=innerWidth; H=innerHeight;
+  cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio;
+  cv.style.width=W+"px"; cv.style.height=H+"px";     // <- the click-offset fix
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  draw();
+}
+addEventListener("resize", resize);
+function pX(x){ return x*sc+ox; }
+function pY(y){ return y*sc+oy; }
+function unX(px){ return (px-ox)/sc; }
+function unY(py){ return (py-oy)/sc; }
+function worldBBox(){
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const f of world){
+    const b=bbox(f);
+    if(b[0]<x0)x0=b[0]; if(b[1]<y0)y0=b[1];
+    if(b[2]>x1)x1=b[2]; if(b[3]>y1)y1=b[3];
+  }
+  return world.length? [x0,y0,x1,y1] : [0,0,MW,MW];
+}
+function fitWorld(){
+  const [x0,y0,x1,y1]=worldBBox();
+  sc=Math.min(W/((x1-x0)*1.08), H/((y1-y0)*1.16));
+  ox=(W-(x0+x1)*sc)/2;
+  oy=(H-(y0+y1)*sc)/2;
+  draw();
+}
+let flyAnim=null;
+function flyTo(lon,lat,zoom,dur){
+  const s1=(W/MW)*zoom;
+  const tx=W/2-wx(lon)*s1, ty=H/2-wy(lat)*s1;
+  flyAnim={t:0,dur:dur||1.1,o0:[ox,oy,sc],o1:[tx,ty,s1]};
+}
+
+// ============ TRAVEL (arrow keys) ============
+let DESTS=[];
+let destIx=0;
+function buildDests(){
+  DESTS=[{name:"the whole USA", fit:true}];
+  world.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .forEach(f=>DESTS.push({name:f.name, ref:f}));
+}
+function flyBBox(f){
+  const [x0,y0,x1,y1]=bbox(f);
+  const bw=Math.max(4,x1-x0), bh=Math.max(4,y1-y0);
+  const s1=Math.min(W/(bw*1.7), H/(bh*1.7), (W/MW)*60);
+  flyAnim={t:0,dur:1.0,o0:[ox,oy,sc],
+    o1:[W/2-(x0+x1)/2*s1, H/2-(y0+y1)/2*s1, s1]};
+}
+function travel(dir){
+  if(!DESTS.length) return;
+  for(let hop=0;hop<DESTS.length;hop++){
+    destIx=(destIx+dir+DESTS.length)%DESTS.length;
+    const d=DESTS[destIx];
+    if(d.fit){ flyAnim=null; fitWorld();
+      status("✈ "+d.name+" ("+(destIx+1)+"/"+DESTS.length+") · ← → travel · more countries coming soon");
+      return; }
+    if(world.includes(d.ref)){ flyBBox(d.ref);
+      status("✈ "+d.name+" ("+(destIx+1)+"/"+DESTS.length+") · ← → travel · more countries coming soon");
+      return; }
+  }
+}
+document.getElementById("prevBtn").onclick=()=>travel(-1);
+document.getElementById("nextBtn").onclick=()=>travel(1);
+addEventListener("keydown",(e)=>{
+  if(e.key==="ArrowLeft") travel(-1);
+  if(e.key==="ArrowRight") travel(1);
+  if(e.key==="[") { eraseR=Math.max(8,eraseR-6); status("brush: "+eraseR+"px"); }
+  if(e.key==="]") { eraseR=Math.min(140,eraseR+6); status("brush: "+eraseR+"px"); }
+});
+
+// ============ RENDER ============
+let blobCircles=[], drawPathW=[], eraseCursor=null;
+const scratch=document.createElement("canvas");
+function drawFeature(f){
+  const [x0,y0,x1,y1]=bbox(f);
+  const sx0=pX(x0), sy0=pY(y0), sx1=pX(x1), sy1=pY(y1);
+  if(sx1<-40||sx0>W+40||sy1<-40||sy0>H+40) return;
+  const mkPath=(c2,offx,offy)=>{
+    const p=new Path2D();
+    for(const ring of f.polys){
+      if(ring.length<2) continue;
+      p.moveTo(pX(ring[0][0])-offx, pY(ring[0][1])-offy);
+      for(let i=1;i<ring.length;i++) p.lineTo(pX(ring[i][0])-offx, pY(ring[i][1])-offy);
+      p.closePath();
+    }
+    return p;
+  };
+  const selStroke = selection.has(f) ? "#c62828" : "rgba(20,20,20,.55)";
+  const selW = selection.has(f) ? 2.4 : 1;
+  if(!f.bites.length){
+    const p=mkPath(ctx,0,0);
+    ctx.fillStyle=f.color; ctx.fill(p,"evenodd");
+    ctx.strokeStyle=selStroke; ctx.lineWidth=selW; ctx.stroke(p);
+    return;
+  }
+  // bitten features render offscreen so erased holes punch cleanly
+  const bx=Math.max(0,sx0-6), by=Math.max(0,sy0-6);
+  const bw=Math.min(W,sx1+6)-bx, bh=Math.min(H,sy1+6)-by;
+  if(bw<1||bh<1) return;
+  scratch.width=Math.ceil(bw); scratch.height=Math.ceil(bh);
+  const c2=scratch.getContext("2d");
+  const p=mkPath(c2,bx,by);
+  c2.fillStyle=f.color; c2.fill(p,"evenodd");
+  c2.strokeStyle=selStroke; c2.lineWidth=selW; c2.stroke(p);
+  c2.globalCompositeOperation="destination-out";
+  for(const b of f.bites){
+    c2.beginPath();
+    c2.arc(pX(b.x)-bx, pY(b.y)-by, b.r*sc, 0, Math.PI*2);
+    c2.fill();
+  }
+  c2.globalCompositeOperation="source-over";
+  ctx.drawImage(scratch, bx, by);
+}
+function draw(){
+  ctx.fillStyle="#bcd8e8";
+  ctx.fillRect(0,0,W,H);
+  ctx.lineJoin="round";
+  for(const f of world) drawFeature(f);
+  ctx.textAlign="center";
+  for(const f of world){
+    const [x0,y0,x1,y1]=bbox(f);
+    const sw=(x1-x0)*sc, sh=(y1-y0)*sc;
+    const area=sw*sh;
+    if(area<2600) continue;
+    const cx=pX((x0+x1)/2), cy=pY((y0+y1)/2);
+    if(cx<-60||cx>W+60||cy<-60||cy>H+60) continue;
+    const fs=Math.max(10,Math.min(22,Math.sqrt(area)/9));
+    ctx.font="900 "+fs+"px Trebuchet MS";
+    ctx.fillStyle="rgba(255,255,255,.75)";
+    ctx.fillText(f.name,cx,cy+1);
+    ctx.fillStyle=selection.has(f)?"#c62828":"#141414";
+    ctx.fillText(f.name,cx,cy);
+  }
+  ctx.textAlign="left";
+  if(blobCircles.length){
+    ctx.fillStyle="rgba(74,169,216,.28)";
+    for(const c of blobCircles){
+      ctx.beginPath();
+      ctx.arc(pX(c.x),pY(c.y),c.r*sc,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  if(drawPathW.length>1){
+    ctx.strokeStyle="#141414"; ctx.lineWidth=2.5; ctx.setLineDash([7,5]);
+    ctx.beginPath();
+    ctx.moveTo(pX(drawPathW[0][0]),pY(drawPathW[0][1]));
+    for(const p of drawPathW) ctx.lineTo(pX(p[0]),pY(p[1]));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  if(eraseCursor){
+    ctx.strokeStyle="#c62828"; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(eraseCursor.x,eraseCursor.y,eraseCursor.r,0,Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+// ============ UNDO / SAVE ============
+let undoStack=[];
+function packWorld(){ return JSON.stringify(world.map(f=>({name:f.name,color:f.color,polys:f.polys,bites:f.bites}))); }
+function snapshot(){ undoStack.push(packWorld()); if(undoStack.length>6) undoStack.shift(); }
+document.getElementById("undoBtn").onclick=()=>{
+  if(!undoStack.length){ status("nothing to undo"); return; }
+  world=JSON.parse(undoStack.pop());
+  selection.clear(); save(); draw(); status("undone.");
+};
+let saveT=null;
+function save(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{
+    try{ localStorage.setItem(SAVE, packWorld()); }
+    catch(e){ status("⚠ world too big to auto-save (still works, won't persist)"); }
+  },1200);
+}
+document.getElementById("resetBtn").onclick=()=>{
+  if(!confirm("restore the real earth? all edits will be lost.")) return;
+  localStorage.removeItem(SAVE); location.reload();
+};
+
+// ============ TOOLS ============
+let tool="pan";
+document.querySelectorAll("#tools button[data-t]").forEach(b=>{
+  b.onclick=()=>{
+    tool=b.dataset.t;
+    document.querySelectorAll("#tools button[data-t]").forEach(x=>x.classList.toggle("on",x===b));
+    blobCircles=[]; drawPathW=[]; eraseCursor=null;
+    hint(); draw();
+  };
+});
+function status(t){ document.getElementById("status").textContent=t; }
+function hint(){
+  status({
+    pan:"🖐 drag to pan · scroll to zoom · ← → travel between countries",
+    blob:"🫧 paint over regions to select them · click water to clear",
+    move:"✥ drag to slide the selected regions anywhere",
+    erase:"🧽 scrub to bite chunks out of countries · [ ] brush size · eat ALL of one to delete it",
+    draw:"✏️ draw a shape, release to found a new land",
+    rename:"🏷 click any region to rename it",
+  }[tool]);
+}
+function featureAt(x,y){
+  for(let i=world.length-1;i>=0;i--){
+    const [x0,y0,x1,y1]=bbox(world[i]);
+    if(x<x0||x>x1||y<y0||y>y1) continue;
+    if(polyContains(world[i],x,y)) return world[i];
+  }
+  return null;
+}
+
+// ============ INPUT ============
+let drag=null, eraseR=28;
+cv.addEventListener("wheel",(e)=>{
+  e.preventDefault();
+  const f=e.deltaY>0?0.88:1.14;
+  ox=e.clientX-(e.clientX-ox)*f;
+  oy=e.clientY-(e.clientY-oy)*f;
+  sc*=f;
+  draw();
+},{passive:false});
+cv.addEventListener("pointerdown",(e)=>{
+  cv.setPointerCapture(e.pointerId);
+  const x=unX(e.clientX), y=unY(e.clientY);
+  const panBtn=e.button===1||e.button===2;
+  if(panBtn||tool==="pan"){
+    drag={kind:"pan",x:e.clientX,y:e.clientY,ox,oy};
+  }else if(tool==="blob"){
+    drag={kind:"blob"};
+    blobCircles=[{x,y,r:34/sc}];
+  }else if(tool==="move"){
+    if(!selection.size){ status("select something first (🫧)"); return; }
+    snapshot();
+    drag={kind:"move",x,y,
+      orig:[...selection].map(f=>({f,
+        polys:f.polys.map(r=>r.map(p=>[p[0],p[1]])),
+        bites:f.bites.map(b=>({...b}))}))};
+  }else if(tool==="erase"){
+    snapshot();
+    drag={kind:"erase"};
+    biteAt(x,y);
+  }else if(tool==="draw"){
+    drag={kind:"draw"};
+    drawPathW=[[x,y]];
+  }else if(tool==="rename"){
+    const f=featureAt(x,y);
+    if(f){
+      const nm=prompt("rename this region:", f.name);
+      if(nm&&nm.trim()){ snapshot(); f.name=nm.trim().slice(0,40); save(); draw(); status("renamed to "+f.name); }
+    }else status("that's ocean. oceans don't have names or feelings.");
+  }
+});
+cv.addEventListener("pointermove",(e)=>{
+  const x=unX(e.clientX), y=unY(e.clientY);
+  if(tool==="erase"){ eraseCursor={x:e.clientX,y:e.clientY,r:eraseR}; if(!drag) draw(); }
+  if(!drag) return;
+  if(drag.kind==="pan"){
+    ox=drag.ox+(e.clientX-drag.x);
+    oy=drag.oy+(e.clientY-drag.y);
+  }else if(drag.kind==="blob"){
+    blobCircles.push({x,y,r:34/sc});
+  }else if(drag.kind==="move"){
+    const dx=x-drag.x, dy=y-drag.y;
+    drag.orig.forEach(o=>{
+      o.f.polys=o.polys.map(r=>r.map(p=>[p[0]+dx,p[1]+dy]));
+      o.f.bites=o.bites.map(b=>({x:b.x+dx,y:b.y+dy,r:b.r}));
+      dirty(o.f);
+    });
+  }else if(drag.kind==="erase"){
+    biteAt(x,y);
+  }else if(drag.kind==="draw"){
+    const last=drawPathW[drawPathW.length-1];
+    if(Math.hypot(x-last[0],y-last[1])>3/sc) drawPathW.push([x,y]);
+  }
+  draw();
+});
+cv.addEventListener("pointerup",(e)=>{
+  if(!drag) return;
+  if(drag.kind==="blob"){
+    selection.clear();
+    for(const f of world){
+      let hit=false;
+      for(const c of blobCircles){
+        if(polyContains(f,c.x,c.y)){ hit=true; break; }
+        outer:
+        for(const ring of f.polys)
+          for(const p of ring)
+            if(Math.hypot(p[0]-c.x,p[1]-c.y)<c.r){ hit=true; break outer; }
+        if(hit) break;
+      }
+      if(hit) selection.add(f);
+    }
+    blobCircles=[];
+    status(selection.size? selection.size+" region"+(selection.size>1?"s":"")+" selected — ✥ MOVE, 🗑 DELETE, or 🏷"
+      : "nothing selected");
+  }
+  if(drag.kind==="move"){ save(); status("moved. geography is a suggestion."); }
+  if(drag.kind==="erase"){ save(); }
+  if(drag.kind==="draw"){
+    if(drawPathW.length>=6){
+      snapshot();
+      const nm=(prompt("name your new land:","Kailand")||"New Land").trim().slice(0,40)||"New Land";
+      world.push({name:nm, color:pastel(nm+Math.random()), polys:[drawPathW.slice()], bites:[]});
+      save();
+      status("⭐ "+nm+" has been founded. population: you.");
+    }
+    drawPathW=[];
+  }
+  drag=null; draw();
+});
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+
+function biteAt(x,y){
+  const r=eraseR/sc;
+  for(let i=world.length-1;i>=0;i--){
+    const f=world[i];
+    const [x0,y0,x1,y1]=bbox(f);
+    if(x<x0-r||x>x1+r||y<y0-r||y>y1+r) continue;
+    // only bite if the brush actually touches this feature
+    let touches=polyContains(f,x,y);
+    if(!touches){
+      outer:
+      for(const ring of f.polys)
+        for(const p of ring)
+          if(Math.hypot(p[0]-x,p[1]-y)<r){ touches=true; break outer; }
+    }
+    if(!touches) continue;
+    const last=f.bites[f.bites.length-1];
+    if(!(last && Math.hypot(last.x-x,last.y-y)<r*0.35 && Math.abs(last.r-r)<0.001))
+      f.bites.push({x,y,r});
+    // fully devoured? every vertex inside a bite
+    let alive=false;
+    outer2:
+    for(const ring of f.polys)
+      for(const p of ring)
+        if(!inBite(f,p[0],p[1])){ alive=true; break outer2; }
+    if(!alive){
+      status("💀 "+f.name+" has been completely erased.");
+      selection.delete(f);
+      world.splice(i,1);
+    }
+  }
+}
+document.getElementById("delBtn").onclick=()=>{
+  if(!selection.size){ status("blob select something to delete first"); return; }
+  snapshot();
+  const names=[...selection].slice(0,3).map(f=>f.name).join(", ");
+  world=world.filter(f=>!selection.has(f));
+  status("🗑 deleted "+selection.size+" region"+(selection.size>1?"s":"")+" ("+names+(selection.size>3?"…":"")+")");
+  selection.clear();
+  save(); draw();
+};
+
+// ============ DOWNLOAD (mercator, uncropped poles trimmed) ============
+document.getElementById("dlBtn").onclick=()=>{
+  const [bx0,by0,bx1,by1]=worldBBox();
+  const pad=12;
+  const left=bx0-pad, top=by0-pad, right=bx1+pad, bot=by1+pad;
+  const DW=2400, DS=DW/(right-left), DH=Math.ceil((bot-top)*DS);
+  const oc=document.createElement("canvas");
+  oc.width=DW; oc.height=DH;
+  const c2=oc.getContext("2d");
+  const qx=(x)=>(x-left)*DS, qy=(y)=>(y-top)*DS;
+  c2.fillStyle="#bcd8e8"; c2.fillRect(0,0,DW,DH);
+  c2.lineJoin="round";
+  for(const f of world){
+    c2.save();
+    const path=new Path2D();
+    for(const ring of f.polys){
+      if(ring.length<2) continue;
+      path.moveTo(qx(ring[0][0]),qy(ring[0][1]));
+      for(let i=1;i<ring.length;i++) path.lineTo(qx(ring[i][0]),qy(ring[i][1]));
+      path.closePath();
+    }
+    c2.fillStyle=f.color; c2.fill(path,"evenodd");
+    c2.strokeStyle="#141414"; c2.lineWidth=1.2; c2.stroke(path);
+    if(f.bites.length){
+      c2.globalCompositeOperation="destination-out";
+      for(const b of f.bites){
+        c2.beginPath(); c2.arc(qx(b.x),qy(b.y),b.r*DS,0,Math.PI*2); c2.fill();
+      }
+      c2.globalCompositeOperation="source-over";
+    }
+    c2.restore();
+  }
+  c2.textAlign="center";
+  for(const f of world){
+    const [x0,y0,x1,y1]=bbox(f);
+    const area=(x1-x0)*DS*(y1-y0)*DS;
+    if(area<1600) continue;
+    const fs=Math.max(11,Math.min(30,Math.sqrt(area)/10));
+    c2.font="900 "+fs+"px Trebuchet MS";
+    c2.fillStyle="rgba(255,255,255,.8)";
+    c2.fillText(f.name,qx((x0+x1)/2),qy((y0+y1)/2)+1);
+    c2.fillStyle="#141414";
+    c2.fillText(f.name,qx((x0+x1)/2),qy((y0+y1)/2));
+  }
+  c2.textAlign="left";
+  c2.font="900 30px Trebuchet MS";
+  c2.fillStyle="#141414";
+  c2.fillText("🇺🇸 my america · made on kaifun.fun", 24, DH-26);
+  const a=document.createElement("a");
+  a.download="my-world.png";
+  a.href=oc.toDataURL("image/png");
+  a.click();
+  status("📷 downloaded my-world.png");
+};
+
+// ============ MAIN ============
+function frame(){
+  requestAnimationFrame(frame);
+  if(flyAnim){
+    flyAnim.t+=1/60;
+    let k=Math.min(1,flyAnim.t/flyAnim.dur);
+    k=k<0.5? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+    ox=flyAnim.o0[0]+(flyAnim.o1[0]-flyAnim.o0[0])*k;
+    oy=flyAnim.o0[1]+(flyAnim.o1[1]-flyAnim.o0[1])*k;
+    sc=flyAnim.o0[2]+(flyAnim.o1[2]-flyAnim.o0[2])*k;
+    if(k>=1) flyAnim=null;
+    draw();
+  }
+}
+(async ()=>{
+  resize(); fitWorld();
+  try{ await loadEarth(); }
+  catch(e){
+    document.getElementById("loadSub").textContent="couldn't download the earth — refresh to retry";
+    return;
+  }
+  document.getElementById("loading").style.display="none";
+  buildDests();
+  fitWorld();
+  status("🇺🇸 welcome to america · ← → fly between states · edit everything");
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
