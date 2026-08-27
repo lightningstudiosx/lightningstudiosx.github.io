@@ -45,6 +45,7 @@
   }
   .row button:hover:not(:disabled){transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);}
   .row button:disabled{opacity:.5;cursor:default;}
+  .filterBtn.on{background:#f5b829;}
   #customRow{display:none;}
   #customRow.show{display:flex;}
   #wikiTag{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -127,6 +128,15 @@
       <input id="startIn" placeholder="start page (URL or title)">
       <input id="endIn" placeholder="target page (URL or title)">
       <button id="goBtn">CONNECT</button>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <button id="fAll" class="filterBtn on">🌐 CONNECT VIA ANYTHING</button>
+      <button id="fPeople" class="filterBtn">🧍 VIA PEOPLE ONLY</button>
+      <button id="fThings" class="filterBtn">📦 VIA THINGS ONLY</button>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <button id="randPeople">🧍 RANDOM PEOPLE</button>
+      <button id="randThings">📦 RANDOM THINGS</button>
     </div>
     <div id="status">ready.</div>
   </div>
@@ -281,6 +291,44 @@ async function backlinksFast(title){
   }catch(e){ return []; }
 }
 
+let FILTER = "all";
+function passesFilter(p){
+  const cats = (p.categories||[]).map(c=>c.title).join(" ");
+  const isPerson = /\bbirths\b|\bdeaths\b|Living people/i.test(cats);
+  if(FILTER==="people") return isPerson;
+  return (p.categories||[]).length>0 && !isPerson;   // "thing": known non-person
+}
+async function linksFiltered(title){
+  try{
+    const data = await api({action:"query", generator:"links", titles:title,
+      gpllimit:"200", gplnamespace:"0", redirects:"1",
+      prop:"categories", cllimit:"500", clshow:"!hidden"});
+    const pages = data?.query?.pages || {};
+    const out = [];
+    for(const id in pages){
+      const p = pages[id];
+      if(id==="-1"||!p.title||p.ns!==0) continue;
+      if(passesFilter(p)) out.push(p.title);
+    }
+    return out;
+  }catch(e){ return []; }
+}
+async function backlinksFiltered(title){
+  try{
+    const data = await api({action:"query", generator:"linkshere", titles:title,
+      glhlimit:"200", glhnamespace:"0",
+      prop:"categories", cllimit:"500", clshow:"!hidden"});
+    const pages = data?.query?.pages || {};
+    const out = [];
+    for(const id in pages){
+      const p = pages[id];
+      if(id==="-1"||!p.title||p.ns!==0) continue;
+      if(passesFilter(p)) out.push(p.title);
+    }
+    return out;
+  }catch(e){ return []; }
+}
+
 async function resolve(title){
   const data = await api({action:"query", titles:title, redirects:"1"});
   const pages = data?.query?.pages || {};
@@ -289,13 +337,15 @@ async function resolve(title){
 }
 
 // ============ DEEP BIDIRECTIONAL SEARCH ============
-const MAX_CALLS = 220;
+let MAX_CALLS = 220;
 const CONCURRENCY = 12;
 const LEVEL_SAMPLE = 60;
-const TIME_LIMIT = 60000;
+let TIME_LIMIT = 60000;
 
 async function findPath(start, end){
   apiCalls = 0;
+  MAX_CALLS = FILTER==="all" ? 220 : 300;      // filtered paths are thinner: dig longer
+  TIME_LIMIT = FILTER==="all" ? 60000 : 95000;
   const t0 = performance.now();
   say("resolving pages\u2026");
   const S = await resolve(start), E = await resolve(end);
@@ -333,7 +383,8 @@ async function findPath(start, end){
       if(apiCalls >= MAX_CALLS || performance.now()-t0 > TIME_LIMIT) break;
       const batch = nodes.slice(i, i+CONCURRENCY);
       const settled = await Promise.allSettled(batch.map(n =>
-        isFwd ? linksFast(n) : backlinksFast(n)));
+        isFwd ? (FILTER==="all" ? linksFast(n) : linksFiltered(n))
+              : (FILTER==="all" ? backlinksFast(n) : backlinksFiltered(n))));
       const results = settled.map(r => r.status==="fulfilled" ? r.value : []);
       for(let j=0;j<batch.length;j++){
         const from = batch[j];
@@ -352,7 +403,8 @@ async function findPath(start, end){
       say((isFwd?"exploring outward":"exploring backward")
         +" \u00b7 depth "+(isFwd?depthF+1:depthB+1)
         +" \u00b7 "+(fwdSeen.size+bwdSeen.size).toLocaleString()+" pages mapped"
-        +" \u00b7 "+apiCalls+" requests");
+        +" \u00b7 "+apiCalls+" requests"
+        +(FILTER!=="all" ? " \u00b7 "+(FILTER==="people"?"\uD83E\uDDCD people-only":"\uD83D\uDCE6 things-only") : ""));
     }
     return {nextFrontier, meetLower};
   }
@@ -478,6 +530,68 @@ async function maybeAutoSwitch(rawStart, rawEnd){
   }
   return true;
 }
+
+// ============ CONNECT-VIA FILTER ============
+["fAll","fPeople","fThings"].forEach(id=>{
+  document.getElementById(id).onclick=()=>{
+    FILTER = id==="fAll"?"all" : id==="fPeople"?"people" : "things";
+    ["fAll","fPeople","fThings"].forEach(x=>
+      document.getElementById(x).classList.toggle("on", x===id));
+    say(FILTER==="all" ? "the connector may hop through any article."
+      : FILTER==="people" ? "the connector will ONLY hop through people. endpoints can be anything."
+      : "the connector will ONLY hop through non-people things. endpoints can be anything.");
+  };
+});
+
+// ============ RANDOM PEOPLE / THINGS ============
+async function randomPages(n){
+  const data = await api({action:"query", list:"random", rnnamespace:"0",
+    rnfilterredir:"nonredirects", rnlimit:String(n)});
+  return (data?.query?.random||[]).map(r=>r.title);
+}
+async function classify(titles){
+  // biographies almost always carry birth/death-year or Living people categories
+  const data = await api({action:"query", prop:"categories", titles:titles.join("|"),
+    cllimit:"500", clshow:"!hidden"});
+  const pages = data?.query?.pages||{};
+  const out = {};
+  for(const id in pages){
+    const p = pages[id];
+    const cats = (p.categories||[]).map(c=>c.title).join(" | ");
+    out[p.title] = /\bbirths\b|\bdeaths\b|Living people/i.test(cats);
+  }
+  return out;
+}
+async function pickRandom(kind){
+  const bP=document.getElementById("randPeople"), bT=document.getElementById("randThings");
+  bP.disabled=bT.disabled=true;
+  say("rolling random "+(kind==="person"?"people":"things")+"\u2026");
+  const picked=[];
+  try{
+    for(let round=0; round<6 && picked.length<2; round++){
+      const batch = await randomPages(10);
+      if(!batch.length) break;
+      const cls = await classify(batch);
+      for(const t of batch){
+        if(picked.length>=2) break;
+        const isPerson = !!cls[t];
+        if((kind==="person") === isPerson && !picked.includes(t)) picked.push(t);
+      }
+    }
+  }catch(e){}
+  bP.disabled=bT.disabled=false;
+  if(picked.length<2){
+    say("couldn't find two random "+(kind==="person"?"people":"things")+" here \u2014 "
+      +(kind==="person"?"this works best on English Wikipedia":"try again"));
+    return;
+  }
+  document.getElementById("startIn").value = picked[0];
+  document.getElementById("endIn").value = picked[1];
+  say("\uD83C\uDFB2 "+picked[0]+"  \u2192  "+picked[1]);
+  goBtn.click();
+}
+document.getElementById("randPeople").onclick = ()=>pickRandom("person");
+document.getElementById("randThings").onclick = ()=>pickRandom("thing");
 
 goBtn.onclick = async () => {
   const rawStart = document.getElementById("startIn").value;
