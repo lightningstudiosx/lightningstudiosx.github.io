@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHEN?! · Kai.fun</title>
+<style>
+  :root{
+    --leather:#241c14; --parch:#f3e9d2; --inkbrown:#2a2019;
+    --brass:#c9a24b; --brassDim:#8a6f33; --wine:#7a2e2e; --sage:#5a8f4f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 50% -10%, #3a2d1e 0%, var(--leather) 60%);
+    color:var(--parch);
+    font-family:Georgia,"Times New Roman",serif;
+    min-height:100vh;padding:20px 12px 60px;
+  }
+  .wrap{max-width:700px;margin:0 auto;}
+  a.back{color:var(--brassDim);text-decoration:none;font-size:14px;font-style:italic;}
+  a.back:hover{color:var(--brass);}
+  header{text-align:center;margin:6px 0 18px;}
+  h1{
+    font-size:clamp(40px,9vw,62px);letter-spacing:3px;color:var(--brass);
+    text-shadow:0 2px 0 #00000088, 0 0 24px #c9a24b33;
+    font-variant:small-caps;font-weight:700;
+  }
+  .subtitle{color:#b09a72;font-size:14px;font-style:italic;margin-top:2px;}
+  .parchment{
+    background:var(--parch);color:var(--inkbrown);
+    border:1px solid #00000055;border-radius:6px;
+    box-shadow:0 6px 0 #00000066, inset 0 0 40px #d9c8a055;
+    padding:20px 22px;margin-bottom:18px;
+  }
+  #dots{display:flex;gap:7px;justify-content:center;margin-bottom:16px;}
+  .dot{
+    width:14px;height:14px;border-radius:50%;
+    border:2px solid var(--brassDim);background:#00000033;
+    box-shadow:inset 0 1px 2px #000a;
+  }
+  .dot.g{background:var(--sage);} .dot.y{background:#c9a24b;}
+  .dot.o{background:#b06a2a;} .dot.r{background:var(--wine);}
+  .dot.cur{background:var(--parch);}
+  #evt{font-size:17.5px;line-height:1.6;min-height:80px;}
+  #evt .num{color:var(--wine);font-weight:700;font-variant:small-caps;}
+  #clocks{
+    display:flex;gap:14px;justify-content:center;align-items:flex-end;
+    flex-wrap:wrap;margin:6px 0 4px;
+  }
+  .dial{text-align:center;user-select:none;}
+  .dial canvas{cursor:grab;touch-action:none;display:block;margin:0 auto;}
+  .dial canvas:active{cursor:grabbing;}
+  .dial .lbl{
+    font-variant:small-caps;letter-spacing:2px;font-size:13px;
+    color:var(--brassDim);margin-top:4px;
+  }
+  #datePlate{
+    text-align:center;margin:14px auto 12px;padding:10px 20px;width:fit-content;
+    background:linear-gradient(#3a2d1e,#241c14);color:var(--brass);
+    border:1px solid var(--brassDim);border-radius:6px;
+    font-size:22px;letter-spacing:1px;box-shadow:inset 0 2px 6px #000c;
+    font-variant:small-caps;
+  }
+  .brassBtn{
+    display:block;margin:0 auto;padding:13px 34px;
+    background:linear-gradient(#e0bb62,#a8842f);color:#241c14;
+    border:1px solid #6b541f;border-radius:8px;
+    font-family:inherit;font-weight:700;font-size:17px;letter-spacing:2px;
+    font-variant:small-caps;cursor:pointer;
+    box-shadow:0 4px 0 #5c4519, inset 0 1px 0 #ffe9b3;
+  }
+  .brassBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #5c4519;}
+  .brassBtn.small{padding:9px 18px;font-size:14px;display:inline-block;}
+  #reveal{display:none;text-align:center;}
+  #reveal .actual{font-size:34px;color:var(--wine);font-weight:700;margin-top:4px;}
+  #reveal .off{font-size:15px;margin:8px 0;font-style:italic;}
+  #reveal .pts{font-size:24px;font-weight:700;color:var(--sage);}
+  #reveal a{color:#7a5c9e;font-size:14px;}
+  #end{display:none;text-align:center;}
+  #end .total{font-size:46px;font-weight:700;color:var(--brass);
+    text-shadow:0 2px 0 #0006;}
+  #end .rank{font-size:20px;font-variant:small-caps;letter-spacing:2px;margin:4px 0 10px;}
+  #end .emoji{font-size:23px;letter-spacing:3px;margin:8px 0;}
+  #end .meta{font-size:14px;color:#6b5a42;line-height:1.8;font-style:italic;}
+  .rowBtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
+  #loading{text-align:center;font-style:italic;color:#b09a72;padding:34px 0;}
+  .foot{text-align:center;font-size:12px;color:#6b5a42;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; kai.fun</a>
+  <header>
+    <h1>When?!</h1>
+    <div class="subtitle">ten happenings from history · wind the clocks to their date</div>
+  </header>
+
+  <div class="parchment" id="game">
+    <div id="dots"></div>
+    <div id="loading">winding the archives&hellip;</div>
+
+    <div id="play" style="display:none">
+      <div id="evt"></div>
+      <div id="clocks">
+        <div class="dial">
+          <canvas id="cMonth" width="150" height="150"></canvas>
+          <div class="lbl">month</div>
+        </div>
+        <div class="dial">
+          <canvas id="cYear" width="210" height="210"></canvas>
+          <div class="lbl">year — keep winding</div>
+        </div>
+        <div class="dial">
+          <canvas id="cDay" width="150" height="150"></canvas>
+          <div class="lbl">day</div>
+        </div>
+      </div>
+      <div id="datePlate"></div>
+      <button class="brassBtn" id="guessBtn">⚙ lock it in</button>
+      <div id="reveal">
+        <div class="actual"></div>
+        <div class="off"></div>
+        <div class="pts"></div>
+        <a href="#" target="_blank" rel="noopener">consult the records &rarr;</a><br><br>
+        <button class="brassBtn" id="nextBtn">next &rarr;</button>
+      </div>
+    </div>
+
+    <div id="end">
+      <div class="total"></div>
+      <div class="rank"></div>
+      <div class="emoji"></div>
+      <div class="meta"></div>
+      <div class="rowBtns">
+        <button class="brassBtn small" id="shareBtn">📋 share</button>
+        <button class="brassBtn small" id="practiceBtn">🔁 practice</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">happenings from Wikipedia's archives · everyone winds the same ten · new set at midnight</div>
+</div>
+
+<script>
+// ============ SEED & DATE ============
+function mulberry(seed){ let a=seed>>>0; return function(){
+  a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const NOW=new Date();
+const THIS_YEAR=NOW.getFullYear();
+const DAYKEY=NOW.getFullYear()+"-"+(NOW.getMonth()+1)+"-"+NOW.getDate();
+const SEED=NOW.getFullYear()*10000+(NOW.getMonth()+1)*100+NOW.getDate();
+const MONTHS=["January","February","March","April","May","June","July",
+  "August","September","October","November","December"];
+const ROMAN=["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+function daysIn(m,y){ return new Date(y, m, 0).getDate(); }
+function doy(m,d){ return [0,31,59,90,120,151,181,212,243,273,304,334][m-1]+d; }
+
+// ============ SAVE ============
+const SAVE="when_save_v2";
+let S={streak:0,lastPlayed:"",best:0,today:null};
+try{ const d=JSON.parse(localStorage.getItem(SAVE)); if(d) S=Object.assign(S,d); }catch(e){}
+function save(){ try{ localStorage.setItem(SAVE,JSON.stringify(S)); }catch(e){} }
+
+// ============ EVENTS FROM 10 RANDOM DATES ============
+async function eventsOn(mm,dd){
+  try{
+    const r=await fetch("https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/"
+      +String(mm).padStart(2,"0")+"/"+String(dd).padStart(2,"0"));
+    if(!r.ok) return [];
+    const d=await r.json();
+    return (d.events||[]).filter(e=>
+      typeof e.year==="number" && e.year>=1 && e.year<THIS_YEAR
+      && e.text && e.text.length>=20 && e.text.length<=260
+    ).map(e=>({
+      year:e.year, month:mm, day:dd, text:e.text,
+      link:(e.pages&&e.pages[0])
+        ? "https://en.wikipedia.org/wiki/"+encodeURIComponent(
+            (e.pages[0].titles&&e.pages[0].titles.canonical)||e.pages[0].title||"")
+        : null,
+    }));
+  }catch(e){ return []; }
+}
+async function buildRounds(rng){
+  const wanted=[];
+  const usedDates=new Set();
+  let guard=0;
+  while(wanted.length<10 && guard++<24){
+    const mm=1+Math.floor(rng()*12);
+    const dd=1+Math.floor(rng()*daysIn(mm, 2001));
+    const key=mm+"/"+dd;
+    if(usedDates.has(key)) continue;
+    usedDates.add(key);
+    const evs=await eventsOn(mm,dd);
+    if(!evs.length) continue;
+    // seeded pick, preferring a year not too close to ones we already have
+    const shuffled=evs.sort(()=>rng()-0.5);
+    let pick=shuffled.find(e=>wanted.every(w=>Math.abs(w.year-e.year)>=25)) || shuffled[0];
+    wanted.push(pick);
+    say("winding the archives… "+wanted.length+"/10");
+  }
+  return wanted;
+}
+function say(t){ document.getElementById("loading").textContent=t; }
+
+// ============ SCORING ============
+function scoreRound(g, e){
+  const yd=Math.abs(g.y-e.year);
+  let dd=Math.abs(doy(g.m,g.d)-doy(e.month,e.day));
+  dd=Math.min(dd, 365-dd);
+  const pts=Math.round(800*Math.exp(-yd/120)) + Math.round(200*Math.exp(-dd/25));
+  return {yd, dd, pts};
+}
+function emoji(r){ return r.yd<=10?"🟩": r.yd<=50?"🟨": r.yd<=150?"🟧":"🟥"; }
+function dotClass(r){ return r.yd<=10?"g": r.yd<=50?"y": r.yd<=150?"o":"r"; }
+function rank(t){
+  if(t>=8500) return "⌛ keeper of the ages";
+  if(t>=7000) return "📜 certified chronologist";
+  if(t>=5200) return "🧭 time tourist";
+  if(t>=3200) return "🕰 mildly unstuck in time";
+  return "❓ what century is it";
+}
+
+// ============ CLOCK DIALS ============
+const guess={m:6, d:15, y:1000};
+function dial(id){ const c=document.getElementById(id); return {cv:c, ctx:c.getContext("2d")}; }
+const dM=dial("cMonth"), dY=dial("cYear"), dD=dial("cDay");
+function face(g, r0){
+  const {ctx}=g, R=g.cv.width/2;
+  ctx.clearRect(0,0,R*2,R*2);
+  ctx.save(); ctx.translate(R,R);
+  // brass rim
+  const rim=ctx.createRadialGradient(0,0,r0*0.82,0,0,r0);
+  rim.addColorStop(0,"#8a6f33"); rim.addColorStop(0.5,"#e0bb62"); rim.addColorStop(1,"#6b541f");
+  ctx.fillStyle=rim;
+  ctx.beginPath(); ctx.arc(0,0,r0,0,Math.PI*2); ctx.fill();
+  // cream face
+  ctx.fillStyle="#f6efdc";
+  ctx.beginPath(); ctx.arc(0,0,r0*0.84,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle="#00000022"; ctx.stroke();
+  return R;
+}
+function hand(g, ang, len, w, color){
+  const {ctx}=g;
+  ctx.save();
+  ctx.rotate(ang);
+  ctx.strokeStyle=color||"#7a2e2e"; ctx.lineWidth=w; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -len); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle="#2a2019";
+  ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
+}
+function drawMonth(){
+  const R=face(dM, 72);
+  const {ctx}=dM;
+  ctx.fillStyle="#2a2019"; ctx.font="700 13px Georgia"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  for(let i=0;i<12;i++){
+    const a=-Math.PI/2 + i*Math.PI/6;
+    ctx.fillText(ROMAN[i], Math.cos(a)*49, Math.sin(a)*49);
+  }
+  hand(dM, (guess.m-1)*Math.PI/6, 38, 4);
+  ctx.restore();
+}
+function drawDay(){
+  const R=face(dD, 72);
+  const {ctx}=dD;
+  ctx.fillStyle="#2a2019"; ctx.font="600 10px Georgia"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  for(let i=1;i<=31;i++){
+    const a=-Math.PI/2 + (i-1)*Math.PI*2/31;
+    if(i===1||i%5===0) ctx.fillText(String(i), Math.cos(a)*50, Math.sin(a)*50);
+    else{
+      ctx.save(); ctx.rotate(a+Math.PI/2);
+      ctx.fillRect(-0.7,-56,1.4,5);
+      ctx.restore();
+    }
+  }
+  hand(dD, (guess.d-1)*Math.PI*2/31, 38, 3.4);
+  ctx.restore();
+}
+function drawYear(){
+  const R=face(dY, 102);
+  const {ctx}=dY;
+  // knurled winding ring
+  ctx.strokeStyle="#5c4519"; ctx.lineWidth=2;
+  for(let i=0;i<48;i++){
+    const a=i*Math.PI/24;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*96, Math.sin(a)*96);
+    ctx.lineTo(Math.cos(a)*102, Math.sin(a)*102);
+    ctx.stroke();
+  }
+  // year in the middle, engraved
+  ctx.fillStyle="#2a2019"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.font="700 44px Georgia";
+  ctx.fillText(String(guess.y), 0, -4);
+  ctx.font="italic 12px Georgia"; ctx.fillStyle="#8a6f33";
+  ctx.fillText("anno domini", 0, 26);
+  // little rotation pointer showing winding motion
+  hand(dY, (guess.y%100)/100*Math.PI*2, 92, 2.4, "#8a6f33");
+  ctx.restore();
+}
+function drawAll(){
+  drawMonth(); drawDay(); drawYear();
+  const dmax=daysIn(guess.m, guess.y);
+  if(guess.d>dmax) guess.d=dmax;
+  document.getElementById("datePlate").textContent=
+    MONTHS[guess.m-1]+" "+guess.d+", "+guess.y;
+}
+// ---- turning: absolute for month/day, endless winding for year ----
+function angleAt(cv,e){
+  const r=cv.getBoundingClientRect();
+  return Math.atan2(e.clientY-(r.top+r.height/2), e.clientX-(r.left+r.width/2));
+}
+function wrapA(a){ while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI; return a; }
+function bindAbsolute(g, N, set){
+  let on=false;
+  const pick=(e)=>{
+    const a=angleAt(g.cv,e)+Math.PI/2;
+    let v=Math.round((a<0?a+2*Math.PI:a)/(2*Math.PI)*N)%N;
+    set(v+1);
+    drawAll();
+  };
+  g.cv.addEventListener("pointerdown",e=>{ on=true; g.cv.setPointerCapture(e.pointerId); pick(e); });
+  g.cv.addEventListener("pointermove",e=>{ if(on) pick(e); });
+  g.cv.addEventListener("pointerup",()=>on=false);
+  g.cv.addEventListener("wheel",e=>{ e.preventDefault();
+    set(((set.get()-1+(e.deltaY>0?1:-1))+N)%N+1); drawAll(); },{passive:false});
+}
+function bindYear(){
+  let on=false, prev=0, acc=0;
+  dY.cv.addEventListener("pointerdown",e=>{
+    on=true; dY.cv.setPointerCapture(e.pointerId);
+    prev=angleAt(dY.cv,e); acc=0;
+  });
+  dY.cv.addEventListener("pointermove",e=>{
+    if(!on) return;
+    const a=angleAt(dY.cv,e);
+    const da=wrapA(a-prev);
+    prev=a;
+    acc+=da/(2*Math.PI)*100;          // one full wind = one century
+    const step=Math.trunc(acc);
+    if(step){ acc-=step; guess.y=Math.max(1,Math.min(THIS_YEAR,guess.y+step)); drawAll(); }
+  });
+  dY.cv.addEventListener("pointerup",()=>on=false);
+  dY.cv.addEventListener("wheel",e=>{ e.preventDefault();
+    const step=e.shiftKey?10:1;
+    guess.y=Math.max(1,Math.min(THIS_YEAR,guess.y+(e.deltaY>0?step:-step)));
+    drawAll(); },{passive:false});
+}
+const setM=(v)=>{guess.m=v;}; setM.get=()=>guess.m;
+const setD=(v)=>{guess.d=v;}; setD.get=()=>guess.d;
+bindAbsolute(dM,12,setM);
+bindAbsolute(dD,31,setD);
+bindYear();
+
+// ============ GAME FLOW ============
+let rounds=[], ri=0, results=[], practice=false;
+const $=id=>document.getElementById(id);
+function drawDots(){
+  const box=$("dots"); box.innerHTML="";
+  for(let i=0;i<10;i++){
+    const d=document.createElement("div");
+    d.className="dot"+(i<results.length? " "+dotClass(results[i]) : i===ri? " cur":"");
+    box.appendChild(d);
+  }
+}
+function showRound(){
+  drawDots();
+  const e=rounds[ri];
+  $("evt").innerHTML='<span class="num">happening '+["one","two","three","four","five","six","seven","eight","nine","ten"][ri]+" —</span> "+e.text;
+  $("reveal").style.display="none";
+  $("guessBtn").style.display="block";
+  guess.m=6; guess.d=15; guess.y=1000;
+  drawAll();
+}
+$("guessBtn").onclick=()=>{
+  const e=rounds[ri];
+  const r=scoreRound({y:guess.y,m:guess.m,d:guess.d}, e);
+  r.emoji=emoji(r);
+  results.push(r);
+  $("guessBtn").style.display="none";
+  $("reveal").style.display="block";
+  $("reveal").querySelector(".actual").textContent=MONTHS[e.month-1]+" "+e.day+", "+e.year;
+  $("reveal").querySelector(".off").textContent=
+    (r.yd===0&&r.dd===0)? "⏱ PERFECT. the exact date. remarkable."
+    : "off by "+r.yd+" year"+(r.yd===1?"":"s")+" and "+r.dd+" day"+(r.dd===1?"":"s");
+  $("reveal").querySelector(".pts").textContent="+"+r.pts.toLocaleString()+" pts";
+  const a=$("reveal").querySelector("a");
+  if(e.link){ a.style.display="inline"; a.href=e.link; } else a.style.display="none";
+  drawDots();
+};
+$("nextBtn").onclick=()=>{
+  ri++;
+  if(ri>=rounds.length) finish(); else showRound();
+};
+function yesterKey(){
+  const y=new Date(NOW.getTime()-86400000);
+  return y.getFullYear()+"-"+(y.getMonth()+1)+"-"+y.getDate();
+}
+function finish(){
+  const total=results.reduce((s2,r)=>s2+r.pts,0);
+  if(!practice){
+    if(S.lastPlayed!==DAYKEY){
+      S.streak=S.lastPlayed===yesterKey()? S.streak+1 : 1;
+      S.lastPlayed=DAYKEY;
+    }
+    S.best=Math.max(S.best,total);
+    S.today={date:DAYKEY, results, total};
+    save();
+  }
+  showEnd(total, results, practice);
+}
+function showEnd(total,res,wasPractice){
+  $("play").style.display="none";
+  $("loading").style.display="none";
+  $("end").style.display="block";
+  results=res;
+  drawDots();
+  $("end").querySelector(".total").textContent=total.toLocaleString()+" pts";
+  $("end").querySelector(".rank").textContent=rank(total)+(wasPractice?" · practice":"");
+  $("end").querySelector(".emoji").textContent=res.map(r=>r.emoji||emoji(r)).join("");
+  const mid=new Date(NOW); mid.setHours(24,0,0,0);
+  const mins=Math.max(0,Math.round((mid-Date.now())/60000));
+  $("end").querySelector(".meta").innerHTML=
+    (wasPractice? "practice runs don't wind the streak<br>"
+      : "🔥 streak: "+S.streak+" day"+(S.streak===1?"":"s")+" · best: "+S.best.toLocaleString()+"<br>")
+    +"the clocks reset in "+Math.floor(mins/60)+"h "+(mins%60)+"m";
+  $("shareBtn").onclick=()=>{
+    const txt="WHEN?! "+(NOW.getMonth()+1)+"/"+NOW.getDate()+"\n"
+      +res.map(r=>r.emoji||emoji(r)).join("")+" "+total.toLocaleString()+" pts"
+      +(wasPractice?" (practice)":"")+"\nkaifun.fun/when.html";
+    (navigator.clipboard? navigator.clipboard.writeText(txt):Promise.reject())
+      .then(()=>{ $("shareBtn").textContent="✅ copied"; })
+      .catch(()=>{ prompt("copy your result:", txt); });
+    setTimeout(()=>$("shareBtn").textContent="📋 share",2000);
+  };
+}
+$("practiceBtn").onclick=async ()=>{
+  practice=true;
+  $("end").style.display="none";
+  $("loading").style.display="block";
+  say("winding fresh archives…");
+  rounds=await buildRounds(Math.random);
+  if(rounds.length<10){ say("the archives are unreachable — try again"); return; }
+  ri=0; results=[];
+  $("loading").style.display="none";
+  $("play").style.display="block";
+  showRound();
+};
+
+// ============ BOOT ============
+(async ()=>{
+  drawDots(); drawAll();
+  if(S.today && S.today.date===DAYKEY){
+    showEnd(S.today.total, S.today.results, false);
+    return;
+  }
+  rounds=await buildRounds(mulberry(SEED));
+  if(rounds.length<10){
+    say("couldn't reach wikipedia's archives — refresh to retry");
+    return;
+  }
+  $("loading").style.display="none";
+  $("play").style.display="block";
+  showRound();
+})();
+</script>
+</body>
+</html>
