@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JoeGuessr · Kai.fun</title>
+<style>
+  :root{
+    --bg:#16182b; --panel:#1f2240; --panel2:#262a4d;
+    --txt:#f0f1ff; --dim:#9aa0c8;
+    --green:#5dd069; --red:#ff5d5d; --gold:#ffcf4d; --blue:#5d8dff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);color:var(--txt);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  /* ---------- fullscreen photo stage ---------- */
+  #stage{position:fixed;inset:0;}
+  #bgBlur{
+    position:absolute;inset:-40px;background-size:cover;background-position:center;
+    filter:blur(28px) brightness(0.45);
+  }
+  #photo{
+    position:absolute;inset:0;margin:auto;
+    max-width:min(92vw,760px);max-height:78vh;
+    object-fit:contain;border-radius:10px;
+    box-shadow:0 10px 50px #000c;
+  }
+  /* ---------- top bar ---------- */
+  #topbar{
+    position:fixed;top:0;left:0;right:0;z-index:20;
+    display:flex;align-items:center;gap:10px;padding:12px 16px;
+    background:linear-gradient(#000a,transparent);
+  }
+  .logo{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:22px;
+  }
+  .logo .j{color:var(--blue);} .logo .g2{color:var(--red);}
+  .pill{
+    background:var(--panel);border:1px solid #ffffff22;border-radius:999px;
+    padding:7px 14px;font-weight:900;font-size:13px;white-space:nowrap;
+  }
+  .pill .lab{color:var(--dim);font-weight:700;margin-right:6px;font-size:11px;}
+  #hpWrap{flex:1;display:flex;align-items:center;gap:8px;justify-content:center;}
+  .hpSide{flex:0 1 260px;}
+  .hpName{font-size:11px;font-weight:900;color:var(--dim);margin-bottom:3px;}
+  .hpBar{height:14px;border-radius:999px;background:#0008;overflow:hidden;border:1px solid #ffffff22;}
+  .hpFill{height:100%;border-radius:999px;transition:width .6s;}
+  #hpMe .hpFill{background:linear-gradient(90deg,#4db8ff,#5dd069);}
+  #hpOp .hpFill{background:linear-gradient(90deg,#ff9d5d,#ff5d5d);}
+  #hpOp .hpName{text-align:right;}
+  /* ---------- guess panel (bottom right, like the map) ---------- */
+  #guessPanel{
+    position:fixed;right:18px;bottom:18px;z-index:20;width:min(320px,92vw);
+    background:var(--panel);border:1px solid #ffffff22;border-radius:16px;
+    padding:14px;box-shadow:0 12px 40px #000a;
+  }
+  #guessPanel .q{font-weight:900;font-size:15px;text-align:center;margin-bottom:10px;}
+  #guessPanel .btns{display:flex;flex-direction:column;gap:8px;}
+  #guessPanel button{
+    border:0;border-radius:10px;font-family:inherit;font-weight:900;font-size:19px;
+    padding:14px;cursor:pointer;color:#0d1020;
+  }
+  #joeBtn{background:var(--green);}
+  #notBtn{background:var(--red);}
+  #guessPanel button:hover{filter:brightness(1.12);}
+  #guessPanel .keys{color:var(--dim);font-size:11px;text-align:center;margin-top:8px;}
+  /* ---------- round result overlay ---------- */
+  #result{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;transform:translateY(110%);
+    transition:transform .35s cubic-bezier(.2,.9,.3,1.1);
+    background:var(--panel2);border-top:1px solid #ffffff22;
+    padding:20px 16px 24px;text-align:center;
+  }
+  #result.show{transform:translateY(0);}
+  #result .big{font-size:32px;font-weight:900;}
+  #result .name{font-size:17px;font-weight:900;margin:6px 0 2px;}
+  #result .opp{font-size:14px;color:var(--dim);margin:4px 0;}
+  #result .dmg{font-size:15px;font-weight:900;margin:4px 0;}
+  #result a{color:var(--blue);font-size:13px;}
+  .bigBtn{
+    border:0;border-radius:12px;background:var(--gold);color:#0d1020;
+    font-family:inherit;font-weight:900;font-size:17px;padding:13px 34px;
+    cursor:pointer;margin-top:12px;
+  }
+  .bigBtn:hover{filter:brightness(1.1);}
+  .bigBtn.dim{background:var(--panel);color:var(--txt);border:1px solid #ffffff33;}
+  /* ---------- fullscreen screens (menu / loading / end) ---------- */
+  .screen{
+    position:fixed;inset:0;z-index:40;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:20px;text-align:center;
+  }
+  .screen h1{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;
+    font-size:clamp(38px,9vw,60px);
+  }
+  .screen h1 .j{color:var(--blue);} .screen h1 .g2{color:var(--red);}
+  .tag2{color:var(--dim);font-size:14px;margin-top:-8px;}
+  .modeRow{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:10px;}
+  .modeCard{
+    width:250px;background:var(--panel);border:1px solid #ffffff22;border-radius:16px;
+    padding:20px 16px;cursor:pointer;text-align:center;
+  }
+  .modeCard:hover{background:var(--panel2);transform:translateY(-3px);}
+  .modeCard .mi{font-size:38px;}
+  .modeCard .mt{font-weight:900;font-size:19px;margin:6px 0 4px;}
+  .modeCard .md{color:var(--dim);font-size:12.5px;line-height:1.5;}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;background:var(--panel);
+    border:1px solid #ffffff22;border-radius:999px;padding:8px 18px;font-weight:900;
+  }
+  .backHome{position:fixed;top:12px;left:14px;z-index:50;color:var(--dim);
+    text-decoration:none;font-size:13px;font-weight:700;}
+  .backHome:hover{color:var(--txt);}
+  #endEmoji{font-size:22px;letter-spacing:2px;}
+  .ratingDelta{font-size:26px;font-weight:900;}
+  .divBar{width:min(340px,80vw);height:10px;border-radius:999px;background:#0008;overflow:hidden;border:1px solid #ffffff22;}
+  .divFill{height:100%;background:linear-gradient(90deg,var(--blue),var(--gold));border-radius:999px;}
+  .meta2{color:var(--dim);font-size:13px;line-height:1.7;}
+  #dots{display:flex;gap:5px;justify-content:center;}
+  .dot{width:11px;height:11px;border-radius:50%;background:#ffffff22;}
+  .dot.ok{background:var(--green);} .dot.no{background:var(--red);}
+</style>
+</head>
+<body>
+<a class="backHome" href="index.html">&larr; kai.fun</a>
+
+<div id="stage" style="display:none">
+  <div id="bgBlur"></div>
+  <img id="photo" alt="a mystery person">
+</div>
+
+<div id="topbar" style="display:none">
+  <div class="logo"><span class="j">Joe</span><span class="g2">Guessr</span></div>
+  <div class="pill" id="roundPill"><span class="lab">ROUND</span><span id="roundNum">1/10</span></div>
+  <div id="hpWrap">
+    <div class="hpSide" id="hpMe"><div class="hpName">YOU</div><div class="hpBar"><div class="hpFill" style="width:100%"></div></div></div>
+    <div class="hpSide" id="hpOp"><div class="hpName">OPPONENT</div><div class="hpBar"><div class="hpFill" style="width:100%"></div></div></div>
+  </div>
+  <div class="pill" id="scorePill"><span class="lab">SCORE</span><span id="scoreNum">0</span></div>
+  <div class="pill" id="ratingPill">📦 1000</div>
+</div>
+
+<div id="guessPanel" style="display:none">
+  <div class="q">is this person named <b>JOE</b>?</div>
+  <div class="btns">
+    <button id="joeBtn">🟢 JOE</button>
+    <button id="notBtn">🔴 NOT JOE</button>
+  </div>
+  <div class="keys">J = joe · N = not joe · JOE means exactly “Joe” (Joey/Joseph/Joel = not)</div>
+</div>
+
+<div id="result">
+  <div class="big"></div>
+  <div class="name"></div>
+  <div class="opp"></div>
+  <div class="dmg"></div>
+  <a href="#" target="_blank" rel="noopener">who is this? →</a><br>
+  <button class="bigBtn" id="nextBtn">NEXT ROUND</button>
+</div>
+
+<div class="screen" id="menu">
+  <h1><span class="j">Joe</span><span class="g2">Guessr</span> 🕵️</h1>
+  <div class="tag2">real people from wikipedia · one question · is their name joe</div>
+  <div class="badge" id="menuRating">📦 rating 1000</div>
+  <div class="modeRow">
+    <div class="modeCard" id="playClassic">
+      <div class="mi">🎯</div>
+      <div class="mt">CLASSIC</div>
+      <div class="md">10 suspects, chase a perfect score. relaxed. no stakes. just joes.</div>
+    </div>
+    <div class="modeCard" id="playRanked">
+      <div class="mi">⚔️</div>
+      <div class="mt">RANKED DUEL</div>
+      <div class="md">matched against an opponent. health bars. wrong answers cost blood. rating on the line.</div>
+    </div>
+  </div>
+  <div class="meta2" id="menuStats"></div>
+</div>
+
+<div class="screen" id="loading" style="display:none">
+  <h1><span class="j">Joe</span><span class="g2">Guessr</span></h1>
+  <div class="tag2" id="loadTxt">rounding up suspects…</div>
+</div>
+
+<div class="screen" id="end" style="display:none">
+  <div style="font-size:44px;font-weight:900" id="endTitle"></div>
+  <div class="ratingDelta" id="endDelta"></div>
+  <div class="badge" id="endBadge"></div>
+  <div class="divBar"><div class="divFill" id="divFill" style="width:0%"></div></div>
+  <div id="endEmoji"></div>
+  <div id="dots"></div>
+  <div class="meta2" id="endMeta"></div>
+  <div>
+    <button class="bigBtn" id="againBtn">🔁 PLAY AGAIN</button>
+    <button class="bigBtn dim" id="menuBtn">MENU</button>
+    <button class="bigBtn dim" id="shareBtn">📋 SHARE</button>
+  </div>
+</div>
+
+<script>
+// ============ WIKI DATA ============
+const API="https://en.wikipedia.org/w/api.php";
+function api(params){
+  const q=new URLSearchParams(Object.assign({origin:"*",format:"json"},params));
+  return fetch(API+"?"+q).then(r=>r.json());
+}
+const $=id=>document.getElementById(id);
+function isPerson(cats){ return /\bbirths\b|\bdeaths\b|Living people/i.test(cats); }
+function firstName(t){ return t.split(" ")[0].replace(/,$/,""); }
+function isJoe(t){ return firstName(t)==="Joe"; }
+async function titlesToPeople(titles){
+  const out=[];
+  for(let i=0;i<titles.length;i+=50){
+    const d=await api({action:"query", titles:titles.slice(i,i+50).join("|"),
+      prop:"pageimages|categories", piprop:"thumbnail", pithumbsize:"900",
+      cllimit:"500", clshow:"!hidden", redirects:"1"});
+    const pages=(d.query&&d.query.pages)||{};
+    for(const id in pages){
+      const p=pages[id];
+      if(!p.title||!p.thumbnail) continue;
+      const cats=(p.categories||[]).map(c=>c.title).join(" ");
+      if(!isPerson(cats)) continue;
+      out.push({title:p.title, img:p.thumbnail.source,
+        link:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title)});
+    }
+  }
+  return out;
+}
+async function prefixPeople(prefix,n){
+  const d=await api({action:"query", list:"prefixsearch", pssearch:prefix,
+    pslimit:String(n), psnamespace:"0"});
+  return titlesToPeople(((d.query&&d.query.prefixsearch)||[]).map(x=>x.title));
+}
+async function randomPeople(){
+  const d=await api({action:"query", list:"random", rnnamespace:"0",
+    rnfilterredir:"nonredirects", rnlimit:"20"});
+  return (await titlesToPeople(((d.query&&d.query.random)||[]).map(x=>x.title)))
+    .filter(p=>!isJoe(p.title));
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+async function buildRun(count){
+  $("loadTxt").textContent="rounding up suspects… (finding joes)";
+  const joes=shuffle(await prefixPeople("Joe ",100));
+  const trapNames=shuffle(["Joseph ","Joey ","Joel ","John ","Jon ","Jo "]).slice(0,3);
+  const traps=[];
+  for(const t of trapNames){
+    $("loadTxt").textContent="rounding up suspects… (recruiting "+t.trim()+"s)";
+    traps.push(...await prefixPeople(t,40));
+  }
+  $("loadTxt").textContent="rounding up suspects… (grabbing randoms)";
+  const rands=await randomPeople();
+  const picked=[], used=new Set();
+  function take(pool,n){
+    for(const p of shuffle(pool)){
+      if(n<=0||picked.length>=count) break;
+      if(used.has(p.title)) continue;
+      used.add(p.title); picked.push(p); n--;
+    }
+  }
+  const nJoe=Math.round(count*0.5);
+  take(joes,nJoe); take(traps,Math.round(count*0.3)); take(rands,count);
+  take(joes.concat(traps,rands), count-picked.length);
+  return shuffle(picked).slice(0,count);
+}
+
+// ============ RATING / DIVISIONS ============
+const SAVE="joeguessr_v2";
+let P={rating:1000, wins:0, losses:0, bestClassic:0};
+try{ const d=JSON.parse(localStorage.getItem(SAVE)); if(d) P=Object.assign(P,d); }catch(e){}
+function save(){ try{ localStorage.setItem(SAVE,JSON.stringify(P)); }catch(e){} }
+const DIVS=[
+  [0,"📦","Cardboard Joe"],[900,"🥉","Bronze Joe"],[1050,"🥈","Silver Joe"],
+  [1200,"🥇","Gold Joe"],[1350,"💠","Platinum Joe"],[1500,"💎","Diamond Joe"],
+  [1700,"👑","JOE CHAMPION"],
+];
+function division(r){
+  let d=DIVS[0];
+  for(const x of DIVS) if(r>=x[0]) d=x;
+  return d;
+}
+function divProgress(r){
+  const i=DIVS.findIndex(d=>d===division(r));
+  if(i>=DIVS.length-1) return 1;
+  const lo=DIVS[i][0], hi=DIVS[i+1][0];
+  return Math.max(0.03,(r-lo)/(hi-lo));
+}
+function badgeText(r){ const d=division(r); return d[1]+" "+d[2]+" · "+Math.round(r); }
+
+// ============ GAME STATE ============
+let mode="classic", rounds=[], ri=0, results=[], score=0;
+let hpMe=5000, hpOp=5000, opp=null, ratingDelta=0;
+const DMG=[500,500,750,1000,1250,1500,1750,2000,2250,2500,3000,3000];
+function oppName(){
+  const names=["JoeSleuth","AverageJoe","xX_Joe_Xx","JoeHunter","NotJoe","JoeDetective","BigJoeFan","JoePro","CupOfJoe","JoeSixPack"];
+  return names[Math.floor(Math.random()*names.length)]+"_"+Math.floor(100+Math.random()*900);
+}
+function show(el,on){ $(el).style.display=on?"":"none"; }
+function updateHud(){
+  $("roundNum").textContent=(ri+1)+"/"+rounds.length;
+  $("scoreNum").textContent=score;
+  $("ratingPill").textContent=badgeText(P.rating);
+  show("hpWrap", mode==="ranked");
+  show("scorePill", mode==="classic");
+  if(mode==="ranked"){
+    $("hpMe").querySelector(".hpFill").style.width=Math.max(0,hpMe/50)+"%";
+    $("hpOp").querySelector(".hpFill").style.width=Math.max(0,hpOp/50)+"%";
+    $("hpOp").querySelector(".hpName").textContent=opp.name+" · "+badgeText(opp.rating).split("·")[1];
+  }
+}
+function showRound(){
+  const e=rounds[ri];
+  $("bgBlur").style.backgroundImage="url("+e.img+")";
+  $("photo").src=e.img;
+  $("result").classList.remove("show");
+  show("guessPanel",true);
+  updateHud();
+}
+function answer(saidJoe){
+  const e=rounds[ri];
+  const truth=isJoe(e.title);
+  const right=saidJoe===truth;
+  results.push(right);
+  if(right) score++;
+  show("guessPanel",false);
+  const R=$("result");
+  R.querySelector(".big").textContent=right?"✅ CORRECT":"❌ WRONG";
+  R.querySelector(".big").style.color=right?"var(--green)":"var(--red)";
+  R.querySelector(".name").textContent=(truth?"JOE — ":"NOT JOE — ")+e.title;
+  R.querySelector("a").href=e.link;
+  if(mode==="ranked"){
+    const oppRight=Math.random()<opp.acc;
+    const dmg=DMG[Math.min(ri,DMG.length-1)];
+    let dmgTxt="both "+(right?"correct":"wrong")+" — no damage";
+    if(right&&!oppRight){ hpOp-=dmg; dmgTxt="💥 "+opp.name+" takes "+dmg+" damage!"; }
+    if(!right&&oppRight){ hpMe-=dmg; dmgTxt="🩸 you take "+dmg+" damage!"; }
+    R.querySelector(".opp").textContent=opp.name+" guessed "+(oppRight===truth?"✅ right":"❌ wrong");
+    R.querySelector(".dmg").textContent=dmgTxt;
+    $("nextBtn").textContent=(hpMe<=0||hpOp<=0)?"SEE RESULT":"NEXT ROUND";
+  }else{
+    R.querySelector(".opp").textContent="";
+    R.querySelector(".dmg").textContent="";
+    $("nextBtn").textContent=(ri>=rounds.length-1)?"SEE RESULT":"NEXT ROUND";
+  }
+  updateHud();
+  R.classList.add("show");
+}
+$("joeBtn").onclick=()=>answer(true);
+$("notBtn").onclick=()=>answer(false);
+addEventListener("keydown",e=>{
+  if($("guessPanel").style.display==="none") return;
+  if(e.key==="j"||e.key==="J") answer(true);
+  if(e.key==="n"||e.key==="N") answer(false);
+});
+$("nextBtn").onclick=()=>{
+  if(mode==="ranked"&&(hpMe<=0||hpOp<=0)){ finish(); return; }
+  ri++;
+  if(ri>=rounds.length) finish(); else showRound();
+};
+function classicRank(n){
+  if(n===10) return "🕵️ THE JOEMASTER";
+  if(n>=8) return "🎖 certified joe detector";
+  if(n>=6) return "😎 joe enjoyer";
+  if(n>=4) return "🤔 joe curious";
+  return "🫥 you don't know joe";
+}
+function finish(){
+  show("stage",false); show("topbar",false); show("guessPanel",false);
+  $("result").classList.remove("show");
+  show("end",true);
+  $("endEmoji").textContent=results.map(r=>r?"✅":"❌").join("");
+  const dots=$("dots"); dots.innerHTML="";
+  results.forEach(r=>{ const d=document.createElement("div");
+    d.className="dot "+(r?"ok":"no"); dots.appendChild(d); });
+  if(mode==="classic"){
+    P.bestClassic=Math.max(P.bestClassic,score); save();
+    $("endTitle").textContent=score+"/"+rounds.length;
+    $("endDelta").textContent=classicRank(score);
+    $("endDelta").style.color="var(--gold)";
+    $("endBadge").textContent=badgeText(P.rating);
+    $("divFill").style.width=(divProgress(P.rating)*100)+"%";
+    $("endMeta").textContent="best classic: "+P.bestClassic+"/10 · ranked duels change your rating";
+  }else{
+    let res=0.5, title="🤝 DRAW";
+    if(hpOp<=0&&hpMe>0){ res=1; title="🏆 VICTORY"; }
+    else if(hpMe<=0&&hpOp>0){ res=0; title="💀 DEFEAT"; }
+    else if(hpMe!==hpOp){ res=hpMe>hpOp?1:0; title=hpMe>hpOp?"🏆 VICTORY":"💀 DEFEAT"; }
+    const expected=1/(1+Math.pow(10,(opp.rating-P.rating)/400));
+    const delta=Math.round(40*(res-expected));
+    const before=P.rating;
+    P.rating=Math.max(100,P.rating+delta);
+    if(res===1)P.wins++; if(res===0)P.losses++;
+    save();
+    ratingDelta=delta;
+    $("endTitle").textContent=title;
+    $("endDelta").textContent=(delta>=0?"+":"")+delta+" rating  ("+Math.round(before)+" → "+Math.round(P.rating)+")";
+    $("endDelta").style.color=delta>=0?"var(--green)":"var(--red)";
+    $("endBadge").textContent=badgeText(P.rating);
+    $("divFill").style.width=(divProgress(P.rating)*100)+"%";
+    $("endMeta").textContent="vs "+opp.name+" ("+Math.round(opp.rating)+") · record "+P.wins+"W-"+P.losses+"L";
+  }
+  $("shareBtn").onclick=()=>{
+    const txt=(mode==="classic"
+      ? "JoeGuessr "+score+"/"+rounds.length+"\n"+results.map(r=>r?"✅":"❌").join("")
+      : "JoeGuessr RANKED "+$("endTitle").textContent+" ("+(ratingDelta>=0?"+":"")+ratingDelta+")\n"
+        +results.map(r=>r?"✅":"❌").join("")+"\n"+badgeText(P.rating))
+      +"\nkaifun.fun/joeguessr.html";
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject())
+      .then(()=>{$("shareBtn").textContent="✅ COPIED";})
+      .catch(()=>{prompt("copy your result:",txt);});
+    setTimeout(()=>$("shareBtn").textContent="📋 SHARE",2000);
+  };
+}
+async function start(m){
+  mode=m;
+  show("menu",false); show("end",false); show("loading",true);
+  ri=0; results=[]; score=0; hpMe=5000; hpOp=5000;
+  if(mode==="ranked"){
+    const r=P.rating+(Math.random()*300-150);
+    opp={name:oppName(), rating:Math.max(150,r),
+      acc:Math.min(0.92,Math.max(0.55, 0.5+(r-700)/2400))};
+  }
+  try{ rounds=await buildRun(mode==="ranked"?14:10); }catch(e){ rounds=[]; }
+  if(rounds.length<8){
+    $("loadTxt").textContent="couldn't reach wikipedia — tap to retry";
+    $("loading").onclick=()=>{ $("loading").onclick=null; start(m); };
+    return;
+  }
+  show("loading",false);
+  show("stage",true); show("topbar",true);
+  showRound();
+}
+function menu(){
+  show("end",false); show("stage",false); show("topbar",false);
+  show("guessPanel",false); show("menu",true);
+  $("menuRating").textContent=badgeText(P.rating);
+  $("menuStats").textContent="record "+P.wins+"W-"+P.losses+"L · best classic "+P.bestClassic+"/10";
+}
+$("playClassic").onclick=()=>start("classic");
+$("playRanked").onclick=()=>start("ranked");
+$("againBtn").onclick=()=>start(mode);
+$("menuBtn").onclick=menu;
+menu();
+</script>
+</body>
+</html>
