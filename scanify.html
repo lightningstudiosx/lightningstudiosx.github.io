@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scanify · Kai.fun</title>
+<style>
+  :root{--ink:#141414;--paper:#fff;--muted:#8a8a8a;--coral:#ff6b5e;--sky:#4aa9d8;--moss:#6fb85c;--grape:#9b7fd4;--sun:#f5b829;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;min-height:100vh;padding:16px 12px 60px;}
+  .wrap{max-width:980px;margin:0 auto;}
+  .back{text-decoration:none;color:var(--muted);font-size:14px;} .back:hover{color:var(--ink);}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 10px;}
+  .wordmark{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:38px;transform:rotate(-1.5deg);}
+  .wordmark .s{color:var(--sky);} .wordmark .c{color:var(--coral);}
+  .tag{color:var(--muted);font-size:13px;}
+  #steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .step{border:2px solid var(--ink);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:900;background:#fff;color:#999;}
+  .step.on{background:var(--sun);color:var(--ink);box-shadow:2px 2px 0 var(--ink);}
+  .card{border:2px solid var(--ink);border-radius:14px;background:#fff;box-shadow:4px 4px 0 var(--ink);padding:14px;margin-bottom:14px;}
+  .card h2{font-size:16px;margin-bottom:8px;}
+  .card p{font-size:13.5px;line-height:1.55;color:#444;}
+  .btn{border:2px solid var(--ink);border-radius:10px;background:var(--sun);font-family:inherit;font-weight:900;font-size:13.5px;padding:9px 14px;cursor:pointer;box-shadow:2px 2px 0 var(--ink);}
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink);}
+  .btn.blue{background:#dbe7ff;} .btn.white{background:#fff;} .btn.small{font-size:12px;padding:6px 10px;}
+  .btn.on{background:var(--moss);color:#fff;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;}
+  select,input[type=range]{font-family:inherit;}
+  select{border:2px solid var(--ink);border-radius:8px;padding:6px 8px;font-size:13px;background:#fff;}
+  #video{width:100%;max-width:520px;border:2px solid var(--ink);border-radius:12px;background:#000;display:none;}
+  #shots{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .shot{width:74px;height:74px;border:2px solid var(--ink);border-radius:8px;overflow:hidden;position:relative;cursor:pointer;background:#eee;}
+  .shot img{width:100%;height:100%;object-fit:cover;}
+  .shot .n{position:absolute;left:4px;top:2px;font-size:11px;font-weight:900;color:#fff;text-shadow:1px 1px 2px #000;}
+  .shot .x{position:absolute;right:2px;top:0;font-size:12px;font-weight:900;color:#fff;text-shadow:1px 1px 2px #000;}
+  .shot.cur{outline:3px solid var(--coral);}
+  .shot.masked::after{content:"✔";position:absolute;right:4px;bottom:2px;color:var(--moss);font-weight:900;text-shadow:1px 1px 2px #fff;}
+  #edit{display:block;max-width:100%;border:2px solid var(--ink);border-radius:12px;cursor:crosshair;touch-action:none;background:#222;}
+  #view{width:100%;height:420px;border:2px solid var(--ink);border-radius:12px;background:#0d0d12;display:block;touch-action:none;}
+  #prog{height:10px;border:2px solid var(--ink);border-radius:6px;overflow:hidden;background:#fff;margin-top:8px;}
+  #progF{height:100%;width:0;background:var(--moss);}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px;}
+  label.sl{font-size:12px;font-weight:700;color:#555;display:flex;align-items:center;gap:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark"><span class="s">scan</span><span class="c">ify</span> 📷</div>
+    <div class="tag">photos from all around an object → a real 3D model you can download.</div>
+  </header>
+  <div id="steps">
+    <span class="step on" data-s="1">1 · shoot</span><span class="step" data-s="2">2 · cut out</span>
+    <span class="step" data-s="3">3 · carve</span><span class="step" data-s="4">4 · download</span>
+  </div>
+
+  <!-- ===== STEP 1 ===== -->
+  <div class="card" id="s1">
+    <h2>📷 shoot the object from all around</h2>
+    <p>put the object on a table with a <b>plain background</b> (a sheet of paper behind it is perfect). walk in a circle around it,
+      taking <b>evenly spaced</b> photos — same height, same distance, object in the middle of the frame, every time.
+      go <b>counter-clockwise</b> (looking down from above). 16 is good. 24–32 is better.</p>
+    <div class="row">
+      <label class="sl">photos around: <select id="nShots"><option>8</option><option selected>16</option><option>24</option><option>32</option></select></label>
+      <button class="btn" id="camBtn">📷 use camera</button>
+      <button class="btn blue" id="upBtn">📁 upload photos (in order)</button>
+      <input type="file" id="upIn" hidden accept="image/*" multiple>
+    </div>
+    <video id="video" playsinline autoplay muted></video>
+    <div class="row" id="snapRow" style="display:none">
+      <button class="btn" id="snapBtn">📸 snap angle <span id="snapN">1</span></button>
+      <span id="snapHint" class="note"></span>
+    </div>
+    <div id="shots"></div>
+    <div class="row"><button class="btn" id="toCut" style="display:none">next: cut out the object →</button></div>
+  </div>
+
+  <!-- ===== STEP 2 ===== -->
+  <div class="card" id="s2" style="display:none">
+    <h2>✂️ cut the object out of every photo</h2>
+    <p>red = background (gone). start with <b>auto-cut</b>, then fix mistakes with the wand or brush. do it for every photo — the ✔ shows which are done.</p>
+    <div class="row">
+      <button class="btn small on" id="tWand">🪄 wand</button>
+      <button class="btn small white" id="tBrush">🖌 brush</button>
+      <button class="btn small white" id="tErase">🧽 eraser</button>
+      <label class="sl">tolerance <input type="range" id="tol" min="5" max="120" value="40"></label>
+      <label class="sl">brush <input type="range" id="bsz" min="3" max="40" value="14"></label>
+    </div>
+    <div class="row">
+      <button class="btn small blue" id="autoOne">⚡ auto-cut this photo</button>
+      <button class="btn small blue" id="autoAll">⚡⚡ auto-cut ALL photos</button>
+      <button class="btn small white" id="clearMask">reset this photo</button>
+      <button class="btn small white" id="invMask">invert</button>
+    </div>
+    <canvas id="edit"></canvas>
+    <div class="row">
+      <button class="btn small white" id="prevP">← prev</button>
+      <span id="pLabel" style="font-weight:900;font-size:13px;"></span>
+      <button class="btn small white" id="nextP">next →</button>
+      <button class="btn" id="toCarve" style="margin-left:auto">next: carve it →</button>
+    </div>
+    <div class="note">wand: click a color to remove it (shift+click to add it back). brush paints object back in, eraser removes.</div>
+  </div>
+
+  <!-- ===== STEP 3 ===== -->
+  <div class="card" id="s3" style="display:none">
+    <h2>🪨 carve the block</h2>
+    <p>every silhouette slices away the space outside it, from its own angle. what survives all of them is your object.</p>
+    <div class="row">
+      <label class="sl">detail <select id="res"><option value="64">64³ (fast)</option><option value="96" selected>96³ (good)</option><option value="128">128³ (slow, sharp)</option></select></label>
+      <label class="sl">walked direction <select id="dir"><option value="1">counter-clockwise</option><option value="-1">clockwise</option></select></label>
+      <label class="sl">smoothing <select id="smooth"><option value="0">none</option><option value="2" selected>a little</option><option value="5">a lot</option></select></label>
+    </div>
+    <div class="row"><button class="btn" id="carveBtn">🪨 CARVE</button><span id="carveMsg" class="note"></span></div>
+    <div id="prog"><div id="progF"></div></div>
+    <div class="note">if the result looks mirrored or like a blob, flip the walked direction and carve again.</div>
+  </div>
+
+  <!-- ===== STEP 4 ===== -->
+  <div class="card" id="s4" style="display:none">
+    <h2>🧊 your model</h2>
+    <canvas id="view"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="dlPly">⬇ .ply (with colors)</button>
+      <button class="btn blue" id="dlObj">⬇ .obj</button>
+      <button class="btn blue" id="dlStl">⬇ .stl (for 3D printing)</button>
+      <button class="btn white" id="again">↺ carve again</button>
+    </div>
+    <div class="note" id="meshInfo"></div>
+    <div class="note">drag to spin, scroll to zoom. open the .ply in Blender / MeshLab / Windows 3D Viewer. dents and holes can't be carved from silhouettes — it's the object's outline from every angle, wearing your photos.</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const WORK=360;                     // working resolution (long side) for masks
+let shots=[];                       // {img, w, h, data(Uint8ClampedArray rgba), mask(Uint8Array 1=object)}
+let curP=0, tool="wand";
+function goStep(n){
+  document.querySelectorAll(".step").forEach(s=>s.classList.toggle("on",+s.dataset.s===n));
+  [1,2,3,4].forEach(i=>$("s"+i).style.display= i===n? "block":"none");
+  if(n===2) openPhoto(curP);
+}
+// ============ STEP 1: capture ============
+let stream=null;
+$("camBtn").onclick=async()=>{
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280}},audio:false});
+    $("video").srcObject=stream; $("video").style.display="block"; $("snapRow").style.display="flex";
+    $("snapHint").textContent="angle 1 of "+$("nShots").value+" · then step "+(360/$("nShots").value).toFixed(0)+"° around";
+  }catch(e){ alert("camera didn't open — use upload instead."); }
+};
+$("snapBtn").onclick=()=>{
+  const v=$("video"); if(!v.videoWidth) return;
+  const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext("2d").drawImage(v,0,0);
+  addShot(c);
+  const n=+$("nShots").value;
+  $("snapN").textContent=Math.min(n,shots.length+1);
+  $("snapHint").textContent= shots.length>=n? "that's all of them — hit next!" : "angle "+(shots.length+1)+" of "+n+" · move "+(360/n).toFixed(0)+"° around";
+};
+$("upBtn").onclick=()=>$("upIn").click();
+$("upIn").onchange=async(e)=>{
+  const files=[...e.target.files].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  for(const f of files){
+    const bmp=await createImageBitmap(f);
+    const c=document.createElement("canvas"); c.width=bmp.width; c.height=bmp.height;
+    c.getContext("2d").drawImage(bmp,0,0); addShot(c);
+  }
+  e.target.value="";
+};
+function addShot(srcCanvas){
+  const sc=WORK/Math.max(srcCanvas.width,srcCanvas.height);
+  const w=Math.max(8,Math.round(srcCanvas.width*sc)), h=Math.max(8,Math.round(srcCanvas.height*sc));
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const g=c.getContext("2d"); g.drawImage(srcCanvas,0,0,w,h);
+  const data=g.getImageData(0,0,w,h).data;
+  shots.push({img:c, w, h, data, mask:new Uint8Array(w*h).fill(1), done:false});
+  renderShots();
+}
+function renderShots(){
+  const box=$("shots"); box.innerHTML="";
+  shots.forEach((s,i)=>{
+    const d=document.createElement("div"); d.className="shot"+(s.done?" masked":"")+(i===curP?" cur":"");
+    const im=document.createElement("img"); im.src=s.img.toDataURL();
+    d.innerHTML='<span class="n">'+(i+1)+'</span><span class="x" title="remove">✕</span>';
+    d.prepend(im);
+    d.querySelector(".x").onclick=(e)=>{ e.stopPropagation(); shots.splice(i,1); curP=Math.min(curP,Math.max(0,shots.length-1)); renderShots(); };
+    d.onclick=()=>{ curP=i; if($("s2").style.display!=="none") openPhoto(i); renderShots(); };
+    box.appendChild(d);
+  });
+  $("toCut").style.display= shots.length>=4? "inline-block":"none";
+}
+$("toCut").onclick=()=>{ if(stream){ stream.getTracks().forEach(t=>t.stop()); } curP=0; goStep(2); };
+
+// ============ STEP 2: masking ============
+const ed=$("edit"), eg=ed.getContext("2d");
+let scale=1;
+function openPhoto(i){
+  curP=i; const s=shots[i]; if(!s) return;
+  const maxW=Math.min(640, document.querySelector(".wrap").clientWidth-32);
+  scale=Math.min(maxW/s.w, 480/s.h);
+  ed.width=s.w; ed.height=s.h; ed.style.width=(s.w*scale)+"px"; ed.style.height=(s.h*scale)+"px";
+  $("pLabel").textContent="photo "+(i+1)+" / "+shots.length;
+  drawEdit(); renderShots();
+}
+function drawEdit(){
+  const s=shots[curP]; if(!s) return;
+  eg.drawImage(s.img,0,0);
+  const id=eg.getImageData(0,0,s.w,s.h), d=id.data;
+  for(let p=0,k=0;p<s.mask.length;p++,k+=4){
+    if(!s.mask[p]){ d[k]=d[k]*0.35+160; d[k+1]*=0.35; d[k+2]*=0.35; }
+  }
+  eg.putImageData(id,0,0);
+}
+function flood(s,sx,sy,tol,setTo){
+  const {w,h,data,mask}=s; const seen=new Uint8Array(w*h);
+  const si=(sy*w+sx)*4, r0=data[si], g0=data[si+1], b0=data[si+2];
+  const stack=[sy*w+sx]; seen[sy*w+sx]=1;
+  while(stack.length){
+    const p=stack.pop(); const k=p*4;
+    const dr=data[k]-r0, dg=data[k+1]-g0, db=data[k+2]-b0;
+    if(dr*dr+dg*dg+db*db>tol*tol) continue;
+    mask[p]=setTo;
+    const x=p%w, y=(p-x)/w;
+    if(x>0&&!seen[p-1]){seen[p-1]=1;stack.push(p-1);}
+    if(x<w-1&&!seen[p+1]){seen[p+1]=1;stack.push(p+1);}
+    if(y>0&&!seen[p-w]){seen[p-w]=1;stack.push(p-w);}
+    if(y<h-1&&!seen[p+w]){seen[p+w]=1;stack.push(p+w);}
+  }
+}
+function autoCut(s){
+  s.mask.fill(1);
+  const tol=+$("tol").value;
+  [[0,0],[s.w-1,0],[0,s.h-1],[s.w-1,s.h-1],[Math.floor(s.w/2),0],[0,Math.floor(s.h/2)],[s.w-1,Math.floor(s.h/2)]]
+    .forEach(([x,y])=>flood(s,x,y,tol,0));
+  s.done=true;
+}
+function paint(x,y,setTo){
+  const s=shots[curP], r=+$("bsz").value;
+  for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+    if(dx*dx+dy*dy>r*r) continue;
+    const px=x+dx, py=y+dy; if(px<0||py<0||px>=s.w||py>=s.h) continue;
+    s.mask[py*s.w+px]=setTo;
+  }
+  s.done=true;
+}
+function evPos(e){ const r=ed.getBoundingClientRect(); return [Math.floor((e.clientX-r.left)/scale), Math.floor((e.clientY-r.top)/scale)]; }
+let painting=false;
+ed.addEventListener("pointerdown",(e)=>{
+  const [x,y]=evPos(e); const s=shots[curP]; if(!s||x<0||y<0||x>=s.w||y>=s.h) return;
+  if(tool==="wand"){ flood(s,x,y,+$("tol").value, e.shiftKey?1:0); s.done=true; drawEdit(); renderShots(); return; }
+  painting=true; paint(x,y, tool==="brush"?1:0); drawEdit();
+});
+ed.addEventListener("pointermove",(e)=>{ if(!painting) return; const [x,y]=evPos(e); paint(x,y, tool==="brush"?1:0); drawEdit(); });
+addEventListener("pointerup",()=>{ if(painting){ painting=false; renderShots(); } });
+function setTool(t){ tool=t; ["tWand","tBrush","tErase"].forEach(id=>$(id).classList.remove("on")); $({wand:"tWand",brush:"tBrush",erase:"tErase"}[t]).classList.add("on"); $(({wand:"tWand",brush:"tBrush",erase:"tErase"})[t]).classList.remove("white"); }
+$("tWand").onclick=()=>setTool("wand"); $("tBrush").onclick=()=>setTool("brush"); $("tErase").onclick=()=>setTool("erase");
+$("autoOne").onclick=()=>{ autoCut(shots[curP]); drawEdit(); renderShots(); };
+$("autoAll").onclick=()=>{ shots.forEach(autoCut); drawEdit(); renderShots(); };
+$("clearMask").onclick=()=>{ shots[curP].mask.fill(1); shots[curP].done=false; drawEdit(); renderShots(); };
+$("invMask").onclick=()=>{ const m=shots[curP].mask; for(let i=0;i<m.length;i++) m[i]=1-m[i]; drawEdit(); };
+$("prevP").onclick=()=>openPhoto((curP-1+shots.length)%shots.length);
+$("nextP").onclick=()=>openPhoto((curP+1)%shots.length);
+$("toCarve").onclick=()=>{
+  const missing=shots.filter(s=>!s.done).length;
+  if(missing && !confirm(missing+" photo(s) aren't cut out yet — they'll count as 'everything is object'. carve anyway?")) return;
+  goStep(3);
+};
+
+// ============ STEP 3: space carving ============
+let MESH=null;
+$("carveBtn").onclick=()=>carve();
+async function carve(){
+  const N=+$("res").value, dir=+$("dir").value, smoothIt=+$("smooth").value;
+  $("carveBtn").disabled=true; $("carveMsg").textContent="preparing views…"; $("progF").style.width="0%";
+  await tick();
+  // per-view: silhouette bbox -> object center & pixel scale (orthographic camera model)
+  const views=shots.map((s,i)=>{
+    let x0=s.w,y0=s.h,x1=0,y1=0,n=0;
+    for(let p=0;p<s.mask.length;p++) if(s.mask[p]){ const x=p%s.w,y=(p-x)/s.w; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; n++; }
+    if(!n){ x0=0;y0=0;x1=s.w-1;y1=s.h-1; }
+    const th=dir*i*2*Math.PI/shots.length;
+    return {s, cx:(x0+x1)/2, cy:(y0+y1)/2, bw:x1-x0+1, bh:y1-y0+1, cos:Math.cos(th), sin:Math.sin(th), th};
+  });
+  const S=Math.max(...views.map(v=>Math.max(v.bw,v.bh)))*1.02;   // pixels per world unit (object fits in unit cube)
+  const occ=new Uint8Array(N*N*N).fill(1);
+  const half=N/2;
+  for(let iz=0;iz<N;iz++){
+    const z=(iz+0.5)/N-0.5;
+    for(let iy=0;iy<N;iy++){
+      const y=(iy+0.5)/N-0.5;
+      for(let ix=0;ix<N;ix++){
+        const x=(ix+0.5)/N-0.5;
+        let alive=1;
+        for(const v of views){
+          const xr=x*v.cos - z*v.sin;
+          const u=Math.round(v.cx + xr*S), w=Math.round(v.cy - y*S);
+          if(u<0||w<0||u>=v.s.w||w>=v.s.h||!v.s.mask[w*v.s.w+u]){ alive=0; break; }
+        }
+        occ[(iz*N+iy)*N+ix]=alive;
+      }
+    }
+    if(iz%4===0){ $("progF").style.width=(iz/N*70)+"%"; $("carveMsg").textContent="carving… "+Math.round(iz/N*100)+"%"; await tick(); }
+  }
+  let alive=0; for(let i=0;i<occ.length;i++) alive+=occ[i];
+  if(alive<20){ $("carveMsg").textContent="everything got carved away — try flipping the walked direction, or check your cut-outs."; $("carveBtn").disabled=false; return; }
+  $("carveMsg").textContent="building mesh…"; $("progF").style.width="75%"; await tick();
+  MESH=surfaceNets(occ,N);
+  for(let k=0;k<smoothIt;k++) laplacian(MESH);
+  computeNormals(MESH);
+  $("carveMsg").textContent="painting colors…"; $("progF").style.width="90%"; await tick();
+  colorize(MESH,views,S);
+  $("progF").style.width="100%"; $("carveMsg").textContent="done — "+(MESH.pos.length/3)+" vertices, "+(MESH.idx.length/3)+" triangles";
+  $("carveBtn").disabled=false;
+  $("meshInfo").textContent=(MESH.pos.length/3)+" vertices · "+(MESH.idx.length/3)+" triangles · carved from "+shots.length+" photos at "+N+"³";
+  goStep(4); showMesh();
+}
+const tick=()=>new Promise(r=>setTimeout(r,0));
+// --- naive surface nets: one vertex per boundary cell, quads across sign-changing edges ---
+function surfaceNets(occ,N){
+  const at=(x,y,z)=> (x<0||y<0||z<0||x>=N||y>=N||z>=N)? 0 : occ[(z*N+y)*N+x];
+  const pos=[], idx=[];
+  const C=[[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
+  const E=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+  for(let z=-1;z<N;z++) for(let y=-1;y<N;y++) for(let x=-1;x<N;x++){
+    const c=C.map(([dx,dy,dz])=>at(x+dx,y+dy,z+dz));
+    const sum=c.reduce((a,b)=>a+b,0);
+    if(sum===0||sum===8) continue;
+    let ax=0,ay=0,az=0,n=0;
+    for(const [a,b] of E){ if(c[a]!==c[b]){ ax+=(C[a][0]+C[b][0])/2; ay+=(C[a][1]+C[b][1])/2; az+=(C[a][2]+C[b][2])/2; n++; } }
+    if(!n) continue;
+    cellKey.set(x+","+y+","+z, pos.length/3);
+    pos.push((x+ax/n+0.5)/N-0.5, (y+ay/n+0.5)/N-0.5, (z+az/n+0.5)/N-0.5);
+  }
+  // faces: for each voxel edge along axis a with a sign change, join the 4 cells around it
+  const key=(x,y,z)=>cellKey.get(x+","+y+","+z);
+  for(let z=-1;z<N;z++) for(let y=-1;y<N;y++) for(let x=-1;x<N;x++){
+    const v0=at(x,y,z);
+    // edge +x
+    if(v0!==at(x+1,y,z)){ quad(key(x,y,z),key(x,y-1,z),key(x,y-1,z-1),key(x,y,z-1),v0); }
+    if(v0!==at(x,y+1,z)){ quad(key(x,y,z),key(x,y,z-1),key(x-1,y,z-1),key(x-1,y,z),v0); }
+    if(v0!==at(x,y,z+1)){ quad(key(x,y,z),key(x-1,y,z),key(x-1,y-1,z),key(x,y-1,z),v0); }
+  }
+  function quad(a,b,c,d,inside){
+    if([a,b,c,d].some(v=>v===undefined)) return;
+    if(inside){ idx.push(a,b,c, a,c,d); } else { idx.push(a,c,b, a,d,c); }
+  }
+  cellKey.clear();
+  return {pos:new Float32Array(pos), idx:new Uint32Array(idx), nrm:null, col:null};
+}
+const cellKey=new Map();
+function laplacian(M){
+  const n=M.pos.length/3, adj=Array.from({length:n},()=>[]);
+  for(let i=0;i<M.idx.length;i+=3){ const a=M.idx[i],b=M.idx[i+1],c=M.idx[i+2]; adj[a].push(b,c); adj[b].push(a,c); adj[c].push(a,b); }
+  const out=new Float32Array(M.pos.length);
+  for(let i=0;i<n;i++){
+    const nb=adj[i]; if(!nb.length){ out[i*3]=M.pos[i*3]; out[i*3+1]=M.pos[i*3+1]; out[i*3+2]=M.pos[i*3+2]; continue; }
+    let x=0,y=0,z=0; for(const j of nb){ x+=M.pos[j*3]; y+=M.pos[j*3+1]; z+=M.pos[j*3+2]; }
+    out[i*3]=M.pos[i*3]*0.5+x/nb.length*0.5; out[i*3+1]=M.pos[i*3+1]*0.5+y/nb.length*0.5; out[i*3+2]=M.pos[i*3+2]*0.5+z/nb.length*0.5;
+  }
+  M.pos=out;
+}
+function computeNormals(M){
+  const n=M.pos.length/3, N2=new Float32Array(n*3);
+  for(let i=0;i<M.idx.length;i+=3){
+    const a=M.idx[i],b=M.idx[i+1],c=M.idx[i+2];
+    const ax=M.pos[b*3]-M.pos[a*3], ay=M.pos[b*3+1]-M.pos[a*3+1], az=M.pos[b*3+2]-M.pos[a*3+2];
+    const bx=M.pos[c*3]-M.pos[a*3], by=M.pos[c*3+1]-M.pos[a*3+1], bz=M.pos[c*3+2]-M.pos[a*3+2];
+    const nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+    for(const v of [a,b,c]){ N2[v*3]+=nx; N2[v*3+1]+=ny; N2[v*3+2]+=nz; }
+  }
+  for(let i=0;i<n;i++){ const l=Math.hypot(N2[i*3],N2[i*3+1],N2[i*3+2])||1; N2[i*3]/=l; N2[i*3+1]/=l; N2[i*3+2]/=l; }
+  M.nrm=N2;
+}
+function colorize(M,views,S){
+  const n=M.pos.length/3, col=new Uint8Array(n*3);
+  for(let i=0;i<n;i++){
+    const x=M.pos[i*3], y=M.pos[i*3+1], z=M.pos[i*3+2];
+    const nx=M.nrm[i*3], nz=M.nrm[i*3+2];
+    let best=null, bd=-2;
+    for(const v of views){
+      // camera sits at angle th, looking at the object: direction toward camera = (sin th, 0, cos th)
+      const d=nx*Math.sin(v.th)+nz*Math.cos(v.th);
+      if(d>bd){ bd=d; best=v; }
+    }
+    const xr=x*best.cos - z*best.sin;
+    const u=Math.min(best.s.w-1,Math.max(0,Math.round(best.cx+xr*S))), w=Math.min(best.s.h-1,Math.max(0,Math.round(best.cy-y*S)));
+    const k=(w*best.s.w+u)*4;
+    col[i*3]=best.s.data[k]; col[i*3+1]=best.s.data[k+1]; col[i*3+2]=best.s.data[k+2];
+  }
+  M.col=col;
+}
+
+// ============ STEP 4: preview + export ============
+let renderer=null, scene, camera, meshObj=null, rotX=0.3, rotY=0.6, dist=2.2;
+function showMesh(){
+  const cv=$("view");
+  if(!renderer){
+    renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+    scene=new THREE.Scene(); scene.background=new THREE.Color(0x0d0d12);
+    camera=new THREE.PerspectiveCamera(45,1,0.01,100);
+    scene.add(new THREE.AmbientLight(0xffffff,0.55));
+    const l=new THREE.DirectionalLight(0xffffff,0.9); l.position.set(2,3,2); scene.add(l);
+    const l2=new THREE.DirectionalLight(0xffffff,0.35); l2.position.set(-2,-1,-2); scene.add(l2);
+    let drag=false,lx=0,ly=0;
+    cv.addEventListener("pointerdown",e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+    addEventListener("pointermove",e=>{ if(!drag) return; rotY+=(e.clientX-lx)*0.01; rotX+=(e.clientY-ly)*0.01; rotX=Math.max(-1.5,Math.min(1.5,rotX)); lx=e.clientX;ly=e.clientY; });
+    addEventListener("pointerup",()=>drag=false);
+    cv.addEventListener("wheel",e=>{ e.preventDefault(); dist=Math.max(0.8,Math.min(6,dist+e.deltaY*0.002)); },{passive:false});
+    (function loop(){ requestAnimationFrame(loop);
+      const w=cv.clientWidth,h=cv.clientHeight; if(cv.width!==w||cv.height!==h){ renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+      camera.position.set(dist*Math.sin(rotY)*Math.cos(rotX), dist*Math.sin(rotX), dist*Math.cos(rotY)*Math.cos(rotX)); camera.lookAt(0,0,0);
+      renderer.render(scene,camera); })();
+  }
+  if(meshObj){ scene.remove(meshObj); meshObj.geometry.dispose(); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(MESH.pos,3));
+  g.setAttribute("normal",new THREE.BufferAttribute(MESH.nrm,3));
+  const c=new Float32Array(MESH.col.length); for(let i=0;i<c.length;i++) c[i]=MESH.col[i]/255;
+  g.setAttribute("color",new THREE.BufferAttribute(c,3));
+  g.setIndex(new THREE.BufferAttribute(MESH.idx,1));
+  meshObj=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));
+  scene.add(meshObj);
+}
+function download(name,blob){ const a=document.createElement("a"); a.download=name; a.href=URL.createObjectURL(blob); a.click(); }
+$("dlPly").onclick=()=>{
+  const n=MESH.pos.length/3, f=MESH.idx.length/3;
+  let s="ply\nformat ascii 1.0\ncomment made with scanify on kai.fun\nelement vertex "+n+"\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nelement face "+f+"\nproperty list uchar int vertex_indices\nend_header\n";
+  const parts=[s];
+  for(let i=0;i<n;i++) parts.push(MESH.pos[i*3].toFixed(5)+" "+MESH.pos[i*3+1].toFixed(5)+" "+MESH.pos[i*3+2].toFixed(5)+" "+MESH.col[i*3]+" "+MESH.col[i*3+1]+" "+MESH.col[i*3+2]+"\n");
+  for(let i=0;i<f;i++) parts.push("3 "+MESH.idx[i*3]+" "+MESH.idx[i*3+1]+" "+MESH.idx[i*3+2]+"\n");
+  download("scanify-model.ply",new Blob(parts,{type:"application/octet-stream"}));
+};
+$("dlObj").onclick=()=>{
+  const n=MESH.pos.length/3, f=MESH.idx.length/3, parts=["# made with scanify on kai.fun\n"];
+  for(let i=0;i<n;i++) parts.push("v "+MESH.pos[i*3].toFixed(5)+" "+MESH.pos[i*3+1].toFixed(5)+" "+MESH.pos[i*3+2].toFixed(5)+" "+(MESH.col[i*3]/255).toFixed(3)+" "+(MESH.col[i*3+1]/255).toFixed(3)+" "+(MESH.col[i*3+2]/255).toFixed(3)+"\n");
+  for(let i=0;i<f;i++) parts.push("f "+(MESH.idx[i*3]+1)+" "+(MESH.idx[i*3+1]+1)+" "+(MESH.idx[i*3+2]+1)+"\n");
+  download("scanify-model.obj",new Blob(parts,{type:"text/plain"}));
+};
+$("dlStl").onclick=()=>{
+  const f=MESH.idx.length/3, buf=new ArrayBuffer(84+f*50), v=new DataView(buf);
+  v.setUint32(80,f,true); let o=84;
+  for(let i=0;i<f;i++){
+    const a=MESH.idx[i*3],b=MESH.idx[i*3+1],c=MESH.idx[i*3+2];
+    v.setFloat32(o,0,true); v.setFloat32(o+4,0,true); v.setFloat32(o+8,0,true); o+=12;
+    for(const k of [a,b,c]){ v.setFloat32(o,MESH.pos[k*3]*100,true); v.setFloat32(o+4,MESH.pos[k*3+1]*100,true); v.setFloat32(o+8,MESH.pos[k*3+2]*100,true); o+=12; }
+    v.setUint16(o,0,true); o+=2;
+  }
+  download("scanify-model.stl",new Blob([buf],{type:"application/octet-stream"}));
+};
+$("again").onclick=()=>goStep(3);
+document.querySelectorAll(".step").forEach(s=>s.onclick=()=>{ const n=+s.dataset.s; if(n===1||shots.length>=4) if(n<4||MESH) goStep(n); });
+</script>
+</body>
+</html>

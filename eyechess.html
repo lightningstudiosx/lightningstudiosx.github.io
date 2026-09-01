@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eye chess · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#fff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    min-height:100vh;padding:16px 12px 40px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  .back{display:inline-block;text-decoration:none;color:var(--muted);font-size:14px;}
+  .back:hover{color:var(--ink);}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 10px;}
+  .wordmark{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;
+    font-weight:900;font-size:40px;transform:rotate(-1.5deg);
+  }
+  .wordmark .e{color:var(--sky);}
+  .tag{color:var(--muted);font-size:13px;}
+  .cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+  #left{flex:0 1 520px;min-width:320px;position:relative;}
+  #right{flex:1 1 300px;min-width:280px;}
+  .card{
+    border:2px solid var(--ink);border-radius:14px;background:#fff;
+    box-shadow:4px 4px 0 var(--ink);padding:12px;margin-bottom:12px;
+  }
+  #board{
+    display:grid;grid-template-columns:repeat(8,1fr);
+    border:2px solid var(--ink);border-radius:8px;overflow:hidden;user-select:none;
+    position:relative;
+  }
+  .sq{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(22px,5vw,34px);position:relative;line-height:1;
+  }
+  .sq.l{background:#f2e8d8;} .sq.d{background:#c9a97a;}
+  .sq.gaze{outline:4px solid var(--sky);outline-offset:-4px;z-index:2;}
+  .sq.sel{outline:4px solid var(--sun);outline-offset:-4px;}
+  .sq.mv::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(74,169,216,.65);}
+  .sq.cap::after{content:"";position:absolute;inset:6%;border-radius:50%;border:3px solid rgba(255,107,94,.8);}
+  .sq.chk{background:#ffb3ab !important;}
+  #status{margin-top:10px;font-weight:900;font-size:15px;min-height:40px;text-align:center;}
+  #ctrl{display:flex;gap:8px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
+  button.b{
+    border:2px solid var(--ink);border-radius:10px;background:var(--sun);
+    font-family:inherit;font-weight:900;font-size:13px;padding:9px 13px;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  button.b:hover{transform:translate(-1px,-1px);}
+  button.b.off{background:#fff;color:var(--muted);}
+  #calib{
+    position:absolute;inset:0;z-index:10;display:none;
+  }
+  .cdot{
+    position:absolute;width:34px;height:34px;border-radius:50%;
+    background:var(--coral);border:3px solid var(--ink);
+    transform:translate(-50%,-50%);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:900;font-size:12px;
+    animation:pulse 1s infinite;
+  }
+  @keyframes pulse{50%{transform:translate(-50%,-50%) scale(1.25);}}
+  #gazeDot{
+    position:fixed;width:22px;height:22px;border-radius:50%;
+    border:3px solid var(--sky);background:rgba(74,169,216,.25);
+    pointer-events:none;z-index:40;transform:translate(-50%,-50%);display:none;
+  }
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.5;}
+  #phasebox b{color:var(--ink);}
+  ol{padding-left:18px;font-size:12.5px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark"><span class="e">eye</span> chess 👁</div>
+    <div class="tag">no hands. look, blink, conquer.</div>
+  </header>
+  <div class="cols">
+    <div id="left">
+      <div class="card">
+        <div id="board"></div>
+        <div id="calib"></div>
+        <div id="status">loading eye tracker…</div>
+        <div id="ctrl">
+          <button class="b" id="startBtn">👁 START CAMERA</button>
+          <button class="b" id="calBtn" style="display:none">🎯 CALIBRATE (all 64)</button>
+          <button class="b" id="quickBtn" style="display:none">⚡ quick 9-dot</button>
+          <button class="b off" id="dwellBtn" style="display:none">⏳ dwell: OFF</button>
+          <button class="b" id="newBtn" style="display:none">🔄 NEW GAME</button>
+        </div>
+      </div>
+    </div>
+    <div id="right">
+      <div class="card" id="phasebox">
+        <div style="font-weight:900;margin-bottom:6px;">HOW IT WORKS</div>
+        <ol>
+          <li><b>START CAMERA</b> and allow webcam access</li>
+          <li><b>CALIBRATE</b>: look at each dot and click it — one per square (or quick 9-dot)</li>
+          <li>on your turn: <b>look</b> at your piece</li>
+          <li><b>blink</b> to select it (or press SPACE)</li>
+          <li><b>look</b> at the destination square</li>
+          <li><b>blink</b> again to move</li>
+          <li>blink on the same piece to deselect</li>
+        </ol>
+        <div class="hint" style="margin-top:8px;">
+          your camera is processed entirely in your browser by webgazer.js —
+          no video ever leaves your computer. calibration is saved for next time.
+          blink detection is imperfect: SPACE always works, and dwell mode
+          (stare 1.2s = blink) is in the buttons.
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:6px;">STATE</div>
+        <div id="stateLine" class="hint">tracker not started</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="gazeDot"></div>
+
+<script>
+// ================= CHESS CORE (standard rules, no en passant) =================
+const KN=[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const DIAG=[[1,1],[1,-1],[-1,1],[-1,-1]], ORTH=[[1,0],[-1,0],[0,1],[0,-1]];
+function rc(i){ return [Math.floor(i/8), i%8]; }
+function idx(r,c){ return r*8+c; }
+function ok(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+let S=null;
+function newGame(){
+  S={bd:Array(64).fill(null), turn:0, over:false};
+  const back=["r","n","b","q","k","b","n","r"];
+  for(let c=0;c<8;c++){
+    S.bd[8+c]={t:"p",c:1}; S.bd[48+c]={t:"p",c:0};
+    S.bd[c]={t:back[c],c:1,m:0}; S.bd[56+c]={t:back[c],c:0,m:0};
+  }
+  sel=null; selMoves=[];
+  setStatus("⬜ WHITE to move — look at a piece and blink");
+  render();
+}
+function pieceMoves(st,i){
+  const p=st.bd[i]; if(!p) return [];
+  const [r,c]=rc(i); const out=[]; const me=p.c, fwd=me===0?-1:1;
+  function add(tr,tc){ if(!ok(tr,tc))return false;
+    const q=st.bd[idx(tr,tc)];
+    if(q&&q.c===me) return false;
+    out.push({from:i,to:idx(tr,tc),cap:!!q}); return !q; }
+  function ray(dirs){ for(const [dr,dc] of dirs){ let cr=r,cc=c;
+    while(true){ cr+=dr; cc+=dc; if(!add(cr,cc)) break; } } }
+  if(p.t==="p"){
+    if(ok(r+fwd,c)&&!st.bd[idx(r+fwd,c)]){
+      out.push({from:i,to:idx(r+fwd,c),cap:false});
+      const sr=me===0?6:1;
+      if(r===sr&&!st.bd[idx(r+2*fwd,c)]) out.push({from:i,to:idx(r+2*fwd,c),cap:false});
+    }
+    for(const dc of [-1,1]){ const tr=r+fwd,tc=c+dc;
+      if(ok(tr,tc)&&st.bd[idx(tr,tc)]&&st.bd[idx(tr,tc)].c!==me)
+        out.push({from:i,to:idx(tr,tc),cap:true}); }
+  }
+  else if(p.t==="n"){ for(const [dr,dc] of KN) add(r+dr,c+dc); }
+  else if(p.t==="b"){ ray(DIAG); }
+  else if(p.t==="r"){ ray(ORTH); }
+  else if(p.t==="q"){ ray(DIAG.concat(ORTH)); }
+  else if(p.t==="k"){
+    for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc) add(r+dr,c+dc);
+    // castling
+    if(!p.m && !inCheck(st,me)){
+      const row=me===0?7:0;
+      const rk=st.bd[idx(row,7)];
+      if(rk&&rk.t==="r"&&!rk.m&&!st.bd[idx(row,5)]&&!st.bd[idx(row,6)]
+        && !sqAttacked(st,idx(row,5),1-me))
+        out.push({from:i,to:idx(row,6),cap:false,castle:"k"});
+      const rq=st.bd[idx(row,0)];
+      if(rq&&rq.t==="r"&&!rq.m&&!st.bd[idx(row,1)]&&!st.bd[idx(row,2)]&&!st.bd[idx(row,3)]
+        && !sqAttacked(st,idx(row,3),1-me))
+        out.push({from:i,to:idx(row,2),cap:false,castle:"q"});
+    }
+  }
+  return out;
+}
+function allPseudo(st,color){
+  let out=[];
+  st.bd.forEach((p,i)=>{ if(p&&p.c===color) out=out.concat(pieceMoves(st,i)); });
+  return out;
+}
+function kingPos(st,color){ let k=-1; st.bd.forEach((p,i)=>{if(p&&p.t==="k"&&p.c===color)k=i;}); return k; }
+function sqAttacked(st,sq,by){
+  // raw attack scan without castling recursion
+  return st.bd.some((p,i)=>{
+    if(!p||p.c!==by) return false;
+    if(p.t==="k"){
+      const [r1,c1]=rc(i),[r2,c2]=rc(sq);
+      return Math.max(Math.abs(r1-r2),Math.abs(c1-c2))===1;
+    }
+    return pieceMoves(st,i).some(m=>m.to===sq&&(p.t!=="p"||m.cap||rc(m.to)[1]!==rc(i)[1]));
+  });
+}
+function inCheck(st,color){ const k=kingPos(st,color); return k>=0&&sqAttacked(st,k,1-color); }
+function cloneS(st){ return {bd:st.bd.map(p=>p?{...p}:null), turn:st.turn, over:st.over}; }
+function doMove(st,mv){
+  const p=st.bd[mv.from];
+  st.bd[mv.to]=p; st.bd[mv.from]=null; p.m=1;
+  if(mv.castle){
+    const row=p.c===0?7:0;
+    if(mv.castle==="k"){ st.bd[idx(row,5)]=st.bd[idx(row,7)]; st.bd[idx(row,7)]=null; }
+    else{ st.bd[idx(row,3)]=st.bd[idx(row,0)]; st.bd[idx(row,0)]=null; }
+  }
+  if(p.t==="p"){ const [tr]=rc(mv.to); if(tr===(p.c===0?0:7)) p.t="q"; }
+}
+function legalMoves(st){
+  return allPseudo(st,st.turn).filter(mv=>{
+    const st2=cloneS(st); doMove(st2,mv);
+    return !inCheck(st2, st.turn);
+  });
+}
+const VAL={p:1,n:3,b:3.2,r:5,q:9,k:200};
+function botMove(){
+  if(S.over||S.turn!==1) return;
+  const mvs=legalMoves(S);
+  if(!mvs.length){ finishNoMoves(); return; }
+  let best=null,bestV=-1e9;
+  for(const mv of mvs){
+    const st2=cloneS(S); doMove(st2,mv);
+    let v=0;
+    st2.bd.forEach(p=>{ if(p) v+=(p.c===1?1:-1)*VAL[p.t]; });
+    st2.turn=0;
+    let worst=0;
+    for(const r2 of allPseudo(st2,0)) if(r2.cap) worst=Math.max(worst,VAL[st2.bd[r2.to].t]);
+    v-=worst*0.9; v+=Math.random()*0.1;
+    if(v>bestV){ bestV=v; best=mv; }
+  }
+  doMove(S,best);
+  S.turn=0;
+  afterTurn();
+}
+function finishNoMoves(){
+  if(inCheck(S,S.turn)){ S.over=true;
+    setStatus((S.turn===0?"⬛ BLACK":"⬜ WHITE")+" WINS by checkmate! 🏆"); }
+  else{ S.over=true; setStatus("stalemate — draw."); }
+  render();
+}
+function afterTurn(){
+  render();
+  if(S.over) return;
+  const mvs=legalMoves(S);
+  if(!mvs.length){ finishNoMoves(); return; }
+  if(S.turn===0)
+    setStatus("⬜ WHITE to move — look & blink"+(inCheck(S,0)?" · CHECK!":""));
+  else{
+    setStatus("⬛ bot is thinking…");
+    setTimeout(botMove, 500);
+  }
+}
+
+// ================= UI =================
+const GLYPH={0:{p:"♙",n:"♘",b:"♗",r:"♖",q:"♕",k:"♔"},1:{p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚"}};
+const boardEl=document.getElementById("board");
+let sel=null, selMoves=[], gazeSq=-1;
+for(let i=0;i<64;i++){
+  const d=document.createElement("div");
+  const [r,c]=rc(i);
+  d.className="sq "+((r+c)%2===0?"l":"d");
+  d.onclick=()=>trySelect(i);   // mouse works too (and trains the tracker)
+  boardEl.appendChild(d);
+}
+function render(){
+  const kW=kingPos(S,0),kB=kingPos(S,1);
+  for(let i=0;i<64;i++){
+    const d=boardEl.children[i], p=S.bd[i];
+    d.textContent=p?GLYPH[p.c][p.t]:"";
+    d.classList.toggle("sel",sel===i);
+    d.classList.toggle("gaze",gazeSq===i&&phase==="play");
+    d.classList.toggle("mv",selMoves.some(m=>m.to===i&&!m.cap));
+    d.classList.toggle("cap",selMoves.some(m=>m.to===i&&m.cap));
+    d.classList.toggle("chk",(i===kW&&inCheck(S,0))||(i===kB&&inCheck(S,1)));
+  }
+}
+function setStatus(t){ document.getElementById("status").textContent=t; }
+function stateLine(t){ document.getElementById("stateLine").textContent=t; }
+function trySelect(i){
+  if(S.over||S.turn!==0||phase!=="play") return;
+  if(sel!==null){
+    const mv=selMoves.find(m=>m.to===i);
+    if(mv){
+      doMove(S,mv); sel=null; selMoves=[];
+      S.turn=1; afterTurn(); return;
+    }
+    if(i===sel){ sel=null; selMoves=[]; render(); return; }
+  }
+  const p=S.bd[i];
+  if(p&&p.c===0){
+    const mvs=legalMoves(S).filter(m=>m.from===i);
+    if(mvs.length){ sel=i; selMoves=mvs; }
+  }
+  render();
+}
+
+// ================= EYE TRACKING =================
+let phase="boot";   // boot -> ready -> calib -> play
+let gazeBuf=[], lastGazeTs=0, prevGazeTs=0, lastBlinkAt=0;
+let dwellOn=false, dwellSq=-1, dwellStart=0;
+
+function loadScript(urls){
+  return new Promise((res,rej)=>{
+    let i=0;
+    function next(){
+      if(i>=urls.length) return rej();
+      const sc=document.createElement("script");
+      sc.src=urls[i++];
+      sc.onload=()=>res();
+      sc.onerror=next;
+      document.head.appendChild(sc);
+    }
+    next();
+  });
+}
+loadScript([
+  "https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js",
+  "https://unpkg.com/webgazer@3.3.0/dist/webgazer.min.js",
+  "https://cdn.jsdelivr.net/npm/webgazer/dist/webgazer.min.js",
+]).then(()=>{
+  phase="ready";
+  setStatus("eye tracker loaded — START CAMERA when ready");
+  stateLine("tracker loaded, camera off");
+}).catch(()=>{
+  setStatus("couldn't load the eye tracker (network blocked?) — mouse still works");
+  stateLine("NO TRACKER — mouse mode");
+  phase="play";
+});
+
+document.getElementById("startBtn").onclick=async ()=>{
+  if(typeof webgazer==="undefined"){ setStatus("tracker didn't load — mouse mode only"); return; }
+  setStatus("starting camera… allow access when asked");
+  try{
+    webgazer.params.showVideoPreview = true;
+    webgazer.saveDataAcrossSessions = true;
+    await webgazer.setRegression("ridge")
+      .setGazeListener(onGaze)
+      .begin();
+    webgazer.showPredictionPoints(false);
+    // shrink & move the preview
+    setTimeout(()=>{
+      ["webgazerVideoFeed","webgazerVideoCanvas","webgazerFaceOverlay","webgazerFaceFeedbackBox"].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el){ el.style.position="fixed"; el.style.top="8px"; el.style.right="8px";
+          el.style.width="120px"; el.style.height="90px"; el.style.zIndex=30; el.style.left="auto"; }
+      });
+    }, 700);
+    phase="calibWait";
+    document.getElementById("startBtn").style.display="none";
+    document.getElementById("calBtn").style.display="inline-block";
+    document.getElementById("quickBtn").style.display="inline-block";
+    document.getElementById("dwellBtn").style.display="inline-block";
+    document.getElementById("newBtn").style.display="inline-block";
+    setStatus("camera on! now CALIBRATE — the tracker is useless until you do");
+    stateLine("camera on, uncalibrated");
+  }catch(e){
+    setStatus("camera blocked — allow webcam access and try again");
+  }
+};
+
+// ---- calibration: a dot on every square ----
+let calQueue=[], calMode="full";
+document.getElementById("calBtn").onclick=()=>startCalib("full");
+document.getElementById("quickBtn").onclick=()=>startCalib("quick");
+function startCalib(mode){
+  calMode=mode;
+  const overlay=document.getElementById("calib");
+  overlay.style.display="block";
+  overlay.innerHTML="";
+  calQueue=[];
+  if(mode==="full"){
+    // snake through all 64 squares
+    for(let r=0;r<8;r++){
+      for(let c0=0;c0<8;c0++){
+        const c=r%2?7-c0:c0;
+        calQueue.push({r,c,clicks:1});
+      }
+    }
+  }else{
+    for(const r of [0.5,3.5,6.5]) for(const c of [0.5,3.5,6.5])
+      calQueue.push({r,c,clicks:3});
+  }
+  phase="calib";
+  nextCalDot();
+}
+function nextCalDot(){
+  const overlay=document.getElementById("calib");
+  overlay.innerHTML="";
+  if(!calQueue.length){
+    overlay.style.display="none";
+    phase="play";
+    setStatus("calibrated! ⬜ look at a piece and BLINK (or SPACE)");
+    stateLine("calibrated ("+calMode+") — playing");
+    document.getElementById("gazeDot").style.display="block";
+    return;
+  }
+  const item=calQueue[0];
+  const rect=boardEl.getBoundingClientRect();
+  const dot=document.createElement("div");
+  dot.className="cdot";
+  const cellW=boardEl.clientWidth/8, cellH=boardEl.clientHeight/8;
+  dot.style.left=(item.c+0.5)*cellW+"px";
+  dot.style.top=(item.r+0.5)*cellH+"px";
+  dot.textContent=item.clicks;
+  const total = calMode==="full"?64:9;
+  setStatus("CALIBRATING: look at the dot, then click it · "+(total-calQueue.length+1)+" / "+total);
+  dot.onclick=(e)=>{
+    e.stopPropagation();
+    item.clicks--;
+    if(item.clicks<=0) calQueue.shift();
+    nextCalDot();
+  };
+  overlay.appendChild(dot);
+}
+
+// ---- gaze processing ----
+function onGaze(data, ts){
+  prevGazeTs=lastGazeTs; lastGazeTs=performance.now();
+  // blink = short dropout in predictions while camera is live
+  const gap=lastGazeTs-prevGazeTs;
+  if(phase==="play" && gap>220 && gap<900 && lastGazeTs-lastBlinkAt>700){
+    lastBlinkAt=lastGazeTs;
+    blinkSelect();
+  }
+  if(!data) return;
+  gazeBuf.push({x:data.x,y:data.y,t:lastGazeTs});
+  const cutoff=lastGazeTs-350;
+  gazeBuf=gazeBuf.filter(g=>g.t>cutoff);
+  const ax=gazeBuf.reduce((s,g)=>s+g.x,0)/gazeBuf.length;
+  const ay=gazeBuf.reduce((s,g)=>s+g.y,0)/gazeBuf.length;
+  const dot=document.getElementById("gazeDot");
+  if(phase==="play"){ dot.style.left=ax+"px"; dot.style.top=ay+"px"; }
+  // map to square
+  const rect=boardEl.getBoundingClientRect();
+  const c=Math.floor((ax-rect.left)/(rect.width/8));
+  const r=Math.floor((ay-rect.top)/(rect.height/8));
+  const newSq=(r>=0&&r<8&&c>=0&&c<8)? idx(r,c) : -1;
+  if(newSq!==gazeSq){
+    gazeSq=newSq; dwellSq=newSq; dwellStart=lastGazeTs;
+    if(phase==="play") render();
+  }else if(dwellOn && phase==="play" && newSq>=0 && lastGazeTs-dwellStart>1200){
+    dwellStart=lastGazeTs+9e9;
+    blinkSelect();
+  }
+}
+function blinkSelect(){
+  if(phase!=="play"||gazeSq<0) return;
+  trySelect(gazeSq);
+}
+addEventListener("keydown",(e)=>{
+  if(e.code==="Space"&&phase==="play"){ e.preventDefault(); blinkSelect(); }
+  if(e.code==="Escape"){ sel=null; selMoves=[]; render(); }
+});
+document.getElementById("dwellBtn").onclick=function(){
+  dwellOn=!dwellOn;
+  this.textContent="⏳ dwell: "+(dwellOn?"ON":"OFF");
+  this.classList.toggle("off",!dwellOn);
+};
+document.getElementById("newBtn").onclick=newGame;
+
+newGame();
+</script>
+</body>
+</html>

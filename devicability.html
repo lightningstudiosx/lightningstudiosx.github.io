@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>devicability · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#0d0d12;color:#fff;overflow:hidden;
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+  }
+  #cv{position:fixed;inset:0;display:block;touch-action:none;}
+  /* ---------- corner badge ---------- */
+  #badge{
+    position:fixed;top:12px;left:12px;z-index:10;
+    background:#fff;color:#141414;border:2px solid #141414;border-radius:12px;
+    box-shadow:3px 3px 0 #141414;padding:8px 12px;max-width:min(300px,80vw);
+    font-size:13px;cursor:pointer;user-select:none;
+  }
+  #badge .big{font-weight:900;font-size:14.5px;}
+  #badge .sub{color:#666;font-size:11.5px;margin-top:1px;}
+  #badge .hint{color:#999;font-size:10.5px;margin-top:2px;}
+  #swBtn{
+    margin-top:6px;display:inline-block;border:2px solid #141414;border-radius:8px;
+    padding:4px 10px;font-weight:900;font-size:11.5px;background:#f5b829;
+    box-shadow:1px 1px 0 #141414;cursor:pointer;user-select:none;
+  }
+  #swBtn:hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 #141414;}
+  #panel{
+    position:fixed;top:12px;left:12px;z-index:20;display:none;
+    background:#fff;color:#141414;border:2px solid #141414;border-radius:12px;
+    box-shadow:4px 4px 0 #141414;padding:12px;width:min(320px,90vw);
+    max-height:82vh;overflow-y:auto;
+  }
+  #panel h2{font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+  #panel .x{cursor:pointer;font-weight:900;padding:0 6px;}
+  #panel select{width:100%;border:2px solid #141414;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12.5px;margin-bottom:8px;}
+  .lad{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;border-bottom:1px dashed #e2e2e2;font-size:12px;}
+  .lad:last-child{border-bottom:0;}
+  .lad .em{font-size:16px;}
+  .lad b{font-size:12.5px;}
+  .lad .gfx{color:#777;line-height:1.35;font-size:11px;}
+  .lad.you{background:#fff7dc;border-radius:8px;}
+  .lad .yy{color:#ff6b5e;font-weight:900;font-size:10px;}
+  #panel a{color:#888;font-size:11.5px;text-decoration:none;}
+  /* ---------- score corner ---------- */
+  #scoreBox{
+    position:fixed;top:12px;right:12px;z-index:10;text-align:right;
+    font-weight:900;text-shadow:1px 2px 4px #000;pointer-events:none;
+  }
+  #score{font-size:26px;}
+  #mult{font-size:12px;color:#f5b829;}
+  #best{font-size:11.5px;color:#aaa;font-weight:700;}
+  #ctrl{
+    position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:10;
+    font-size:11.5px;color:#ffffff77;text-shadow:1px 1px 3px #000;pointer-events:none;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="badge">
+  <div class="big" id="bLine">detecting…</div>
+  <div class="sub" id="bSub"></div>
+  <div class="hint">tap to see the ladder</div>
+  <div id="swBtn">🔁 switch device</div>
+</div>
+
+<div id="panel">
+  <h2>📶 the devicability ladder <span class="x" id="panelX">✕</span></h2>
+  <select id="pretend"></select>
+  <div id="ladder"></div>
+  <div style="margin-top:8px;"><a href="index.html">&larr; back to kai.fun</a></div>
+</div>
+
+<div id="scoreBox">
+  <div id="score">0</div>
+  <div id="mult"></div>
+  <div id="best"></div>
+</div>
+<div id="ctrl">← → / A D or drag to move · tap to start</div>
+
+<script>
+const $=id=>document.getElementById(id);
+// ============ TIERS (each rung ADDS a mechanic) ============
+const TIERS=[
+  {id:"calc",   em:"🧮", name:"calculator",   fps:5,  mode:"mono", px:10, gfx:"1-bit, 5fps. blocks only. it is a miracle this runs."},
+  {id:"watch",  em:"⌚", name:"smartwatch",   fps:8,  mode:"mono", px:8,  gfx:"8fps. STARS unlock (collect for points)."},
+  {id:"brick",  em:"☎️", name:"brick phone",  fps:10, mode:"gray", px:6,  gfx:"grayscale. WIDE BLOCKS unlock."},
+  {id:"phone",  em:"📱", name:"phone",        fps:14, mode:"gray", px:5,  gfx:"uncolorized 2D. SWAYING BLOCKS unlock."},
+  {id:"tablet", em:"📟", name:"tablet",       fps:24, mode:"color",px:3,  gfx:"COLOR unlocks! plus homing CHASERS. particles: some."},
+  {id:"laptop", em:"💻", name:"laptop",       fps:40, mode:"color",px:2,  gfx:"trails + SHIELD pickups (🛡 survive one hit)."},
+  {id:"pc",     em:"🖥", name:"computer",     fps:60, mode:"color",px:1,  gfx:"full 60fps. LASERS unlock (dodge the warning line)."},
+  {id:"tv",     em:"📺", name:"TV",           fps:60, mode:"color",px:1,  gfx:"cinematic letterbox. BOSS BLOCKS unlock.", cinema:true},
+  {id:"console",em:"🎮", name:"game console", fps:60, mode:"color",px:1,  gfx:"screenshake + aimed BULLETS unlock.", shake:true},
+  {id:"gamer",  em:"🕹", name:"gaming PC",    fps:60, mode:"color",px:1,  gfx:"MAGNET pickups (🧲 stars fly to you). max particles.", shake:true},
+  {id:"vr",     em:"🥽", name:"VR headset",   fps:60, mode:"color",px:1,  gfx:"perspective 3D projection. blocks RECYCLE through portals.", shake:true, vr:true},
+  {id:"fridge", em:"🧊", name:"smart fridge", fps:60, mode:"rainbow",px:1,gfx:"ascended rainbow physics. everything at once.", shake:true, vr:true},
+  {id:"alien",  em:"🛸", name:"alien tech",   fps:60, mode:"rainbow",px:1,gfx:"double spawn rate. triple score. not for humans.", shake:true, vr:true},
+];
+const F={stars:1, wide:2, sway:3, chaser:4, shield:5, laser:6, boss:7, bullet:8, magnet:9, portal:10, chaos:11, alien:12};
+function has(f){ return tierIx>=F[f]; }
+// ============ DETECTION ============
+function detectTier(){
+  const ua=navigator.userAgent;
+  const touch=(navigator.maxTouchPoints||0)>1;
+  if(/PlayStation|Xbox|Nintendo/i.test(ua)) return "console";
+  if(/TV|SmartTV|SMART-TV|Tizen|Web0S|WebOS|Roku|CrKey|BRAVIA|GoogleTV/i.test(ua)) return "tv";
+  if(Math.min(screen.width,screen.height)<=320 && touch) return "watch";
+  if(/iPad/i.test(ua) || (/Macintosh/i.test(ua)&&touch) || (/Android/i.test(ua)&&!/Mobile/i.test(ua))) return "tablet";
+  if(/iPhone|Android.*Mobile|Mobile/i.test(ua)) return "phone";
+  return "pc";
+}
+let tierIx=Math.max(0,TIERS.findIndex(t=>t.id===detectTier()));
+let detectedIx=tierIx;
+if(navigator.xr && navigator.xr.isSessionSupported){
+  navigator.xr.isSessionSupported("immersive-vr").then(ok=>{
+    if(ok){ detectedIx=TIERS.findIndex(t=>t.id==="vr");
+      if($("pretend").value==="auto"){ tierIx=detectedIx; applyTier(); } }
+  }).catch(()=>{});
+}
+function T(){ return TIERS[tierIx]; }
+// ============ UI ============
+function applyTier(){
+  const t=T();
+  $("bLine").textContent=t.em+" "+t.name+" · tier "+(tierIx+1)+"/"+TIERS.length;
+  $("bSub").textContent=t.gfx+(tierIx===detectedIx?"":"  (pretending)");
+  $("ladder").innerHTML=TIERS.map((x,i)=>
+    '<div class="lad'+(i===tierIx?" you":"")+'"><span class="em">'+x.em+'</span><div><b>'+
+    (i+1)+". "+x.name+'</b> '+(i===tierIx?'<span class="yy">← YOU</span>':"")+
+    '<div class="gfx">'+x.gfx+'</div></div></div>').join("");
+  $("mult").textContent="score ×"+multOf();
+  $("best").textContent="best on this device: "+(S.best[t.id]||0);
+  resetGame();
+}
+function multOf(){ return tierIx===TIERS.length-1? (tierIx+1)*3 : tierIx+1; }
+$("badge").onclick=()=>{ $("panel").style.display="block"; };
+$("swBtn").onclick=(e)=>{
+  e.stopPropagation();
+  tierIx=(tierIx+1)%TIERS.length;
+  sel.value=TIERS[tierIx].id;
+  applyTier();
+};
+$("panelX").onclick=(e)=>{ e.stopPropagation(); $("panel").style.display="none"; };
+const sel=$("pretend");
+sel.innerHTML='<option value="auto">auto-detect</option>'+
+  TIERS.map(t=>'<option value="'+t.id+'">'+t.em+" "+t.name+'</option>').join("");
+sel.onchange=()=>{
+  tierIx= sel.value==="auto"? detectedIx : TIERS.findIndex(t=>t.id===sel.value);
+  applyTier();
+};
+// ============ SAVE ============
+const SAVE="devicability_v1";
+let S={best:{}};
+try{ const d=JSON.parse(localStorage.getItem(SAVE)); if(d) S=Object.assign(S,d); }catch(e){}
+function save(){ try{ localStorage.setItem(SAVE,JSON.stringify(S)); }catch(e){} }
+// ============ CANVAS ============
+const cv=$("cv"), g=cv.getContext("2d");
+let W=innerWidth, H=innerHeight;
+function sizeCv(){ W=innerWidth; H=innerHeight; cv.width=W; cv.height=H; }
+sizeCv();
+addEventListener("resize",()=>{ sizeCv(); drawFrame(true); });
+// ============ GAME STATE ============
+let st="idle", px2=W/2, score=0, tGame=0, shakeT=0, drawAcc=0, lastT=0, hue=0;
+let blocks=[], stars=[], parts=[], pickups=[], lasers=[], bullets=[];
+let shield=0, magT=0, spawnT=0, starT=0, pickT=0, laserT=0, bulletT=0, bossT=0;
+function resetGame(){
+  st="idle"; blocks=[]; stars=[]; parts=[]; pickups=[]; lasers=[]; bullets=[];
+  shield=0; magT=0; score=0; tGame=0;
+  spawnT=0; starT=1; pickT=6; laserT=5; bulletT=4; bossT=18;
+  $("score").textContent="0";
+  drawFrame(true);
+}
+function startGame(){
+  if(st==="run") return;
+  resetGame(); st="run"; px2=W/2;
+}
+function die(){
+  if(shield>0){ shield=0; burst(px2,H*0.88,20,false); shakeT=0.3; return false; }
+  st="dead"; burst(px2,H*0.88,30,true); shakeT=0.5;
+  const t=T();
+  if((t.id==="fridge"||t.id==="alien") && score>=300) unlockMood("overclocked","overclocked");
+  if(score>(S.best[t.id]||0)){ S.best[t.id]=score; save(); }
+  $("best").textContent="best on this device: "+(S.best[t.id]||0);
+  return true;
+}
+function burst(x,y,n,big){
+  const cap=T().px>4? 6 : 30;
+  for(let i=0;i<Math.min(n,cap);i++)
+    parts.push({x,y,vx:(Math.random()-0.5)*(big?420:240),vy:(Math.random()-0.75)*(big?420:260),l:0.4+Math.random()*0.5});
+}
+// ============ UPDATE ============
+function update(dt){
+  parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=520*dt;p.l-=dt;});
+  parts=parts.filter(p=>p.l>0);
+  if(st!=="run") return;
+  tGame+=dt;
+  score+=dt*10*multOf();
+  const diff=1+tGame*0.045;
+  const spawnMul=has("alien")?0.5: has("chaos")?0.75:1;
+  const py=H*0.88;
+  // blocks
+  spawnT-=dt;
+  if(spawnT<=0){
+    spawnT=Math.max(0.14,0.72/diff)*spawnMul;
+    const wide=has("wide")&&Math.random()<0.22;
+    const b={x:20+Math.random()*(W-40), y:-30,
+      s:wide? 60+Math.random()*70 : 16+Math.random()*26,
+      v:(H*0.3+Math.random()*H*0.22)*diff, vx:0, recycled:false};
+    if(has("sway")&&Math.random()<0.35){ b.swayA=30+Math.random()*50; b.swayW=2+Math.random()*3; }
+    if(has("chaser")&&Math.random()<0.16){ b.chaser=true; b.s=Math.min(b.s,26); }
+    blocks.push(b);
+  }
+  // stars
+  if(has("stars")){
+    starT-=dt;
+    if(starT<=0){ starT=1.3+Math.random()*1.8;
+      stars.push({x:24+Math.random()*(W-48), y:-16, v:H*0.32*diff}); }
+  }
+  // pickups
+  if(has("shield")){
+    pickT-=dt;
+    if(pickT<=0){ pickT=8+Math.random()*8;
+      const kind=has("magnet")&&Math.random()<0.5? "mag":"shield";
+      pickups.push({x:30+Math.random()*(W-60), y:-16, v:H*0.26, kind}); }
+  }
+  // lasers
+  if(has("laser")){
+    laserT-=dt;
+    if(laserT<=0){ laserT=Math.max(2.2,5-tGame*0.05);
+      lasers.push({x:30+Math.random()*(W-60), t:-0.85, w:14}); }
+  }
+  // bullets
+  if(has("bullet")){
+    bulletT-=dt;
+    if(bulletT<=0){ bulletT=Math.max(1.2,3.2-tGame*0.04);
+      const bx=20+Math.random()*(W-40);
+      const dx=px2-bx, dy=py-(-10);
+      const L=Math.hypot(dx,dy)||1, sp=H*0.5;
+      bullets.push({x:bx,y:-10,vx:dx/L*sp,vy:dy/L*sp}); }
+  }
+  // boss
+  if(has("boss")){
+    bossT-=dt;
+    if(bossT<=0){ bossT=22+Math.random()*10;
+      blocks.push({x:W/2+(Math.random()-0.5)*W*0.4, y:-90, s:110+Math.random()*60, v:H*0.14, vx:0, boss:true}); }
+  }
+  // player move
+  const pv=W*0.75;
+  if(keys.left) px2-=pv*dt;
+  if(keys.right) px2+=pv*dt;
+  if(touchX!==null) px2+=(touchX-px2)*Math.min(1,dt*14);
+  px2=Math.max(14,Math.min(W-14,px2));
+  // move entities
+  blocks.forEach(b=>{
+    b.y+=b.v*dt;
+    if(b.swayA) b.x+=Math.cos(tGame*b.swayW)*b.swayA*dt;
+    if(b.chaser) b.x+=(px2-b.x)*0.55*dt;
+  });
+  stars.forEach(s2=>{
+    s2.y+=s2.v*dt;
+    if(magT>0){ s2.x+=(px2-s2.x)*3*dt; s2.y+=(py-s2.y)*1.4*dt; }
+  });
+  pickups.forEach(p=>p.y+=p.v*dt);
+  bullets.forEach(b=>{ b.x+=b.vx*dt; b.y+=b.vy*dt; });
+  lasers.forEach(l=>l.t+=dt);
+  if(magT>0) magT-=dt;
+  // collisions
+  for(const b of blocks){
+    if(Math.abs(b.y-py)<b.s/2+11 && Math.abs(b.x-px2)<b.s/2+11){
+      b.y=H+999; if(die()) return;
+    }
+  }
+  for(const b of bullets){
+    if(Math.abs(b.y-py)<12 && Math.abs(b.x-px2)<12){ b.y=H+999; if(die()) return; }
+  }
+  for(const l of lasers){
+    if(l.t>0&&l.t<0.35 && Math.abs(l.x-px2)<l.w/2+9){ l.t=99; if(die()) return; }
+  }
+  for(let i=stars.length-1;i>=0;i--){
+    const s2=stars[i];
+    if(Math.abs(s2.y-py)<22 && Math.abs(s2.x-px2)<24){
+      stars.splice(i,1); score+=5*multOf(); burst(s2.x,py,12,false);
+      if(T().shake) shakeT=0.12;
+    }
+  }
+  for(let i=pickups.length-1;i>=0;i--){
+    const p=pickups[i];
+    if(Math.abs(p.y-py)<22 && Math.abs(p.x-px2)<24){
+      if(p.kind==="shield") shield=1; else magT=6;
+      pickups.splice(i,1); burst(p.x,py,14,false);
+    }
+  }
+  // cleanup / recycle
+  blocks=blocks.filter(b=>{
+    if(b.y<H+50) return true;
+    if(has("portal")&&!b.boss&&!b.recycled){ b.y=-30; b.recycled=true; return true; }
+    return false;
+  });
+  stars=stars.filter(s2=>s2.y<H+30);
+  pickups=pickups.filter(p=>p.y<H+30);
+  bullets=bullets.filter(b=>b.y<H+30&&b.x>-30&&b.x<W+30);
+  lasers=lasers.filter(l=>l.t<0.4);
+  if(shakeT>0) shakeT-=dt;
+  $("score").textContent=Math.floor(score);
+}
+// ============ DRAW ============
+function col(base){
+  const m=T().mode;
+  if(m==="mono") return base==="bg"? "#000":"#fff";
+  if(m==="gray") return {player:"#ddd",block:"#777",star:"#bbb",part:"#999",pick:"#eee",laser:"#ccc",bullet:"#aaa"}[base]||"#999";
+  if(m==="rainbow") return "hsl("+((hue*80+({player:0,block:120,star:50,part:200,pick:280,laser:330,bullet:160}[base]||0))%360)+",90%,60%)";
+  return {player:"#4aa9d8",block:"#ff6b5e",star:"#f5b829",part:"#9b7fd4",pick:"#6fb85c",laser:"#ff5ea8",bullet:"#ff9d5e"}[base]||"#fff";
+}
+function proj(x,y){
+  if(!T().vr) return {x,y,s:1};
+  const horizon=H*0.26, cx=W/2;
+  const d=Math.max(0,Math.min(1,y/H));
+  const s=0.2+0.8*d*d;
+  return {x:cx+(x-cx)*s, y:horizon+(H-horizon)*d*d, s};
+}
+function drawFrame(force){
+  const t=T();
+  if(t.px<=2 && !force){
+    g.fillStyle= t.mode==="rainbow"? "rgba(10,5,20,0.3)" : "rgba(13,13,18,0.34)";
+    g.fillRect(0,0,W,H);
+  }else{
+    g.fillStyle= t.mode==="mono"? "#000":"#0d0d12";
+    g.fillRect(0,0,W,H);
+  }
+  g.save();
+  if(t.shake && shakeT>0) g.translate((Math.random()-0.5)*12,(Math.random()-0.5)*12);
+  if(t.vr){
+    g.strokeStyle= t.mode==="rainbow"? col("part") : "#26264a";
+    g.lineWidth=1;
+    for(let i=0;i<=10;i++){
+      let p1=proj(0,H*i/10), p2=proj(W,H*i/10);
+      g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
+      p1=proj(W*i/10,0); p2=proj(W*i/10,H);
+      g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
+    }
+  }
+  const q=t.px;
+  function rect(x,y,s,c){
+    const p=proj(x,y), ss=s*p.s;
+    g.fillStyle=c;
+    if(q>1) g.fillRect(Math.round((p.x-ss/2)/q)*q, Math.round((p.y-ss/2)/q)*q,
+      Math.max(q,Math.round(ss/q)*q), Math.max(q,Math.round(ss/q)*q));
+    else g.fillRect(p.x-ss/2,p.y-ss/2,ss,ss);
+  }
+  // lasers (warning then beam) — drawn in flat space
+  lasers.forEach(l=>{
+    if(l.t<0){
+      if(Math.floor(l.t*10)%2===0){
+        g.strokeStyle=col("laser"); g.lineWidth=2;
+        g.setLineDash([8,8]);
+        g.beginPath(); g.moveTo(l.x,0); g.lineTo(l.x,H); g.stroke();
+        g.setLineDash([]);
+      }
+    }else if(l.t<0.35){
+      g.fillStyle=col("laser");
+      g.fillRect(l.x-l.w/2,0,l.w,H);
+    }
+  });
+  stars.forEach(s2=>rect(s2.x,s2.y,14,col("star")));
+  pickups.forEach(p=>rect(p.x,p.y,18,col("pick")));
+  blocks.forEach(b=>rect(b.x,b.y,b.s,col("block")));
+  bullets.forEach(b=>rect(b.x,b.y,10,col("bullet")));
+  rect(px2,H*0.88,22,col("player"));
+  if(shield>0){
+    const p=proj(px2,H*0.88);
+    g.strokeStyle=col("pick"); g.lineWidth=3;
+    g.beginPath(); g.arc(p.x,p.y,20*p.s+6,0,7); g.stroke();
+  }
+  if(magT>0){
+    const p=proj(px2,H*0.88);
+    g.strokeStyle=col("star"); g.lineWidth=1;
+    g.beginPath(); g.arc(p.x,p.y,30*p.s+6,0,7); g.stroke();
+  }
+  if(t.px<=8) parts.forEach(p=>rect(p.x,p.y,6,col("part")));
+  g.restore();
+  if(t.cinema){
+    g.fillStyle="#000";
+    g.fillRect(0,0,W,H*0.09); g.fillRect(0,H*0.91,W,H*0.09);
+  }
+  if(st!=="run"){
+    g.fillStyle= t.mode==="mono"? "#fff":"#ffffffdd";
+    g.font="900 "+Math.min(30,W*0.05)+"px 'Trebuchet MS'";
+    g.textAlign="center";
+    g.fillText(st==="idle"? "TAP TO PLAY" : "💀 "+Math.floor(score)+" — TAP TO RETRY", W/2, H/2);
+  }
+}
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  hue+=dt;
+  update(dt);
+  drawAcc+=dt;
+  const fdur=1/T().fps;
+  if(drawAcc>=fdur){ drawAcc%=fdur; drawFrame(false); }
+}
+// ============ INPUT ============
+const keys={left:false,right:false};
+let touchX=null;
+addEventListener("keydown",(e)=>{
+  if(e.key==="ArrowLeft"||e.key==="a") keys.left=true;
+  if(e.key==="ArrowRight"||e.key==="d") keys.right=true;
+  if(e.key===" "){ e.preventDefault(); if(st!=="run") startGame(); }
+  if(e.key==="Escape") $("panel").style.display="none";
+});
+addEventListener("keyup",(e)=>{
+  if(e.key==="ArrowLeft"||e.key==="a") keys.left=false;
+  if(e.key==="ArrowRight"||e.key==="d") keys.right=false;
+});
+cv.addEventListener("pointerdown",(e)=>{
+  if(st!=="run"){ startGame(); return; }
+  touchX=e.clientX;
+});
+cv.addEventListener("pointermove",(e)=>{ if(e.buttons) touchX=e.clientX; });
+addEventListener("pointerup",()=>touchX=null);
+
+// ---- kai.fun secret: unlock a smiley mood in the smiledex ----
+function unlockMood(id,label){
+  try{
+    const k="kaifun_smiledex";
+    const st=JSON.parse(localStorage.getItem(k))||{seen:{},first:{},clicks:0,current:"happy"};
+    if(st.seen[id]) return;
+    st.seen[id]=1; st.first[id]=Date.now(); st.current=id;
+    localStorage.setItem(k,JSON.stringify(st));
+    const d=document.createElement("div");
+    d.textContent="\ud83d\udd13 secret smiley mood unlocked: "+label+" \u2014 check the smiledex";
+    d.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:#fff;color:#141414;border:2px solid #141414;border-radius:12px;box-shadow:4px 4px 0 #141414;padding:10px 16px;font-family:'Trebuchet MS',sans-serif;font-weight:900;font-size:14px;max-width:92vw;text-align:center;";
+    document.body.appendChild(d); setTimeout(()=>d.remove(),7000);
+  }catch(e){}
+}
+// ============ BOOT ============
+applyTier();
+requestAnimationFrame((t0)=>{ lastT=t0; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>chess² · Kai.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#fff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    min-height:100vh;padding:16px 12px 40px;
+  }
+  .wrap{max-width:1020px;margin:0 auto;}
+  .back{display:inline-block;text-decoration:none;color:var(--muted);font-size:14px;margin-bottom:6px;}
+  .back:hover{color:var(--ink);}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .wordmark{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif;
+    font-weight:900;font-size:42px;transform:rotate(-1.5deg);
+  }
+  .wordmark sup{color:var(--coral);}
+  .tag{color:var(--muted);font-size:13px;}
+  .cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+  #left{flex:0 1 500px;min-width:320px;}
+  #right{flex:1 1 340px;min-width:300px;}
+  .card{
+    border:2px solid var(--ink);border-radius:14px;background:#fff;
+    box-shadow:4px 4px 0 var(--ink);padding:12px;margin-bottom:12px;
+  }
+  #board{
+    display:grid;grid-template-columns:repeat(8,1fr);
+    border:2px solid var(--ink);border-radius:8px;overflow:hidden;
+    user-select:none;
+  }
+  .sq{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(22px,5.2vw,34px);cursor:pointer;position:relative;
+    line-height:1;
+  }
+  .sq.l{background:#f2e8d8;}
+  .sq.d{background:#c9a97a;}
+  .sq.sel{outline:3px solid var(--sky);outline-offset:-3px;}
+  .sq.mv::after{
+    content:"";position:absolute;width:26%;height:26%;border-radius:50%;
+    background:rgba(74,169,216,.65);
+  }
+  .sq.cap::after{
+    content:"";position:absolute;inset:6%;border-radius:50%;
+    border:3px solid rgba(255,107,94,.8);background:none;width:auto;height:auto;
+  }
+  .sq.chk{background:#ffb3ab !important;}
+  .sq.lava{box-shadow:inset 0 0 0 3px rgba(255,107,94,.5);}
+  #status{
+    margin-top:10px;font-weight:900;font-size:15px;min-height:22px;text-align:center;
+  }
+  #ctrl{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap;}
+  #ctrl button{
+    border:2px solid var(--ink);border-radius:10px;background:var(--sun);
+    font-family:inherit;font-weight:900;font-size:13px;padding:9px 14px;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  #ctrl button:hover{transform:translate(-1px,-1px);}
+  #banner{
+    border:2px solid var(--ink);border-radius:12px;background:#141414;color:#fff;
+    padding:10px 14px;font-size:14px;min-height:44px;margin-bottom:12px;
+    font-family:"Courier New",monospace;
+  }
+  #banner .who{color:var(--sun);font-weight:900;}
+  #rules{max-height:420px;overflow-y:auto;}
+  .rule{
+    border:2px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;
+    font-size:12.5px;
+  }
+  .rule.newest{border-color:var(--sun);background:#fffaf0;}
+  .rule b{font-size:13px;}
+  .rule .d{color:#555;}
+  .hint{font-size:11px;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark">chess<sup>2</sup> ♟️</div>
+    <div class="tag">normal chess for exactly one round. then the RULEMASTER starts adding rules.</div>
+  </header>
+  <div class="cols">
+    <div id="left">
+      <div class="card">
+        <div id="board"></div>
+        <div id="status"></div>
+        <div id="ctrl">
+          <button id="newBtn">🔄 NEW GAME</button>
+          <button id="modeBtn">🤖 vs BOT</button>
+          <button id="endChain" style="display:none">✋ END TURN</button>
+        </div>
+        <div class="hint">click a piece, then a highlighted square. blue dot = move, red ring = capture.
+        en passant is banned (the RULEMASTER fears it).</div>
+      </div>
+    </div>
+    <div id="right">
+      <div id="banner"><span class="who">RULEMASTER-9000:</span> <span id="btext"></span></div>
+      <div class="card">
+        <div style="font-weight:900;margin-bottom:8px;">ACTIVE RULES <span id="rcount" style="color:var(--muted);font-weight:600;"></span></div>
+        <div id="rules"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ RNG ============
+function mulberry(seed){ let a=seed>>>0; return function(){
+  a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+// ============ RULE POOL (all symmetric, none can insta-win) ============
+const RULES=[
+{id:"pawnSide",  nm:"Crab Pawns",       d:"pawns can also step 1 square sideways.", x:["invert"]},
+{id:"pawnCapF",  nm:"Headbutt Pawns",   d:"pawns can also capture straight ahead.", x:["invert"]},
+{id:"invert",    nm:"Inverted Pawns",   d:"pawns MOVE diagonally and CAPTURE straight ahead.", x:["pawnSide","pawnCapF"]},
+{id:"pawnDash",  nm:"Dash Pawns",       d:"pawns may move 2 forward from anywhere (not captures).", x:[]},
+{id:"knightKing",nm:"Cuddly Knights",   d:"knights can also move 1 square any direction.", x:[]},
+{id:"knight31",  nm:"Long Knights",     d:"knights also jump in a (3,1) pattern.", x:[]},
+{id:"bishopJump",nm:"Ghost Bishops",    d:"bishops can pass through the first piece in their path.", x:[]},
+{id:"swapBR",    nm:"Identity Crisis",  d:"bishops move like rooks. rooks move like bishops.", x:[]},
+{id:"rookMax",   nm:"Stubby Rooks",     d:"rooks can move at most 4 squares.", x:["swapBR"]},
+{id:"queenMax",  nm:"Tired Queens",     d:"queens can move at most 3 squares.", x:[]},
+{id:"king2",     nm:"Sprinting Kings",  d:"kings can move 2 squares in a straight line.", x:[]},
+{id:"kingKnight",nm:"Kung-fu Kings",    d:"kings can also jump like knights.", x:[]},
+{id:"rookTele",  nm:"Rook Portals",     d:"rooks may teleport to any empty square on their own back rank.", x:[]},
+{id:"wrapH",     nm:"Round World",      d:"the board wraps left-right for horizontal rook & queen moves.", x:[]},
+{id:"noCapLight",nm:"Sacred Light",     d:"no captures on light squares.", x:["noCapDark"]},
+{id:"noCapDark", nm:"Sacred Shadow",    d:"no captures on dark squares.", x:["noCapLight"]},
+{id:"iceMid",    nm:"Frozen Middle",    d:"no captures on the middle two ranks (the ice).", x:[]},
+{id:"peaceEdge", nm:"Calm Edges",       d:"no captures on the outer edge of the board.", x:[]},
+{id:"noBack",    nm:"Forward March",    d:"pieces cannot move backward (kings exempt).", x:[]},
+{id:"lava",      nm:"Lava Files",       d:"files a and h are lava: nobody may move ONTO them.", x:[]},
+{id:"repel",     nm:"Feuding Kings",    d:"kings may never be within 2 squares of each other.", x:[]},
+{id:"guard",     nm:"Royal Guard",      d:"pieces standing next to their own king cannot be captured.", x:[]},
+{id:"pawnWall",  nm:"Pawn Union",       d:"pawns cannot capture other pawns.", x:[]},
+{id:"shyQ",      nm:"Shy Queens",       d:"queens and pawns cannot capture each other.", x:[]},
+{id:"cannibal",  nm:"You Are What You Eat", d:"capturing a piece turns you INTO that piece (kings exempt).", x:[]},
+{id:"respawn",   nm:"Pawn Rebirth",     d:"captured pawns respawn on a random empty square in their owner's back 2 ranks.", x:[]},
+{id:"exhaust",   nm:"Tired Legs",       d:"you can't move the same piece twice in a row (unless forced).", x:[]},
+{id:"mirror",    nm:"No Copycats",      d:"you can't move the same piece TYPE your opponent just moved (kings exempt, unless forced).", x:[]},
+{id:"forceCap",  nm:"Blood Rule",       d:"if you CAN capture, you MUST capture.", x:[]},
+{id:"chain",     nm:"Rampage",          d:"after a capture, that piece may immediately move once more.", x:[]},
+{id:"promo6",    nm:"Early Crowns",     d:"pawns promote on the 6th rank instead of the last.", x:[]},
+{id:"promoN",    nm:"Horse Economy",    d:"pawns can only promote to knights.", x:[]},
+];
+
+// ============ STATE ============
+let S=null, sel=null, selMoves=[], botThinking=false;
+function newGame(){
+  const seed=(Date.now()^(Math.random()*1e9))>>>0;
+  S={
+    bd:Array(64).fill(null), turn:0, ply:0, round:0,
+    active:[], pool:RULES.map(r=>r.id), rng:mulberry(seed),
+    lastType:[null,null], lastSq:[-1,-1], mustPawn:[false,false],
+    chain:null, over:false, passStreak:0, mode:(S?S.mode:"bot"),
+  };
+  const back=["r","n","b","q","k","b","n","r"];
+  for(let c=0;c<8;c++){
+    S.bd[8+c]={t:"p",c:1}; S.bd[48+c]={t:"p",c:0};
+    S.bd[c]={t:back[c],c:1}; S.bd[56+c]={t:back[c],c:0};
+  }
+  sel=null; selMoves=[];
+  banner("normal chess... for now. white moves first.");
+  renderRules(); render(); maybeBot();
+}
+function has(id){ return S.active.some(r=>r.id===id); }
+
+// ============ MOVE GENERATION (rules mutate everything) ============
+const KN=[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const KN31=[[1,3],[3,1],[3,-1],[1,-3],[-1,-3],[-3,-1],[-3,1],[-1,3]];
+const DIAG=[[1,1],[1,-1],[-1,1],[-1,-1]], ORTH=[[1,0],[-1,0],[0,1],[0,-1]];
+function rc(i){ return [Math.floor(i/8), i%8]; }
+function idx(r,c){ return r*8+c; }
+function ok(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+
+function pieceMoves(st, i, forAttack){
+  const p=st.bd[i]; if(!p) return [];
+  const [r,c]=rc(i); const out=[];
+  const me=p.c, fwd = me===0? -1 : 1;
+  function add(tr,tc,opts){
+    if(!ok(tr,tc)) return false;
+    const j=idx(tr,tc), q=st.bd[j];
+    if(q && q.c===me) return false;
+    out.push(Object.assign({from:i,to:j,cap:!!q},opts||{}));
+    return !q;
+  }
+  function ray(dirs, maxLen, jump, wrap){
+    for(const [dr,dc] of dirs){
+      let cr=r, cc=c, skipped=false;
+      for(let step=1;step<=(maxLen||8);step++){
+        cr+=dr;
+        cc = wrap && dr===0 ? ((cc+dc)+8)%8 : cc+dc;
+        if(!ok(cr,cc)) break;
+        if(wrap && dr===0 && idx(cr,cc)===i) break;   // full lap
+        const q=st.bd[idx(cr,cc)];
+        if(!q){ out.push({from:i,to:idx(cr,cc),cap:false}); continue; }
+        if(q.c!==me) out.push({from:i,to:idx(cr,cc),cap:true});
+        if(jump && !skipped){ skipped=true; continue; }
+        break;
+      }
+    }
+  }
+  const type = (has("swapBR") && (p.t==="b"||p.t==="r"))
+    ? (p.t==="b"?"r":"b") : p.t;
+  if(p.t==="p"){
+    if(has("invert")){
+      for(const dc of [-1,1]){ const tr=r+fwd,tc=c+dc;
+        if(ok(tr,tc)&&!st.bd[idx(tr,tc)]) add(tr,tc); }
+      const tr=r+fwd;
+      if(ok(tr,c)&&st.bd[idx(tr,c)]&&st.bd[idx(tr,c)].c!==me) add(tr,c);
+    }else{
+      if(ok(r+fwd,c)&&!st.bd[idx(r+fwd,c)]){
+        add(r+fwd,c);
+        const startRank = me===0?6:1;
+        if((r===startRank||has("pawnDash")) && ok(r+2*fwd,c) && !st.bd[idx(r+2*fwd,c)]) add(r+2*fwd,c);
+      }
+      for(const dc of [-1,1]){ const tr=r+fwd,tc=c+dc;
+        if(ok(tr,tc)&&st.bd[idx(tr,tc)]&&st.bd[idx(tr,tc)].c!==me) add(tr,tc); }
+      if(has("pawnCapF")){ const tr=r+fwd;
+        if(ok(tr,c)&&st.bd[idx(tr,c)]&&st.bd[idx(tr,c)].c!==me) add(tr,c); }
+      if(has("pawnSide")){
+        for(const dc of [-1,1]) if(ok(r,c+dc)&&!st.bd[idx(r,c+dc)]) add(r,c+dc);
+      }
+    }
+  }
+  else if(type==="n"){
+    for(const [dr,dc] of KN) add(r+dr,c+dc);
+    if(has("knight31")) for(const [dr,dc] of KN31) add(r+dr,c+dc);
+    if(has("knightKing")) for(const dr of [-1,0,1]) for(const dc of [-1,0,1])
+      if(dr||dc) add(r+dr,c+dc);
+  }
+  else if(type==="b"){ ray(DIAG, 8, has("bishopJump")); }
+  else if(type==="r"){
+    ray(ORTH, has("rookMax")?4:8, false, has("wrapH"));
+    if(has("rookTele")){
+      const br = me===0?7:0;
+      for(let cc=0;cc<8;cc++) if(!st.bd[idx(br,cc)] && idx(br,cc)!==i)
+        out.push({from:i,to:idx(br,cc),cap:false,tele:true});
+    }
+  }
+  else if(type==="q"){ ray(DIAG.concat(ORTH), has("queenMax")?3:8, false, has("wrapH")); }
+  else if(type==="k"){
+    for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc) add(r+dr,c+dc);
+    if(has("king2")) for(const [dr,dc] of DIAG.concat(ORTH)){
+      const mr=r+dr,mc=c+dc;
+      if(ok(mr,mc)&&!st.bd[idx(mr,mc)]) add(r+2*dr,c+2*dc);
+    }
+    if(has("kingKnight")) for(const [dr,dc] of KN) add(r+dr,c+dc);
+  }
+  return out;
+}
+function sqLight(i){ const [r,c]=rc(i); return (r+c)%2===0; }
+function filterRules(st, mvs, forAttack){
+  const me=st.turn;
+  let m=mvs.filter(mv=>{
+    const [tr,tc]=rc(mv.to);
+    const target=st.bd[mv.to];
+    if(has("lava") && (tc===0||tc===7)) return false;
+    if(mv.cap){
+      if(has("noCapLight") && sqLight(mv.to)) return false;
+      if(has("noCapDark") && !sqLight(mv.to)) return false;
+      if(has("iceMid") && (tr===3||tr===4)) return false;
+      if(has("peaceEdge") && (tr===0||tr===7||tc===0||tc===7)) return false;
+      const mover=st.bd[mv.from];
+      if(has("pawnWall") && mover.t==="p" && target.t==="p") return false;
+      if(has("shyQ") && ((mover.t==="q"&&target.t==="p")||(mover.t==="p"&&target.t==="q"))) return false;
+      if(has("guard") && target.t!=="k"){
+        const [gr,gc]=rc(mv.to);
+        for(const dr of [-1,0,1]) for(const dc of [-1,0,1]){
+          if(!dr&&!dc) continue;
+          if(ok(gr+dr,gc+dc)){
+            const nb=st.bd[idx(gr+dr,gc+dc)];
+            if(nb && nb.c===target.c && nb.t==="k") return false;
+          }
+        }
+      }
+    }
+    if(has("noBack")){
+      const mover=st.bd[mv.from];
+      if(mover.t!=="k" && !mv.tele){
+        const dr = rc(mv.to)[0]-rc(mv.from)[0];
+        if(st.bd[mv.from].c===0 ? dr>0 : dr<0) return false;
+      }
+    }
+    if(has("repel") && st.bd[mv.from].t==="k"){
+      let ek=-1;
+      st.bd.forEach((q,j)=>{ if(q&&q.t==="k"&&q.c!==st.bd[mv.from].c) ek=j; });
+      if(ek>=0){
+        const [er,ec]=rc(ek), [mr2,mc2]=rc(mv.to);
+        if(Math.max(Math.abs(er-mr2),Math.abs(ec-mc2))<=2) return false;
+      }
+    }
+    return true;
+  });
+  if(forAttack) return m;
+  // state-based (top level only)
+  if(has("exhaust") && st.lastSq[me]>=0){
+    const f=m.filter(mv=>mv.from!==st.lastSq[me]);
+    if(f.length) m=f;
+  }
+  if(has("mirror") && st.lastType[1-me]){
+    const f=m.filter(mv=>st.bd[mv.from].t==="k"||st.bd[mv.from].t!==st.lastType[1-me]);
+    if(f.length) m=f;
+  }
+  if(st.mustPawn[me]){
+    const f=m.filter(mv=>st.bd[mv.from].t==="p");
+    if(f.length) m=f;
+  }
+  if(has("forceCap")){
+    const caps=m.filter(mv=>mv.cap);
+    if(caps.length) m=caps;
+  }
+  return m;
+}
+function allMoves(st, forAttack){
+  let out=[];
+  st.bd.forEach((p,i)=>{ if(p&&p.c===st.turn) out=out.concat(pieceMoves(st,i,forAttack)); });
+  return filterRules(st, out, forAttack);
+}
+function kingPos(st,color){ let k=-1; st.bd.forEach((p,i)=>{if(p&&p.t==="k"&&p.c===color)k=i;}); return k; }
+function attacked(st, sq, byColor){
+  const st2={...st, turn:byColor};
+  const mvs=allMoves(st2, true);
+  return mvs.some(m=>m.to===sq);
+}
+function legalMoves(st){
+  const raw=allMoves(st,false);
+  return raw.filter(mv=>{
+    const st2=cloneS(st);
+    doMove(st2,mv,true);
+    const k=kingPos(st2, st.turn);
+    if(k<0) return false;
+    return !attacked(st2, k, 1-st.turn);
+  });
+}
+function cloneS(st){
+  return {...st, bd:st.bd.map(p=>p?{...p}:null),
+    lastType:[...st.lastType], lastSq:[...st.lastSq], mustPawn:[...st.mustPawn]};
+}
+
+// ============ APPLYING MOVES ============
+function doMove(st,mv,sim){
+  const p=st.bd[mv.from];
+  const target=st.bd[mv.to];
+  st.bd[mv.to]=p; st.bd[mv.from]=null;
+  if(target){
+    if(has("cannibal") && p.t!=="k" && target.t!=="k") p.t=target.t;
+    if(has("respawn") && target.t==="p" && !sim){
+      const rows = target.c===0? [6,7] : [0,1];
+      const empt=[];
+      for(const rr of rows) for(let cc=0;cc<8;cc++)
+        if(!st.bd[idx(rr,cc)]) empt.push(idx(rr,cc));
+      if(empt.length) st.bd[empt[Math.floor(st.rng()*empt.length)]]={t:"p",c:target.c};
+    }
+    if(!sim) st.mustPawn[1-st.turn] = has("pawnForce")||false;
+  }
+  // promotion
+  if(p.t==="p"){
+    const [tr]=rc(mv.to);
+    const promoRank = has("promo6") ? (p.c===0?2:5) : (p.c===0?0:7);
+    const hit = has("promo6") ? (p.c===0? tr<=promoRank : tr>=promoRank)
+                              : tr===promoRank;
+    if(hit) p.t = has("promoN") ? "n" : "q";
+  }
+  st.lastType[st.turn]=p.t; st.lastSq[st.turn]=mv.to;
+  return target;
+}
+function afterHumanMove(mv){
+  const captured = doMove(S,mv,false);
+  if(captured && captured.t==="k"){ endGame(S.turn); return; }
+  if(has("chain") && captured && !S.chain){
+    S.chain={sq:mv.to};
+    document.getElementById("endChain").style.display="inline-block";
+    banner("RAMPAGE! that piece may move once more (or end your turn).");
+    render(); return;
+  }
+  finishTurn();
+}
+function finishTurn(){
+  S.chain=null;
+  document.getElementById("endChain").style.display="none";
+  S.mustPawn[S.turn]=false;
+  S.turn=1-S.turn; S.ply++;
+  if(S.ply%2===0){ S.round++; addRule(); roundEffects(); }
+  if(!S.over) checkTurnStart();
+  render(); maybeBot();
+}
+function roundEffects(){
+  // (reserved for future round-based chaos)
+}
+function checkTurnStart(){
+  const mvs=legalMoves(S);
+  const k=kingPos(S,S.turn);
+  const inChk = k>=0 && attacked(S,k,1-S.turn);
+  if(mvs.length===0){
+    if(inChk){ endGame(1-S.turn); }
+    else{
+      S.passStreak++;
+      if(S.passStreak>=2){ endGame(-1); }
+      else{
+        banner((S.turn===0?"WHITE":"BLACK")+" has no legal moves — turn passes!");
+        S.turn=1-S.turn; S.ply++;
+        if(S.ply%2===0){ S.round++; addRule(); }
+        checkTurnStart();
+      }
+    }
+  }else S.passStreak=0;
+}
+function endGame(winner){
+  S.over=true;
+  if(winner===-1) banner("DOUBLE STALEMATE. the RULEMASTER declares chaos-draw.");
+  else banner((winner===0?"WHITE":"BLACK")+" WINS! "+(winner===0?"♔":"♚")+" glory eternal. [NEW GAME] to go again.");
+  render();
+}
+
+// ============ RULEMASTER ============
+function addRule(){
+  if(S.active.length>=12){
+    const old=S.active.shift();
+    banner("rule repealed: "+old.nm+" (the RULEMASTER got bored of it)");
+  }
+  const legalPool = S.pool.filter(id=>{
+    const r=RULES.find(x=>x.id===id);
+    return !r.x.some(ex=>has(ex));
+  });
+  if(!legalPool.length) return;
+  const id=legalPool[Math.floor(S.rng()*legalPool.length)];
+  S.pool=S.pool.filter(x=>x!==id);
+  const r=RULES.find(x=>x.id===id);
+  S.active.push(r);
+  banner("NEW RULE #"+(S.active.length)+": "+r.nm.toUpperCase()+" — "+r.d);
+  renderRules();
+}
+let btextTimer=null;
+function banner(t){
+  const el=document.getElementById("btext");
+  clearInterval(btextTimer);
+  let i=0; el.textContent="";
+  btextTimer=setInterval(()=>{
+    el.textContent=t.slice(0,++i);
+    if(i>=t.length) clearInterval(btextTimer);
+  },14);
+}
+function renderRules(){
+  const box=document.getElementById("rules");
+  box.innerHTML="";
+  document.getElementById("rcount").textContent="("+S.active.length+" active)";
+  if(!S.active.length){
+    box.innerHTML='<div class="rule"><span class="d">none yet. enjoy normality while it lasts.</span></div>';
+    return;
+  }
+  S.active.slice().reverse().forEach((r,ix)=>{
+    const d=document.createElement("div");
+    d.className="rule"+(ix===0?" newest":"");
+    d.innerHTML="<b>"+r.nm+"</b><br><span class='d'>"+r.d+"</span>";
+    box.appendChild(d);
+  });
+}
+
+// ============ BOT ============
+const VAL={p:1,n:3,b:3.2,r:5,q:9,k:200};
+function evalS(st, me){
+  let v=0;
+  st.bd.forEach(p=>{ if(p) v += (p.c===me?1:-1)*VAL[p.t]; });
+  return v;
+}
+function maybeBot(){
+  if(S.over||S.mode!=="bot"||S.turn!==1||botThinking) return;
+  botThinking=true;
+  banner("RULEMASTER's champion is thinking...");
+  setTimeout(botMove, 350);
+}
+function botMove(){
+  botThinking=false;
+  if(S.over||S.turn!==1) return;
+  const mvs=legalMoves(S);
+  if(!mvs.length){ checkTurnStart(); render(); return; }
+  let best=null,bestV=-1e9;
+  for(const mv of mvs){
+    const st2=cloneS(S);
+    const cap=doMove(st2,mv,true);
+    if(cap&&cap.t==="k"){ best=mv; break; }
+    let v=evalS(st2,1)+S.rng()*0.15;
+    // opponent's best material reply (1 ply)
+    st2.turn=0;
+    const replies=allMoves(st2,false).slice(0,60);
+    let worst=0;
+    for(const r2 of replies){
+      if(r2.cap){
+        const t=st2.bd[r2.to];
+        worst=Math.max(worst, VAL[t.t]);
+      }
+    }
+    v-=worst*0.9;
+    if(v>bestV){ bestV=v; best=mv; }
+  }
+  const captured=doMove(S,best,false);
+  if(captured&&captured.t==="k"){ endGame(1); return; }
+  if(has("chain")&&captured){
+    // bot takes its bonus move greedily if a capture is available
+    const st2={...S, chain:{sq:best.to}};
+    const bonus=legalMoves(S).filter(m=>m.from===best.to&&m.cap);
+    if(bonus.length){
+      const b2=bonus[Math.floor(S.rng()*bonus.length)];
+      const c2=doMove(S,b2,false);
+      if(c2&&c2.t==="k"){ endGame(1); return; }
+    }
+  }
+  finishTurn();
+}
+
+// ============ UI ============
+const GLYPH={0:{p:"♙",n:"♘",b:"♗",r:"♖",q:"♕",k:"♔"},1:{p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚"}};
+const boardEl=document.getElementById("board");
+for(let i=0;i<64;i++){
+  const d=document.createElement("div");
+  const [r,c]=rc(i);
+  d.className="sq "+((r+c)%2===0?"l":"d");
+  d.dataset.i=i;
+  d.onclick=()=>clickSq(i);
+  boardEl.appendChild(d);
+}
+function clickSq(i){
+  if(S.over||botThinking) return;
+  if(S.mode==="bot"&&S.turn===1) return;
+  const p=S.bd[i];
+  if(sel!==null){
+    const mv=selMoves.find(m=>m.to===i);
+    if(mv){
+      sel=null; selMoves=[];
+      if(S.chain){
+        const captured=doMove(S,mv,false);
+        S.chain=null;
+        document.getElementById("endChain").style.display="none";
+        if(captured&&captured.t==="k"){ endGame(S.turn); return; }
+        finishTurn(); return;
+      }
+      afterHumanMove(mv); render(); return;
+    }
+  }
+  if(p&&p.c===S.turn){
+    if(S.chain && i!==S.chain.sq) return;
+    sel=i;
+    selMoves=legalMoves(S).filter(m=>m.from===i);
+  }else{ sel=null; selMoves=[]; }
+  render();
+}
+document.getElementById("endChain").onclick=()=>{
+  if(S.chain){ sel=null; selMoves=[]; finishTurn(); }
+};
+document.getElementById("newBtn").onclick=newGame;
+document.getElementById("modeBtn").onclick=()=>{
+  S.mode = S.mode==="bot" ? "2p" : "bot";
+  document.getElementById("modeBtn").textContent = S.mode==="bot"?"🤖 vs BOT":"👥 PASS & PLAY";
+  maybeBot();
+};
+function render(){
+  const kW=kingPos(S,0),kB=kingPos(S,1);
+  const chkW=kW>=0&&attacked(S,kW,1), chkB=kB>=0&&attacked(S,kB,0);
+  for(let i=0;i<64;i++){
+    const d=boardEl.children[i];
+    const p=S.bd[i];
+    d.textContent=p?GLYPH[p.c][p.t]:"";
+    d.classList.toggle("sel", sel===i);
+    d.classList.toggle("mv", selMoves.some(m=>m.to===i&&!m.cap));
+    d.classList.toggle("cap", selMoves.some(m=>m.to===i&&m.cap));
+    d.classList.toggle("chk", (i===kW&&chkW)||(i===kB&&chkB));
+    d.classList.toggle("lava", has("lava")&&(i%8===0||i%8===7));
+  }
+  const st=document.getElementById("status");
+  if(S.over){ st.textContent="game over — hit NEW GAME"; }
+  else{
+    st.textContent=(S.turn===0?"⬜ WHITE":"⬛ BLACK")+" to move · round "+(S.round+1)
+      +(chkW&&S.turn===0?" · CHECK!":"")+(chkB&&S.turn===1?" · CHECK!":"");
+  }
+}
+newGame();
+</script>
+</body>
+</html>

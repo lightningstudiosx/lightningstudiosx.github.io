@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Olympics</title>
+<style>
+  :root{
+    --ink:#141414; --line:#e2e2e2; --muted:#8a8a8a;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{display:flex;font-family:"Trebuchet MS",system-ui,sans-serif;background:#fff;overflow:hidden;}
+  #side{
+    width:200px;min-width:200px;height:100vh;border-right:2px solid var(--ink);
+    padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;background:#fff;
+  }
+  .navBtn{
+    border:2px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);
+    font-family:inherit;font-weight:900;font-size:14px;padding:11px 10px;text-align:left;
+    cursor:pointer;box-shadow:2px 2px 0 var(--ink);
+  }
+  .navBtn:hover{transform:translate(-1px,-1px);}
+  .navBtn.on{background:var(--sun);}
+  .navBtn:disabled{opacity:.4;cursor:default;transform:none;}
+  #side h3{font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:6px;}
+  .evRow{
+    display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+    border:2px solid var(--line);border-radius:9px;padding:6px 8px;cursor:pointer;user-select:none;
+  }
+  .evRow.on{border-color:var(--ink);background:#fff8e1;}
+  .evRow .gen{margin-left:auto;font-size:10px;color:var(--muted);font-weight:600;}
+  .evRow .gen.rdy{color:var(--moss);font-weight:900;}
+  .legend{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;}
+  .legend .dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--ink);}
+  #resetBtn{
+    border:2px solid var(--coral);border-radius:9px;background:#fff;color:var(--coral);
+    font-family:inherit;font-weight:700;font-size:11px;padding:7px;cursor:pointer;margin-top:4px;
+  }
+  #side .home{margin-top:auto;font-size:12px;color:var(--muted);text-decoration:none;}
+  #side .home:hover{color:var(--ink);}
+  #main{flex:1;position:relative;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#fff;}
+</style>
+</head>
+<body>
+<div id="side">
+  <button class="navBtn on" id="navTrain">🏋️ TRAINING</button>
+  <button class="navBtn" id="navPlay" disabled>🏁 PLAY</button>
+  <button class="navBtn" id="navPause">⏸️ PAUSE</button>
+  <button class="navBtn" id="navSkip" style="display:none">⏭️ SKIP EVENT</button>
+  <button class="navBtn" id="navEnd" style="display:none">🏆 END GAMES</button>
+  <h3>EVENTS (train together)</h3>
+  <div id="evList"></div>
+  <h3>ATHLETES</h3>
+  <div id="legend"></div>
+  <button id="resetBtn">🧬 reset all brains</button>
+  <a class="home" href="index.html">&larr; kai.fun</a>
+</div>
+<div id="main"><canvas id="cv"></canvas></div>
+
+<script>
+// ================================================================
+//  REAL PHYSICS EVOLUTION — no preset technique anywhere.
+//  Bodies are verlet ragdolls. Genomes only set muscle rhythms.
+//  Fitness = what the simulation actually measures (distance, time,
+//  height). If they learn to run, it's because physics rewarded it.
+// ================================================================
+const M = 30;                 // pixels per meter
+const GRAV = 880;             // px/s^2 — low gravity, huge air
+const DT = 1/60;
+const ITER = 4;
+const STIFF = 0.09;           // muscle strength
+const BOTS = [
+  {name:"BLAZE-7", color:"#ff6b5e"},
+  {name:"CIRCUIT", color:"#4aa9d8"},
+  {name:"PISTON",  color:"#6fb85c"},
+  {name:"NIMBUS",  color:"#9b7fd4"},
+  {name:"TURBO-X", color:"#f5b829"},
+];
+
+// ---------- genome: 31 raw numbers, meaning assigned only to muscles ----------
+// muscles: 0 torso, 1 thighL, 2 shinL, 3 thighR, 4 shinR, 5 armL, 6 armR
+// layout: [7 x (mid, amp, phase)] + freq + [7 burst targets] + burstTrig + release
+const GLEN = 7*3 + 1 + 7 + 2;
+function randG(){ return Array.from({length:GLEN}, ()=>Math.random()); }
+function mutate(g, s){
+  return g.map(v=>Math.min(1, Math.max(0, v + (Math.random()*2-1)*s)));
+}
+function muscleTarget(g, m, t, burst){
+  if(burst) return (g[22+m]*2-1) * (m===0 ? 0.7 : 1.7);
+  const mid = (g[m*3]*2-1) * (m===0 ? 0.5 : 1.25);
+  const amp = g[m*3+1] * (m===0 ? 0.35 : 1.15);
+  const ph  = g[m*3+2] * Math.PI*2;
+  const freq = 0.7 + g[21]*2.6;
+  return mid + amp*Math.sin(t*freq*Math.PI*2 + ph);
+}
+
+// ---------- ragdoll ----------
+// points: 0 hip, 1 shoulder, 2 kneeL, 3 footL, 4 kneeR, 5 footR, 6 handL, 7 handR
+const BONES = [
+  [0,1,0.62],           // torso
+  [0,2,0.45],[2,3,0.46],// left leg
+  [0,4,0.45],[4,5,0.46],// right leg
+  [1,6,0.55],[1,7,0.55],// arms
+];
+// muscles: bone index + anchor/far + reference ("down" for limbs, "up" for torso)
+const MUSCLES = [
+  {bone:0, ref:"up"},   // torso
+  {bone:1, ref:"down"},{bone:2, ref:"down"},
+  {bone:3, ref:"down"},{bone:4, ref:"down"},
+  {bone:5, ref:"down"},{bone:6, ref:"down"},
+];
+function makeBody(x0, groundY){
+  const p=[], q=[];
+  function pt(x,y){ p.push({x,y}); q.push({x,y}); }
+  const hy = groundY - 0.96*M;
+  pt(x0, hy);                       // hip
+  pt(x0+2, hy-0.62*M);              // shoulder
+  pt(x0-4, hy+0.45*M); pt(x0-6, hy+0.9*M);   // kneeL footL
+  pt(x0+4, hy+0.45*M); pt(x0+6, hy+0.9*M);   // kneeR footR
+  pt(x0-5, hy-0.2*M);  pt(x0+5, hy-0.2*M);   // hands
+  return {p, q, t:0, dead:false};
+}
+function wrap(a){ while(a>Math.PI)a-=Math.PI*2; while(a<-Math.PI)a+=Math.PI*2; return a; }
+const MAXV = 8.2;               // px per step (~16 m/s) — physics sanity cap
+const MAXROT = 0.27;            // max joint rotation per step
+const DRIVE = 2.0;              // extra leg power when that foot is planted
+const BURSTPOW = 1.5;           // extra explosiveness during a takeoff burst
+function stepBody(b, g, groundY, opts){
+  opts = opts||{};
+  const p=b.p, q=b.q;
+  // verlet integrate, with a hard velocity cap so nothing can ever launch
+  for(let i=0;i<p.length;i++){
+    let vx=(p[i].x-q[i].x)*0.995, vy=(p[i].y-q[i].y)*0.995;
+    const sp=Math.hypot(vx,vy);
+    if(sp>MAXV){ vx*=MAXV/sp; vy*=MAXV/sp; }
+    q[i].x=p[i].x; q[i].y=p[i].y;
+    p[i].x+=vx; p[i].y+=vy+GRAV*DT*DT;
+  }
+  // muscles = PURE TORQUE: each bone rotates about its own midpoint, so a
+  // muscle can never move the body's center of mass by itself. the only way
+  // to travel (or leave the ground) is to push against the floor — physics.
+  // mid-air, muscles are weak: you can't push on air.
+  let grounded = false;
+  for(let i=0;i<p.length;i++){ if(p[i].y >= groundY-1.5){ grounded = true; break; } }
+  const footL = p[3].y >= groundY-2, footR = p[5].y >= groundY-2;
+  for(let m=0;m<MUSCLES.length;m++){
+    // base authority: normal when grounded, weak in the air (can't push on air)
+    let auth = grounded ? 1 : 0.3;
+    // LEG DRIVE: a leg whose foot is planted gets extra strength — this is
+    // what makes push-off physically possible, and thus learnable
+    if((m===1||m===2) && footL) auth = DRIVE;
+    if((m===3||m===4) && footR) auth = DRIVE;
+    if(opts.burst && grounded) auth *= BURSTPOW;
+    const bone = BONES[MUSCLES[m].bone];
+    const A=p[bone[0]], B=p[bone[1]];
+    const cur = MUSCLES[m].ref==="down"
+      ? Math.atan2(B.x-A.x, B.y-A.y)
+      : Math.atan2(B.x-A.x, A.y-B.y);
+    const tgt = muscleTarget(g, m, b.t, opts.burst);
+    let d = wrap(tgt-cur)*0.8;
+    d = Math.max(-MAXROT, Math.min(MAXROT, d)) * auth;
+    d = Math.max(-0.38, Math.min(0.38, d));   // hard cap on joint speed
+    const mid = {x:(A.x+B.x)/2, y:(A.y+B.y)/2};
+    rot(B, mid, d);
+    rot(A, mid, d);
+  }
+  for(let it=0; it<ITER; it++){
+    for(const [a,c,L0] of BONES){
+      const L=L0*M;
+      let dx=p[c].x-p[a].x, dy=p[c].y-p[a].y;
+      const d=Math.hypot(dx,dy)||0.001;
+      const diff=(d-L)/d*0.5;
+      p[a].x+=dx*diff; p[a].y+=dy*diff;
+      p[c].x-=dx*diff; p[c].y-=dy*diff;
+    }
+    for(let i=0;i<p.length;i++){
+      if(p[i].y > groundY){
+        p[i].y = groundY;
+        const grip = (i===3||i===5) ? 0.92 : 0.35;
+        p[i].x = p[i].x - (p[i].x - q[i].x)*grip;
+      }
+    }
+    if(opts.hurdles){
+      for(const hx of opts.hurdles){
+        for(let i=0;i<p.length;i++){
+          if(q[i].x <= hx && p[i].x > hx && p[i].y > groundY - opts.hurdleH){
+            p[i].x = hx - 0.5;
+          }
+        }
+      }
+    }
+  }
+  // enforce anatomy: knees bend one way, hips/shoulders/torso have ranges
+  kneeLimit(b.p, 0, 2, 3, -2.5, 0.08);
+  kneeLimit(b.p, 0, 4, 5, -2.5, 0.08);
+  hipLimit(b.p, 0, 2, -1.05, 1.65, 3);
+  hipLimit(b.p, 0, 4, -1.05, 1.65, 5);
+  hipLimit(b.p, 1, 6, -2.45, 2.45);
+  hipLimit(b.p, 1, 7, -2.45, 2.45);
+  torsoLimit(b.p, -0.95, 0.95);
+  b.t += DT;
+}
+function rot(P, C, ang){
+  const dx=P.x-C.x, dy=P.y-C.y;
+  const ca=Math.cos(ang), sa=Math.sin(ang);
+  P.x = C.x + dx*ca - dy*sa;
+  P.y = C.y + dx*sa + dy*ca;
+}
+// ----- anatomical joint limits: bodies, not helicopters -----
+function angDown(A,B){ return Math.atan2(B.x-A.x, B.y-A.y); }
+function kneeLimit(p, hip, knee, foot, lo, hi){
+  const rel = wrap(angDown(p[knee],p[foot]) - angDown(p[hip],p[knee]));
+  if(rel < lo) rot(p[foot], p[knee], lo-rel);
+  else if(rel > hi) rot(p[foot], p[knee], hi-rel);
+}
+function hipLimit(p, anchor, end, lo, hi, follow){
+  const a = angDown(p[anchor], p[end]);
+  let d = 0;
+  if(a < lo) d = lo-a; else if(a > hi) d = hi-a;
+  if(d){ rot(p[end], p[anchor], d); if(follow!==undefined) rot(p[follow], p[anchor], d); }
+}
+function torsoLimit(p, lo, hi){
+  const a = Math.atan2(p[1].x-p[0].x, p[0].y-p[1].y);
+  let d = 0;
+  if(a < lo) d = lo-a; else if(a > hi) d = hi-a;
+  if(d){ rot(p[1],p[0],d); rot(p[6],p[0],d); rot(p[7],p[0],d); }
+}
+function drawBody(b, color, camX, groundScreenY, scale, groundY){
+  const map = (pt)=>[ (pt.x-camX)*scale, groundScreenY + (pt.y-groundY)*scale ];
+  ctx.strokeStyle=color; ctx.fillStyle=color;
+  ctx.lineWidth=2.6*scale*1.1; ctx.lineCap="round";
+  for(const [a,c] of BONES){
+    const [ax,ay]=map(b.p[a]), [cx2,cy2]=map(b.p[c]);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(cx2,cy2); ctx.stroke();
+  }
+  const sh=b.p[1], hip=b.p[0];
+  const hx = sh.x + (sh.x-hip.x)*0.25, hy = sh.y + (sh.y-hip.y)*0.25;
+  const [px,py]=map({x:hx,y:hy});
+  ctx.beginPath(); ctx.arc(px, py-4*scale, 4.4*scale, 0, Math.PI*2); ctx.fill();
+}
+
+// ---------- events: fitness is MEASURED, never formula'd ----------
+const EV = {
+  sprint:  {name:"100m Dash",   icon:"🏃", kind:"race", distM:100, hurdles:0, horizon:9,
+            label:v=> v.t!==null ? v.t.toFixed(2)+"s" : v.d.toFixed(1)+"m in 9s"},
+  hurdles: {name:"100m Hurdles",icon:"🚧", kind:"race", distM:100, hurdles:9, hurdleH:0.42*M, horizon:11,
+            label:v=> v.t!==null ? v.t.toFixed(2)+"s" : v.d.toFixed(1)+"m in 11s"},
+  longjump:{name:"Long Jump",   icon:"🦘", kind:"jump", runM:12, horizon:7, max:9,
+            label:v=> v.d.toFixed(2)+"m"},
+  highjump:{name:"High Jump",   icon:"⬆️", kind:"high", runM:8, horizon:6, max:2.6,
+            label:v=> v.d.toFixed(2)+"m"},
+  javelin: {name:"Javelin",     icon:"🎯", kind:"throw", horizon:4, max:60,
+            label:v=> v.d.toFixed(1)+"m"},
+  shotput: {name:"Shot Put",    icon:"🪨", kind:"throw", heavy:true, horizon:4, max:18,
+            label:v=> v.d.toFixed(2)+"m"},
+};
+function makeHurdles(ev, x0){
+  if(!ev.hurdles) return null;
+  const out=[];
+  for(let i=1;i<=ev.hurdles;i++) out.push(x0 + i*(ev.distM/(ev.hurdles+1))*M);
+  return out;
+}
+// headless evaluation — returns {fitness, value:{t,d}}
+function evaluate(k, g){
+  const ev = EV[k];
+  const groundY = 1000;
+  const b = makeBody(0, groundY);
+  if(ev.kind==="race"){
+    const hurdles = makeHurdles(ev, 0);
+    const steps = Math.floor(ev.horizon/DT);
+    let finT=null;
+    for(let i=0;i<steps;i++){
+      stepBody(b, g, groundY, {hurdles, hurdleH:ev.hurdleH});
+      if(b.p[0].x >= ev.distM*M){ finT = b.t; break; }
+    }
+    const d = b.p[0].x;
+    const fit = d + (finT!==null ? (ev.horizon-finT)*9*M : 0);
+    return {fitness:fit, value:{t:finT, d:d/M}};
+  }
+  if(ev.kind==="jump"){
+    const line = ev.runM*M;
+    const steps = Math.floor(ev.horizon/DT);
+    let airborne=false, mark=0;
+    for(let i=0;i<steps;i++){
+      const burst = b.p[0].x > line - (0.5+g[29]*2.5)*M;
+      stepBody(b, g, groundY, {burst});
+      const feetUp = b.p[3].y < groundY-2 && b.p[5].y < groundY-2;
+      if(b.p[0].x > line){
+        if(feetUp) airborne = true;
+        else if(airborne){ mark = Math.max(b.p[3].x, b.p[5].x) - line; break; }
+        else { mark = 0.2*M; break; }   // walked over the board
+      }
+    }
+    return {fitness:mark + b.p[0].x*0.05, value:{t:null, d:Math.max(0,mark)/M}};
+  }
+  if(ev.kind==="high"){
+    const line = ev.runM*M;
+    const steps = Math.floor(ev.horizon/DT);
+    let peak = 0;
+    for(let i=0;i<steps;i++){
+      const burst = b.p[0].x > line - (0.5+g[29]*2.5)*M;
+      stepBody(b, g, groundY, {burst});
+      // height ONLY counts while BOTH feet are off the ground — you must JUMP
+      const feetUp = b.p[3].y < groundY-3 && b.p[5].y < groundY-3;
+      if(b.p[0].x > line && feetUp){
+        peak = Math.max(peak, groundY - b.p[0].y);
+      }
+    }
+    return {fitness:peak + b.p[0].x*0.02, value:{t:null, d:peak/M + 0.0}};
+  }
+  // throw: projectile rides the hand until release, then flies
+  const proj = {x:b.p[7].x, y:b.p[7].y, vx:0, vy:0, free:false, done:false};
+  const relT = 0.4 + g[30]*1.6;
+  const steps = Math.floor((ev.horizon+3)/DT);
+  const wt = ev.heavy? 1.6 : 1.0;
+  for(let i=0;i<steps;i++){
+    const burst = b.t > relT-0.35;
+    stepBody(b, g, groundY, {burst});
+    if(!proj.free){
+      proj.vx = (b.p[7].x - proj.x)/DT; proj.vy = (b.p[7].y - proj.y)/DT;
+      proj.x = b.p[7].x; proj.y = b.p[7].y;
+      if(b.t >= relT) proj.free = true;
+    }else if(!proj.done){
+      proj.vy += GRAV*DT*wt*0.6;
+      proj.x += proj.vx*DT/wt; proj.y += proj.vy*DT;
+      if(proj.y >= groundY){ proj.done = true; }
+    }
+  }
+  const d = Math.max(0, proj.x)/1/M;
+  return {fitness:proj.x, value:{t:null, d:Math.max(0.1,d)}};
+}
+function better(k, a, b2){  // is value a better than b for event k?
+  if(a===undefined) return false;
+  if(b2===undefined) return true;
+  if(EV[k].kind==="race"){
+    if(a.t!==null && b2.t!==null) return a.t < b2.t;
+    if(a.t!==null) return true;
+    if(b2.t!==null) return false;
+    return a.d > b2.d;
+  }
+  return a.d > b2.d;
+}
+
+// ---------- state ----------
+let athletes = BOTS.map(b=>({...b, brains:{}, best:{}, points:0}));
+let gens = {}, sigmas = {};
+let selected = Object.keys(EV);
+const READY_GENS = 25;
+const SAVE = "aiolympics_v3";
+try{
+  const d = JSON.parse(localStorage.getItem(SAVE));
+  if(d){ d.a?.forEach((x,i)=>{ if(athletes[i]){ athletes[i].brains=x.brains||{}; athletes[i].best=x.best||{}; } });
+         gens = d.gens||{}; }
+}catch(e){}
+function save(){ try{ localStorage.setItem(SAVE, JSON.stringify({a:athletes.map(a=>({brains:a.brains,best:a.best})), gens})); }catch(e){} }
+Object.keys(EV).forEach(k=>{ sigmas[k]=0.32; gens[k]=gens[k]||0;
+  athletes.forEach(a=>{ if(!a.brains[k]) a.brains[k]=randG(); }); });
+
+// ---------- sidebar ----------
+let mode="train", paused=false;
+const navTrain=document.getElementById("navTrain"),
+      navPlay=document.getElementById("navPlay"),
+      navPause=document.getElementById("navPause"),
+      navSkip=document.getElementById("navSkip"),
+      navEnd=document.getElementById("navEnd");
+let SKIP=false;
+function ready(){ return selected.length>0 && selected.every(k=>gens[k]>=READY_GENS); }
+function refreshNav(){
+  navTrain.classList.toggle("on", mode==="train");
+  navPlay.classList.toggle("on", mode==="play");
+  navPlay.disabled = selected.length===0;
+  navPlay.textContent = ready() ? "🏁 PLAY" : "🏁 PLAY (early)";
+  navPause.textContent = paused ? "▶️ RESUME" : "⏸️ PAUSE";
+  navPause.classList.toggle("on", paused);
+  navSkip.style.display = navEnd.style.display = mode==="play" ? "block" : "none";
+}
+navTrain.onclick = ()=>{ paused=false; mode="train"; startTrainScene(); refreshNav(); };
+navPlay.onclick = ()=>{
+  if(!selected.length) return;
+  paused=false; mode="play"; startCutscene(); refreshNav();
+};
+navPause.onclick = ()=>{ paused=!paused; refreshNav(); };
+navSkip.onclick = ()=>{ SKIP=true; };
+navEnd.onclick = ()=>{ if(mode==="play") startPodium(); };
+document.getElementById("resetBtn").onclick = ()=>{
+  if(!confirm("wipe every brain and start evolution over?")) return;
+  athletes.forEach(a=>{a.brains={};a.best={};});
+  Object.keys(EV).forEach(k=>{ gens[k]=0; sigmas[k]=0.32; athletes.forEach(a=>a.brains[k]=randG()); });
+  save(); evListRefresh(); refreshNav(); if(mode==="train") startTrainScene();
+};
+const evList=document.getElementById("evList");
+function evListRefresh(){
+  evList.innerHTML="";
+  Object.entries(EV).forEach(([k,ev])=>{
+    const r=document.createElement("div");
+    r.className="evRow"+(selected.includes(k)?" on":"");
+    const g=gens[k]||0;
+    r.innerHTML=ev.icon+" "+ev.name
+      +'<span class="gen'+(g>=READY_GENS?" rdy":"")+'">'+(g>=READY_GENS?"READY":"gen "+g)+"</span>";
+    r.onclick=()=>{
+      if(selected.includes(k)) selected=selected.filter(x=>x!==k);
+      else selected.push(k);
+      evListRefresh(); refreshNav(); if(mode==="train") startTrainScene();
+    };
+    evList.appendChild(r);
+  });
+}
+evListRefresh();
+BOTS.forEach(b=>{
+  const d=document.createElement("div");
+  d.className="legend";
+  d.innerHTML='<span class="dot" style="background:'+b.color+'"></span>'+b.name;
+  document.getElementById("legend").appendChild(d);
+});
+
+// ---------- canvas & loop ----------
+const cv=document.getElementById("cv");
+const ctx=cv.getContext("2d");
+let W=0,H=0;
+function resize(){
+  const r=cv.getBoundingClientRect();
+  cv.width=r.width*devicePixelRatio; cv.height=r.height*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  W=r.width; H=r.height;
+  makeCrowd();
+}
+addEventListener("resize", resize);
+let sceneDraw=null, sceneT=0;
+function setScene(f){ sceneDraw=f; sceneT=0; }
+function frame(now){
+  requestAnimationFrame(frame);
+  if(!frame.last) frame.last=now;
+  const dt=Math.min(0.05,(now-frame.last)/1000);
+  frame.last=now;
+  if(paused){
+    if(sceneDraw) sceneDraw(0);
+    ctx.fillStyle="rgba(255,255,255,.55)"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#141414"; ctx.font="900 34px Trebuchet MS"; ctx.textAlign="center";
+    ctx.fillText("⏸ PAUSED", W/2, H/2); ctx.textAlign="left";
+    return;
+  }
+  sceneT+=dt;
+  if(sceneDraw){
+    try{ sceneDraw(dt); }
+    catch(e){
+      ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#c62828"; ctx.font="900 16px Trebuchet MS";
+      ctx.fillText("something crashed — tell kai this exact message:", 20, 40);
+      ctx.font="600 12px monospace";
+      ctx.fillText(String(e && e.message || e).slice(0,120), 20, 66);
+    }
+  }
+}
+requestAnimationFrame(frame);
+
+// ---------- crowd ----------
+let crowd=[];
+function makeCrowd(){
+  crowd=[];
+  const cols=Math.floor((W-40)/16);
+  for(let r=0;r<3;r++) for(let c=0;c<cols;c++) crowd.push({
+    x:24+c*16+(Math.random()*6-3), row:r,
+    skin:["#e8b98a","#c98d5f","#f2d1a9","#8a5a3b","#e0a878"][Math.floor(Math.random()*5)],
+    shirt:["#ff6b5e","#4aa9d8","#6fb85c","#9b7fd4","#f5b829","#888","#d46ba8"][Math.floor(Math.random()*7)],
+    off:Math.random()*6.28, fan:Math.random()<0.25,
+  });
+}
+function drawCrowd(t, top, cheer){
+  ctx.fillStyle="#ddd6c8"; ctx.fillRect(0, top, W, 74);
+  ctx.strokeStyle="#141414"; ctx.lineWidth=2; ctx.strokeRect(-2, top, W+4, 74);
+  crowd.forEach(p2=>{
+    const y=top+16+p2.row*20;
+    const bob=Math.sin(t*(cheer?9:2.6)+p2.off)*(cheer?3.4:1.2);
+    ctx.fillStyle=p2.shirt; ctx.fillRect(p2.x-4, y-2+bob, 8, 9);
+    ctx.fillStyle=p2.skin;
+    ctx.beginPath(); ctx.arc(p2.x, y-6+bob, 3.6, 0, Math.PI*2); ctx.fill();
+    if(cheer&&p2.fan){
+      ctx.strokeStyle=p2.shirt; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(p2.x-3,y-4+bob); ctx.lineTo(p2.x-6,y-11+bob); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p2.x+3,y-4+bob); ctx.lineTo(p2.x+6,y-11+bob); ctx.stroke();
+    }
+  });
+}
+
+// ---------- TRAINING ----------
+// GA in background (headless physics), live physics demos in panels
+let trainAcc=0, rot8=0;
+function trainStep(){
+  if(!selected.length) return;
+  const k = selected[rot8 % selected.length]; rot8++;
+  athletes.forEach(a=>{
+    const parent=a.brains[k];
+    let bg=parent, bs=evaluate(k,parent).fitness, bv=null;
+    for(let c=0;c<10;c++){
+      const cg=mutate(parent, sigmas[k]);
+      const r=evaluate(k,cg);
+      if(r.fitness>bs){ bs=r.fitness; bg=cg; bv=r.value; }
+    }
+    a.brains[k]=bg;
+    const val = bv || evaluate(k,bg).value;
+    if(better(k, val, a.best[k])) a.best[k]=val;
+  });
+  gens[k]++; sigmas[k]=Math.max(0.06, sigmas[k]*0.985);
+  if(gens[k]%5===0){ save(); evListRefresh(); refreshNav(); }
+}
+// live demo sims per panel
+let demos={};
+function resetDemo(k){
+  const ev=EV[k];
+  demos[k]={
+    bodies: athletes.map(a=>({a, b:makeBody(0,1000),
+      hurdles: makeHurdles(ev,0),
+      proj:{x:0,y:0,vx:0,vy:0,free:false,done:false}, done:false})),
+    t:0, age:0,
+  };
+}
+function startTrainScene(){
+  demos={};
+  selected.forEach(resetDemo);
+  setScene((dt)=>{
+    // train as hard as the machine allows: ~13ms of evolution per frame
+    if(dt > 0){
+      const budget0 = performance.now();
+      let didOne = false;
+      while(selected.length && (!didOne || performance.now()-budget0 < 13)){
+        trainStep(); didOne = true;
+        if(performance.now()-budget0 > 13) break;
+      }
+    }
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#141414"; ctx.font="900 16px Trebuchet MS";
+    ctx.fillText("TRAINING CAMP", 16, 26);
+    ctx.fillStyle="#f5b829"; ctx.fillRect(150,10,92,22);
+    ctx.strokeStyle="#141414"; ctx.lineWidth=2; ctx.strokeRect(150,10,92,22);
+    ctx.fillStyle="#141414"; ctx.font="700 12px Trebuchet MS";
+    ctx.fillText("⚡ 20x SPEED", 158, 25);
+    ctx.font="600 11px Trebuchet MS"; ctx.fillStyle="#8a8a8a";
+    ctx.fillText("pure physics · genomes only set muscle rhythms · fitness is measured, never scripted", 254, 25);
+    if(!selected.length){
+      ctx.font="700 16px Trebuchet MS";
+      ctx.fillText("pick at least one event →", W/2-100, H/2);
+      return;
+    }
+    const list=selected;
+    const cols=list.length<=2?list.length:list.length<=4?2:3;
+    const rows=Math.ceil(list.length/cols);
+    const pw=(W-16*(cols+1))/cols, phh=(H-46-14*(rows+1))/rows;
+    list.forEach((k,i)=>{
+      if(!demos[k]) resetDemo(k);
+      const px=16+(i%cols)*(pw+16), py=46+Math.floor(i/cols)*(phh+14);
+      drawTrainPanel(k, px, py, pw, phh, dt);
+    });
+  });
+}
+function drawTrainPanel(k, px, py, pw, ph, dt){
+  const ev=EV[k];
+  const D=demos[k];
+  D.age+=dt;
+  // advance live physics at genuine 20x (20 substeps per frame)
+  const sub = dt > 0 ? 20 : 0;
+  D.bodies.forEach(x=>{
+    for(let s2=0;s2<sub;s2++){
+      const bx=x.b;
+      if(ev.kind==="race"){
+        stepBody(bx, x.a.brains[k], 1000, {hurdles:x.hurdles, hurdleH:ev.hurdleH});
+      }else if(ev.kind==="jump"||ev.kind==="high"){
+        const line=(ev.runM)*M;
+        stepBody(bx, x.a.brains[k], 1000, {burst: bx.p[0].x > line-(0.5+x.a.brains[k][29]*2.5)*M});
+      }else{
+        const gg=x.a.brains[k];
+        const relT=0.4+gg[30]*1.6;
+        stepBody(bx, gg, 1000, {burst: bx.t > relT-0.35});
+        const pr=x.proj;
+        if(!pr.free){
+          pr.vx=(bx.p[7].x-pr.x)/DT; pr.vy=(bx.p[7].y-pr.y)/DT;
+          pr.x=bx.p[7].x; pr.y=bx.p[7].y;
+          if(bx.t>=relT) pr.free=true;
+        }else if(!pr.done){
+          const wt=ev.heavy?1.6:1.0;
+          pr.vy+=GRAV*DT*wt*0.6;
+          pr.x+=pr.vx*DT/wt; pr.y+=pr.vy*DT;
+          if(pr.y>=1000) pr.done=true;
+        }
+      }
+    }
+  });
+  const lifespan = ev.kind==="race" ? ev.horizon+1 : ev.horizon;
+  if(D.bodies[0] && D.bodies[0].b.t > lifespan) resetDemo(k);
+  // frame
+  ctx.strokeStyle="#141414"; ctx.lineWidth=2;
+  ctx.fillStyle="#fff"; ctx.fillRect(px,py,pw,ph); ctx.strokeRect(px,py,pw,ph);
+  ctx.save(); ctx.beginPath(); ctx.rect(px,py,pw,ph); ctx.clip();
+  ctx.fillStyle="#141414"; ctx.font="900 13px Trebuchet MS";
+  ctx.fillText(ev.icon+" "+ev.name, px+10, py+18);
+  const g=gens[k]||0;
+  ctx.font="600 11px Trebuchet MS";
+  ctx.fillStyle=g>=READY_GENS?"#2e7d32":"#8a8a8a";
+  ctx.fillText(g>=READY_GENS?"READY ✓ (still improving)":"generation "+g+" / "+READY_GENS, px+pw-165, py+18);
+  // ground line & scene
+  const gy=py+ph-26;
+  ctx.strokeStyle="#c9bfae"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(px+6,gy); ctx.lineTo(px+pw-6,gy); ctx.stroke();
+  const scale=Math.min(0.55, ph/340);
+  // camera: follow the pack leader for races; fixed for field
+  let camX=-1.2*M;
+  if(ev.kind==="race"){
+    let lead=0;
+    D.bodies.forEach(x=>lead=Math.max(lead, x.b.p[0].x));
+    camX=Math.max(-1.2*M, lead - (pw/scale)*0.55);
+    if(ev.hurdles){
+      for(const hx of makeHurdles(ev,0)){
+        const sx=px+20+(hx-camX)*scale;
+        if(sx>px+6 && sx<px+pw-6){
+          ctx.strokeStyle="#b7743a"; ctx.lineWidth=2.4;
+          ctx.beginPath(); ctx.moveTo(sx, gy); ctx.lineTo(sx, gy-ev.hurdleH*scale); ctx.stroke();
+        }
+      }
+    }
+  }else if(ev.kind==="jump"||ev.kind==="high"){
+    const lx=px+20+((ev.runM*M)-camX)*scale;
+    ctx.strokeStyle="#141414"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(lx, gy); ctx.lineTo(lx, gy-8); ctx.stroke();
+    if(ev.kind==="high"){
+      ctx.strokeStyle="#b7743a";
+      ctx.beginPath(); ctx.moveTo(lx, gy-1.2*M*scale); ctx.lineTo(lx+30, gy-1.2*M*scale); ctx.stroke();
+    }
+  }
+  D.bodies.forEach(x=>{
+    drawBody(x.b, x.a.color, camX-20/scale-px/scale, gy, scale, 1000);
+  });
+  if(ev.kind==="throw"){
+    D.bodies.forEach(x=>{
+      const pr=x.proj; if(!pr||!pr.free) return;
+      const sx=px+20+(pr.x-camX)*scale, sy=gy+(pr.y-1000)*scale;
+      if(sx>px+4&&sx<px+pw-4&&sy>py+4){
+        ctx.fillStyle=x.a.color;
+        ctx.beginPath(); ctx.arc(sx, sy, ev.heavy?3.5:2.2, 0, Math.PI*2); ctx.fill();
+      }
+    });
+  }
+  // bests
+  ctx.font="600 10px Trebuchet MS";
+  let bx2=px+10;
+  athletes.forEach(a=>{
+    if(a.best[k]===undefined) return;
+    if(bx2 > px+pw-70) return;
+    ctx.fillStyle=a.color;
+    ctx.fillRect(bx2, py+ph-14, 8, 8);
+    ctx.fillStyle="#555";
+    const s2=ev.label(a.best[k]);
+    ctx.fillText(s2, bx2+11, py+ph-6);
+    bx2 += 20+ctx.measureText(s2).width;
+  });
+  ctx.restore();
+}
+
+// ---------- CUTSCENE ----------
+function startCutscene(){
+  athletes.forEach(a=>a.points=0);
+  setScene((dt)=>{
+    ctx.fillStyle="#0e1016"; ctx.fillRect(0,0,W,H);
+    drawCrowd(sceneT, 40, sceneT>1);
+    ctx.textAlign="center";
+    ctx.font="52px serif"; ctx.fillText("🔥", W/2, 190);
+    ctx.fillStyle="#f5b829"; ctx.font="900 46px Trebuchet MS";
+    ctx.fillText("AI OLYMPICS".slice(0, Math.floor(sceneT*9)), W/2, 250);
+    ctx.fillStyle="#ccc"; ctx.font="700 14px Trebuchet MS";
+    if(sceneT>1.2) ctx.fillText("every motion below was learned by evolution, not scripted", W/2, 282);
+    ctx.textAlign="left";
+    if(sceneT>2.6 || SKIP){ SKIP=false; runQueue(selected.slice()); }
+  });
+}
+
+// ---------- COMPETITION ----------
+const PTS=[10,8,6,4,2];
+function runQueue(q){
+  if(!q.length){ startPodium(); return; }
+  const k=q.shift();
+  if(EV[k].kind==="race") raceScene(k, ()=>runQueue(q));
+  else fieldScene(k, ()=>runQueue(q));
+}
+function header(ev, sub){
+  ctx.fillStyle="#141414"; ctx.font="900 18px Trebuchet MS";
+  ctx.fillText(ev.icon+" "+ev.name, 16, 26);
+  ctx.font="600 12px Trebuchet MS"; ctx.fillStyle="#8a8a8a";
+  ctx.fillText(sub, 16, 42);
+}
+function resultsCard(ev, res, y0){
+  const cw=Math.min(470,W-60), cx=(W-cw)/2;
+  ctx.fillStyle="rgba(255,255,255,.95)"; ctx.fillRect(cx,y0,cw,250);
+  ctx.strokeStyle="#141414"; ctx.lineWidth=2; ctx.strokeRect(cx,y0,cw,250);
+  ctx.fillStyle="#141414"; ctx.font="900 16px Trebuchet MS";
+  ctx.fillText(ev.icon+" RESULTS", cx+18, y0+28);
+  res.forEach((r,i)=>{
+    const y=y0+58+i*38;
+    ctx.font="900 14px Trebuchet MS"; ctx.fillStyle="#141414";
+    ctx.fillText(["🥇","🥈","🥉","4th","5th"][i], cx+18, y);
+    ctx.fillStyle=r.athlete.color; ctx.fillRect(cx+64,y-12,13,13); ctx.strokeRect(cx+64,y-12,13,13);
+    ctx.fillStyle="#141414";
+    ctx.fillText(r.athlete.name, cx+88, y);
+    ctx.fillText(ev.label(r.value), cx+235, y);
+    ctx.font="600 11px Trebuchet MS"; ctx.fillStyle="#8a8a8a";
+    ctx.fillText("+"+(PTS[i]||0), cx+400, y);
+  });
+}
+function rankRace(res){  // sort race values: finishers by time, then distance
+  return res.slice().sort((x,y)=>{
+    const a=x.value,b=y.value;
+    if(a.t!==null&&b.t!==null) return a.t-b.t;
+    if(a.t!==null) return -1;
+    if(b.t!==null) return 1;
+    return b.d-a.d;
+  });
+}
+function raceScene(k, done){
+  SKIP=false;
+  const ev=EV[k];
+  const lanes=athletes.map((a,i)=>({a, b:makeBody(0,1000), hurdles:makeHurdles(ev,0),
+    fin:null}));
+  let phase="race", results=null, showT=0, raceT=0;
+  setScene((dt)=>{
+    if(phase==="race" && SKIP){
+      SKIP=false; raceT = ev.horizon+99;   // force the cap right now
+    }
+    if(phase==="race"){
+      raceT+=dt;
+      const sub=Math.min(3,Math.round(dt/DT));
+      let allDone=raceT>ev.horizon+2;
+      lanes.forEach(l=>{
+        if(l.fin!==null) return;
+        for(let s2=0;s2<sub;s2++){
+          stepBody(l.b, l.a.brains[k], 1000, {hurdles:l.hurdles, hurdleH:ev.hurdleH});
+          if(l.b.p[0].x>=ev.distM*M){ l.fin=l.b.t; break; }
+        }
+        if(l.fin===null) allDone=false;
+      });
+      if(allDone){
+        phase="results";
+        results=rankRace(lanes.map(l=>({athlete:l.a,
+          value:{t:l.fin, d:l.b.p[0].x/M}})));
+        results.forEach((r,i)=>r.athlete.points+=PTS[i]||0);
+      }
+    }else showT+=dt;
+    // draw
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    let lead=0; lanes.forEach(l=>lead=Math.max(lead,l.b.p[0].x));
+    drawCrowd(sceneT, 52, phase==="results"||lead>ev.distM*M*0.8);
+    header(ev, "live physics · "+ev.distM+"m · ⏱ "+Math.max(0,ev.horizon+2-raceT).toFixed(0)+"s cap · skip/end in sidebar");
+    const trackTop=150, laneH=(H-trackTop-16)/5;
+    const scale=Math.min(1.0, laneH/85);
+    const camX=Math.max(-2*M, lead-(W/scale)*0.6);
+    lanes.forEach((l,i)=>{
+      const gy=trackTop+i*laneH+laneH-14;
+      ctx.fillStyle="#f6ede0"; ctx.fillRect(0, trackTop+i*laneH, W, laneH-5);
+      ctx.strokeStyle="#e2e2e2"; ctx.strokeRect(0, trackTop+i*laneH, W, laneH-5);
+      const fx=(ev.distM*M-camX)*scale;
+      if(fx>0&&fx<W){ ctx.fillStyle="#141414";
+        for(let kk=0;kk<Math.floor((laneH-14)/9);kk++) ctx.fillRect(fx, trackTop+i*laneH+4+kk*9, 4, 4); }
+      if(ev.hurdles){
+        for(const hx of l.hurdles){
+          const sx=(hx-camX)*scale;
+          if(sx>0&&sx<W){
+            ctx.strokeStyle="#b7743a"; ctx.lineWidth=2.6;
+            ctx.beginPath(); ctx.moveTo(sx,gy); ctx.lineTo(sx,gy-ev.hurdleH*scale); ctx.stroke();
+          }
+        }
+      }
+      drawBody(l.b, l.a.color, camX, gy, scale, 1000);
+      ctx.fillStyle="#141414"; ctx.font="900 11px Trebuchet MS";
+      ctx.fillText(l.a.name+(l.fin!==null?"  "+l.fin.toFixed(2)+"s ✓":""), 8, trackTop+i*laneH+14);
+    });
+    if(phase==="results"){
+      resultsCard(ev, results, 160);
+      if(showT>3) done();
+    }
+  });
+}
+function fieldScene(k, done){
+  SKIP=false;
+  const ev=EV[k];
+  let idx=0, phase="attempt", showT=0, results=[];
+  let b=null, proj=null, marked=null, attT=0;
+  function startAttempt(){
+    b=makeBody(0,1000); attT=0; marked=null;
+    proj = ev.kind==="throw" ? {x:0,y:0,vx:0,vy:0,free:false,done:false} : null;
+  }
+  startAttempt();
+  setScene((dt)=>{
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    drawCrowd(sceneT, 52, phase==="results");
+    header(ev, "one attempt each · every motion evolved");
+    const gy=H-80;
+    ctx.fillStyle="#f6ede0"; ctx.fillRect(0,gy-140,W,180);
+    ctx.strokeStyle="#e2e2e2"; ctx.strokeRect(0,gy-140,W,180);
+    const originX=60, scale=Math.min(1, (W-120)/((ev.max+ (ev.runM||0)+4)*M));
+    const mx0=originX+((ev.runM||0)*M)*scale;
+    for(let m=0;m<=8;m++){
+      const mm=ev.max/8*m;
+      const sx=mx0+mm*M*scale;
+      ctx.fillStyle="#cfc3b0"; ctx.fillRect(sx, gy-140, 2, 180);
+      ctx.fillStyle="#8a8a8a"; ctx.font="600 10px Trebuchet MS";
+      ctx.fillText(mm.toFixed(0)+"m", sx-8, gy+32);
+    }
+    results.forEach(r=>{
+      const sx=mx0+r.value.d*M*scale;
+      ctx.fillStyle=r.athlete.color;
+      ctx.beginPath(); ctx.arc(Math.min(W-14,sx), gy+8, 5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle="#141414"; ctx.stroke();
+    });
+    if(ev.kind!=="throw"){
+      ctx.strokeStyle="#141414"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(mx0,gy); ctx.lineTo(mx0,gy-9); ctx.stroke();
+    }
+    if(phase==="attempt" && SKIP){
+      SKIP=false;
+      if(marked) results.push({athlete:athletes[idx], value:marked});
+      else results.push({athlete:athletes[idx], value:evaluate(k, athletes[idx].brains[k]).value});
+      idx++;
+      while(idx<athletes.length){
+        results.push({athlete:athletes[idx], value:evaluate(k, athletes[idx].brains[k]).value});
+        idx++;
+      }
+      phase="results";
+      results.sort((x,y)=>y.value.d-x.value.d);
+      results.forEach((r,i)=>r.athlete.points+=PTS[i]||0);
+    }
+    if(phase==="attempt"){
+      const a=athletes[idx];
+      const g=a.brains[k];
+      attT+=dt;
+      const sub=Math.min(3,Math.round(dt/DT));
+      for(let s2=0;s2<sub;s2++){
+        if(ev.kind==="throw"){
+          const relT=0.4+g[30]*1.6;
+          stepBody(b,g,1000,{burst:b.t>relT-0.35});
+          if(!proj.free){
+            proj.vx=(b.p[7].x-proj.x)/DT; proj.vy=(b.p[7].y-proj.y)/DT;
+            proj.x=b.p[7].x; proj.y=b.p[7].y;
+            if(b.t>=relT) proj.free=true;
+          }else if(!proj.done){
+            const wt=ev.heavy?1.6:1.0;
+            proj.vy+=GRAV*DT*wt*0.6;
+            proj.x+=proj.vx*DT/wt; proj.y+=proj.vy*DT;
+            if(proj.y>=1000){ proj.done=true; marked={t:null,d:Math.max(0.1,proj.x/M)}; }
+          }
+        }else{
+          const line=ev.runM*M;
+          stepBody(b,g,1000,{burst: b.p[0].x>line-(0.5+g[29]*2.5)*M});
+          if(ev.kind==="jump"){
+            const feetUp=b.p[3].y<998&&b.p[5].y<998;
+            if(b.p[0].x>line){
+              if(feetUp) b.air=true;
+              else if(b.air&&marked===null) marked={t:null,d:Math.max(0.05,(Math.max(b.p[3].x,b.p[5].x)-line)/M)};
+            }
+          }else{
+            if(b.p[0].x>line){
+              const feetUp=b.p[3].y<997&&b.p[5].y<997;
+              if(feetUp){
+                const hgt=(1000-b.p[0].y)/M;
+                if(marked===null||hgt>marked.d) marked={t:null,d:hgt};
+              }
+            }
+          }
+        }
+      }
+      drawBody(b, a.color, -originX/scale, gy, scale, 1000);
+      if(proj&&proj.free&&!isNaN(proj.x)){
+        const sx=originX+proj.x*scale, sy=gy+(proj.y-1000)*scale;
+        ctx.fillStyle="#141414";
+        ctx.beginPath(); ctx.arc(sx,sy,ev.heavy?5:3,0,Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle="#141414"; ctx.font="900 13px Trebuchet MS";
+      ctx.fillText("now attempting: "+a.name, 16, 66);
+      const doneAtt = attT>ev.horizon+ (ev.kind==="throw"?2:0.5);
+      if(doneAtt||( marked&&ev.kind==="jump")){
+        results.push({athlete:a, value: marked||{t:null,d:0.1}});
+        idx++;
+        if(idx>=athletes.length){
+          phase="results";
+          results.sort((x,y)=>y.value.d-x.value.d);
+          results.forEach((r,i)=>r.athlete.points+=PTS[i]||0);
+        }else startAttempt();
+      }
+    }else{
+      resultsCard(ev, results, 120);
+      showT+=dt;
+      if(showT>3) done();
+    }
+  });
+}
+
+// ---------- PODIUM ----------
+function startPodium(){
+  const rank=athletes.slice().sort((a,b)=>b.points-a.points);
+  const conf=[];
+  for(let i=0;i<130;i++) conf.push({x:Math.random()*2200, y:-Math.random()*600,
+    v:50+Math.random()*90, c:BOTS[i%5].color, r:3+Math.random()*5});
+  const posers = rank.slice(0,3).map(()=>makeBody(0,1000));
+  setScene((dt)=>{
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    drawCrowd(sceneT, 52, true);
+    ctx.fillStyle="#141414"; ctx.font="900 26px Trebuchet MS"; ctx.textAlign="center";
+    ctx.fillText("🏆 FINAL PODIUM", W/2, 40);
+    const hts=[140,104,76], xs=[W/2,W/2-180,W/2+180], meds=["🥇","🥈","🥉"];
+    for(let i=0;i<3&&i<rank.length;i++){
+      const rise=Math.min(1,Math.max(0,sceneT*1.2-i*0.35));
+      const hh=hts[i]*rise, bx=xs[i];
+      ctx.fillStyle="#e9e2d4"; ctx.fillRect(bx-64,H-70-hh,128,hh);
+      ctx.strokeStyle="#141414"; ctx.lineWidth=2; ctx.strokeRect(bx-64,H-70-hh,128,hh);
+      if(rise>=1){
+        const pb=posers[i];
+        stepBody(pb, rank[i].brains[selected[0]]||randG(), 1000, {});
+        drawBody(pb, rank[i].color, pb.p[0].x - bx/0.9, H-74-hh, 0.9, 1000);
+        ctx.font="24px serif"; ctx.fillText(meds[i], bx, H-150-hh);
+        ctx.fillStyle="#141414"; ctx.font="900 13px Trebuchet MS";
+        ctx.fillText(rank[i].name+" · "+rank[i].points+" pts", bx, H-46);
+      }
+    }
+    ctx.font="600 12px Trebuchet MS"; ctx.fillStyle="#8a8a8a";
+    let s="";
+    rank.slice(3).forEach((a,i)=>s+=(i+4)+"th "+a.name+" ("+a.points+")   ");
+    ctx.fillText(s, W/2, H-14);
+    ctx.textAlign="left";
+    conf.forEach(c=>{
+      c.y+=c.v*dt; if(c.y>H) c.y=-8;
+      ctx.fillStyle=c.c; ctx.fillRect(c.x%W, c.y, c.r, c.r*0.6);
+    });
+  });
+  navPlay.disabled=false;
+  save();
+}
+
+// ---------- BOOT ----------
+resize();
+startTrainScene();
+refreshNav();
+</script>
+</body>
+</html>

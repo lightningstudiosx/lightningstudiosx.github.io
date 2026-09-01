@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>smiledex · Kai.fun</title>
+<style>
+  :root{--ink:#141414;--paper:#fff;--muted:#8a8a8a;--coral:#ff6b5e;--sky:#4aa9d8;--moss:#6fb85c;--grape:#9b7fd4;--sun:#f5b829;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;min-height:100vh;padding:16px 12px 60px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  .back{text-decoration:none;color:var(--muted);font-size:14px;}
+  .back:hover{color:var(--ink);}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 12px;}
+  .wordmark{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:38px;transform:rotate(-1.5deg);}
+  .wordmark .s{color:var(--sun);} .wordmark .d{color:var(--grape);}
+  .tag{color:var(--muted);font-size:13px;}
+  #stats{border:2px solid var(--ink);border-radius:12px;background:#fff;box-shadow:3px 3px 0 var(--ink);
+    padding:10px 16px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;font-weight:900;align-items:center;}
+  #stats button{margin-left:auto;border:2px solid var(--ink);border-radius:8px;background:#fff;font-family:inherit;font-weight:700;font-size:12px;padding:5px 10px;cursor:pointer;}
+  #legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:11.5px;font-weight:700;}
+  #legend span{border:2px solid;border-radius:999px;padding:3px 10px;}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  .card{border:2px solid var(--ink);border-radius:14px;background:#fff;box-shadow:3px 3px 0 var(--ink);padding:10px;text-align:center;position:relative;}
+  .card svg{width:84px;height:92px;display:block;margin:0 auto 4px;}
+  .card .nm{font-weight:900;font-size:13.5px;}
+  .card .rar{font-size:10.5px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;margin-top:2px;line-height:1.3;}
+  .card .meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;}
+  .card .voice{font-size:10.5px;color:#555;font-style:italic;margin-top:5px;line-height:1.35;}
+  .card.locked{background:#f4f4f4;}
+  .card.locked svg{filter:grayscale(1);opacity:.35;}
+  .card.locked .nm{color:#aaa;}
+  .card .num{position:absolute;top:6px;left:9px;font-size:10px;color:#bbb;font-weight:900;}
+  .card .cnt{position:absolute;top:6px;right:9px;font-size:10px;color:var(--ink);font-weight:900;background:var(--sun);border:1.5px solid var(--ink);border-radius:999px;padding:1px 6px;}
+  .note{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header>
+    <div class="wordmark"><span class="s">smile</span><span class="d">dex</span> 😃</div>
+    <div class="tag">every mood the homepage smiley has ever been in. click him to collect more.</div>
+  </header>
+  <div id="stats"></div>
+  <div id="legend"></div>
+  <div id="grid"></div>
+  <div class="note">moods roll randomly after every quote — rarer ones show up less. secret moods can't be rolled at all;
+    each has a hidden trigger on the homepage. every mood talks differently, so listen close.</div>
+</div>
+<script src="moods.js"></script>
+<script>
+const S=window.Smiledex;
+const SAMPLE="Every small step is a brave step.";
+function render(){
+  const st=S.getState();
+  const total=S.MOODS.length, found=Object.keys(st.seen).filter(id=>S.byId[id]).length;
+  const rarest=S.MOODS.filter(m=>st.seen[m.id]).sort((a,b)=>S.R[a.rarity].w-S.R[b.rarity].w)[0];
+  document.getElementById("stats").innerHTML=
+    "<span>📖 "+found+"/"+total+" moods found</span>"+
+    "<span>🖱 "+(st.clicks||0)+" clicks</span>"+
+    "<span>🏆 rarest: "+(rarest? rarest.name : "—")+"</span>"+
+    (found===total? "<span>👑 COMPLETE SMILEDEX</span>":"")+
+    '<button id="reset">reset smiledex</button>';
+  document.getElementById("reset").onclick=()=>{
+    if(confirm("wipe every mood you've collected?")){ S.setState({seen:{},first:{},clicks:0,current:"happy"}); render(); }
+  };
+  document.getElementById("legend").innerHTML=Object.keys(S.R).map(k=>
+    '<span style="border-color:'+S.R[k].col+';color:'+S.R[k].col+'">'+S.R[k].label+
+    (k==="secret"? " · triggers only" : k==="cooked"? " · the hardest secrets" : k==="puzzle"? " · solve something" : k==="final"? " · good luck" : " · ~"+S.chancePct(k).toFixed(k==="legendary"?2:1)+"% each")+'</span>').join("");
+  const g=document.getElementById("grid"); g.innerHTML="";
+  S.MOODS.forEach((m,i)=>{
+    const seen=st.seen[m.id]||0;
+    const c=document.createElement("div");
+    c.className="card"+(seen?"":" locked");
+    const rc=S.R[m.rarity].col;
+    c.innerHTML='<div class="num">#'+String(i+1).padStart(2,"0")+'</div>'+
+      (seen? '<div class="cnt">×'+seen+'</div>':"")+
+      '<svg viewBox="0 0 100 100"></svg>'+
+      '<div class="nm">'+(seen? m.name : "???")+'</div>'+
+      '<div class="rar" style="color:'+rc+'">'+S.R[m.rarity].label+'</div>'+
+      '<div class="meta">'+(seen? "first seen "+new Date(st.first[m.id]).toLocaleDateString() :
+        (m.id==="kai" && ["smilend","trinity","antirobot","patience"].every(id=>st.seen[id])?
+          "<b style='font-family:monospace;letter-spacing:1px'>"+"type the creator twice".replace(/[a-z]/g,c=>String.fromCharCode((c.charCodeAt(0)-97+13)%26+97))+"</b>" :
+          m.hint? "hint: "+m.hint : "not yet collected"))+'</div>'+
+      (seen? '<div class="voice">\\u201c'+S.styleText(m,SAMPLE).slice(0,90)+(S.styleText(m,SAMPLE).length>90?"\\u2026":"")+'\\u201d</div>' : "");
+    S.renderFace(c.querySelector("svg"), seen? m : Object.assign({},m,{color:"#999"}));
+    g.appendChild(c);
+  });
+}
+render();
+</script>
+</body>
+</html>
