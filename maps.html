@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maps R Us · Kai.fun</title>
+<style>
+  :root{--ink:#141414;--wall:#e9e2d4;--wood:#6b4a2b;--gold:#c9a24a;--mat:#fbf8f1;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--wall);background-image:radial-gradient(#00000008 1px,transparent 1px);background-size:6px 6px;color:var(--ink);font-family:Georgia,"Times New Roman",serif;min-height:100vh;padding:16px 12px 70px;}
+  .wrap{max-width:1160px;margin:0 auto;}
+  .back{text-decoration:none;color:#7a6a55;font-size:14px;font-family:"Trebuchet MS",sans-serif;} .back:hover{color:var(--ink);}
+  header{text-align:center;margin:8px 0 14px;}
+  .wordmark{font-family:Georgia,serif;font-weight:700;font-size:clamp(30px,6vw,52px);letter-spacing:3px;color:#3b2c1a;text-transform:uppercase;} .wordmark span{color:var(--gold);}
+  .tag{color:#7a6a55;font-size:13.5px;font-style:italic;margin-top:4px;}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:22px;font-family:"Trebuchet MS",sans-serif;} .filters button{border:2px solid var(--wood);border-radius:3px;background:var(--mat);font-family:inherit;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:6px 14px;cursor:pointer;color:var(--wood);} .filters button.on{background:var(--wood);color:#fff;}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:34px 26px;}
+  .card{cursor:pointer;transition:transform .15s;position:relative;padding-top:14px;}
+  .card::before{content:"";position:absolute;left:50%;top:0;width:8px;height:8px;border-radius:50%;background:#555;transform:translateX(-50%);box-shadow:0 1px 1px #fff;}   /* the nail */
+  .card:hover{transform:translateY(-4px) rotate(-.4deg);}
+  .frame{border:12px solid var(--wood);outline:3px solid var(--gold);outline-offset:-9px;background:var(--mat);padding:12px;box-shadow:0 14px 28px #0003, inset 0 0 0 1px #0002;}
+  .frame canvas{width:100%;height:150px;display:block;border:1px solid #0003;background:#dbeeff;}
+  .plaque{margin:10px auto 0;width:fit-content;max-width:100%;background:linear-gradient(#e8cf7a,#b8902e);color:#2b1d08;border:1px solid #7a5a12;padding:4px 12px;font-size:11.5px;text-align:center;box-shadow:0 2px 3px #0004;}
+  .plaque .t{font-weight:700;letter-spacing:.5px;} .plaque .d{font-size:10.5px;font-style:italic;margin-top:2px;color:#4a3610;line-height:1.35;}
+  .badge{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7a5a12;}
+  #loading{text-align:center;color:#7a6a55;padding:40px;font-size:14px;font-style:italic;}
+  #view{position:fixed;inset:0;background:#2a2118f2;z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;padding:14px;color:#f3e9d2;}
+  #vframe{border:18px solid var(--wood);outline:4px solid var(--gold);outline-offset:-14px;background:var(--mat);padding:16px;box-shadow:0 30px 60px #000a;}
+  #view canvas{max-width:88vw;max-height:66vh;display:block;background:#dbeeff;border:1px solid #0003;}
+  #vplaque{margin-top:12px;background:linear-gradient(#e8cf7a,#b8902e);color:#2b1d08;border:1px solid #7a5a12;padding:8px 18px;text-align:center;max-width:680px;}
+  #vt{font-weight:700;font-size:17px;letter-spacing:.5px;} #vd{font-size:13px;font-style:italic;margin-top:3px;line-height:1.45;color:#4a3610;}
+  .vb{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center;font-family:"Trebuchet MS",sans-serif;} .vb button{border:2px solid var(--gold);border-radius:3px;background:var(--gold);color:#2b1d08;font-family:inherit;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:8px 14px;cursor:pointer;} .vb button.ghost{background:none;color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Kai.fun</a>
+  <header><div class="wordmark">Maps <span>R</span> Us</div><div class="tag">a gallery of maps of the world. the serious wing is a walk through time; the comical wing should be stopped. fifty on the walls.</div></header>
+  <div class="filters"><button class="on" data-f="all">all 50</button><button data-f="serious">serious wing</button><button data-f="comical">comical wing</button></div>
+  <div id="loading">loading the world… (177 countries, one moment)</div>
+  <div id="grid"></div>
+</div>
+<div id="view"><div id="vframe"><canvas id="vc" width="1600" height="1000"></canvas></div><div id="vplaque"><div id="vt"></div><div id="vd"></div></div><div class="vb"><button class="ghost" id="prev">← prev</button><button id="dl">⬇ download PNG</button><button class="ghost" id="next">next →</button><button class="ghost" id="close">✕ close</button></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-geo-projection/4.0.0/d3-geo-projection.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const OCEAN="#dbeeff", INK="#141414";
+const PAL=["#f5b829","#ff6b5e","#4aa9d8","#6fb85c","#9b7fd4","#ffcc4d","#7fb3d5","#ff9db0","#a3d977","#f0c060","#b8e0c8","#c9b6e8","#ff8a3d","#bfe3ff"];
+const hash=s=>{ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))|0; return Math.abs(h); };
+const col=f=>PAL[hash(f.properties.name||String(f.id))%PAL.length];
+let LAND=null, FEATS=[], SPHERE={type:"Sphere"};
+// ---------- helpers ----------
+function fitProj(proj,W,H,pad,obj){ proj.fitExtent([[pad,pad],[W-pad,H-pad]],obj||SPHERE); return proj; }
+function drawGeo(g,proj,W,H,opts){ opts=opts||{}; const path=d3.geoPath(proj,g); g.fillStyle=OCEAN; g.fillRect(0,0,W,H);
+  if(opts.sphere!==false){ g.beginPath(); path(SPHERE); g.fillStyle=opts.ocean||OCEAN; g.fill(); g.strokeStyle=INK; g.lineWidth=2; g.stroke(); }
+  if(opts.grat){ g.beginPath(); path(d3.geoGraticule10()); g.strokeStyle="#0002"; g.lineWidth=1; g.stroke(); }
+  (opts.feats||FEATS).forEach(f=>{ g.beginPath(); path(f); g.fillStyle= opts.fill? opts.fill(f) : col(f); g.fill(); g.strokeStyle=INK; g.lineWidth=opts.lw||1; g.stroke(); }); }
+// project every country into pixel rings so we can abuse them geometrically
+// let d3 project + clip (so russia stops wrapping around the world); we just record the rings it draws
+function rings(f,proj){ const out=[]; let cur=null; const rec={beginPath(){},moveTo(x,y){ cur=[[x,y]]; out.push(cur); },lineTo(x,y){ cur.push([x,y]); },closePath(){},arc(){},rect(){}}; d3.geoPath(proj,rec)(f); const rs=out.filter(r=>r.length>2);
+  // a country cut by the 180° line (russia, fiji…) comes back as pieces on both edges; keep the pieces near the biggest one so the shape stays in one place
+  if(rs.length>1){ const span=Math.abs(proj([179.9,0])[0]-proj([-179.9,0])[0])||1; const info=rs.map(r=>({r,a:areaPx([r]),cx:centroidPx([r])[0]})); const main=info.reduce((m,x)=>x.a>m.a?x:m); return info.filter(x=>Math.abs(x.cx-main.cx)<span*0.42).map(x=>x.r); } return rs; }
+function centroidPx(rs){ let x=0,y=0,n=0; rs.forEach(r=>r.forEach(p=>{x+=p[0];y+=p[1];n++;})); return [x/n,y/n]; }
+function areaPx(rs){ let a=0; rs.forEach(r=>{ for(let i=0;i<r.length;i++){ const p=r[i],q=r[(i+1)%r.length]; a+=p[0]*q[1]-q[0]*p[1]; } }); return Math.abs(a)/2; }
+function bbox(rs){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; rs.forEach(r=>r.forEach(([x,y])=>{ if(x<x0)x0=x; if(y<y0)y0=y; if(x>x1)x1=x; if(y>y1)y1=y; })); return [x0,y0,x1,y1]; }
+function drawRings(g,rs,fill,lw){ g.beginPath(); rs.forEach(r=>{ r.forEach((p,i)=> i? g.lineTo(p[0],p[1]) : g.moveTo(p[0],p[1])); g.closePath(); }); g.fillStyle=fill; g.fill(); g.strokeStyle=INK; g.lineWidth=lw||1; g.stroke(); }
+function base(W,H,pad){ return fitProj(d3.geoNaturalEarth1(),W,H,pad||20); }
+function pxWorld(W,H){ const proj=base(W,H); return FEATS.map(f=>({f,rs:rings(f,proj)})).filter(x=>x.rs.length); }
+function ocean(g,W,H){ g.fillStyle=OCEAN; g.fillRect(0,0,W,H); }
+function transformEach(g,W,H,fn,lw){ ocean(g,W,H); const world=pxWorld(W,H); const cx=W/2, cy=H/2; world.forEach((c,i)=>{ const cen=centroidPx(c.rs); const t=fn(c,cen,i,world); const rs=c.rs.map(r=>r.map(([x,y])=>{ const sx=(x-cen[0])*t.s+cen[0]+t.dx, sy=(y-cen[1])*t.s+cen[1]+t.dy; return [sx,sy]; })); drawRings(g,rs,col(c.f),lw); }); }
+// pack every country's shape into one big square, like puzzle pieces that almost fit
+function puzzle(g,W,H){ ocean(g,W,H); const world=pxWorld(W,H).map(c=>Object.assign(c,{bb:bbox(c.rs)})).map(c=>Object.assign(c,{w:c.bb[2]-c.bb[0],h:c.bb[3]-c.bb[1]})).filter(c=>c.w>0&&c.h>0);
+  const S=Math.min(W,H)*0.92; const tot=world.reduce((a,c)=>a+c.w*c.h,0); const k=Math.sqrt(S*S*0.78/tot)*1.06;   // scale so the boxes roughly fill the square (shapes overlap a little — it's a puzzle)
+  world.forEach(c=>{ c.w*=k; c.h*=k; }); world.sort((a,b)=>b.h-a.h);
+  let x=0,y=0,rowH=0; const placed=[]; world.forEach(c=>{ if(x+c.w>S&&x>0){ x=0; y+=rowH*0.92; rowH=0; } placed.push([c,x,y]); x+=c.w*0.94; rowH=Math.max(rowH,c.h); });
+  const usedH=y+rowH; const ox=(W-S)/2, oy=(H-Math.min(H,usedH))/2; const sy= usedH>S? S/usedH : 1;
+  g.fillStyle="#f3e9d2"; g.fillRect(ox-8,oy-8,S+16,Math.min(S,usedH)*sy+16); g.strokeStyle=INK; g.lineWidth=3; g.strokeRect(ox-8,oy-8,S+16,Math.min(S,usedH)*sy+16);
+  placed.forEach(([c,px,py])=>{ const [x0,y0]=c.bb; const rs=c.rs.map(r=>r.map(([X,Y])=>[ox+px+(X-x0)*k, oy+(py+(Y-y0)*k)*sy])); drawRings(g,rs,col(c.f),0.8); });
+  g.fillStyle=INK; g.font="bold "+(H*0.03)+"px Trebuchet MS"; g.textAlign="left"; g.fillText("177 pieces · does not fit · never will",ox,oy+Math.min(S,usedH)*sy+34); }
+// the "average" of every country name: average length, and at each position the average letter
+function averagedName(){ const names=FEATS.map(f=>(f.properties.name||"").toLowerCase().replace(/[^a-z ]/g,"")).filter(Boolean); const L=Math.round(names.reduce((a,n)=>a+n.length,0)/names.length); let out=""; for(let i=0;i<L;i++){ const cs=names.filter(n=>n.length>i).map(n=>n.charCodeAt(i)); const avg=Math.round(cs.reduce((a,b)=>a+b,0)/cs.length); out+= avg<97? " " : String.fromCharCode(Math.min(122,avg)); } return out.trim().replace(/\b\w/g,c=>c.toUpperCase()); }
+function shapeAt(g,rs,cx,cy,s,fill,src){ const [sx,sy]=src; drawRings(g,rs.map(r=>r.map(([x,y])=>[cx+(x-sx)*s,cy+(y-sy)*s])),fill,0.8); }
+function gridLayout(g,W,H,sortFn,label){ ocean(g,W,H); const world=pxWorld(W,H).map(c=>Object.assign(c,{a:areaPx(c.rs),bb:bbox(c.rs)})); world.sort(sortFn); const n=world.length, cols=Math.ceil(Math.sqrt(n*W/H)), cw=W/cols, rows=Math.ceil(n/cols), ch=H/rows;
+  world.forEach((c,i)=>{ const [x0,y0,x1,y1]=c.bb; const s=Math.min((cw-10)/(x1-x0||1),(ch-16)/(y1-y0||1)); const ox=(i%cols)*cw+5, oy=Math.floor(i/cols)*ch+4; const rs=c.rs.map(r=>r.map(([x,y])=>[ox+(x-x0)*s+((cw-10)-(x1-x0)*s)/2, oy+(y-y0)*s])); drawRings(g,rs,col(c.f),0.8); if(label){ g.fillStyle=INK; g.font=Math.max(7,ch*0.12)+"px Trebuchet MS"; g.textAlign="center"; g.fillText((c.f.properties.name||"").slice(0,14),ox+(cw-10)/2,oy+ch-4); } }); }
+// ---------- THE 30 MAPS ----------
+// ---------- history: real reconstructed borders for any year (aourednik/historical-basemaps, open data) ----------
+const YEARS=[["bc10000","10,000 BC","the ice age is ending. no countries, no borders — just peoples, and a lot of glacier."],["bc5000","5,000 BC","the first farming villages. mesopotamia and the nile are about to get interesting."],["bc1000","1,000 BC","bronze age kingdoms: egypt, the zhou in china, the first hebrew kingdoms, phoenician sailors."],["bc500","500 BC","persia is the biggest empire the world has seen. greece is a lot of arguing city-states."],["bc323","323 BC","alexander the great dies. his empire stretches from greece to india and is about to be split by his generals."],["bc1","1 BC","rome rules the mediterranean. the han dynasty rules china. between them, the silk road."],["400","400 AD","rome splits in two and the western half is wobbling. the goths and huns are on the move."],["600","600 AD","byzantium and persia exhaust each other fighting. in arabia, something is starting."],["800","800 AD","charlemagne is crowned. the abbasid caliphate runs from spain to central asia. the tang in china."],["1000","1000 AD","vikings reach north america. the song dynasty, the holy roman empire, the fatimids, the cholas."],["1200","1200 AD","the crusader states cling on. angkor is huge. a man named temujin is uniting the mongols."],["1279","1279 AD","the mongol empire at its largest — the biggest connected land empire in history."],["1400","1400 AD","timur's empire, the ming dynasty, the ottomans rising, the inca and aztec expanding."],["1492","1492 AD","columbus sails. the reconquista ends. the world is about to be sewn together, badly."],["1600","1600 AD","spain and portugal own the seas, the mughals own india, the ottomans own three continents' worth of coast."],["1700","1700 AD","qing china, the mughal peak, russia stretching to the pacific, and the great powers of europe."],["1783","1783 AD","the united states is officially a country. the british are consoling themselves with australia."],["1815","1815 AD","after napoleon. the congress of vienna redraws europe; spanish america is breaking away."],["1880","1880 AD","the scramble for africa begins. within 30 years almost the whole continent will be colonised."],["1914","1914 AD","the eve of the first world war. empires everywhere, all of them about to change."],["1938","1938 AD","the year before the second world war. the map you'd least like to be living in."],["1945","1945 AD","the second world war ends. the united nations is founded. decolonisation is about to sweep the globe."],["1994","1994 AD","after the soviet union. new countries everywhere from the baltics to central asia. apartheid ends."]];
+const YCACHE={};
+async function loadYear(y){ if(YCACHE[y]) return YCACHE[y]; const r=await fetch("https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_"+y+".geojson"); const j=await r.json(); YCACHE[y]=j.features.filter(f=>f.geometry); return YCACHE[y]; }
+const ycol=f=>{ const n=f.properties.NAME; return n? PAL[hash(n)%PAL.length] : "#d9d2c3"; };
+async function drawYear(g,W,H,y,label){ const feats=await loadYear(y); const proj=fitProj(d3.geoNaturalEarth1(),W,H,20); drawGeo(g,proj,W,H,{feats,fill:ycol,grat:true,lw:W>800?0.8:0.5});
+  if(label){ const path=d3.geoPath(proj); const big=feats.filter(f=>f.properties.NAME).map(f=>({f,a:path.area(f)})).sort((a,b)=>b.a-a.a).slice(0,28); g.fillStyle=INK; g.textAlign="center"; g.font="bold "+(H*0.016)+"px Georgia";
+    big.forEach(({f})=>{ const c=path.centroid(f); if(!isFinite(c[0])) return; g.strokeStyle="#fff"; g.lineWidth=3; g.strokeText(f.properties.NAME,c[0],c[1]); g.fillText(f.properties.NAME,c[0],c[1]); }); } }
+const MAPS=[
+ // ---------- serious: the world through time ----------
+ {t:"Today",k:"serious",d:"the 177 countries of right now, on the natural earth projection. the baseline for everything else on this wall.",r:(g,W,H)=>drawGeo(g,base(W,H),W,H,{grat:true})},
+ ...YEARS.map(([y,t,d])=>({t:"The World in "+t,k:"serious",d,year:y,r:(g,W,H)=>drawYear(g,W,H,y,W>800)})),
+ // ---------- comical ----------
+ {t:"Every Region Ever, Squished Together",k:"comical",d:"what if every country ever made stayed, and they all had to fit. no oceans. no manners. just squish.",r:(g,W,H)=>transformEach(g,W,H,(c,cen)=>({s:1.55,dx:(W/2-cen[0])*0.45,dy:(H/2-cen[1])*0.45}),0.7)},
+ {t:"Upside Down",k:"comical",d:"south up. nothing about this is wrong. it just feels wrong, which tells you something.",r:(g,W,H)=>{ g.save(); g.translate(W,H); g.rotate(Math.PI); drawGeo(g,base(W,H),W,H,{grat:true}); g.restore(); }},
+ {t:"Countries As Circles",k:"comical",d:"every country replaced by a circle of the same area. russia is a moon.",r:(g,W,H)=>{ ocean(g,W,H); pxWorld(W,H).forEach(c=>{ const cen=centroidPx(c.rs), r=Math.sqrt(areaPx(c.rs)/Math.PI); g.beginPath(); g.arc(cen[0],cen[1],Math.max(2,r),0,7); g.fillStyle=col(c.f); g.fill(); g.strokeStyle=INK; g.lineWidth=1; g.stroke(); }); }},
+ {t:"Drawn From Memory",k:"comical",d:"every coastline redrawn by someone who saw a map once, years ago.",r:(g,W,H)=>{ ocean(g,W,H); const rnd=d3.randomNormal(0,W*0.006); pxWorld(W,H).forEach(c=>drawRings(g,c.rs.map(r=>r.filter((p,i)=>i%3===0).map(([x,y])=>[x+rnd(),y+rnd()])),col(c.f),1.5)); }},
+ {t:"Bounding Boxes",k:"comical",d:"every country is a rectangle now. logistics companies are thrilled.",r:(g,W,H)=>{ ocean(g,W,H); pxWorld(W,H).forEach(c=>{ const [x0,y0,x1,y1]=bbox(c.rs); g.fillStyle=col(c.f); g.globalAlpha=.85; g.fillRect(x0,y0,x1-x0,y1-y0); g.globalAlpha=1; g.strokeStyle=INK; g.strokeRect(x0,y0,x1-x0,y1-y0); }); }},
+ {t:"Continental Drift, Fast-Forward",k:"comical",d:"everything keeps drifting apart. this is the world in a few hundred million years, roughly, no, not really.",r:(g,W,H)=>transformEach(g,W,H,(c,cen)=>({s:0.8,dx:(cen[0]-W/2)*0.5,dy:(cen[1]-H/2)*0.5}),0.8)},
+ {t:"Pangaea Reunion",k:"comical",d:"the continents heard there was a party in the middle.",r:(g,W,H)=>transformEach(g,W,H,(c,cen)=>({s:0.85,dx:(W/2-cen[0])*0.62,dy:(H/2-cen[1])*0.62}),0.7)},
+ {t:"Alphabetical Order",k:"comical",d:"afghanistan first, zimbabwe last, geography cancelled.",r:(g,W,H)=>gridLayout(g,W,H,(a,b)=>(a.f.properties.name||"").localeCompare(b.f.properties.name||""),true)},
+ {t:"Sorted By Size",k:"comical",d:"biggest to smallest, in a grid, like a shelf of shoes.",r:(g,W,H)=>gridLayout(g,W,H,(a,b)=>b.a-a.a,true)},
+ {t:"Only Islands",k:"comical",d:"all the small countries, alone, finally with room to breathe.",r:(g,W,H)=>{ const proj=base(W,H); const small=FEATS.filter(f=>areaPx(rings(f,proj))<W*H*0.0025); drawGeo(g,proj,W,H,{feats:small,grat:true}); }},
+ {t:"Only Big Countries",k:"comical",d:"the eleven or so countries that were hogging the map anyway.",r:(g,W,H)=>{ const proj=base(W,H); const big=FEATS.filter(f=>areaPx(rings(f,proj))>W*H*0.012); drawGeo(g,proj,W,H,{feats:big,grat:true}); }},
+ {t:"Mirror World",k:"comical",d:"flipped left to right. america on the right, china on the left, everything vaguely itchy.",r:(g,W,H)=>{ g.save(); g.translate(W,0); g.scale(-1,1); drawGeo(g,base(W,H),W,H,{grat:true}); g.restore(); }},
+ {t:"One Country Wins",k:"comical",d:"a random country has been enlarged until it covers the map. they earned it, somehow. (reload for another)",r:(g,W,H)=>{ const proj=base(W,H); drawGeo(g,proj,W,H,{grat:true}); const world=pxWorld(W,H); const pickc=world[Math.floor(Math.random()*world.length)]; const [x0,y0,x1,y1]=bbox(pickc.rs); const s=Math.min(W/(x1-x0),H/(y1-y0))*0.9; const rs=pickc.rs.map(r=>r.map(([x,y])=>[(x-(x0+x1)/2)*s+W/2,(y-(y0+y1)/2)*s+H/2])); g.globalAlpha=.92; drawRings(g,rs,col(pickc.f),3); g.globalAlpha=1; g.fillStyle=INK; g.font="bold "+(H*0.06)+"px Trebuchet MS"; g.textAlign="center"; g.fillText(pickc.f.properties.name||"?",W/2,H*0.94); }},
+ {t:"Tiny World",k:"comical",d:"everything at 15%. the oceans have never been so wide.",r:(g,W,H)=>transformEach(g,W,H,(c,cen)=>({s:0.15,dx:0,dy:0}),0.6)},
+ {t:"Puzzle World",k:"comical",d:"every country pushed together to make one square. it almost works. it does not work.",r:(g,W,H)=>puzzle(g,W,H)},
+ // ---------- more comical ----------
+ {t:"One Big Country",k:"comical",d:"every border erased, every country merged into one, named by averaging every country's name letter by letter.",r:(g,W,H)=>{ const proj=base(W,H); const path=d3.geoPath(proj,g); g.fillStyle=OCEAN; g.fillRect(0,0,W,H); g.beginPath(); path(SPHERE); g.fill(); g.strokeStyle=INK; g.lineWidth=2; g.stroke(); g.beginPath(); path(LAND); g.fillStyle="#f5b829"; g.fill(); g.strokeStyle="#f5b829"; g.lineWidth=2; g.stroke(); g.beginPath(); path(LAND); g.strokeStyle=INK; g.lineWidth=1; g.stroke(); const nm=averagedName(); g.fillStyle=INK; g.font="bold "+(H*0.09)+"px Georgia"; g.textAlign="center"; g.fillText(nm,W/2,H*0.55); g.font="italic "+(H*0.03)+"px Georgia"; g.fillText("(the average of all 177 names)",W/2,H*0.61); }},
+ {t:"All Sizes Swapped",k:"comical",d:"take the average country size. whatever percentage a country is bigger than that, it becomes that much smaller — and vice versa. russia is now a speck; the small ones are huge.",r:(g,W,H)=>{ const world=pxWorld(W,H); const A=world.reduce((a,c)=>a+areaPx(c.rs),0)/world.length; transformEach(g,W,H,(c)=>{ const a=areaPx(c.rs); const na=Math.max(A*0.02, 2*A-a); return {s:Math.sqrt(na/a),dx:0,dy:0}; },0.7); g.fillStyle=INK; g.font=(H*0.028)+"px Trebuchet MS"; g.textAlign="left"; g.fillText("average country = "+Math.round(A/(W*H)*100*100)/100+"% of the map · bigger than that? now smaller by the same amount.",14,H-14); }},
+ {t:"Shuffled",k:"comical",d:"every country is where a different country used to be. good luck, geography class.",r:(g,W,H)=>{ ocean(g,W,H); const world=pxWorld(W,H); const cents=world.map(c=>centroidPx(c.rs)); const order=cents.map((_,i)=>i).sort(()=>Math.random()-0.5); world.forEach((c,i)=>{ const src=cents[i], dst=cents[order[i]]; shapeAt(g,c.rs,dst[0],dst[1],1,col(c.f),src); }); }},
+ {t:"Everyone Is Australia",k:"comical",d:"every country replaced by australia, scaled to its own size. australia is unaffected and thrilled.",r:(g,W,H)=>{ ocean(g,W,H); const world=pxWorld(W,H); const au=world.find(c=>c.f.properties.name==="Australia"); const ac=centroidPx(au.rs), aa=areaPx(au.rs); world.forEach(c=>{ const cen=centroidPx(c.rs); shapeAt(g,au.rs,cen[0],cen[1],Math.sqrt(areaPx(c.rs)/aa),col(c.f),ac); }); }},
+ {t:"Countries As Squares",k:"comical",d:"same area, four sides. minecraft world map.",r:(g,W,H)=>{ ocean(g,W,H); pxWorld(W,H).forEach(c=>{ const cen=centroidPx(c.rs), sd=Math.sqrt(areaPx(c.rs)); g.fillStyle=col(c.f); g.fillRect(cen[0]-sd/2,cen[1]-sd/2,Math.max(2,sd),Math.max(2,sd)); g.strokeStyle=INK; g.lineWidth=1; g.strokeRect(cen[0]-sd/2,cen[1]-sd/2,Math.max(2,sd),Math.max(2,sd)); }); }},
+ {t:"Hexagon World",k:"comical",d:"every country is a hexagon of its own area. a strategy game nobody shipped.",r:(g,W,H)=>{ ocean(g,W,H); pxWorld(W,H).forEach(c=>{ const cen=centroidPx(c.rs), r=Math.max(2,Math.sqrt(areaPx(c.rs)/2.598)); g.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i; const x=cen[0]+r*Math.cos(a), y=cen[1]+r*Math.sin(a); i? g.lineTo(x,y) : g.moveTo(x,y); } g.closePath(); g.fillStyle=col(c.f); g.fill(); g.strokeStyle=INK; g.lineWidth=1; g.stroke(); }); }},
+ {t:"Water And Land Swapped",k:"comical",d:"the oceans are the countries now. the continents are one enormous sea.",r:(g,W,H)=>{ const proj=base(W,H); const path=d3.geoPath(proj,g); g.fillStyle="#0d3b8c"; g.fillRect(0,0,W,H); g.beginPath(); path(SPHERE); g.fillStyle="#6fb85c"; g.fill(); g.strokeStyle=INK; g.lineWidth=2; g.stroke(); g.beginPath(); path(LAND); g.fillStyle="#4aa9d8"; g.fill(); g.strokeStyle="#dbeeff"; g.lineWidth=1; g.stroke(); }},
+ {t:"Spiral By Size",k:"comical",d:"biggest in the middle, spiralling outward to the tiniest. the world as a snail.",r:(g,W,H)=>{ ocean(g,W,H); const world=pxWorld(W,H).map(c=>Object.assign(c,{a:areaPx(c.rs),bb:bbox(c.rs)})).sort((a,b)=>b.a-a.a); const k=Math.sqrt(W*H*0.35/world.reduce((s,c)=>s+(c.bb[2]-c.bb[0])*(c.bb[3]-c.bb[1]),0)); let ang=0, rad=0; world.forEach((c,i)=>{ const w=(c.bb[2]-c.bb[0])*k, h=(c.bb[3]-c.bb[1])*k; const step=Math.max(w,h)*0.9; rad+=step*0.22; ang+=step/Math.max(rad,1); const cx=W/2+rad*Math.cos(ang), cy=H/2+rad*Math.sin(ang)*0.7; const cen=centroidPx(c.rs); shapeAt(g,c.rs,cx,cy,k,col(c.f),cen); }); }},
+ {t:"Alphabet Soup",k:"comical",d:"every country replaced by its first letter, sized by area. R is russia. there are a lot of S.",r:(g,W,H)=>{ ocean(g,W,H); g.textAlign="center"; g.textBaseline="middle"; pxWorld(W,H).forEach(c=>{ const cen=centroidPx(c.rs), sz=Math.max(8,Math.sqrt(areaPx(c.rs))*1.1); g.font="bold "+sz+"px Trebuchet MS"; g.fillStyle=col(c.f); g.fillText((c.f.properties.name||"?")[0].toUpperCase(),cen[0],cen[1]); g.strokeStyle=INK; g.lineWidth=Math.max(0.5,sz/40); g.strokeText((c.f.properties.name||"?")[0].toUpperCase(),cen[0],cen[1]); }); g.textBaseline="alphabetic"; }},
+ {t:"Sideways World",k:"comical",d:"rotated ninety degrees. north is now right. the tall thin planet.",r:(g,W,H)=>{ g.fillStyle=OCEAN; g.fillRect(0,0,W,H); g.save(); g.translate(W/2,H/2); g.rotate(Math.PI/2); g.translate(-H/2,-W/2); drawGeo(g,base(H,W),H,W,{grat:true}); g.restore(); }},
+ {t:"Kai's Version",k:"comical",d:"random rotation, random colors, a slightly wrong globe, and a signature. this one's mine.",r:(g,W,H)=>{ const rot=[Math.random()*360,(Math.random()-0.5)*90]; drawGeo(g,fitProj(d3.geoOrthographic().rotate(rot),W,H,20),W,H,{grat:true,fill:()=>PAL[Math.floor(Math.random()*PAL.length)]}); g.fillStyle=INK; g.font="bold "+(H*0.035)+"px Comic Sans MS"; g.textAlign="right"; g.fillText("made on kaifun.fun · maps r us",W-16,H-14); }},
+];
+// ---------- gallery ----------
+let filter="all", cur=0;
+function build(){ const grid=$("grid"); grid.innerHTML=""; MAPS.forEach((m,i)=>{ if(filter!=="all"&&m.k!==filter) return; const c=document.createElement("div"); c.className="card"; const fr=document.createElement("div"); fr.className="frame"; const cv=document.createElement("canvas"); cv.width=400; cv.height=250; fr.appendChild(cv); c.appendChild(fr); const b=document.createElement("div"); b.className="plaque"; b.innerHTML='<div class="badge">'+m.k+' wing · no. '+(i+1)+'</div><div class="t">'+m.t+'</div><div class="d">'+m.d+'</div>'; c.appendChild(b); c.onclick=()=>open(i); grid.appendChild(c); const g=cv.getContext("2d"); g.fillStyle=OCEAN; g.fillRect(0,0,400,250); g.fillStyle="#7a6a55"; g.font="italic 14px Georgia"; g.textAlign="center"; g.fillText(m.year? "loading "+m.t.replace("The World in ","")+"…" : "…",200,130);
+  lazy.observe(cv); cv._render=async()=>{ try{ await m.r(cv.getContext("2d"),400,250); }catch(e){ console.error(m.t,e); g.fillText("couldn't load",200,150); } }; }); }
+const lazy=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ lazy.unobserve(e.target); e.target._render(); } }),{rootMargin:"300px"});
+document.querySelectorAll(".filters button").forEach(b=>b.onclick=()=>{ document.querySelectorAll(".filters button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); filter=b.dataset.f; build(); });
+async function open(i){ cur=i; const m=MAPS[i]; const cv=$("vc"); const g=cv.getContext("2d"); g.fillStyle=OCEAN; g.fillRect(0,0,cv.width,cv.height); $("vt").textContent=(i+1)+". "+m.t+" · "+m.k+(m.year?" wing · loading…":" wing"); $("vd").textContent=m.d; $("view").style.display="flex"; try{ await m.r(g,cv.width,cv.height); }catch(e){} $("vt").textContent=(i+1)+". "+m.t+" · "+m.k+" wing"; }
+$("close").onclick=()=>$("view").style.display="none"; $("prev").onclick=()=>open((cur+MAPS.length-1)%MAPS.length); $("next").onclick=()=>open((cur+1)%MAPS.length);
+$("dl").onclick=()=>{ const a=document.createElement("a"); a.download="maps-r-us-"+(cur+1)+".png"; a.href=$("vc").toDataURL(); a.click(); };
+$("view").onclick=e=>{ if(e.target.id==="view") $("view").style.display="none"; };
+addEventListener("keydown",e=>{ if($("view").style.display!=="flex") return; if(e.key==="Escape") $("view").style.display="none"; if(e.key==="ArrowLeft") $("prev").onclick(); if(e.key==="ArrowRight") $("next").onclick(); });
+// ---------- load ----------
+fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r=>r.json()).then(topo=>{
+  LAND=topojson.feature(topo,topo.objects.countries); FEATS=LAND.features.filter(f=>f.geometry); $("loading").style.display="none"; build();
+}).catch(e=>{ $("loading").textContent="couldn't load the world map data (no internet?)"; });
+</script>
+</body>
+</html>

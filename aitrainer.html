@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI trainer · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;min-height:100vh;}
+  #top{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid #ccc;background:#f3f3f3;}
+  #top .logo{font-size:30px;font-weight:900;color:#ff7a00;letter-spacing:-1px;} #top .logo span{color:#3b6ea8;}
+  #top .tt{font-size:13px;color:#333;} #top a{margin-left:auto;font-size:12px;color:#666;text-decoration:none;}
+  #main{display:flex;height:calc(100vh - 52px);}
+  #left{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #log{flex:1;overflow-y:auto;padding:10px 14px;font-size:15px;line-height:1.55;}
+  .l{margin:3px 0;word-break:break-word;} .you b{color:#1e5aa8;} .str b{color:#c22;} .sys{color:#555;font-style:italic;font-size:13px;} .sys a{color:#c22;font-weight:700;}
+  #typing{color:#666;font-size:13px;font-style:italic;height:18px;padding:0 14px;}
+  #bottom{display:flex;gap:6px;padding:8px;border-top:1px solid #ccc;background:#fafafa;}
+  #bottom textarea{flex:1;height:70px;border:1px solid #999;padding:8px;font-family:inherit;font-size:15px;resize:none;}
+  #bottom button{width:110px;border:1px solid #999;background:#eee;font-family:inherit;font-size:20px;cursor:pointer;} #bottom button small{display:block;font-size:10px;color:#666;}
+  #right{width:360px;border-left:1px solid #ccc;background:#111;color:#ddd;display:flex;flex-direction:column;overflow-y:auto;}
+  #right h3{font-size:11px;letter-spacing:1px;color:#8ab;padding:8px 10px 4px;text-transform:uppercase;}
+  canvas{width:100%;display:block;background:#0a0a0a;}
+  .st{padding:4px 10px;font-size:12px;line-height:1.6;} .st b{color:#fff;}
+  #face{font-size:40px;text-align:center;padding:4px;} #stage{text-align:center;font-size:12px;color:#8ab;padding:0 8px;}
+  #bar{height:6px;background:#222;margin:6px 10px;} #barF{height:100%;background:#ff7a00;width:0;transition:width .4s;}
+  .facts{padding:0 10px 8px;font-size:11.5px;line-height:1.5;max-height:170px;overflow-y:auto;} .facts b{color:#ff7a00;} .facts i{color:#8ab;font-style:normal;}
+  .chips{padding:0 10px 8px;display:flex;flex-wrap:wrap;gap:3px;} .chips span{background:#222;border:1px solid #444;border-radius:999px;padding:1px 7px;font-size:11px;}
+  .tools{padding:6px 10px 14px;display:flex;gap:6px;flex-wrap:wrap;} .tools button{background:#222;color:#ddd;border:1px solid #444;font-family:inherit;font-size:11px;padding:4px 8px;cursor:pointer;}
+  @media(max-width:760px){ #main{flex-direction:column;height:auto;} #right{width:100%;} #log{height:50vh;} }
+</style>
+</head>
+<body>
+<div id="top"><div class="logo">ai<span>trainer</span></div><div class="tt">Talk to your AI!<br><span style="font-size:11px;color:#777">it learns facts, grammar and a neural network from everything you say. feed it articles, not word lists.</span></div><a href="index.html">← kai.fun</a></div>
+<div id="main">
+  <div id="left">
+    <div id="log"></div><div id="typing"></div>
+    <div id="bottom"><button id="newBtn">New<small>Esc</small></button><textarea id="msg" placeholder="say something. try: 'a frog is a green animal. frogs eat flies. frogs live in ponds.' then ask 'what is a frog?' · Website: https://en.wikipedia.org/wiki/Frog · it looks up words it doesn't know by itself · 'define everything' looks up every word it has ever seen · reset"></textarea><button id="send">Send<small>Enter</small></button></div>
+  </div>
+  <div id="right">
+    <div id="face">🥚</div><div id="stage">egg</div><div id="bar"><div id="barF"></div></div>
+    <div class="st" id="stats"></div>
+    <h3>neural network — live (3 words → 32 neurons → next word)</h3><canvas id="net" width="360" height="260"></canvas>
+    <h3>word map — what it thinks is similar</h3><canvas id="map" width="360" height="260"></canvas>
+    <h3>knowledge base</h3><div class="facts" id="facts">nothing yet.</div>
+    <h3>sentence shapes it learned</h3><div class="chips" id="shapes"></div>
+    <div class="tools"><button id="export">⬇ save brain</button><button id="import">⬆ load brain</button><input type="file" id="impFile" hidden accept=".json"></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const FUNC=new Set("a an the is are was were be been being am i you he she it we they me him her us them my your his its our their this that these those of in on at to for with by from as and or but if so not no yes do does did have has had can could will would should may might must very really just also there here what who where when why how which than then too into over under about up down out off all some any many much more most other such only own same".split(" "));
+// ================= MEMORY =================
+const EMPTY=()=>({vocab:{},n2:{},n3:{},n4:{},starts:{},facts:{},shapes:{},lessons:0,sites:[],looked:{},nn:null});
+let B=EMPTY();
+function sentences(text){ return text.toLowerCase().replace(/[“”"()\[\]{}<>*_~`|#]/g," ").split(/(?<=[.!?])\s+|\n+/).map(s=>s.replace(/[.!?;:]+$/,"").trim()).filter(s=>s.length>1); }
+const isWord=w=>/^[a-z][a-z'’-]*$/.test(w)&&(w.length>1||w==="a"||w==="i")||/^\d{1,4}$/.test(w);
+function words(s){ return s.replace(/,/g," ").split(/\s+/).map(w=>w.replace(/^[^a-z0-9'’-]+|[^a-z0-9'’-]+$/g,"")).filter(w=>w&&w.length<25&&isWord(w)); }
+function bump(map,k,v){ const m=map[k]||(map[k]={}); m[v]=(m[v]||0)+1; }
+function vocabSize(){ return Object.keys(B.vocab).length; }
+// ---- facts ----
+const REL=[[/^(.+?) (?:is|are|was|were) (?:a|an|the)? ?(.+)$/,"is"],[/^(.+?) (?:has|have|had) (?:a|an|the)? ?(.+)$/,"has"],[/^(.+?) (?:can|could) (.+)$/,"can"],[/^(.+?) (?:lives?|lived) (?:in|on|at) (?:a|an|the)? ?(.+)$/,"lives in"],[/^(.+?) (?:eats?|ate) (.+)$/,"eats"],[/^(.+?) (?:likes?|loves?|enjoys?) (.+)$/,"likes"],[/^(.+?) (?:was|were|is|are) (?:made|invented|created|built|written|founded|discovered) by (.+)$/,"made by"],[/^(.+?) (?:made|invented|created|built|wrote|founded|discovered) (?:a|an|the)? ?(.+)$/,"made"],[/^(.+?) (?:comes?|came) from (.+)$/,"comes from"],[/^(.+?) means (.+)$/,"means"],[/^(.+?) (?:looks?|looked) like (.+)$/,"looks like"],[/^(.+?) (?:needs?|needed) (.+)$/,"needs"],[/^(.+?) (?:wants?|wanted) (.+)$/,"wants"],[/^(.+?) (?:go|goes|went) to (.+)$/,"goes to"],[/^(.+?) (?:is|are) (?:found|located) (?:in|on|at) (.+)$/,"lives in"]];
+function sing(s){ s=s.toLowerCase().trim(); const w=s.split(" "); const l=w[w.length-1]; if(l.length>3&&/s$/.test(l)&&!/(ss|us|is|ys)$/.test(l)) w[w.length-1]=l.replace(/ies$/,"y").replace(/s$/,""); return w.join(" "); }
+function cleanSubj(s){ return s.replace(/^(?:the|a|an|my|your|this|that|some|most|all|many|every)\s+/,"").replace(/^(?:it|they|he|she|there|which|who|that)$/,"").trim(); }
+function extractFacts(sent){
+  const out=[]; const s=sent.replace(/\s+/g," "); if(/^(what|who|where|when|why|how|do|does|is|are|can)\b/.test(s)||s.endsWith("?")) return out;
+  for(const [re,rel] of REL){ const m=s.match(re); if(!m) continue; const subj=cleanSubj(m[1]), obj=m[2].replace(/[.!?]+$/,"").trim();
+    if(!subj||subj.split(" ").length>4||obj.split(" ").length>9||FUNC.has(subj)||!words(subj).length) continue;
+    if(rel==="is"&&/^(?:in|on|at|from|by|of|to|for|with|about|not|also|very|because|when|if|that)\b/.test(obj)) continue;
+    if(rel==="is"&&/^(?:also|often|usually|still|now|then|not)\b/.test(obj)) continue;
+    out.push([subj,rel,obj]); break; }
+  return out;
+}
+function addFact(s,r,o){ s=sing(s); const f=B.facts[s]||(B.facts[s]={}); const rr=f[r]||(f[r]={}); rr[o]=(rr[o]||0)+1; }
+function getFacts(s){ return B.facts[sing(s)]||null; }
+function bestObj(rel){ return Object.entries(rel).sort((a,b)=>b[1]-a[1])[0][0]; }
+function verb(rel,subj){ const plural=/s$/.test(subj)&&sing(subj)!==subj; if(!plural) return rel; return {"has":"have","eats":"eat","likes":"like","lives in":"live in","needs":"need","wants":"want","goes to":"go to","comes from":"come from","looks like":"look like","means":"mean","is":"are"}[rel]||rel; }
+function art(o){ return (/^(?:a|an|the|my|your|his|her|their|our|some|many|very|not|one|two|three|\d)\b/.test(o)||/s$/.test(o.split(" ")[0]))? o : (/^[aeiou]/.test(o)?"an ":"a ")+o; }
+function shapeOf(ws){ if(ws.length<3||ws.length>9) return null; let slots=0; const sk=ws.map(w=>{ if(FUNC.has(w)) return w; slots++; return "{"+NN.cls(w)+"}"; }); if(!slots||slots===ws.length) return null; return sk.join(" "); }
+async function learn(text,opts){
+  opts=opts||{}; let newWords=0, newFacts=0, nSent=0, nW=0; const ctxs=[];
+  sentences(text).forEach(sent=>{ const ws=words(sent); if(ws.length<2) return; nSent++; nW+=ws.length;
+    B.starts[ws[0]]=(B.starts[ws[0]]||0)+1;
+    ws.forEach((w,i)=>{ if(!B.vocab[w]) newWords++; B.vocab[w]=(B.vocab[w]||0)+1; const nx= i<ws.length-1? ws[i+1] : "<end>";
+      bump(B.n2,w,nx); if(i>=1) bump(B.n3,ws[i-1]+" "+w,nx); if(i>=2) bump(B.n4,ws[i-2]+" "+ws[i-1]+" "+w,nx);
+      ctxs.push([[ws[i-2]||"<s>",ws[i-1]||"<s>",w],nx]); });
+    extractFacts(sent).forEach(([s,r,o])=>{ newFacts++; addFact(s,r,o); });
+    if(!opts.noShapes&&nSent%3===0){ const sh=shapeOf(ws); if(sh) B.shapes[sh]=(B.shapes[sh]||0)+1; }
+  });
+  await NN.train(ctxs, opts.epochs||6, opts.quiet, opts.onProgress);
+  return {newWords,newFacts,nSent,avgLen: nSent? nW/nSent : 0};
+}
+// ================= NEURAL NETWORK (embeddings, 3-word context, negative sampling) =================
+const NN=(()=>{
+  const E=16, C=3, H=32, MAXV=8000, K=8, NEG=12; let LR=0.05;
+  let ids={},vocab=[],EMB=[],W1=[],b1=new Float32Array(H),W2=[],b2=[],steps=0,clusters=null,cent=null;
+  let last={ctx:[],h:new Float32Array(H),top:[]};
+  const rnd=s=>(Math.random()-0.5)*s; const sig=z=>1/(1+Math.exp(-z));
+  function id(w){ if(ids[w]!==undefined) return ids[w]; if(vocab.length>=MAXV) return -1; const i=vocab.length; ids[w]=i; vocab.push(w); EMB.push(Float32Array.from({length:E},()=>rnd(0.6))); W2.push(Float32Array.from({length:H},()=>rnd(0.3))); b2.push(0); return i; }
+  function init(){ ids={}; vocab=[]; EMB=[]; W2=[]; b2=[]; steps=0; clusters=null; cent=null; W1=[]; for(let k=0;k<H;k++) W1.push(Float32Array.from({length:E*C},()=>rnd(0.3))); b1=new Float32Array(H); id("<s>"); id("<end>"); last={ctx:[],h:new Float32Array(H),top:[]}; } init();
+  function hidden(cids){ const x=new Float32Array(E*C); cids.forEach((ci,p)=>{ if(ci<0) return; const e=EMB[ci]; for(let j=0;j<E;j++) x[p*E+j]=e[j]; }); const h=new Float32Array(H); for(let k=0;k<H;k++){ let s=b1[k]; const w=W1[k]; for(let j=0;j<E*C;j++) s+=w[j]*x[j]; h[k]=Math.tanh(s); } return {x,h}; }
+  function forward(cids){ const {x,h}=hidden(cids); const n=vocab.length, p=new Float32Array(n); let mx=-1e9; for(let o=0;o<n;o++){ let s=b2[o]; const w=W2[o]; for(let k=0;k<H;k++) s+=w[k]*h[k]; p[o]=s; if(s>mx) mx=s; } let tot=0; for(let o=0;o<n;o++){ p[o]=Math.exp(p[o]-mx); tot+=p[o]; } for(let o=0;o<n;o++) p[o]/=tot; return {x,h,p}; }
+  function step(ctx,target){ const cids=ctx.map(id), t=id(target); if(t<0) return; const {x,h}=hidden(cids); const n=vocab.length; const dh=new Float32Array(H);
+    for(let q=0;q<=NEG;q++){ const o= q===0? t : Math.floor(Math.random()*n); if(q&&o===t) continue; const w=W2[o]; let sc=b2[o]; for(let k=0;k<H;k++) sc+=w[k]*h[k]; const g=sig(sc)-(q===0?1:0); for(let k=0;k<H;k++){ dh[k]+=g*w[k]; w[k]-=LR*g*h[k]; } b2[o]-=LR*g; }
+    const dx=new Float32Array(E*C); for(let k=0;k<H;k++){ const d=dh[k]*(1-h[k]*h[k]); const w=W1[k]; for(let j=0;j<E*C;j++){ dx[j]+=d*w[j]; w[j]-=LR*d*x[j]; } b1[k]-=LR*d; }
+    cids.forEach((ci,pp)=>{ if(ci<0) return; const e=EMB[ci]; for(let j=0;j<E;j++) e[j]-=LR*dx[pp*E+j]; }); steps++; }
+  async function train(ctxs,epochs,quiet,onProgress){ if(!ctxs.length) return; const cap=40000; const data= ctxs.length>cap? ctxs.filter(()=>Math.random()<cap/ctxs.length) : ctxs.slice(); const total=data.length*epochs; let done=0;
+    for(let ep=0;ep<epochs;ep++){ for(let i=data.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [data[i],data[j]]=[data[j],data[i]]; }
+      for(let i=0;i<data.length;i+=4000){ data.slice(i,i+4000).forEach(([c,t])=>step(c,t)); done+=Math.min(4000,data.length-i); if(onProgress){ onProgress(done/total); await new Promise(r=>setTimeout(r,0)); } } }
+    clusters=null; if(!quiet) look(data[data.length-1][0]); }
+  function predict(ctx,temp){ const cids=ctx.map(w=>ids[w]===undefined?-1:ids[w]); if(cids.every(c=>c<0)) return null; const {h,p}=forward(cids); last={ctx:ctx.slice(),h,top:[...p.keys()].sort((a,b)=>p[b]-p[a]).slice(0,7).map(j=>[vocab[j],p[j]])}; const t=temp||1; const ws=Array.from(p,x=>Math.pow(x,1/t)); const tot=ws.reduce((a,b)=>a+b,0); let r=Math.random()*tot; for(let j=0;j<ws.length;j++){ r-=ws[j]; if(r<=0) return vocab[j]; } return vocab[ws.length-1]; }
+  function look(ctx){ const cids=ctx.map(w=>ids[w]===undefined?-1:ids[w]); const {h,p}=forward(cids); last={ctx:ctx.slice(),h,top:[...p.keys()].sort((a,b)=>p[b]-p[a]).slice(0,7).map(j=>[vocab[j],p[j]])}; draw(); }
+  const cos=(a,b)=>{ let d=0,na=0,nb=0; for(let j=0;j<E;j++){ d+=a[j]*b[j]; na+=a[j]*a[j]; nb+=b[j]*b[j]; } return d/(Math.sqrt(na*nb)||1); };
+  function similar(w,n){ const i=ids[w]; if(i===undefined) return []; return vocab.map((v,j)=>[v,cos(EMB[i],EMB[j])]).filter(x=>x[0]!==w&&!x[0].startsWith("<")&&!FUNC.has(x[0])&&(B.vocab[x[0]]||0)>1).sort((a,b)=>b[1]-a[1]).slice(0,n||5); }
+  function kmeans(){ if(clusters) return; const n=vocab.length; clusters=new Int8Array(n); if(n<K+2){ cent=null; return; } cent=[]; for(let k=0;k<K;k++) cent.push(Float32Array.from(EMB[Math.floor(Math.random()*n)]));
+    for(let it=0;it<8;it++){ for(let i=0;i<n;i++){ let bk=0,bd=-2; for(let k=0;k<K;k++){ const d=cos(EMB[i],cent[k]); if(d>bd){bd=d;bk=k;} } clusters[i]=bk; } const sums=cent.map(()=>new Float32Array(E)), cnt=new Array(K).fill(0); for(let i=0;i<n;i++){ const k=clusters[i]; cnt[k]++; for(let j=0;j<E;j++) sums[k][j]+=EMB[i][j]; } for(let k=0;k<K;k++) if(cnt[k]) for(let j=0;j<E;j++) cent[k][j]=sums[k][j]/cnt[k]; } }
+  function cls(w){ kmeans(); const i=ids[w]; if(i===undefined||!cent) return Math.abs(hash(w))%K; return clusters[i]; }
+  function classWords(k){ kmeans(); if(!cent) return []; return vocab.filter((v,i)=>clusters[i]===k&&!v.startsWith("<")&&!FUNC.has(v)&&(B.vocab[v]||0)>1); }
+  function hash(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))|0; return h; }
+  function pack(){ const r2=a=>Array.from(a,x=>+x.toFixed(2)); return {vocab,EMB:EMB.map(r2),W1:W1.map(r2),b1:r2(b1),W2:W2.map(r2),b2:b2.map(x=>+x.toFixed(2)),steps}; }
+  function unpack(o){ if(!o||!o.vocab) return; vocab=o.vocab; ids={}; vocab.forEach((w,i)=>ids[w]=i); EMB=o.EMB.map(a=>Float32Array.from(a)); W1=o.W1.map(a=>Float32Array.from(a)); b1=Float32Array.from(o.b1); W2=o.W2.map(a=>Float32Array.from(a)); b2=o.b2.slice(); steps=o.steps||0; clusters=null; }
+  function draw(){ const c=$("net"); if(!c) return; const g=c.getContext("2d"); const W=c.width, Hh=c.height; g.fillStyle="#0a0a0a"; g.fillRect(0,0,W,Hh);
+    const inX=46, hidX=W/2-10, outX=W-78; const ctx=last.ctx, hs=last.h, outs=last.top;
+    ctx.forEach((w,p)=>{ const y=Hh/2+(p-1)*70; const ci=ids[w]; if(ci===undefined) return; for(let k=0;k<H;k++){ let s=0; for(let j=0;j<E;j++) s+=W1[k][p*E+j]*EMB[ci][j]; const yy=22+k*(Hh-44)/(H-1); g.strokeStyle= s>0? "rgba(80,180,255,"+Math.min(0.8,Math.abs(s))+")":"rgba(255,90,90,"+Math.min(0.8,Math.abs(s))+")"; g.lineWidth=0.3+Math.min(2,Math.abs(s)*1.5); g.beginPath(); g.moveTo(inX,y); g.lineTo(hidX,yy); g.stroke(); } });
+    outs.forEach(([ow,p],oi)=>{ const j=ids[ow]; if(j===undefined) return; const y=22+oi*(Hh-44)/Math.max(1,outs.length-1); for(let k=0;k<H;k++){ const w=W2[j][k]*hs[k]; if(Math.abs(w)<0.05) continue; const yy=22+k*(Hh-44)/(H-1); g.strokeStyle= w>0? "rgba(80,180,255,"+Math.min(0.8,Math.abs(w)*1.5)+")":"rgba(255,90,90,"+Math.min(0.8,Math.abs(w)*1.5)+")"; g.lineWidth=0.3+Math.min(2,Math.abs(w)*2); g.beginPath(); g.moveTo(hidX,yy); g.lineTo(outX,y); g.stroke(); } });
+    g.font="11px Arial"; g.textAlign="center"; ctx.forEach((w,p)=>{ const y=Hh/2+(p-1)*70; g.fillStyle= ids[w]!==undefined? "#ff7a00":"#333"; g.beginPath(); g.arc(inX,y,9,0,7); g.fill(); g.fillStyle="#fff"; g.fillText(w==="<s>"?"(start)":w,inX,y+22); });
+    for(let k=0;k<H;k++){ const y=22+k*(Hh-44)/(H-1); const a=Math.abs(hs[k]); g.fillStyle= hs[k]>0? "rgba(80,180,255,"+(0.15+a*0.85)+")":"rgba(255,90,90,"+(0.15+a*0.85)+")"; g.beginPath(); g.arc(hidX,y,3+a*3,0,7); g.fill(); }
+    g.textAlign="left"; outs.forEach(([ow,p],oi)=>{ const y=22+oi*(Hh-44)/Math.max(1,outs.length-1); g.fillStyle="rgba(255,122,0,"+(0.25+p*0.75)+")"; g.beginPath(); g.arc(outX,y,3+p*9,0,7); g.fill(); g.fillStyle="#ddd"; g.fillText((ow==="<end>"?"(end)":ow)+" "+(p*100).toFixed(0)+"%",outX+12,y+4); });
+    g.fillStyle="#666"; g.font="10px Arial"; g.textAlign="center"; g.fillText("context",inX,12); g.fillText(H+" neurons",hidX,12); g.fillText("next word",outX,12);
+    if(vocab.length<=2){ g.fillStyle="#555"; g.font="13px Arial"; g.fillText("no neurons yet — say something",W/2,Hh/2); } drawMap(); }
+  function drawMap(){ const c=$("map"); if(!c) return; const g=c.getContext("2d"); const W=c.width, Hh=c.height; g.fillStyle="#0a0a0a"; g.fillRect(0,0,W,Hh);
+    const top=Object.entries(B.vocab).filter(([w])=>!FUNC.has(w)&&ids[w]!==undefined).sort((a,b)=>b[1]-a[1]).slice(0,70).map(([w])=>w); if(top.length<3){ g.fillStyle="#555"; g.font="13px Arial"; g.textAlign="center"; g.fillText("needs more words",W/2,Hh/2); return; }
+    const M=top.map(w=>EMB[ids[w]]); const mean=new Float32Array(E); M.forEach(v=>{ for(let j=0;j<E;j++) mean[j]+=v[j]/M.length; }); const X=M.map(v=>Float32Array.from(v,(x,j)=>x-mean[j]));
+    const pc=(excl)=>{ let v=Float32Array.from({length:E},()=>Math.random()-0.5); for(let it=0;it<25;it++){ const nv=new Float32Array(E); X.forEach(x=>{ let d=0; for(let j=0;j<E;j++) d+=x[j]*v[j]; for(let j=0;j<E;j++) nv[j]+=d*x[j]; }); if(excl){ let d=0; for(let j=0;j<E;j++) d+=nv[j]*excl[j]; for(let j=0;j<E;j++) nv[j]-=d*excl[j]; } const n=Math.sqrt(nv.reduce((a,b)=>a+b*b,0))||1; v=Float32Array.from(nv,x=>x/n); } return v; };
+    const p1=pc(), p2=pc(p1); const pts=X.map(x=>{ let a=0,b=0; for(let j=0;j<E;j++){ a+=x[j]*p1[j]; b+=x[j]*p2[j]; } return [a,b]; }); const ma=Math.max(...pts.map(p=>Math.abs(p[0])))||1, mb=Math.max(...pts.map(p=>Math.abs(p[1])))||1;
+    kmeans(); const cols=["#ff7a00","#4aa9d8","#6fb85c","#9b7fd4","#f5b829","#ff6b5e","#5cf2ff","#ff9db0"]; g.font="10px Arial"; g.textAlign="center";
+    pts.forEach(([a,b],i)=>{ const x=W/2+a/ma*(W/2-30), y=Hh/2-b/mb*(Hh/2-16); const k= cent? clusters[ids[top[i]]] : 0; g.fillStyle=cols[k%8]; g.beginPath(); g.arc(x,y,3,0,7); g.fill(); g.fillStyle="#ccc"; g.fillText(top[i],x,y-6); });
+    g.fillStyle="#666"; g.textAlign="left"; g.fillText("colour = word class it worked out by itself",6,Hh-6); }
+  return {train,predict,look,similar,cls,classWords,pack,unpack,reset:init,draw,size:()=>vocab.length,steps:()=>steps,H};
+})();
+// ================= TALKING (generate several, keep the most coherent) =================
+function pick(counts,temp){ const ks=Object.keys(counts); if(!ks.length) return null; const ws=ks.map(k=>Math.pow(counts[k],1/(temp||1))); const tot=ws.reduce((a,b)=>a+b,0); let r=Math.random()*tot; for(let i=0;i<ks.length;i++){ r-=ws[i]; if(r<=0) return ks[i]; } return ks[ks.length-1]; }
+function maxLen(){ return Math.min(20, 2+Math.floor(vocabSize()/10)); }
+function prob(prev2,prev1,w){ // backoff n-gram probability of w after (prev2 prev1)
+  const k3=prev2+" "+prev1; if(B.n4&&B.n3[k3]&&B.n3[k3][w]){ const t=Object.values(B.n3[k3]).reduce((a,b)=>a+b,0); return 0.6*B.n3[k3][w]/t+0.4*p2(prev1,w); } return p2(prev1,w); }
+function p2(prev1,w){ const m=B.n2[prev1]; if(m&&m[w]){ const t=Object.values(m).reduce((a,b)=>a+b,0); return 0.7*m[w]/t+0.3*(B.vocab[w]||0.5)/(B.lessons*20+1000); } return 0.02*(B.vocab[w]||0.5)/(B.lessons*20+1000); }
+function walk(seeds){
+  let w1= seeds.length&&Math.random()<0.8? seeds[Math.floor(Math.random()*seeds.length)] : (pick(B.starts,1.3)||pick(B.vocab,1.3)); if(!w1) return null;
+  const out=[w1]; let w2="<s>", w3="<s>";
+  for(let i=0;i<maxLen();i++){ let nx=null;
+    if(Math.random()<0.35){ nx=NN.predict([w3,w2,w1],0.7); if(nx&&nx!=="<end>"&&!(B.n2[w1]&&B.n2[w1][nx])) nx=null; }
+    if(!nx){ const k4=w3+" "+w2+" "+w1, k3=w2+" "+w1; if(B.n4[k4]&&Math.random()<0.9) nx=pick(B.n4[k4],1.05); else if(B.n3[k3]&&Math.random()<0.85) nx=pick(B.n3[k3],1.1); else if(B.n2[w1]) nx=pick(B.n2[w1],1.2); }
+    if(!nx||nx==="<end>") break; out.push(nx); w3=w2; w2=w1; w1=nx; }
+  return out;
+}
+function fromShape(seeds){ const shapes=Object.keys(B.shapes); if(shapes.length<4||vocabSize()<40) return null; const sh=pick(B.shapes,1.2); return sh.split(" ").map(tok=>{ const m=tok.match(/^\{(\d+)\}$/); if(!m) return tok; let cand=NN.classWords(+m[1]); if(seeds.length&&Math.random()<0.6){ const near=NN.similar(seeds[0],14).map(x=>x[0]).filter(w=>cand.includes(w)); if(near.length) cand=near; } if(!cand.length) cand=Object.keys(B.vocab).filter(w=>!FUNC.has(w)); return cand[Math.floor(Math.random()*cand.length)]||tok; }); }
+function score(ws,seeds){ if(!ws||ws.length<2) return -99; let lp=0; for(let i=0;i<ws.length;i++) lp+=Math.log(prob(ws[i-2]||"<s>",ws[i-1]||"<s>",ws[i])+1e-6); lp/=ws.length; const content=ws.filter(w=>!FUNC.has(w)).length; let rel=0; if(seeds.length){ const near=new Set(seeds.concat(...seeds.map(s=>NN.similar(s,8).map(x=>x[0])))); rel=ws.filter(w=>near.has(w)).length; } const repeats=ws.length-new Set(ws).size; const defy= (ws[1]==="is"||ws[1]==="are"||ws[1]==="means")&&B.looked[sing(ws[0])]? 2.5 : 0; return lp+0.8*rel-1.2*repeats-defy+(content?0.3*Math.min(content,4):-2)+(ws.length>=4?0.5:0); }
+function generate(seedsIn){
+  const V=vocabSize(); if(!V) return null; const seeds=(seedsIn||[]).filter(w=>B.n2[w]&&!FUNC.has(w));
+  const cands=[]; for(let i=0;i<8;i++) cands.push(walk(seeds)); for(let i=0;i<3;i++) cands.push(fromShape(seeds));
+  const best=cands.filter(Boolean).map(c=>[c,score(c,seeds)]).sort((a,b)=>b[1]-a[1])[0]; return best? best[0].join(" ") : null;
+}
+function factSentence(s,f){ const parts=[]; if(f.is) parts.push(s+" "+verb("is",s)+" "+art(bestObj(f.is))); if(f.has) parts.push("it has "+bestObj(f.has)); if(f.can) parts.push("it can "+bestObj(f.can)); if(f["lives in"]) parts.push("it lives in "+bestObj(f["lives in"])); if(f.eats) parts.push("it eats "+bestObj(f.eats)); if(f.likes) parts.push("it likes "+bestObj(f.likes)); if(f["made by"]) parts.push("it was made by "+bestObj(f["made by"])); if(f.means) parts.push("it means "+bestObj(f.means)); if(f["looks like"]) parts.push("it looks like "+bestObj(f["looks like"])); if(f["comes from"]) parts.push("it comes from "+bestObj(f["comes from"])); if(f.made) parts.push("it made "+bestObj(f.made)); if(f.needs) parts.push("it needs "+bestObj(f.needs)); return parts.join(". "); }
+function findSubjects(rel,objWord){ return Object.entries(B.facts).filter(([s,f])=>f[rel]&&Object.keys(f[rel]).some(o=>o.includes(objWord))).map(x=>x[0]); }
+let lastTopic=null;
+function answer(userText){
+  const t=userText.toLowerCase().replace(/[?!.]+$/,"").trim(); const V=vocabSize(); let m;
+  if((m=t.match(/^what (?:is|are) (?:like|similar to) (?:a |an |the )?(.+)$/))){ const sim=NN.similar(m[1],5); return sim.length? m[1]+" is kind of like "+sim.map(x=>x[0]).join(", ")+"." : "i haven't learned "+m[1]+" yet."; }
+  if((m=t.match(/^(?:what|who) (?:is|are|was|were) (?:a |an |the )?(.+)$/))||(m=t.match(/^tell me about (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:what|who)'?s (?:a |an |the )?(.+)$/))){ const s=m[1]; const f=getFacts(s); lastTopic=s; if(f) return factSentence(s,f)+"."; const w0=words(s)[0]||s; const sim=NN.similar(w0,3); if(B.n2[w0]) return "i've heard of "+s+"… "+(sim.length?"it reminds me of "+sim.map(x=>x[0]).join(" and ")+". ":"")+(generate([w0])||""); return "i don't know what "+s+" is yet. tell me: "+s+" is …"; }
+  if((m=t.match(/^where (?:do|does|did) (?:a |an |the )?(.+?) live$/))||(m=t.match(/^where (?:is|are) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&(f["lives in"]||f["comes from"])) return m[1]+" "+verb("lives in",m[1])+" "+bestObj(f["lives in"]||f["comes from"])+"."; return f? "i know some things about "+m[1]+" but not where it lives. tell me: "+m[1]+" lives in …" : "who is "+m[1]+"?"; }
+  if((m=t.match(/^what (?:do|does) (?:a |an |the )?(.+?) (eat|like|love|have|need|want|mean)s?$/))){ const rel={eat:"eats",like:"likes",love:"likes",have:"has",need:"needs",want:"wants",mean:"means"}[m[2]]; const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f[rel]) return m[1]+" "+verb(rel,m[1])+" "+Object.keys(f[rel]).slice(0,3).join(" and ")+"."; return f? "not sure what "+m[1]+" "+rel+". tell me!" : "i don't know "+m[1]+" yet."; }
+  if((m=t.match(/^what can (?:a |an |the )?(.+?) do$/))){ const f=getFacts(m[1]); lastTopic=m[1]; return f&&f.can? m[1]+" can "+Object.keys(f.can).slice(0,3).join(" and ")+"." : "i don't know what "+m[1]+" can do. tell me: "+m[1]+" can …"; }
+  if((m=t.match(/^who (?:made|invented|created|built|wrote|discovered) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f["made by"]) return m[1]+" was made by "+bestObj(f["made by"])+"."; const s=findSubjects("made",m[1]); return s.length? s[0]+" made "+m[1]+"." : "i don't know who made "+m[1]+"."; }
+  if((m=t.match(/^(?:is|are|was|were|does|do|can|did) (?:a |an |the )?(.+?) (.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(!f) return "i don't know "+m[1]+" yet."; const rest=m[2].replace(/^(?:a|an|the)\s+/,""); for(const rel in f){ for(const o in f[rel]){ if(o.includes(rest)||rest.includes(o)) return "yes! "+m[1]+" "+verb(rel,m[1])+" "+(rel==="is"?art(o):o)+"."; } } return "i don't think so. "+factSentence(m[1],f)+"."; }
+  if((m=t.match(/^who (likes|loves|eats|has|can|lives in|needs|wants) (?:a |an |the )?(.+)$/))){ const rel={loves:"likes"}[m[1]]||m[1]; const s=findSubjects(rel,m[2]); return s.length? s.slice(0,3).join(", ")+" "+verb(rel,s.length>1?"s":s[0])+" "+m[2]+"." : "nobody i know "+rel+" "+m[2]+"."; }
+  if(/^why/.test(t)&&lastTopic){ const f=getFacts(lastTopic); if(f) return "because "+factSentence(lastTopic,f)+"."; }
+  if(/^(what|who|whats|what's) (is|are)? ?(your|ur) name/.test(t)) return "i don't have a name yet. you could give me one: 'your name is …'";
+  if(/^(hi|hello|hey|yo|sup|good (?:morning|evening|afternoon))\b/.test(t)){ const g=pick({"hi!":3,"hey!":2,"hello!":2,"hi there!":1,"yo!":1}); const subs=Object.keys(B.facts).filter(x=>!B.looked[x]); const sub=lastTopic||subs[Math.floor(Math.random()*subs.length)]; if(sub&&Math.random()<0.6) return g+" "+pick({["do you like "+sub+"?"]:2,["tell me more about "+sub+"."]:1,["i've been thinking about "+sub+"."]:1}); const gen= V>=20? generate([]) : null; return g+(gen? " "+gen : ""); }
+  if(V===0) return "…"; if(V<4) return pick(B.vocab)+(Math.random()<0.5?"!":"?");
+  const seeds=words(t); const ctx=[seeds[seeds.length-3]||"<s>",seeds[seeds.length-2]||"<s>",seeds[seeds.length-1]||"<s>"]; NN.look(ctx);
+  const topic=seeds.find(w=>getFacts(w)&&!FUNC.has(w)&&!B.looked[sing(w)]); if(topic&&Math.random()<0.7){ lastTopic=topic; return factSentence(topic,getFacts(topic))+"."; }
+  let g=generate(seeds)||pick(B.vocab); const punct= V<50? "" : (Math.random()<0.7?".":Math.random()<0.5?"!":"?");
+  if(V>=150&&Math.random()<0.35){ const g2=generate(seeds); if(g2&&g2!==g) g+=punct+" "+g2; }
+  return g+punct;
+}
+// ================= STORAGE: IndexedDB (big), desktop server (unlimited), localStorage (fallback) =================
+const DESKTOP= location.port==="8765";
+const DB={ open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("kaifun_ai",1); r.onupgradeneeded=()=>r.result.createObjectStore("brain"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async get(){ const db=await this.open(); return new Promise((res,rej)=>{ const r=db.transaction("brain").objectStore("brain").get("main"); r.onsuccess=()=>res(r.result||null); r.onerror=()=>rej(r.error); }); },
+  async set(v){ const db=await this.open(); return new Promise((res,rej)=>{ const tx=db.transaction("brain","readwrite"); tx.objectStore("brain").put(v,"main"); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); } };
+let saveT=null, warned=false;
+function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{ B.nn=NN.pack(); try{ if(DESKTOP){ await fetch("/brain",{method:"POST",body:JSON.stringify(B)}); return; } if(window.indexedDB){ await DB.set(B); return; } localStorage.setItem("aitrainer4",JSON.stringify(B)); }
+  catch(e){ if(!warned){ warned=true; const d=document.createElement("div"); d.className="l sys"; d.innerHTML="⚠️ your browser's storage limit is reached — this brain is too big to keep here. it still works this session (use ⬇ save brain), or <a href='aitrainer-desktop.py' download>download the desktop version</a> to keep going with no limits."; $("log").appendChild(d); } } },900); }
+async function loadBrain(){ try{ if(DESKTOP){ const r=await fetch("/brain"); if(r.ok){ const j=await r.json(); if(j&&j.vocab) return j; } } else if(window.indexedDB){ const j=await DB.get(); if(j&&j.vocab) return j; const ls=localStorage.getItem("aitrainer4"); if(ls) return JSON.parse(ls); } }catch(e){} return null; }
+// ================= LOOKING THINGS UP (built in: wiktionary -> dictionary -> wikipedia) =================
+const SOURCES=["https://en.wiktionary.org","https://api.dictionaryapi.dev","https://en.wikipedia.org"];
+function firstSentence(t){ t=t.replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim(); const m=t.match(/^(.+?[.!?])(\s|$)/); return (m? m[1] : t).slice(0,240); }
+async function lookupOn(src,term){
+  const host=src.replace(/^https?:\/\//,"").split("/")[0];
+  if(/wiktionary\.org$/.test(host)){
+    const r=await fetch(src+"/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term)); const j=await r.json(); const p=Object.values(j.query.pages)[0]; if(!p||!p.extract) return null;
+    const lines=p.extract.split("\n"); let inEn=false, sec=""; for(const ln of lines){ const h=ln.match(/^(=+)\s*(.+?)\s*=+$/); if(h){ if(h[1].length===2) inEn=/english/i.test(h[2]); else sec=h[2].toLowerCase(); continue; } if(!inEn||!ln.trim()) continue; if(/etymology|pronunciation|alternative|references|anagrams|see also|translations|further/.test(sec)) continue; if(!/noun|verb|adjective|adverb|proper noun|interjection|pronoun/.test(sec)) continue; if(ln.includes("(plural")||ln.includes("(third-person")||ln.includes("(comparative")||ln.trim().toLowerCase().startsWith(term.toLowerCase()+" ")&&ln.length<term.length+30) continue; if(ln.length>15) return {def:firstSentence(ln), text:lines.filter(x=>!x.startsWith("=")).join(" ").slice(0,3000), kind:sec}; } return null; }
+  if(/wikipedia\.org$/.test(host)){
+    const r=await fetch(src+"/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term)); const j=await r.json(); const p=Object.values(j.query.pages)[0]; if(!p||!p.extract||/may refer to:/.test(p.extract)) return null; return {def:firstSentence(p.extract), text:p.extract.slice(0,4000)}; }
+  if(/dictionaryapi\.dev$/.test(host)){
+    const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(term)); if(!r.ok) return null; const j=await r.json(); const m=j[0]&&j[0].meanings&&j[0].meanings[0]; if(!m) return null; const defs=m.definitions.slice(0,4).map(d=>d.definition); return {def:firstSentence(defs[0]), text:defs.map(d=>term+" means "+d).join(". "), kind:m.partOfSpeech}; }
+  // any other site: try site/term through the reader
+  const r=await fetch("https://r.jina.ai/"+src+"/"+encodeURIComponent(term),{headers:{"Accept":"text/plain"}}); if(!r.ok) return null; const t=(await r.text()).replace(/https?:\/\/\S+/g," ").replace(/[#*_>|]/g," "); const sent=sentences(t).find(x=>x.includes(term.toLowerCase())&&x.length>30); return sent? {def:firstSentence(sent), text:t.slice(0,3000)} : null;
+}
+async function lookup(term){ for(const src of SOURCES){ try{ const d=await lookupOn(src,term); if(d&&d.def) return Object.assign({src},d); }catch(e){} } return null; }
+// look up words it has never heard defined — a few at a time, quietly, in the background
+const LOOKUP_PAGE=500;      // words looked up per website read
+const LOOKUP_CHAT=6;        // words looked up per thing you say
+let stopLookups=false;
+async function autoLookup(list,max,onProgress){ const seen=new Set(); const todo=list.map(w=>w.toLowerCase()).filter(w=>{ if(seen.has(w)) return false; seen.add(w); return /^[a-z][a-z-]{2,}$/.test(w)&&!FUNC.has(w)&&!getFacts(w)&&!B.looked[w]; }).slice(0,max);
+  let got=[], done=0; stopLookups=false; const total=todo.length;
+  const worker=async()=>{ while(todo.length&&!stopLookups){ const w=todo.shift(); B.looked[w]=1; try{ const r=await lookup(w); if(r){ const obj=defToObject(w,r.def); addFact(w,"is",obj); await learn(w+" is "+obj+".",{epochs:2,quiet:true,noShapes:true}); got.push(w); } }catch(e){} done++; if(onProgress) onProgress(done,got.length,total); if(done%25===0){ save(); ui(); } } };
+  await Promise.all([worker(),worker(),worker(),worker()]); if(Object.keys(B.looked).length>50000) B.looked={}; return got; }
+function defToObject(term,def){ let d=def.toLowerCase().replace(/[.!?]+$/,""); const re=new RegExp("^(?:the |a |an )?"+term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"s? (?:is|are|was|were) (?:a |an |the )?"); d=d.replace(re,""); return d.split(" ").slice(0,14).join(" "); }
+function termOf(t){ t=t.toLowerCase().replace(/[?!.]+$/,"").trim(); let m; if((m=t.match(/^(?:what|who) (?:is|are|was|were) (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:what|who)'?s (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:define|look up|lookup|search|tell me about|explain) (?:a |an |the )?(.+)$/))||(m=t.match(/^what (?:does|do) (.+?) mean$/))) return m[1].trim(); return null; }
+// ================= UI =================
+const STAGES=[[0,"🥚","egg","knows nothing"],[1,"🐣","hatchling","heard something"],[15,"👶","baby","babbles"],[50,"🧒","toddler","short sentences"],[150,"🧑","student","copies how you talk"],[400,"🤖","AI","has opinions (yours)"],[1000,"🧠","brain","has read more than it's been told"],[3000,"👑","oracle","knows more words than you"]];
+function stage(){ const V=vocabSize(); let s=STAGES[0]; STAGES.forEach(x=>{ if(V>=x[0]) s=x; }); return s; }
+function ui(){ const V=vocabSize(), s=stage(), i=STAGES.indexOf(s), nxt=STAGES[i+1]; const nf=Object.values(B.facts).reduce((a,f)=>a+Object.values(f).reduce((b,r)=>b+Object.keys(r).length,0),0);
+  $("face").textContent=s[1]; $("stage").textContent=s[2]+" · "+s[3]+(nxt?" · "+(nxt[0]-V)+" words to "+nxt[2]:"")+(DESKTOP?" · desktop mode":""); $("barF").style.width=(nxt?((V-s[0])/(nxt[0]-s[0])*100):100)+"%";
+  $("stats").innerHTML="<b>"+V+"</b> words · <b>"+nf+"</b> facts · <b>"+Object.keys(B.shapes).length+"</b> sentence shapes · <b>"+(Object.keys(B.n3).length+Object.keys(B.n4).length).toLocaleString()+"</b> grammar patterns<br><b>"+(NN.size()+NN.H)+"</b> neurons · <b>"+(NN.size()*48+32*48).toLocaleString()+"</b> synapses · <b>"+NN.steps().toLocaleString()+"</b> training steps · <b>"+B.lessons+"</b> lessons";
+  const F=Object.entries(B.facts).slice(-14).reverse(); $("facts").innerHTML=F.length? F.map(([s,f])=>"<div><b>"+esc(s)+"</b> "+Object.entries(f).map(([r,o])=>"<i>"+esc(r)+"</i> "+esc(bestObj(o))).join(" · ")+"</div>").join("") : 'nothing yet. tell it things like "frogs eat flies".';
+  $("shapes").innerHTML=Object.entries(B.shapes).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([s])=>"<span>"+esc(s)+"</span>").join("")||"<span>…</span>"; NN.draw(); }
+function line(who,text){ const d=document.createElement("div"); d.className="l "+(who==="you"?"you":who==="str"?"str":"sys"); if(who==="sys") d.textContent=text; else d.innerHTML="<b>"+(who==="you"?"You":"Stranger")+":</b> "+esc(text); $("log").appendChild(d); $("log").scrollTop=$("log").scrollHeight; }
+const addSys=t=>line("sys",t);
+function strangerSays(text,delay){ $("typing").textContent="Stranger is typing…"; setTimeout(()=>{ $("typing").textContent=""; line("str",text); },delay||(400+Math.min(2500,text.length*25))); }
+async function handle(text){ line("you",text); const t=text.trim();
+  if(/^reset$/i.test(t)){ if(confirm("wipe its entire brain?")){ B=EMPTY(); NN.reset(); save(); ui(); addSys("🥚 brain wiped."); } return; }
+  const site=t.match(/^website:\s*(\S+)/i); if(site){ await readSite(site[1]); return; }
+  if(/^stop( looking( things)? up)?$/i.test(t)){ stopLookups=true; addSys("ok, stopping the lookups."); return; }
+  if(/^(?:define|look up) everything$/i.test(t)){ const all=Object.entries(B.vocab).filter(([w,c])=>!FUNC.has(w)&&!getFacts(w)&&!B.looked[w]).sort((a,b)=>b[1]-a[1]).map(([w])=>w); if(!all.length){ addSys("it already has a definition for every word it knows."); return; }
+    addSys("📖 looking up all "+all.length+" undefined words. this runs in the background — keep chatting, or say 'stop'."); const got=await autoLookup(all,all.length,(d,g,tot)=>{ $("typing").textContent="Stranger is looking up everything… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); addSys("📖 done: found definitions for "+got.length+" of "+all.length+" words."); return; }
+  const term=termOf(t); const known=term&&getFacts(term);
+  if(term&&!known&&term.split(" ").length<=4){ $("typing").textContent="Stranger is looking up \u201c"+term+"\u201d…"; const found=await lookup(term); $("typing").textContent=""; B.looked[term]=1;
+    if(found){ addFact(term,"is",defToObject(term,found.def)); if(found.text){ await learn(found.text,{epochs:3,quiet:true,noShapes:true}); } B.lessons++; save(); ui(); addSys("📖 looked up \u201c"+term+"\u201d on "+found.src.replace(/^https?:\/\//,"")+(found.kind?" ("+found.kind+")":"")); }
+    else addSys("📖 couldn't find \u201c"+term+"\u201d anywhere."); }
+  const nm=t.match(/^(?:your|ur) name is (.+?)[.!]?$/i); if(nm){ addFact("you","is",nm[1]); B.lessons++; save(); ui(); strangerSays("ok. my name is "+nm[1]+". i like it."); return; }
+  B.lessons++; const isQ=/^(what|who|where|when|why|how|is|are|do|does|can|did|tell me)\b/i.test(t)||t.endsWith("?");
+  const r= isQ? {newWords:0,newFacts:0} : await learn(t,{epochs:8}); save(); ui();
+  strangerSays(answer(t));
+  if(r.newFacts) setTimeout(()=>addSys("(learned "+r.newFacts+" fact"+(r.newFacts>1?"s":"")+(r.newWords?" and "+r.newWords+" new words":"")+")"),150); else if(r.newWords&&vocabSize()<80) setTimeout(()=>addSys("(learned "+r.newWords+" new word"+(r.newWords>1?"s":"")+")"),150);
+  // quietly look up words in what you said that it has never had defined
+  if(!isQ){ const got=await autoLookup(words(t.toLowerCase()),LOOKUP_CHAT); if(got.length){ save(); ui(); addSys("(📖 quietly learned what "+got.join(", ")+" mean"+(got.length>1?"":"s")+")"); } } }
+async function readSite(url){ if(!/^https?:\/\//i.test(url)) url="https://"+url; addSys("📡 reading "+url+" …"); $("typing").textContent="Stranger is reading…"; let text=null;
+  try{ const wiki=url.match(/^https?:\/\/([a-z]+)\.wikipedia\.org\/wiki\/([^#?]+)/i);
+    if(wiki){ const r=await fetch("https://"+wiki[1]+".wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&origin=*&titles="+wiki[2]); const j=await r.json(); const p=Object.values(j.query.pages)[0]; text=p&&p.extract; }
+    else { const r=await fetch("https://r.jina.ai/"+url,{headers:{"Accept":"text/plain"}}); if(r.ok) text=await r.text(); if(!text){ const r2=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url)); if(r2.ok){ const d=new DOMParser().parseFromString(await r2.text(),"text/html"); d.querySelectorAll("script,style,nav,footer,noscript").forEach(e=>e.remove()); text=d.body?d.body.innerText:""; } } }
+  }catch(e){ text=null; }
+  $("typing").textContent=""; if(!text||text.trim().length<40){ addSys("couldn't read that site. wikipedia pages always work."); return; }
+  text=text.replace(/https?:\/\/\S+/g," ").replace(/\[[^\]]*\]/g," ").replace(/={2,}[^=]+={2,}/g,". ").slice(0,300000);
+  const before=vocabSize(), t0=Date.now(); $("typing").textContent="Stranger is studying… 0%"; await new Promise(r=>setTimeout(r,30));
+  const r=await learn(text,{epochs:2,quiet:true,onProgress:p=>{ $("typing").textContent="Stranger is studying… "+Math.round(p*100)+"%"; }}); B.lessons++; if(!B.sites.includes(url)) B.sites.push(url); save(); ui(); $("typing").textContent="";
+  if(r.avgLen<4) addSys("⚠️ that page is mostly a word list, not sentences — it learned words but no grammar or facts from it. feed it articles (wikipedia is perfect).");
+  addSys("📚 read ~"+text.split(/\s+/).length.toLocaleString()+" words in "+((Date.now()-t0)/1000).toFixed(1)+"s · "+r.nSent.toLocaleString()+" sentences · learned "+r.newWords+" new words and "+r.newFacts+" facts ("+before+" → "+vocabSize()+" words)");
+  const subj=Object.keys(B.facts).slice(-1)[0]; strangerSays(subj? answer("what is "+subj) : answer("tell me about it"));
+  // then: figure out what the important words on that page actually mean
+  const important=Object.entries(B.vocab).filter(([w,c])=>!FUNC.has(w)&&c>=2&&!getFacts(w)&&!B.looked[w]).sort((a,b)=>b[1]-a[1]).slice(0,LOOKUP_PAGE).map(([w])=>w);
+  if(important.length){ addSys("📖 looking up "+important.length+" words from that page in the background — keep chatting. (say 'stop' to stop)"); const got=await autoLookup(important,LOOKUP_PAGE,(d,g,tot)=>{ $("typing").textContent="Stranger is looking up words… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); if(got.length) addSys("📖 found definitions for "+got.length+" words: "+got.slice(0,15).join(", ")+(got.length>15?"…":"")); } }
+function newChat(){ $("log").innerHTML=""; addSys("You're now chatting with your AI. It knows "+vocabSize()+" words and "+Object.keys(B.facts).length+" things, and looks up words it doesn't know on wiktionary, the dictionary and wikipedia. Say hi!"+(DESKTOP?" (desktop mode: unlimited memory)":"")); }
+$("send").onclick=()=>{ const v=$("msg").value.trim(); if(!v) return; $("msg").value=""; handle(v); };
+$("msg").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); $("send").onclick(); } if(e.key==="Escape") newChat(); };
+$("newBtn").onclick=newChat;
+$("export").onclick=()=>{ B.nn=NN.pack(); const a=document.createElement("a"); a.download="ai-brain.json"; a.href=URL.createObjectURL(new Blob([JSON.stringify(B)],{type:"application/json"})); a.click(); };
+$("import").onclick=()=>$("impFile").click();
+$("impFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); if(!j.vocab) throw 0; B=Object.assign(EMPTY(),j); NN.unpack(B.nn); save(); ui(); addSys("🧠 brain loaded."); }catch(x){ addSys("that's not a brain file."); } e.target.value=""; };
+(async()=>{ const j=await loadBrain(); if(j){ B=Object.assign(EMPTY(),j); NN.unpack(B.nn); } ui(); newChat(); })();
+</script>
+</body>
+</html>
