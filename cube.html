@@ -75,8 +75,9 @@ const PHI=(1+Math.sqrt(5))/2;
 function norm(v){ return v.clone().normalize(); }
 function defCube(N,mirror){ const R=1; const faces=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(n=>({n:V(...n),d:R}));
   let axes=[V(1,0,0),V(0,1,0),V(0,0,1)].map(n=>{ const cuts=[]; for(let i=1;i<N;i++) cuts.push(-R+2*R*i/N); return {n,cuts,step:Math.PI/2}; });
-  if(mirror){ const off=[[-0.42,0.18],[-0.12,0.4],[-0.3,0.25]]; axes=axes.map((a,i)=>({n:a.n,cuts:off[i].map(x=>x*R),step:Math.PI/2})); }
-  return {faces,axes,colors: mirror? Array(6).fill("#c0c4cc") : ["#ff3b30","#ff8c00","#ffffff","#ffd400","#1e90ff","#2ecc40"],name:mirror?"mirror cube":N+"×"+N+" cube",mono:!!mirror}; }
+  let core=V(0,0,0);
+  if(mirror){ core=V(-0.22,0.14,0.3); axes=axes.map((a,i)=>{ const c=[core.x,core.y,core.z][i]; return {n:a.n,cuts:[c-R/3,c+R/3],step:Math.PI/2}; }); }
+  return {faces,axes,core,colors: mirror? Array(6).fill("#c0c4cc") : ["#ff3b30","#ff8c00","#ffffff","#ffd400","#1e90ff","#2ecc40"],name:mirror?"mirror cube":N+"×"+N+" cube",mono:!!mirror}; }
 function defPyra(L){ L=L||3; const vs=[V(1,1,1),V(1,-1,-1),V(-1,1,-1),V(-1,-1,1)]; const faces=vs.map(v=>{ const n=norm(v.clone().negate()); return {n,d:1/Math.sqrt(3)}; });   // regular tetrahedron: each face normal points opposite a vertex
   const axes=faces.map(f=>{ const h=4/Math.sqrt(3); const cuts=[]; for(let i=1;i<L;i++) cuts.push(f.d-h*i/L); return {n:f.n,cuts:cuts.sort((a,b)=>a-b),step:2*Math.PI/3}; });
   return {faces,axes,colors:["#2ecc40","#ffd400","#1e90ff","#ff3b30"],name:(L===3?"pyraminx":L===4?"master pyraminx":L===5?"professor pyraminx":L+"-layer pyraminx")}; }
@@ -99,7 +100,7 @@ const SOLIDS=(()=>{ const perms=(arr)=>{ const out=[]; const sgn=[1,-1]; arr.for
     octa:{name:"octahedron",faces:cubeV,inr:1/Math.sqrt(3),circ:1,axes:{faces:{dirs:cubeV,order:3,ext:1/Math.sqrt(3)},corners:{dirs:cubeF,order:4,ext:1},edges:{dirs:cubeE,order:2,ext:1/Math.sqrt(2)}},colors:["#ff3b30","#ff8c00","#ffffff","#ffd400","#1e90ff","#2ecc40","#ff69b4","#8a2be2"]},
     dodeca:{name:"dodecahedron",faces:dodF,inr:1,circ:1.258,axes:{faces:{dirs:dodF,order:5,ext:1},corners:{dirs:dodV,order:3,ext:1.258}},colors:["#ffffff","#ffd400","#1e90ff","#ff3b30","#2ecc40","#ff8c00","#ff69b4","#8a2be2","#00ced1","#adff2f","#c0c0c0","#ff6347"]},
     icosa:{name:"icosahedron",faces:dodV,inr:1,circ:1.26,axes:{faces:{dirs:dodV,order:3,ext:1},corners:{dirs:dodF,order:5,ext:1.26}},colors:["#ff3b30","#ff8c00","#ffffff","#ffd400","#1e90ff","#2ecc40","#ff69b4","#8a2be2","#00ced1","#adff2f","#c0c0c0","#ff6347","#f0e68c","#20b2aa","#dda0dd","#ffb6c1","#7fffd4","#d2691e","#6495ed","#dc143c"]} }; })();
-function defCustom(ws){ const S=SOLIDS[ws.solid]; const rnd=mul(ws.seed||1);
+function defCustom(ws){ const S=SOLIDS[ws.solid]; const rnd=mul(ws.seed||1); const core= ws.jumble? V((rnd()-0.5)*0.55,(rnd()-0.5)*0.55,(rnd()-0.5)*0.55) : V(0,0,0);
   // per-axis layers on a cube (1x1x2, 3x3x2 …). "cubic pieces" stretches the cube so pieces stay cubes; otherwise the cube keeps its shape and pieces become slabs
   const cub= ws.solid==="cube"&&ws.cuboid; const dims= cub? [ws.cx||3,ws.cy||3,ws.cz||3] : null;
   let stretch=[ws.sx||1,ws.sy||1,ws.sz||1]; if(cub&&ws.cubic) stretch=dims.map(d=>d/Math.max(...dims));
@@ -109,12 +110,13 @@ function defCustom(ws){ const S=SOLIDS[ws.solid]; const rnd=mul(ws.seed||1);
     A.dirs.forEach(n=>{ if(seen.some(m=>Math.abs(m.dot(n))>0.999)) return; seen.push(n); let k=kcuts, ext=A.ext, deep=kdepth*ext; const cuts=[];
       if(cub&&kind==="faces"){ const ax=[Math.abs(n.x),Math.abs(n.y),Math.abs(n.z)].indexOf(1); const custom=(ws.cutPos||[])[ax]; if(custom&&custom.trim()){ custom.split(/[ ,]+/).map(Number).filter(x=>!isNaN(x)&&Math.abs(x)<1).forEach(x=>cuts.push(x)); } else { const N=dims[ax]; for(let i=1;i<N;i++) cuts.push(-1+2*i/N); } }
       else if(ws.center){ for(let i=0;i<k;i++){ const t= k===1? 0 : -deep+2*deep*i/(k-1); cuts.push(t); } } else { for(let i=1;i<=k;i++){ const t=ext-deep*i/k; cuts.push(t,-t); } }
-      let cs=cuts.map(c=>c+(ws.jumble? (rnd()-0.5)*ext*0.35 : 0)).filter((c,i,a)=>a.findIndex(x=>Math.abs(x-c)<0.02)===i).sort((a,b)=>a-b); axes.push({n:n.clone(),cuts:cs,step:2*Math.PI/A.order}); }); });
+      const shift=core.dot(n); let cs=cuts.map(c=>c+shift).filter((c,i,a)=>a.findIndex(x=>Math.abs(x-c)<0.02)===i).sort((a,b)=>a-b); axes.push({n:n.clone(),cuts:cs,step:2*Math.PI/A.order}); }); });
   // stretch: scale the whole solid by (sx,sy,sz). a plane n·p=d becomes n'·p=d' with n'=n/s (renormalised)
   const st=(pl)=>{ const m=V(pl.n.x/stretch[0],pl.n.y/stretch[1],pl.n.z/stretch[2]); const L=m.length(); return {n:m.multiplyScalar(1/L),d:pl.d/L}; };
   if(stretch.some(x=>Math.abs(x-1)>1e-6)){ faces.forEach(f=>{ const t=st(f); f.n=t.n; f.d=t.d; }); axes.forEach(a=>{ const t0=st({n:a.n,d:1}); a.cuts=a.cuts.map(c=>st({n:a.n,d:c}).d); a.n=t0.n; }); }
   let colors=S.colors.slice(); if(ws.colorMode==="mono") colors=faces.map(()=>ws.color||"#c0c4cc"); else if(ws.colorMode==="randomfaces") colors=faces.map(()=>"hsl("+Math.floor(rnd()*360)+",85%,55%)"); else if(ws.colorMode==="twotone") colors=faces.map((f,i)=>i%2?"#141414":"#ffffff");
-  return {faces,axes,colors,name:ws.name||("custom "+S.name),mono:ws.colorMode==="mono",reach:S.circ*1.05*Math.max(...stretch),inset:ws.sticker===undefined?0.08:ws.sticker,confetti:ws.colorMode==="confetti",seed:ws.seed}; }
+  const coreS=V(core.x*stretch[0],core.y*stretch[1],core.z*stretch[2]);
+  return {faces,axes,core:coreS,colors,name:ws.name||("custom "+S.name),mono:ws.colorMode==="mono",reach:S.circ*1.05*Math.max(...stretch),inset:ws.sticker===undefined?0.08:ws.sticker,confetti:ws.colorMode==="confetti",seed:ws.seed}; }
 function mul(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 let WS={solid:"cube",faces:false,corners:true,edges:false,cutsF:1,depthF:0.5,cutsC:1,depthC:0.5,cutsE:1,depthE:0.5,center:true,jumble:false,colorMode:"normal",sticker:0.08,cuboid:false,cubic:false,cx:1,cy:1,cz:2,sx:1,sy:1,sz:1,cutPos:["","",""],name:"skewb",seed:7};
 // ================= GEOMETRY ENGINE: slice the solid into convex pieces =================
@@ -158,7 +160,7 @@ function fit(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); c
 const _q=new THREE.Quaternion(), _p=new THREE.Vector3(), _v=new THREE.Vector3();
 function worldData(m){ m.getWorldQuaternion(_q); m.getWorldPosition(_p); const c=m.userData.col; return {v:c.verts.map(x=>x.clone().applyQuaternion(_q).add(_p)), n:c.normals.map(x=>x.clone().applyQuaternion(_q)), p:_p.clone(), r:c.r}; }
 function overlap(A,B){ if(A.p.distanceTo(B.p)>A.r+B.r) return false; const EPS=0.03; for(const ax of A.n.concat(B.n)){ let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9; for(const v of A.v){ const d=v.dot(ax); if(d<a0)a0=d; if(d>a1)a1=d; } for(const v of B.v){ const d=v.dot(ax); if(d<b0)b0=d; if(d>b1)b1=d; } if(Math.min(a1-b0,b1-a0)<EPS) return false; } return true; }
-function prepCollision(){ if(!turn) return; pivot.quaternion.identity(); pivot.updateMatrixWorld(true); const set=new Set(turn.pieces); turn.statics=PIECES.filter(p=>!set.has(p)).map(worldData); turn.movers=turn.pieces.map(worldData); turn.axisW=turn.axis.n.clone().applyQuaternion(world.quaternion); turn.center=new THREE.Vector3(); world.getWorldPosition(turn.center); }
+function prepCollision(){ if(!turn) return; pivot.quaternion.identity(); pivot.updateMatrixWorld(true); const set=new Set(turn.pieces); turn.statics=PIECES.filter(p=>!set.has(p)).map(worldData); turn.movers=turn.pieces.map(worldData); turn.axisW=turn.axis.n.clone().applyQuaternion(world.quaternion); turn.center=world.localToWorld((DEF.core||V(0,0,0)).clone()); }
 function layerCollides(angle){ if(!turn||$("clip").checked) return false; if(!turn.statics) prepCollision(); const q=new THREE.Quaternion().setFromAxisAngle(turn.axisW,angle); const c=turn.center;
   for(const A0 of turn.movers){ const A={v:A0.v.map(v=>v.clone().sub(c).applyQuaternion(q).add(c)), n:A0.n.map(n=>n.clone().applyQuaternion(q)), p:A0.p.clone().sub(c).applyQuaternion(q).add(c), r:A0.r}; for(const B of turn.statics){ if(overlap(A,B)) return true; } } return false; }
 function clampFree(angle){ if(!turn||$("clip").checked||Math.abs(angle)<1e-4) return angle; if(!layerCollides(angle)) return angle; let lo=0, hi=angle; for(let i=0;i<7;i++){ const mid=(lo+hi)/2; if(layerCollides(mid)) hi=mid; else lo=mid; } return lo; }
@@ -166,9 +168,9 @@ function clampFree(angle){ if(!turn||$("clip").checked||Math.abs(angle)<1e-4) re
 // turn state lives in `turn` (declared with the scene)
 function layerPieces(axis,idx){ return PIECES.filter(p=>{ const t=axis.n.dot(p.position); let i=0; axis.cuts.forEach(c=>{ if(t>c+1e-4) i++; }); return i===idx; }); }
 function layerIndex(axis,p){ const t=axis.n.dot(p.position); let i=0; axis.cuts.forEach(c=>{ if(t>c+1e-4) i++; }); return i; }
-function startTurn(axis,idx){ turn={axis,idx,pieces:layerPieces(axis,idx),angle:0}; pivot.rotation.set(0,0,0); pivot.quaternion.identity();
+function startTurn(axis,idx){ turn={axis,idx,pieces:layerPieces(axis,idx),angle:0}; pivot.rotation.set(0,0,0); pivot.quaternion.identity(); pivot.position.copy(DEF.core||V(0,0,0));
   turn.pieces.forEach(p=>pivot.attach(p)); }
-function setTurn(a){ if(!turn) return; if(!$("clip").checked&&!turn.free){ const now=performance.now(); if(!turn._t||now-turn._t>40||Math.abs(a)<Math.abs(turn.angle)){ turn._t=now; a=clampFree(a); turn._free=a; } else a=Math.abs(a)<=Math.abs(turn._free||0)? a : turn._free; } turn.angle=a; pivot.quaternion.setFromAxisAngle(turn.axis.n,a); }
+function setTurn(a){ if(!turn) return; if(!$("clip").checked&&!turn.free) a=clampFree(a); turn.angle=a; pivot.quaternion.setFromAxisAngle(turn.axis.n,a); }
 let MORPHS=[];   // layers currently parked between full turns: {axis, idx, rem}
 function noteMorph(axis,idx,a){ const full=axis.step; const e=MORPHS.find(m=>m.axis===axis&&m.idx===idx); let rem=((e?e.rem:0)+a)%full; if(rem>full/2) rem-=full; if(rem<-full/2) rem+=full; if(e) MORPHS.splice(MORPHS.indexOf(e),1); if(Math.abs(rem)>1e-3) MORPHS.push({axis,idx,rem}); }
 function endTurn(snap){ if(!turn) return; let a=turn.angle; const step= $("freeAngle").checked? null : ($("morph").checked? turn.axis.step/2 : turn.axis.step); if(step&&snap){ a=Math.round(a/step)*step; if(!$("clip").checked){ while(Math.abs(a)>1e-6&&layerCollides(a)) a-=Math.sign(a)*step; if(Math.abs(a)>1e-6&&clampFree(a)!==a) a=0; } }
@@ -195,10 +197,12 @@ cv.addEventListener("pointerdown",e=>{ if(turn) return; const h=pick(e); if(!h){
 addEventListener("pointermove",e=>{ if(!drag) return;
   if(drag.mode==="orbit"){ world.rotation.y+=(e.clientX-drag.x)*0.008; world.rotation.x+=(e.clientY-drag.y)*0.008; drag.x=e.clientX; drag.y=e.clientY; return; }
   const dv=new THREE.Vector2(e.clientX-drag.x,e.clientY-drag.y);
-  if(drag.mode==="pending"){ if(dv.length()<8) return;
-    // which axis are you pulling along? for each axis not pointing through the grabbed face, see which way the grab point would move on screen
-    let best=null; DEF.axes.forEach(a=>{ if(Math.abs(a.n.dot(drag.nLocal))>0.9) return; const tanLocal=a.n.clone().cross(drag.pLocal); if(tanLocal.length()<1e-4) return; const pW=drag.pLocal.clone().applyQuaternion(world.quaternion), tW=tanLocal.clone().normalize().multiplyScalar(0.1).applyQuaternion(world.quaternion); const ts=toScreen(pW.clone().add(tW)).sub(toScreen(pW)); const len=ts.length(); if(len<1e-3) return; const score=Math.abs(ts.dot(dv))/len; if(!best||score>best.score) best={score,axis:a,tsUnit:ts.clone().divideScalar(len),pxPerRad:len/0.1}; });
-    if(!best) return; drag.mode="turn"; drag.axis=best.axis; drag.tsUnit=best.tsUnit; drag.pxPerRad=best.pxPerRad; startTurn(best.axis,layerIndex(best.axis,drag.piece));
+  if(drag.mode==="pending"){ if(dv.length()<14) return;
+    // which axis are you pulling along? for each axis, see which way the grab point would move on screen and compare with your drag.
+    // axes lying flat in the grabbed face are preferred; we only commit once one axis clearly beats the runner-up
+    const cands=[]; DEF.axes.forEach(a=>{ const tilt=Math.abs(a.n.dot(drag.nLocal)); if(tilt>0.9) return; const tanLocal=a.n.clone().cross(drag.pLocal.clone().sub(DEF.core||V(0,0,0))); if(tanLocal.length()<1e-4) return; const pW=drag.pLocal.clone().applyQuaternion(world.quaternion), tW=tanLocal.clone().normalize().multiplyScalar(0.1).applyQuaternion(world.quaternion); const ts=toScreen(pW.clone().add(tW)).sub(toScreen(pW)); const len=ts.length(); if(len<1e-3) return; const align=Math.abs(ts.dot(dv))/(len*dv.length()); cands.push({score:align*(1-0.35*tilt),align,axis:a,tsUnit:ts.clone().divideScalar(len),pxPerRad:len/0.1}); });
+    if(!cands.length) return; cands.sort((a,b)=>b.score-a.score); const best=cands[0], second=cands[1]; if(best.align<0.6 || (second && best.score-second.score<0.12 && dv.length()<40)) return;   // not sure yet — keep watching the drag
+    drag.mode="turn"; drag.axis=best.axis; drag.tsUnit=best.tsUnit; drag.pxPerRad=best.pxPerRad; startTurn(best.axis,layerIndex(best.axis,drag.piece));
     // blocked right away by a morphed layer? snap those layers straight first, then let the person try again
     if(!$("clip").checked&&$("autoalign").checked&&MORPHS.length&&layerCollides(0.05)){ const others=MORPHS.filter(m=>m.axis!==best.axis); if(others.length){ endTurn(false); drag=null; realign(others); return; } } }
 async function realign(list){ $("hint").textContent="aligning morphed layers…"; for(const m of list){ await animateTurn(m.axis,m.idx,-m.rem,260); MORPHS=MORPHS.filter(x=>x!==m); history.pop(); } $("hint").textContent=DEF.name+" · aligned — now turn"; }
