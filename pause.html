@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Game of Pausing · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#141414;color:#fff;font-family:"Trebuchet MS",system-ui,sans-serif;overflow:hidden;height:100vh;}
+  canvas{display:block;width:100%;height:100%;position:fixed;inset:0;}
+  #static{z-index:5;display:none;}
+  #ui{position:fixed;left:12px;top:12px;z-index:3;font-weight:900;font-size:18px;text-shadow:2px 2px 0 #000;}
+  #menu{position:fixed;inset:0;z-index:10;background:#141414;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px;}
+  #menu h1{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-size:clamp(34px,7vw,72px);color:#f5b829;text-shadow:5px 5px 0 #000;transform:rotate(-2deg);}
+  #menu p{max-width:560px;line-height:1.6;margin:14px 0;color:#ccc;font-size:15px;}
+  .modes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:640px;margin:8px 0 16px;}
+  .modes button,#play,.opt{border:3px solid #fff;border-radius:12px;background:#222;color:#fff;font-family:inherit;font-weight:900;font-size:14px;padding:9px 14px;cursor:pointer;}
+  .modes button.on{background:#f5b829;color:#141414;box-shadow:3px 3px 0 #fff;}
+  #play{background:#4aa9d8;color:#141414;font-size:22px;padding:14px 40px;box-shadow:4px 4px 0 #fff;margin-top:6px;}
+  .opt.on{background:#ff6b5e;color:#141414;}
+  #hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:6;font-size:12px;color:#fff8;display:none;}
+  a.back{position:fixed;left:12px;bottom:10px;color:#888;font-size:12px;text-decoration:none;z-index:11;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<canvas id="static"></canvas>
+<div id="ui"></div>
+<div id="hint">click to resume</div>
+<a class="back" href="index.html">← kai.fun</a>
+<div id="menu">
+  <h1>The Game of Pausing</h1>
+  <p>a normal little arcade game — except <b>it refuses to be paused</b>. press Escape, hit Print Screen, tab away, open the snipping tool, even let your mouse leave the window… and every pixel turns to static. nothing to see. nothing to screenshot. the game only exists while you're playing it.</p>
+  <p style="color:#f5b829">somewhere in the game a secret code scrolls by. you can only read it live.</p>
+  <div><b>static style</b></div>
+  <div class="modes" id="modes"></div>
+  <div><b>paranoia</b></div>
+  <div class="modes"><button class="opt" data-p="chill">chill — Escape / Print Screen / tabbing away</button><button class="opt on" data-p="normal">normal — + mouse leaves the window</button><button class="opt" data-p="paranoid">paranoid — + any click outside the game, resizing, right-click</button></div>
+  <button id="play">▶ PLAY</button>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const gc=$("game"), g=gc.getContext("2d"), sc=$("static"), s=sc.getContext("2d");
+function fit(){ gc.width=innerWidth; gc.height=innerHeight; sc.width=Math.ceil(innerWidth/3); sc.height=Math.ceil(innerHeight/3); } fit();
+// ================= STATIC STYLES =================
+const MODES={
+  classic:{n:"📺 classic",d:"black & white snow",draw:(d,w,h,t)=>{ for(let i=0;i<d.length;i+=4){ const v=Math.random()*255|0; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; } }},
+  colored:{n:"🌈 colored",d:"every pixel a random colour",draw:(d)=>{ for(let i=0;i<d.length;i+=4){ d[i]=Math.random()*255; d[i+1]=Math.random()*255; d[i+2]=Math.random()*255; d[i+3]=255; } }},
+  rainbow:{n:"🎨 rainbow bars",d:"drifting hue bands + snow",draw:(d,w,h,t)=>{ for(let y=0;y<h;y++){ const hue=(y*3+t*120)%360; const [r,gg,b]=hsl(hue,90,55); for(let x=0;x<w;x++){ const i=(y*w+x)*4; const n=Math.random()*90; d[i]=r*0.7+n; d[i+1]=gg*0.7+n; d[i+2]=b*0.7+n; d[i+3]=255; } } }},
+  green:{n:"💚 terminal",d:"green phosphor static",draw:(d)=>{ for(let i=0;i<d.length;i+=4){ const v=Math.random()*255|0; d[i]=v*0.1; d[i+1]=v; d[i+2]=v*0.2; d[i+3]=255; } }},
+  vhs:{n:"📼 VHS",d:"rolling bands, tracking errors",draw:(d,w,h,t)=>{ const roll=(t*60)%h; for(let y=0;y<h;y++){ const band=((y+roll)%h)<12? 40:0; const tear= Math.random()<0.02? (Math.random()*30|0):0; for(let x=0;x<w;x++){ const i=(y*w+((x+tear)%w))*4; const v=Math.random()*200+band; d[i]=v*0.9; d[i+1]=v; d[i+2]=v*1.1; d[i+3]=255; } } }},
+  blue:{n:"🟦 no signal",d:"the blue screen with snow",draw:(d)=>{ for(let i=0;i<d.length;i+=4){ const v=Math.random()*70; d[i]=v*0.3; d[i+1]=v*0.4; d[i+2]=150+v; d[i+3]=255; } }},
+  fire:{n:"🔥 ember",d:"hot orange static",draw:(d,w,h)=>{ for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const i=(y*w+x)*4; const v=Math.random()*255; const k=1-y/h; d[i]=v; d[i+1]=v*0.4*k; d[i+2]=v*0.05; d[i+3]=255; } }},
+  smile:{n:"🙂 smileys",d:"static made of tiny faces",draw:null},
+  glitch:{n:"👾 glitch",d:"blocky corrupted tiles",draw:(d,w,h,t)=>{ const B=8; for(let y=0;y<h;y+=B){ for(let x=0;x<w;x+=B){ const r=Math.random()*255,gg=Math.random()*255,b=Math.random()*255; for(let yy=y;yy<Math.min(h,y+B);yy++) for(let xx=x;xx<Math.min(w,x+B);xx++){ const i=(yy*w+xx)*4; d[i]=r; d[i+1]=gg; d[i+2]=b; d[i+3]=255; } } } }},
+};
+function hsl(h,sat,l){ sat/=100; l/=100; const k=n=>(n+h/30)%12, a=sat*Math.min(l,1-l), f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1))); return [f(0)*255,f(8)*255,f(4)*255]; }
+let mode="classic", paranoia="normal";
+Object.entries(MODES).forEach(([k,m])=>{ const b=document.createElement("button"); b.textContent=m.n; b.title=m.d; if(k===mode) b.classList.add("on"); b.onclick=()=>{ mode=k; document.querySelectorAll("#modes button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); }; $("modes").appendChild(b); });
+document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{ paranoia=b.dataset.p; document.querySelectorAll(".opt").forEach(x=>x.classList.remove("on")); b.classList.add("on"); });
+// ================= THE STATIC (covers everything, instantly) =================
+let hidden=false, hideCount=0, hideReason="";
+function drawStatic(t){ const w=sc.width,h=sc.height; const m=MODES[mode];
+  if(m.draw){ const img=s.createImageData(w,h); m.draw(img.data,w,h,t); s.putImageData(img,0,0); }
+  else { s.fillStyle="#000"; s.fillRect(0,0,w,h); s.font="7px serif"; for(let i=0;i<w*h/22;i++){ s.fillStyle=["#fff","#f5b829","#ff6b5e","#4aa9d8","#6fb85c"][Math.random()*5|0]; s.fillText(["☺","☻","☹","☺"][Math.random()*4|0],Math.random()*w,Math.random()*h); } } }
+function hide(reason){ if(hidden) return; hidden=true; hideCount++; hideReason=reason; sc.style.display="block"; setTimeout(()=>{ if(hidden) $("hint").style.display="block"; },1200); }
+function show(){ if(!hidden) return; hidden=false; sc.style.display="none"; $("hint").style.display="none"; last=performance.now(); }
+// ---- everything that counts as "trying to look" ----
+addEventListener("keydown",e=>{ if(!playing) return; if(e.code==="Escape"||e.code==="PrintScreen"||e.key==="PrintScreen"||e.code==="F12"||(e.ctrlKey&&["KeyP","KeyS","KeyU"].includes(e.code))||(e.metaKey&&e.shiftKey)||e.code==="MetaLeft"||e.code==="MetaRight"){ e.preventDefault(); hide(e.code); } });
+addEventListener("keyup",e=>{ if(playing&&(e.code==="PrintScreen"||e.key==="PrintScreen")) hide("PrintScreen"); });   // some keyboards only report it on keyup
+addEventListener("blur",()=>{ if(playing) hide("blur"); });
+document.addEventListener("visibilitychange",()=>{ if(playing&&document.hidden) hide("tab"); });
+document.addEventListener("mouseleave",()=>{ if(playing&&paranoia!=="chill") hide("mouse left"); });
+addEventListener("resize",()=>{ fit(); if(playing&&paranoia==="paranoid") hide("resize"); });
+addEventListener("contextmenu",e=>{ e.preventDefault(); if(playing&&paranoia==="paranoid") hide("right click"); });
+addEventListener("pointerdown",e=>{ if(hidden){ show(); } });
+addEventListener("keydown",e=>{ if(hidden&&!["Escape","PrintScreen","MetaLeft","MetaRight"].includes(e.code)&&!e.ctrlKey) show(); });
+// ================= THE GAME UNDERNEATH (a dodge-and-collect game) =================
+let playing=false, last=performance.now(), score=0, lives=3, t=0;
+const P={x:0,y:0,r:16}; const blocks=[], coins=[]; let secret=makeSecret(), secretX=0, secretY=0, secretSpeed=0, secretTimer=6;
+function makeSecret(){ const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c="KAI-"; for(let i=0;i<6;i++) c+=a[Math.random()*a.length|0]; return c; }
+const keys={}; addEventListener("keydown",e=>keys[e.code]=true); addEventListener("keyup",e=>keys[e.code]=false);
+let mouse=null; addEventListener("pointermove",e=>{ mouse={x:e.clientX,y:e.clientY}; });
+function reset(){ P.x=gc.width/2; P.y=gc.height*0.75; blocks.length=0; coins.length=0; score=0; lives=3; t=0; }
+function update(dt){ t+=dt;
+  const sp=420; if(keys.ArrowLeft||keys.KeyA) P.x-=sp*dt; if(keys.ArrowRight||keys.KeyD) P.x+=sp*dt; if(keys.ArrowUp||keys.KeyW) P.y-=sp*dt; if(keys.ArrowDown||keys.KeyS) P.y+=sp*dt;
+  if(mouse&&!(keys.ArrowLeft||keys.ArrowRight||keys.KeyA||keys.KeyD||keys.ArrowUp||keys.ArrowDown||keys.KeyW||keys.KeyS)){ P.x+=(mouse.x-P.x)*Math.min(1,dt*10); P.y+=(mouse.y-P.y)*Math.min(1,dt*10); }
+  P.x=Math.max(P.r,Math.min(gc.width-P.r,P.x)); P.y=Math.max(P.r,Math.min(gc.height-P.r,P.y));
+  if(Math.random()<dt*(1.2+t*0.05)) blocks.push({x:Math.random()*gc.width,y:-30,w:30+Math.random()*50,h:20+Math.random()*30,v:150+Math.random()*150+t*4});
+  if(Math.random()<dt*0.9) coins.push({x:Math.random()*gc.width,y:-20,v:120+Math.random()*80});
+  blocks.forEach(b=>b.y+=b.v*dt); coins.forEach(c=>c.y+=c.v*dt);
+  for(let i=blocks.length-1;i>=0;i--){ const b=blocks[i]; if(b.y>gc.height+40){ blocks.splice(i,1); continue; } if(Math.abs(P.x-b.x)<b.w/2+P.r*0.8&&Math.abs(P.y-b.y)<b.h/2+P.r*0.8){ blocks.splice(i,1); lives--; flash=0.25; if(lives<=0){ over(); return; } } }
+  for(let i=coins.length-1;i>=0;i--){ const c=coins[i]; if(c.y>gc.height+20){ coins.splice(i,1); continue; } if(Math.hypot(P.x-c.x,P.y-c.y)<P.r+12){ coins.splice(i,1); score+=10; } }
+  // the secret code: scrolls across every so often, fast enough that you need to actually be watching
+  secretTimer-=dt; if(secretTimer<=0&&secretSpeed===0){ secretSpeed=260+Math.random()*120; secretX=-400; secretY=60+Math.random()*(gc.height-160); } if(secretSpeed){ secretX+=secretSpeed*dt; if(secretX>gc.width+50){ secretSpeed=0; secretTimer=8+Math.random()*8; secret=makeSecret(); } }
+  score+=dt*2; flash=Math.max(0,flash-dt);
+}
+let flash=0;
+function draw(){ const w=gc.width,h=gc.height; const grd=g.createLinearGradient(0,0,0,h); grd.addColorStop(0,"#1c2a4a"); grd.addColorStop(1,"#0b1020"); g.fillStyle=grd; g.fillRect(0,0,w,h);
+  g.fillStyle="#fff2"; for(let i=0;i<40;i++){ g.fillRect((i*137+t*20)%w,(i*91)%h,2,2); }
+  if(secretSpeed){ g.font="bold 28px monospace"; g.fillStyle="#f5b829"; g.fillText("secret code: "+secret,secretX,secretY); }
+  coins.forEach(c=>{ g.beginPath(); g.arc(c.x,c.y,10,0,7); g.fillStyle="#ffd400"; g.fill(); g.strokeStyle="#141414"; g.lineWidth=2; g.stroke(); });
+  blocks.forEach(b=>{ g.fillStyle="#ff6b5e"; g.fillRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h); g.strokeStyle="#141414"; g.lineWidth=2; g.strokeRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h); });
+  g.beginPath(); g.arc(P.x,P.y,P.r,0,7); g.fillStyle="#4aa9d8"; g.fill(); g.strokeStyle="#141414"; g.lineWidth=3; g.stroke(); g.fillStyle="#141414"; g.beginPath(); g.arc(P.x-5,P.y-4,2.5,0,7); g.arc(P.x+5,P.y-4,2.5,0,7); g.fill(); g.beginPath(); g.arc(P.x,P.y+2,7,0.2,Math.PI-0.2); g.lineWidth=2; g.stroke();
+  if(flash>0){ g.fillStyle="rgba(255,80,80,"+flash+")"; g.fillRect(0,0,w,h); }
+  $("ui").innerHTML="score "+Math.floor(score)+" · ❤️ "+lives+" · 📸 attempts to look: "+hideCount+" (all static)"; }
+function over(){ playing=false; $("menu").style.display="flex"; $("menu").querySelector("h1").textContent="game over"; $("menu").querySelector("p").innerHTML="score <b>"+Math.floor(score)+"</b> · you tried to look <b>"+hideCount+"</b> times and saw static every time.<br>did you catch a secret code? (of course you didn't. they only exist live.)"; }
+$("play").onclick=()=>{ $("menu").style.display="none"; playing=true; reset(); last=performance.now(); };
+(function loop(now){ requestAnimationFrame(loop); const dt=Math.min(0.05,(now-last)/1000); last=now; if(playing&&!hidden) update(dt); if(playing) draw(); if(hidden) drawStatic(now/1000); })(performance.now());
+</script>
+</body>
+</html>
