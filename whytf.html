@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>yo why tf would you play this twin · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;} body{background:#fff;color:#141414;font-family:"Trebuchet MS",system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  #time{font-size:clamp(90px,24vw,300px);font-weight:900;letter-spacing:-6px;font-variant-numeric:tabular-nums;line-height:1;}
+  #title{font-size:clamp(18px,3vw,34px);font-weight:900;margin-top:10px;min-height:1.3em;}
+  #note{font-size:14px;color:#888;margin-top:16px;min-height:1.3em;}
+  #cam{position:fixed;right:14px;bottom:14px;width:160px;height:120px;border-radius:10px;object-fit:cover;transform:scaleX(-1);background:#eee;border:3px solid #ddd;} #cam.ok{border-color:#4dcc6a;} #cam.bad{border-color:#ff3b30;}
+  #best{position:fixed;left:14px;top:12px;font-size:13px;color:#999;} a.back{position:fixed;left:14px;bottom:12px;color:#bbb;font-size:12px;text-decoration:none;}
+  button{border:2px solid #141414;border-radius:10px;background:#fff;font-family:inherit;font-weight:900;font-size:16px;padding:10px 22px;cursor:pointer;margin-top:14px;}
+</style>
+</head>
+<body>
+<div id="best"></div><a class="back" href="index.html">← kai.fun</a>
+<video id="cam" autoplay playsinline muted></video>
+<div id="time">0.0</div>
+<div id="title">yo why tf would you play this twin</div>
+<div id="note">allow the camera, look straight at the screen, don't touch anything. blinking is fine. closing your eyes is not.</div>
+<button id="go">turn on camera</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+const $=id=>document.getElementById(id);
+const TITLES=[[0,"yo why tf would you play this twin"],[5,"Noob Time Waster"],[15,"Casual Starer"],[30,"Committed"],[60,"Professional Screen Looker"],[120,"Certified Wall-Eyed Legend"],[180,"Your Eyes Are Dry And You Know It"],[300,"Five Minutes. Twin."],[600,"Ten Minutes Of Your One Life"],[900,"Jesus Christ dude are you okay?"]];
+let best=+localStorage.getItem("whytf_best")||0; const showBest=()=>$("best").textContent= best? "longest: "+best.toFixed(1)+"s · "+titleFor(best) : "";
+function titleFor(t){ let s=TITLES[0][1]; TITLES.forEach(([n,name])=>{ if(t>=n) s=name; }); return s; } showBest();
+let running=false, ready=false, t0=0, lastFace=0, lastStraight=0, armed=false, detector=null; const video=$("cam");
+async function setup(){ try{ const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:"user"},audio:false}); video.srcObject=stream; await video.play(); }catch(e){ $("note").textContent="no camera, no game."; return false; }
+  try{ detector=new FaceMesh({locateFile:f=>"https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/"+f}); detector.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.6,minTrackingConfidence:0.6}); detector.onResults(onFace); await detector.initialize(); }catch(e){ $("note").textContent="face tracking couldn't load (needs internet)."; return false; }
+  return true; }
+let earBase=0, lastOpen=0, lastGaze=0, why="";
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function ear(L,i){ return (dist(L[i[1]],L[i[5]])+dist(L[i[2]],L[i[4]]))/(2*dist(L[i[0]],L[i[3]])); }   // eye aspect ratio: tall eye = open, flat eye = closed
+function onFace(res){ const now=performance.now(); const L=res.multiFaceLandmarks&&res.multiFaceLandmarks[0]; if(!L){ video.className="bad"; return; }
+  lastFace=now;
+  // head: nose between the eye corners = facing the screen; face roughly centred in the frame
+  const rC=L[33], lC=L[263], nose=L[1]; const eyeMid=(rC.x+lC.x)/2, eyeGap=Math.abs(rC.x-lC.x)||1e-3; const turn=(nose.x-eyeMid)/eyeGap; const tilt=Math.abs((rC.y-lC.y)/eyeGap); const centered=Math.abs(nose.x-0.5)<0.3&&Math.abs(nose.y-0.5)<0.3;
+  const straight=Math.abs(turn)<0.25&&tilt<0.3&&centered; if(straight) lastStraight=now;
+  // eyes: open? compare to your own open-eye baseline (blinks are short; a shut eye lasts)
+  const e=(ear(L,[33,160,158,133,153,144])+ear(L,[362,385,387,263,373,380]))/2; if(e>earBase) earBase=e; else earBase=Math.max(earBase*0.9995,e);   // baseline drifts slowly toward your typical open eye
+  const open= earBase>0 && e>earBase*0.55; if(open) lastOpen=now;
+  // gaze: where is the iris inside the eye? (468 = right iris centre, 473 = left iris centre)
+  let gazeOk=true; if(L[468]&&L[473]){ const g=(ir,inner,outer,top,bot)=>({h:(ir.x-inner.x)/((outer.x-inner.x)||1e-3), v:(ir.y-top.y)/((bot.y-top.y)||1e-3)}); const gr=g(L[468],L[133],L[33],L[159],L[145]), gl=g(L[473],L[362],L[263],L[386],L[374]); const h=(gr.h+gl.h)/2, v=(gr.v+gl.v)/2; gazeOk= open? (Math.abs(h-0.5)<0.2&&Math.abs(v-0.5)<0.3) : true; }
+  if(gazeOk) lastGaze=now;
+  const good=straight&&open&&gazeOk; video.className= good? "ok":"bad";
+  if(!running&&good&&earBase>0) begin(); }
+function begin(){ running=true; t0=performance.now(); lastStraight=t0; lastOpen=t0; lastGaze=t0; armed=false; setTimeout(()=>armed=true,800); $("note").textContent=""; }
+function reset(why){ if(!running) return; running=false; armed=false; const t=(performance.now()-t0)/1000; if(t>best){ best=t; localStorage.setItem("whytf_best",best); showBest(); } $("time").textContent="0.0"; $("title").textContent=titleFor(0); $("note").textContent=why+"  ·  look at the camera to start again."; }
+async function loop(){ requestAnimationFrame(loop); if(!ready) return; try{ await detector.send({image:video}); }catch(e){} if(!running) return; const now=performance.now(); const t=(now-t0)/1000; $("time").textContent=t.toFixed(1); $("title").textContent=titleFor(t);
+  if(now-lastFace>800) reset("you looked away."); else if(now-lastStraight>900) reset("you turned your head."); else if(now-lastOpen>1000) reset("you closed your eyes."); else if(now-lastGaze>700) reset("you looked somewhere else."); }
+$("go").onclick=async()=>{ $("go").textContent="loading the eyes…"; const ok=await setup(); if(!ok){ $("go").textContent="turn on camera"; return; } $("go").remove(); ready=true; $("note").textContent="look at the camera."; loop(); };
+addEventListener("mousemove",e=>{ if(running&&armed&&(Math.abs(e.movementX)+Math.abs(e.movementY))>2) reset("you moved the mouse."); });
+addEventListener("blur",()=>reset("you clicked away.")); document.addEventListener("visibilitychange",()=>{ if(document.hidden) reset("you opened another tab."); }); document.addEventListener("mouseleave",()=>reset("the mouse left."));
+addEventListener("keydown",e=>{ if(running) reset("you pressed a key."); });
+</script>
+</body>
+</html>
