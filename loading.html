@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Longest Loading Bar · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;} body{background:#f4f4f0;color:#141414;font-family:"Trebuchet MS",system-ui,sans-serif;min-height:100vh;padding:24px 16px 60px;}
+  .wrap{max-width:820px;margin:0 auto;}
+  h1{font-size:clamp(26px,5vw,44px);font-weight:900;} .sub{color:#666;margin-top:4px;}
+  #barwrap{margin:26px 0 8px;background:#fff;border:3px solid #141414;border-radius:14px;height:46px;position:relative;overflow:hidden;box-shadow:5px 5px 0 #141414;}
+  #bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4aa9d8,#6fb85c);width:0;min-width:2px;transition:width .5s linear;}
+  #pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:900;font-size:20px;font-variant-numeric:tabular-nums;mix-blend-mode:difference;color:#fff;} #load{letter-spacing:2px;}
+  #stats{display:flex;flex-wrap:wrap;gap:8px 22px;color:#444;font-size:14px;margin-bottom:22px;} #stats b{color:#141414;}
+  h2{font-size:15px;letter-spacing:1px;text-transform:uppercase;color:#888;margin:22px 0 8px;}
+  #cal{display:grid;grid-template-columns:repeat(20,1fr);gap:4px;} .c{aspect-ratio:1;border-radius:4px;background:#e4e4de;position:relative;cursor:default;} .c.done{background:#6fb85c;} .c.now{background:#4aa9d8;box-shadow:0 0 0 2px #141414;} .c.noted{background:#ffd84d;} .c.done.noted{background:#f0a500;} .c:hover::after{content:attr(data-t);position:absolute;left:50%;bottom:115%;transform:translateX(-50%);background:#141414;color:#fff;font-size:11px;padding:5px 8px;border-radius:6px;white-space:pre;z-index:3;pointer-events:none;}
+  #diary{display:flex;gap:8px;margin-top:8px;} #diary input{flex:1;border:2px solid #141414;border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;} button{border:2px solid #141414;border-radius:10px;background:#ffd84d;font:inherit;font-weight:900;font-size:14px;padding:10px 16px;cursor:pointer;box-shadow:3px 3px 0 #141414;} button.ghost{background:#fff;}
+  #log{margin-top:10px;font-size:13.5px;line-height:1.7;color:#333;} #log div b{color:#4aa9d8;}
+  #speed{margin-top:22px;} #spin{display:none;color:#888;font-size:13px;margin-top:8px;}
+  a.back{color:#888;text-decoration:none;font-size:13px;} .fine{color:#999;font-size:12px;margin-top:26px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← kai.fun</a>
+  <h1>The Longest Loading Bar</h1>
+  <div class="sub">it takes exactly one year. it started the first time you opened this page. it is loading right now.</div>
+  <div id="barwrap"><div id="bar"></div><div id="pct"><span id="load">LOAD</span><span id="dots" style="display:inline-block;width:1.4em;text-align:left"></span><span id="p">0.0000000%</span></div></div>
+  <div id="stats"></div>
+  <h2>the calendar — one square per percent</h2>
+  <div id="cal"></div>
+  <div class="fine">green = you were around when it passed that percent · yellow = you wrote something there · blue = it's here now. hover a square.</div>
+  <h2>what are you doing right now?</h2>
+  <div id="diary"><input id="note" maxlength="120" placeholder="e.g. eating cereal at 11pm, avoiding homework"><button id="save">pin it to this percent</button></div>
+  <div id="log"></div>
+  <div id="speed"><button class="ghost" id="faster">make it load faster</button><button class="ghost" id="reset">start over</button><div id="spin"></div></div>
+  <div class="fine">it does not load anything. it never has. the year is the point. come back whenever — it'll be a little further along, and it will remember you were here.</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const YEAR=365.25*24*3600*1000; const K="longbar";
+let S=JSON.parse(localStorage.getItem(K)||"null"); if(!S){ S={start:Date.now(),visits:{},notes:{},faster:0}; }
+function save(){ localStorage.setItem(K,JSON.stringify(S)); }
+const pctNow=()=>Math.min(100,(Date.now()-S.start)/YEAR*100);
+function fmtDur(ms){ const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000), m=Math.floor(ms%3600000/60000), s=Math.floor(ms%60000/1000); return (d?d+"d ":"")+h+"h "+m+"m "+s+"s"; }
+const MILESTONES={1:"one percent. a tenth of a school term.",5:"five. the bar has now outlasted most of your browser tabs.",10:"ten percent — five weeks. impressive commitment to nothing.",25:"a quarter. the seasons have changed.",50:"HALFWAY. it's been six months. it's been six months.",75:"three quarters. you could have learned an instrument.",90:"ninety. the end is a month away. do not get excited.",99:"ninety-nine. three and a half days. hold.",100:"done. it loaded. it was always going to."};
+function tick(){ const p=pctNow(); const now=new Date(); const cur=Math.floor(p); const first=!S.visits[cur];
+  if(first){ S.visits[cur]={t:Date.now(),d:now.toLocaleDateString(),h:now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}; save(); }
+  $("bar").style.width=p+"%"; $("p").textContent=p.toFixed(7)+"%"; document.title=p.toFixed(4)+"% · The Longest Loading Bar";
+  const eta=new Date(S.start+YEAR); const left=Math.max(0,S.start+YEAR-Date.now());
+  $("stats").innerHTML="started <b>"+new Date(S.start).toLocaleDateString()+"</b> · finishes <b>"+eta.toLocaleDateString()+"</b> · <b>"+fmtDur(left)+"</b> to go · you've been here for <b>"+Object.keys(S.visits).length+"</b> of the 100 percents"+(S.faster?" · you clicked \u201cfaster\u201d <b>"+S.faster+"</b> time"+(S.faster>1?"s":"")+", which did nothing":"");
+  if(p>=100&&!S.doneShown){ S.doneShown=true; save(); alert("it loaded. congratulations. there was nothing behind it."); } }
+function calendar(){ const cur=Math.floor(pctNow()); let h=""; for(let i=0;i<100;i++){ const v=S.visits[i], n=S.notes[i]; let cls="c"; if(v) cls+=" done"; if(i===cur) cls+=" now"; if(n) cls+=" noted"; let t=i+"%"; if(v) t+="\npassed "+v.d+" "+v.h; else if(i<cur) t+="\nyou weren't here for this one"; else if(i>cur){ const at=new Date(S.start+YEAR*i/100); t+="\narrives "+at.toLocaleDateString(); } if(n) t+="\n\u201c"+n.text+"\u201d"; if(MILESTONES[i]) t+="\n"+MILESTONES[i]; h+='<div class="'+cls+'" data-t="'+t.replace(/"/g,"&quot;")+'"></div>'; } $("cal").innerHTML=h;
+  const notes=Object.entries(S.notes).sort((a,b)=>b[1].t-a[1].t); $("log").innerHTML= notes.length? notes.map(([i,n])=>"<div><b>"+i+"%</b> · "+new Date(n.t).toLocaleString()+" — "+n.text.replace(/</g,"&lt;")+"</div>").join("") : "<div style='color:#999'>nothing pinned yet. the bar would like to know what you're up to.</div>"; }
+$("save").onclick=()=>{ const t=$("note").value.trim(); if(!t) return; const i=Math.floor(pctNow()); S.notes[i]={text:t,t:Date.now()}; save(); $("note").value=""; calendar(); };
+$("note").addEventListener("keydown",e=>{ if(e.key==="Enter") $("save").onclick(); });
+$("faster").onclick=()=>{ S.faster=(S.faster||0)+1; save(); const sp=$("spin"); sp.style.display="block"; const msgs=["optimizing…","defragmenting the calendar…","asking the bar nicely…","it said no.","consulting the year…","the year says no.","it's a year. it was always going to be a year."]; sp.textContent=msgs[Math.min(msgs.length-1,S.faster-1)]; tick(); };
+$("reset").onclick=()=>{ if(confirm("throw away "+pctNow().toFixed(4)+"% of a year and start the whole thing again?")){ S={start:Date.now(),visits:{},notes:{},faster:0}; save(); calendar(); tick(); } };
+tick(); calendar(); setInterval(tick,1000); setInterval(calendar,60000); let dk=0; setInterval(()=>{ dk=(dk+1)%4; $("dots").textContent=".".repeat(dk); },450);
+</script>
+</body>
+</html>
