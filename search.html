@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#f7f3ea;color:#141414;font-family:"Trebuchet MS",system-ui,sans-serif;padding:20px 16px 80px;}
+  h1{font-size:clamp(30px,6vw,54px);font-weight:900;} h1 span{color:#7a4fd0;}
+  .sub{color:#6b6350;margin:4px 0 16px;max-width:720px;line-height:1.5;}
+  form{display:flex;gap:8px;max-width:760px;} input{flex:1;border:4px solid #141414;border-radius:14px;padding:14px 16px;font-size:20px;font-family:inherit;font-weight:700;background:#fff;box-shadow:5px 5px 0 #141414;}
+  button{border:4px solid #141414;border-radius:14px;background:#ffd84d;font-family:inherit;font-weight:900;font-size:18px;padding:0 22px;cursor:pointer;box-shadow:5px 5px 0 #141414;} button:active{transform:translate(2px,2px);box-shadow:3px 3px 0 #141414;}
+  button.small{font-size:13px;padding:6px 12px;border-width:3px;box-shadow:3px 3px 0 #141414;border-radius:10px;}
+  #status{margin:16px 0;font-weight:700;color:#6b6350;min-height:22px;}
+  .counts{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 18px;} .pill{background:#fff;border:3px solid #141414;border-radius:999px;padding:6px 14px;font-weight:900;box-shadow:3px 3px 0 #141414;} .pill.w{background:#e6dcff;} .pill.a{background:#ffe3a8;}
+  #layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;max-width:1300px;} @media(max-width:900px){#layout{grid-template-columns:1fr;}}
+  .year{background:#fff;border:4px solid #141414;border-radius:14px;margin-bottom:12px;box-shadow:5px 5px 0 #141414;overflow:hidden;}
+  .yhead{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;font-weight:900;font-size:18px;background:#fff;} .yhead:hover{background:#faf6ee;}
+  .yhead .n{margin-left:auto;font-size:13px;color:#6b6350;} .yhead .bar{height:10px;background:#7a4fd0;border-radius:99px;max-width:200px;flex:1;}
+  .months{display:none;padding:6px 12px 14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;} .year.open .months{display:grid;}
+  .month b{display:block;font-size:12px;color:#6b6350;margin-bottom:4px;} .days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .day{aspect-ratio:1;border-radius:3px;background:#eee7d6;font-size:9px;display:flex;align-items:center;justify-content:center;color:#b3a98f;} .day.hit{background:#7a4fd0;color:#fff;cursor:pointer;font-weight:900;} .day.hit:hover{background:#ff5f4d;} .day.a{background:#e69a12;} .day.both{background:linear-gradient(135deg,#7a4fd0 50%,#e69a12 50%);}
+  .day.sel{outline:3px solid #141414;}
+  #detail{background:#fff;border:4px solid #141414;border-radius:14px;box-shadow:5px 5px 0 #141414;padding:14px;position:sticky;top:12px;max-height:88vh;overflow:auto;}
+  #detail h3{font-size:18px;margin-bottom:8px;} .doc{border-top:2px dashed #d8d0bc;padding:10px 0;} .doc .t{font-weight:900;} .doc .m{font-size:12px;color:#6b6350;margin:2px 0 6px;} .doc .s{font-size:13px;line-height:1.4;color:#333;} .doc .s mark{background:#ffd84d;} .doc a{display:inline-block;margin-top:6px;font-weight:900;color:#7a4fd0;}
+  .src{display:inline-block;font-size:10px;border-radius:999px;padding:1px 8px;font-weight:900;margin-right:6px;} .src.w{background:#e6dcff;} .src.a{background:#ffe3a8;}
+  .legend{font-size:12px;color:#6b6350;margin:6px 0 12px;} .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin:0 4px 0 10px;}
+  a.back{color:#6b6350;font-size:12px;text-decoration:none;position:fixed;left:12px;bottom:10px;}
+</style>
+</head>
+<body>
+<h1>Search<span>.</span></h1>
+<p class="sub">type a word. it loads <b>every</b> Wikipedia article whose text contains it and <b>every</b> Internet Archive record that says it, lays them on a calendar from the first day to the last, and every entry links straight to the document — scrolled to the exact text. scanned books get checked on the inside, too.</p>
+<form id="f"><input id="q" placeholder="a word…" autocomplete="off"><button>search</button><button type="button" class="small" id="stopbtn" style="display:none;background:#ff5f4d">show what's loaded ▶</button></form>
+<div id="status"></div>
+<div class="counts" id="counts"></div>
+<div id="layout"><div id="timeline"></div><div id="detail" style="display:none"></div></div>
+<a class="back" href="index.html">← kai.fun</a>
+<script>
+"use strict";
+const $=id=>document.getElementById(id); let HITS=[], WORD="", DAYS={}, sel=null;
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+// ─── links that scroll to the exact text: browsers support "#:~:text=" (Chrome, Edge, Safari 16+) ───
+const frag=w=>"#:~:text="+encodeURIComponent(w);
+function wikiLink(title){ return "https://en.wikipedia.org/wiki/"+encodeURIComponent(title.replace(/ /g,"_"))+frag(WORD); }
+function iaLink(id,mt){ return "https://archive.org/details/"+encodeURIComponent(id)+(mt==="texts"?"?q="+encodeURIComponent(WORD):"")+frag(WORD); }   // ?q= makes the book reader search inside the book
+// ─── date helpers ───
+function parseDate(s){ if(!s) return null; s=String(s).trim(); let m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if(m) return {y:+m[1],mo:+m[2],d:+m[3],t:m[4]?m[4]+":"+m[5]:null,prec:"day"};
+  m=s.match(/^(\d{4})-(\d{2})$/); if(m) return {y:+m[1],mo:+m[2],d:1,t:null,prec:"month"}; m=s.match(/^(\d{4})/); if(m&&+m[1]>1000&&+m[1]<2100) return {y:+m[1],mo:1,d:1,t:null,prec:"year"}; return null; }
+const key=dt=>dt.y+"-"+String(dt.mo).padStart(2,"0")+"-"+String(dt.d).padStart(2,"0");
+// ─── sources ───
+// every network request gets a deadline so a slow server can never freeze the page
+const INFLIGHT=new Set();
+async function get(url,ms){ const c=new AbortController(); INFLIGHT.add(c); const t=setTimeout(()=>c.abort(),ms||25000); try{ const r=await fetch(url,{signal:c.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return r; } finally{ clearTimeout(t); INFLIGHT.delete(c); } }
+let STOP=false;
+const WIKI_MAX=10000;          // Wikipedia's search API refuses offsets past 10,000 — the hard ceiling for any client
+const CREATED_MAX=1500;        // pages we fetch exact creation dates for (one request each); the rest use last-edit time
+async function wikipedia(word,onProgress){ const out=[]; let off=0, total=0;
+  while(off<WIKI_MAX&&!STOP){ let r; try{ r=await get("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent('"'+word+'"')+"&srlimit=500&sroffset="+off+"&srprop=snippet|timestamp|wordcount&srwhat=text&format=json&origin=*"); }catch(e){ break; } const j=await r.json(); total=j.query.searchinfo.totalhits;
+    j.query.search.forEach(p=>{ if(!/searchmatch/.test(p.snippet)) return;   // the word must actually be in the article text
+      out.push({src:"w",id:p.pageid,title:p.title,snippet:p.snippet,edited:p.timestamp,words:p.wordcount}); }); onProgress(out.length,total,"pages"); if(!j.continue) break; off=j.continue.sroffset; }
+  // when did each page first exist? creation date = its first revision. fetched 12 at a time.
+  const firstN=out.slice(0,CREATED_MAX); let done=0;
+  for(let i=0;i<firstN.length&&!STOP;i+=12){ await Promise.all(firstN.slice(i,i+12).map(async p=>{ try{ const r=await get("https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvlimit=1&rvdir=newer&rvprop=timestamp&pageids="+p.id+"&format=json&origin=*",12000); const j=await r.json(); const pg=Object.values(j.query.pages)[0]; p.created=pg.revisions[0].timestamp; }catch(e){} })); done+=12; onProgress(out.length,total,"pages · dating "+Math.min(done,firstN.length)+"/"+firstN.length); }
+  out.forEach(p=>{ p.date=parseDate(p.created||p.edited); p.dateKind=p.created?"page created":"last edited"; }); return {hits:out,total}; }
+const ARCHIVE_MAX=25000;
+async function archive(word,onProgress){ const q='title:("'+word+'") OR description:("'+word+'")'; const hits=[]; let cursor=null, total=0;
+  for(let page=0;page<50&&!STOP;page++){ let r; try{ r=await get("https://archive.org/services/search/v1/scrape?q="+encodeURIComponent(q)+"&fields=identifier,title,date,publicdate,mediatype,description,creator&count=5000"+(cursor?"&cursor="+encodeURIComponent(cursor):""),40000); }catch(e){ break; } const j=await r.json(); total=j.total||total;
+    (j.items||[]).forEach(d=>{ const desc=Array.isArray(d.description)?d.description.join(" "):(d.description||""); const title=Array.isArray(d.title)?d.title[0]:(d.title||d.identifier); const text=title+" "+desc; if(!text.toLowerCase().includes(word.toLowerCase())) return;   // the word must really be in the record's text
+      const dt=parseDate(Array.isArray(d.date)?d.date[0]:d.date)||parseDate(d.publicdate); hits.push({src:"a",id:d.identifier,title,snippet:snip(text,word),date:dt,dateKind:parseDate(Array.isArray(d.date)?d.date[0]:d.date)?"document date":"added to archive",mt:Array.isArray(d.mediatype)?d.mediatype[0]:d.mediatype,creator:Array.isArray(d.creator)?d.creator.join(", "):(d.creator||"")}); });
+    onProgress(hits.length,total,"items"); if(!j.cursor||hits.length>=ARCHIVE_MAX) break; cursor=j.cursor; }
+  return {hits,total}; }
+// ── verify inside a scanned book: fetch its full OCR text and find the exact sentence ──
+async function verifyBook(h){ if(h.verified!==undefined) return h; h.verified=null;
+  try{ const meta=await (await fetch("https://archive.org/metadata/"+encodeURIComponent(h.id)+"/files")).json(); const f=(meta.result||[]).find(x=>/_djvu\.txt$/.test(x.name)); if(!f) { h.verified=false; h.vnote="no text layer (not a scanned book)"; return h; }
+    if(+f.size>6e6){ h.verified=false; h.vnote="book text too large to check here ("+(f.size/1e6).toFixed(0)+" MB)"; return h; }
+    const txt=await (await fetch("https://archive.org/download/"+encodeURIComponent(h.id)+"/"+encodeURIComponent(f.name))).text(); const i=txt.toLowerCase().indexOf(WORD.toLowerCase());
+    if(i<0){ h.verified=false; h.vnote="word not found in the scanned text — only in the catalogue description"; return h; }
+    const a=Math.max(0,i-160), b=Math.min(txt.length,i+WORD.length+160); h.verified=true; h.vtext=(a?"…":"")+esc(txt.slice(a,i))+"<mark>"+esc(txt.slice(i,i+WORD.length))+"</mark>"+esc(txt.slice(i+WORD.length,b))+(b<txt.length?"…":""); h.vcount=(txt.toLowerCase().match(new RegExp(WORD.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"g"))||[]).length; h.vpos=i; }
+  catch(e){ h.verified=false; h.vnote="couldn't fetch the book text"; }
+  return h; }
+function snip(text,word){ const i=text.toLowerCase().indexOf(word.toLowerCase()); if(i<0) return esc(text.slice(0,180)); const a=Math.max(0,i-90), b=Math.min(text.length,i+word.length+90); return (a?"…":"")+esc(text.slice(a,i))+"<mark>"+esc(text.slice(i,i+word.length))+"</mark>"+esc(text.slice(i+word.length,b))+(b<text.length?"…":""); }
+// ─── run a search ───
+$("f").onsubmit=async e=>{ e.preventDefault(); const w=$("q").value.trim(); if(!w) return; WORD=w; HITS=[]; DAYS={}; sel=null; $("timeline").innerHTML=""; $("detail").style.display="none"; $("counts").innerHTML="";
+  const prog={w:[0,0,""],a:[0,0,""]}; const show=()=>$("status").textContent="searching for “"+w+"”… wikipedia "+prog.w[0].toLocaleString()+" of "+prog.w[1].toLocaleString()+" "+prog.w[2]+" · internet archive "+prog.a[0].toLocaleString()+" of "+prog.a[1].toLocaleString()+" "+prog.a[2];
+  show(); STOP=false; $("stopbtn").style.display="inline-block";
+  const [W,A]=await Promise.all([ wikipedia(w,(n,t,k)=>{ prog.w=[n,t,k]; show(); }).catch(e=>({hits:[],total:0,err:e})), archive(w,(n,t,k)=>{ prog.a=[n,t,k]; show(); }).catch(e=>({hits:[],total:0,err:e})) ]);
+  $("stopbtn").style.display="none"; HITS=[...W.hits,...A.hits].filter(h=>h.date); HITS.sort((a,b)=>key(a.date)<key(b.date)?-1:1);
+  $("counts").innerHTML='<span class="pill w">Wikipedia: '+W.hits.length.toLocaleString()+' pages loaded'+(W.total>W.hits.length?' of '+W.total.toLocaleString()+' (the API stops at 10,000)':'')+'</span><span class="pill a">Internet Archive: '+A.hits.length.toLocaleString()+' items loaded'+(A.total>A.hits.length?' of '+A.total.toLocaleString():'')+'</span>'+(HITS.length?'<span class="pill">first: '+key(HITS[0].date)+' · last: '+key(HITS[HITS.length-1].date)+'</span>':'');
+  $("status").textContent= HITS.length? (STOP? "stopped early — showing everything loaded so far. click a year, then a lit-up day" : "click a year, then a lit-up day") : (W.err&&A.err? "couldn't reach either source — check your connection (or the sites are blocking this page)" : "nothing found. try a more common word?");
+  HITS.forEach(h=>{ (DAYS[key(h.date)]=DAYS[key(h.date)]||[]).push(h); }); dayShown=0; timeline(); };
+// ─── the calendar timeline: every year with a hit → every month → every day ───
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function timeline(){ const years={}; HITS.forEach(h=>{ years[h.date.y]=(years[h.date.y]||0)+1; }); const ys=Object.keys(years).map(Number).sort((a,b)=>a-b); const mx=Math.max(...Object.values(years));
+  $("timeline").innerHTML='<div class="legend">calendar from the first instance to the last · <i style="background:#7a4fd0"></i>wikipedia <i style="background:#e69a12"></i>internet archive <i style="background:linear-gradient(135deg,#7a4fd0 50%,#e69a12 50%)"></i>both · years without any instance are skipped</div>'+ys.map(y=>'<div class="year" data-y="'+y+'"><div class="yhead"><span>'+y+'</span><div class="bar" style="width:'+(years[y]/mx*100)+'%"></div><span class="n">'+years[y]+' instance'+(years[y]>1?"s":"")+'</span></div><div class="months"></div></div>').join("");
+  document.querySelectorAll(".yhead").forEach(h=>h.onclick=()=>{ const yEl=h.parentElement; const open=yEl.classList.toggle("open"); if(open&&!yEl.dataset.built){ yEl.dataset.built=1; buildYear(yEl,+yEl.dataset.y); } });
+  if(ys.length===1||HITS.length<40){ document.querySelectorAll(".year").forEach(yEl=>{ yEl.classList.add("open"); yEl.dataset.built=1; buildYear(yEl,+yEl.dataset.y); }); } }
+function buildYear(yEl,y){ const m=yEl.querySelector(".months"); let h=""; for(let mo=1;mo<=12;mo++){ const dim=new Date(y,mo,0).getDate(); h+='<div class="month"><b>'+MON[mo-1]+'</b><div class="days">'; for(let d=1;d<=dim;d++){ const k=y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0"); const hs=DAYS[k]; let cls="day"; if(hs){ const w=hs.some(x=>x.src==="w"), a=hs.some(x=>x.src==="a"); cls+=" hit"+(w&&a?" both":a?" a":""); } h+='<div class="'+cls+'" data-k="'+k+'" title="'+(hs?hs.length+" instance(s)":"")+'">'+(hs?hs.length:"")+'</div>'; } h+='</div></div>'; }
+  m.innerHTML=h; m.querySelectorAll(".day.hit").forEach(d=>d.onclick=()=>showDay(d.dataset.k,d)); }
+let dayShown=0;
+function docHTML(h,i){ const link= h.src==="w"? wikiLink(h.title) : iaLink(h.id,h.mt); const when=(h.date.t? h.date.t+" · ":"")+h.dateKind+(h.date.prec!=="day"?" (only the "+h.date.prec+" is known)":"");
+  let v=""; if(h.src==="a"&&h.mt==="texts"){ v= h.verified===true? '<div class="s" style="border-left:4px solid #34c759;padding-left:8px;margin-top:6px"><b style="color:#1d7a34">✓ found in the scanned text ('+h.vcount+'×) · at character '+h.vpos.toLocaleString()+'</b><br>'+h.vtext+'</div>' : h.verified===false? '<div class="m" style="color:#b33">⚠ '+esc(h.vnote)+'</div>' : h.verified===null? '<div class="m">checking inside the book…</div>' : '<button class="small" data-verify="'+i+'">check inside the book</button>'; }
+  return '<div class="doc" id="doc'+i+'"><span class="src '+h.src+'">'+(h.src==="w"?"WIKIPEDIA":"ARCHIVE")+'</span><span class="t">'+esc(h.title)+'</span><div class="m">'+esc(when)+(h.creator?' · '+esc(h.creator):'')+(h.mt?' · '+esc(h.mt):'')+'</div><div class="s">'+(h.snippet||"")+'</div>'+v+'<a href="'+link+'" target="_blank" rel="noopener">open the document → scrolls to “'+esc(WORD)+'”</a></div>'; }
+function showDay(k,el){ document.querySelectorAll(".day.sel").forEach(x=>x.classList.remove("sel")); if(el) el.classList.add("sel"); const hs=DAYS[k]; const D=$("detail"); D.style.display="block"; sel=k; dayShown=Math.max(dayShown,60);
+  D.innerHTML='<h3>'+new Date(k+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+'</h3><div style="font-size:12px;color:#6b6350;margin-bottom:6px">'+hs.length.toLocaleString()+' instance'+(hs.length>1?"s":"")+' of “'+esc(WORD)+'”</div>'+hs.slice(0,dayShown).map(docHTML).join("")+(hs.length>dayShown?'<button class="small" id="moreDocs" style="margin-top:10px">show more ('+(hs.length-dayShown).toLocaleString()+' left)</button>':'');
+  const more=$("moreDocs"); if(more) more.onclick=()=>{ dayShown+=100; showDay(k,null); };
+  D.querySelectorAll("[data-verify]").forEach(b=>b.onclick=async()=>{ const h=hs[+b.dataset.verify]; h.verified=null; showDay(k,null); await verifyBook(h); if(sel===k) showDay(k,null); });
+  // auto-check the first few scanned books on this day
+  const auto=hs.slice(0,dayShown).filter(h=>h.src==="a"&&h.mt==="texts"&&h.verified===undefined).slice(0,6); if(auto.length){ auto.forEach(h=>h.verified=null); showDay(k,null); Promise.all(auto.map(verifyBook)).then(()=>{ if(sel===k) showDay(k,null); }); }
+  if(el&&innerWidth<900) D.scrollIntoView({behavior:"smooth"}); }
+$("stopbtn").onclick=()=>{ STOP=true; $("stopbtn").textContent="finishing…"; INFLIGHT.forEach(c=>c.abort()); };
+const p=new URLSearchParams(location.search); if(p.get("q")){ $("q").value=p.get("q"); $("f").requestSubmit(); }
+</script>
+</body>
+</html>
