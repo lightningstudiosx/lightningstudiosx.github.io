@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-// 6 things I made in Blender  —  a mod for Sandboxels
+// 11 things I made in Blender  —  a mod for Sandboxels
 // exported 2026-09-19 from kai.fun/blender.html
 //
 // INSTALL: put this file in the "mods" folder of your Sandboxels install,
@@ -12,26 +12,42 @@
 (function(){
 "use strict";
 var ITEMS=[
-  { n:"Watermelon", c:"#ff6b6b", s:"goo", t:["fruit","sweet","watery"] },
-  { n:"Watermelon-Watermelon Smoothie", c:"#ff6b6b", s:"goo", t:["fruit","sweet","watery","smoothie"] },
-  { n:"Pineapple", c:"#fcc419", s:"goo", t:["fruit","sour","tropical"] },
-  { n:"Lemon", c:"#ffe066", s:"goo", t:["fruit","citrus","sour"] },
-  { n:"Pineapple-Lemon Smoothie", c:"#fed240", s:"goo", t:["fruit","sour","tropical","citrus","sweet","smoothie"] },
-  { n:"Lime", c:"#a9e34b", s:"goo", t:["fruit","citrus","sour"] },
-  { n:"Lime-Pineapple-Lemon Smoothie", c:"#d4db46", s:"goo", t:["fruit","citrus","sour","tropical","sweet","smoothie"] },
-  { n:"Gum", c:"#ff8fab", s:"goo", t:["odd","sticky","bouncy"] },
-  { n:"Gum Lime Blend", c:"#e7b973", s:"goo", t:["odd","sticky","bouncy","fruit","citrus","sour"] },
-  { n:"Ice", c:"#d0ebff", s:"solid", t:["frozen","cold","water"] },
-  { n:"Gum Lime Blend Sorbet", c:"#edcb96", s:"goo", t:["odd","sticky","bouncy","fruit","citrus","sour"] },
-  { n:"Lemon-Pineapple Smoothie", c:"#fed240", s:"goo", t:["fruit","citrus","sour","tropical","sweet","smoothie"] }
+  { n:"Coconut", c:"#f1f3f5", s:"solid", t:["fruit","tropical","fat","white"] },
+  { n:"Avocado", c:"#5c940d", s:"goo", t:["fruit","fat","green"] },
+  { n:"Coconut-Avocado Smoothie", c:"#a7c481", s:"goo", t:["fruit","tropical","fat","white","green","sweet"] },
+  { n:"Prawn", c:"#ff8787", s:"solid", t:["protein","meat","raw","sea"] },
+  { n:"Prawn Candy", c:"#dc9f85", s:"solid", t:["fruit","tropical","fat","white","green","sweet"] },
+  { n:"Walnut", c:"#a67c52", s:"solid", t:["protein","nut","fat"] },
+  { n:"Bacon", c:"#e8590c", s:"solid", t:["protein","meat","savoury","cooked"] },
+  { n:"Bacon Walnut", c:"#c06e36", s:"solid", t:["protein","nut","fat","meat","savoury","cooked"] },
+  { n:"Rice", c:"#f8f9fa", s:"powder", t:["grain","starch","white"] },
+  { n:"Bacon Walnut Rice Brittle", c:"#d9ad8e", s:"solid", t:["protein","nut","fat","meat","savoury","cooked"] },
+  { n:"Pasta", c:"#f7d794", s:"solid", t:["grain","starch"] },
+  { n:"Pasta Bacon Blend", c:"#e7c091", s:"solid", t:["protein","nut","fat","meat","savoury","cooked"] },
+  { n:"Jelly", c:"#e8384f", s:"goo", t:["sweet","wobbly"] },
+  { n:"Pasta Bacon Blend Candy", c:"#e78a77", s:"solid", t:["sweet","wobbly","protein","nut","fat","meat"] },
+  { n:"Fire", c:"#ff6b35", s:"gas", t:["hot","fire","energy"] },
+  { n:"Pasta Fire Blend", c:"#bd6e4d", s:"goo", t:["sweet","wobbly","protein","nut","fat","meat"] },
+  { n:"Caramelised Pasta Fire Blend", c:"#a65e36", s:"goo", t:["sweet","wobbly","protein","nut","fat","meat"] },
+  { n:"Lava", c:"#ff4d00", s:"liquid", t:["hot","fire","molten","mineral"] },
+  { n:"Caramelised Pasta Blend", c:"#a76a46", s:"goo", t:["sweet","wobbly","protein","nut","fat","meat"] },
+  { n:"Rubber", c:"#495057", s:"solid", t:["odd","bouncy"] },
+  { n:"Rubber Candy", c:"#6f5a50", s:"solid", t:["sweet","wobbly","protein","nut","fat","meat"] },
+  { n:"Baking Powder", c:"#f8f9fa", s:"powder", t:["dry","white","riser"] },
+  { n:"Baking Crumble", c:"#cfc9c7", s:"powder", t:["sweet","wobbly","protein","nut","fat","meat"] }
 ];
 var PAIRS=[
-  ["watermelon","watermelon","watermelon_watermelon_smoothie"],
-  ["pineapple","lemon","pineapple_lemon_smoothie"],
-  ["lime","pineapple_lemon_smoothie","lime_pineapple_lemon_smoothie"],
-  ["gum","lime_pineapple_lemon_smoothie","gum_lime_blend"],
-  ["ice","gum_lime_blend","gum_lime_blend_sorbet"],
-  ["lemon","pineapple","lemon_pineapple_smoothie"]
+  ["coconut","avocado","coconut_avocado_smoothie"],
+  ["prawn","coconut_avocado_smoothie","prawn_candy"],
+  ["walnut","bacon","bacon_walnut"],
+  ["bacon_walnut","rice","bacon_walnut_rice_brittle"],
+  ["pasta","bacon_walnut_rice_brittle","pasta_bacon_blend"],
+  ["pasta_bacon_blend","jelly","pasta_bacon_blend_candy"],
+  ["pasta_bacon_blend_candy","fire","pasta_fire_blend"],
+  ["pasta_fire_blend","fire","caramelised_pasta_fire_blend"],
+  ["pasta_caramelised_blend","lava","caramelised_pasta_blend"],
+  ["rubber","caramelised_pasta_blend","rubber_candy"],
+  ["rubber_candy","baking_powder","baking_crumble"]
 ];
 function key(n){ return String(n).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""); }
 function beh(s){ if(s==="gas") return behaviors.GAS; if(s==="liquid") return behaviors.LIQUID;
