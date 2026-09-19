@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hourglass · Kai.fun</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:#0e0e11;overflow:hidden;font-family:"Trebuchet MS",system-ui,sans-serif;color:#e8e4dc;touch-action:none;}
+  canvas{display:block;width:100vw;height:100vh;}
+  #top{position:fixed;top:16px;left:0;right:0;text-align:center;pointer-events:none;}
+  #top h1{font-size:15px;font-weight:700;letter-spacing:.34em;color:#8d8a84;}
+  #t{font-variant-numeric:tabular-nums;font-size:34px;font-weight:300;letter-spacing:.04em;margin-top:6px;}
+  #mats{position:fixed;top:50%;left:18px;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;}
+  .m{width:46px;height:46px;border-radius:12px;border:2px solid #2a2a30;background:#16161a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:19px;transition:.15s;}
+  .m:hover{border-color:#4a4a52;} .m.on{border-color:#e8e4dc;background:#22222a;}
+  #hud{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+  .b{border:2px solid #2a2a30;background:#16161a;color:#e8e4dc;border-radius:12px;padding:9px 18px;font-weight:600;font-family:inherit;cursor:pointer;font-size:13px;} .b:hover{border-color:#4a4a52;} .b:active{transform:translateY(1px);}
+  #hint{position:fixed;bottom:66px;left:0;right:0;text-align:center;font-size:11px;color:#6a6a72;pointer-events:none;}
+  a.back{position:fixed;left:16px;bottom:16px;color:#55555c;font-size:11px;text-decoration:none;}
+  #label{position:fixed;top:50%;left:74px;transform:translateY(-50%);font-size:12px;color:#8d8a84;pointer-events:none;letter-spacing:.1em;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="top"><h1>HOURGLASS</h1><div id="t">0:00</div></div>
+<div id="mats"></div><div id="label"></div>
+<div id="hint">drag · arrow keys · tilt your phone</div>
+<div id="hud"><button class="b" id="flip">flip</button><button class="b" id="reset">refill</button><button class="b" id="more">+ more</button></div>
+<a class="back" href="index.html">← kai.fun</a>
+<script>
+"use strict";
+const $=id=>document.getElementById(id); const cv=$("cv"), g=cv.getContext("2d"); let W,H,DPR;
+function fit(){ DPR=Math.min(2,devicePixelRatio||1); W=cv.width=innerWidth*DPR; H=cv.height=innerHeight*DPR; } fit(); addEventListener("resize",fit);
+// ───────── the glass ─────────
+const GW=140, GH=300, cx=GW/2, cy=GH/2, R=GW*0.44, NECK=0.9;
+function halfWidth(y){ const t=(y-cy)/(GH/2), a=Math.abs(t); if(a>0.985) return 0; let w=NECK+(R-NECK)*Math.pow(a,0.55); if(a>0.88) w*=1-Math.pow((a-0.88)/0.115,3); return w; }
+const inside=new Uint8Array(GW*GH); for(let y=0;y<GH;y++){ const hw=halfWidth(y); for(let x=0;x<GW;x++) inside[y*GW+x]= Math.abs(x+0.5-cx)<hw?1:0; }
+// ───────── what's inside ─────────
+const MATERIALS=[
+ {name:"SAND",     icon:"⏳", n:11000, cols:[[232,192,110],[222,178,96],[240,205,128],[210,165,88],[236,198,120]], move:1,    diag:0.75, level:0,    jitter:0,    glow:0, sprite:0},
+ {name:"WATER",    icon:"💧", n:11000, cols:[[86,160,235],[70,140,220],[110,185,245],[60,125,205],[130,200,250]],  move:1,    diag:1,    level:0.92, jitter:0,    glow:0, sprite:0},
+ {name:"LAVA",     icon:"🌋", n:9000,  cols:[[255,110,30],[240,70,20],[255,170,60],[200,40,15],[255,215,120]],     move:0.35, diag:0.45, level:0.3,  jitter:0,    glow:1, sprite:0},
+ {name:"SNOW",     icon:"❄️", n:9000,  cols:[[255,255,255],[230,240,250],[210,225,245],[245,250,255]],             move:0.5,  diag:0.95, level:0.06, jitter:0.5,  glow:0.3, sprite:0},
+ {name:"CONFETTI", icon:"🎉", n:8000,  cols:[[255,90,120],[110,220,150],[255,215,70],[120,160,255],[220,120,255],[90,230,230]], move:0.65, diag:1, level:0.1, jitter:0.8, glow:0, sprite:0},
+ {name:"GEMS",     icon:"💎", n:8000,  cols:[[120,235,235],[180,120,255],[255,120,190],[120,255,170],[255,225,120]], move:1,  diag:1,    level:0.45, jitter:0,    glow:0.4, sprite:0},
+ {name:"PEOPLE",   icon:"🙂", n:700,   cols:[[240,240,240]],                                                        move:0.45, diag:0.9,  level:0.25, jitter:0.15, glow:0, sprite:1},
+];
+let M=MATERIALS[0];
+const cell=new Uint8Array(GW*GH), moved=new Uint8Array(GW*GH);
+function fill(n){ let c=0, guard=0; while(c<n&&guard++<40){ for(let y=1;y<GH/2-6&&c<n;y++){ const hw=halfWidth(y); for(let x=Math.ceil(cx-hw);x<cx+hw&&c<n;x++){ const i=y*GW+x; if(inside[i]&&!cell[i]&&Math.random()<0.9){ cell[i]=1+(Math.random()*M.cols.length|0); c++; } } } } }
+function clear(){ cell.fill(0); }
+// ───────── physics ─────────
+let tilt=0, vel=0, target=0, startT=null, endT=null;
+function step(){ moved.fill(0);
+  // world gravity points down the screen: (0,1). Expressed in the glass's own rotated frame that is (sin tilt, cos tilt).
+  const gx=Math.sin(tilt), gy=Math.cos(tilt); const dx=Math.round(gx), dy=Math.round(gy);
+  const cands=[[dx,dy]]; if(dx===0) cands.push([-1,dy],[1,dy]); else if(dy===0) cands.push([dx,-1],[dx,1]); else cands.push([dx,0],[0,dy]);
+  const ys= dy>0? -1:1, xs= dx>0? -1:1;
+  for(let yi=0;yi<GH;yi++){ const y= ys<0? GH-1-yi : yi;
+    for(let k=0;k<GW;k++){ const x= xs<0? GW-1-k : k; const i=y*GW+x; if(!cell[i]||moved[i]) continue; if(M.move<1&&Math.random()>M.move) continue;
+      let c1=cands[1], c2=cands[2]; if(Math.random()<0.5){ const t=c1; c1=c2; c2=t; }
+      let ok=false;
+      for(const [ox,oy] of [cands[0],c1,c2]){ const nx=x+ox, ny=y+oy; if(nx<0||ny<0||nx>=GW||ny>=GH) continue; const j=ny*GW+nx; if(inside[j]&&!cell[j]){ if(ox&&oy&&Math.random()>M.diag) continue; cell[j]=cell[i]; cell[i]=0; moved[j]=1; ok=true; break; } }
+      if(ok) continue;
+      // blocked: liquids spread sideways to find their level; solids slide off steep walls
+      const bi=(y+dy)*GW+(x+dx); const blocked= x+dx<0||y+dy<0||x+dx>=GW||y+dy>=GH||!inside[bi]||cell[bi];
+      if(blocked){ const wall= x+dx<0||y+dy<0||x+dx>=GW||y+dy>=GH||!inside[bi];
+        const p= wall? 0.5 : M.level; if(p&&Math.random()<p){ const inward= x<cx?1:-1; const dirs= wall? [inward,-inward] : (Math.random()<0.5?[1,-1]:[-1,1]);
+          for(const ox of dirs){ const nx=x+ox; if(nx<0||nx>=GW) continue; const j=y*GW+nx; if(inside[j]&&!cell[j]){ cell[j]=cell[i]; cell[i]=0; moved[j]=1; break; } } } }
+      else if(M.jitter&&Math.random()<M.jitter*0.1){ const ox=Math.random()<0.5?-1:1, nx=x+ox, j=y*GW+nx; if(nx>=0&&nx<GW&&inside[j]&&!cell[j]){ cell[j]=cell[i]; cell[i]=0; moved[j]=1; } } } } }
+// ───────── render ─────────
+const off=document.createElement("canvas"); off.width=GW; off.height=GH; const og=off.getContext("2d"); let img=og.createImageData(GW,GH);
+function draw(){ g.setTransform(1,0,0,1,0,0); g.fillStyle="#0e0e11"; g.fillRect(0,0,W,H);
+  const s=Math.min(W/GW,H/GH)*0.82; g.translate(W/2,H/2); g.rotate(tilt); g.scale(s,s); g.translate(-cx,-cy);
+  // glass outline — one clean line, no ornament
+  g.beginPath(); for(let y=0;y<=GH;y+=2){ const hw=halfWidth(Math.min(y,GH-1))+1.2; y===0? g.moveTo(cx-hw,y) : g.lineTo(cx-hw,y); } for(let y=GH;y>=0;y-=2){ const hw=halfWidth(Math.min(y,GH-1))+1.2; g.lineTo(cx+hw,y); } g.closePath();
+  g.fillStyle="rgba(255,255,255,.035)"; g.fill();
+  if(M.sprite) drawPeople(); else { const d=img.data; for(let i=0;i<GW*GH;i++){ const p=i*4; if(cell[i]){ const c=M.cols[cell[i]-1]||M.cols[0]; d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255; } else d[p+3]=0; } og.putImageData(img,0,0);
+    if(M.glow){ g.globalAlpha=M.glow*0.5; g.filter="blur(2px)"; g.imageSmoothingEnabled=true; g.drawImage(off,-1.5,-1.5,GW+3,GH+3); g.filter="none"; g.globalAlpha=1; }
+    g.imageSmoothingEnabled=false; g.drawImage(off,0,0); }
+  g.lineWidth=1.4; g.strokeStyle="rgba(232,228,220,.55)"; g.stroke();
+  // two thin caps and two posts — that's the whole frame
+  g.fillStyle="#3a3a42"; g.fillRect(cx-R-6,-5,2*R+12,5); g.fillRect(cx-R-6,GH,2*R+12,5); g.fillRect(cx-R-5,-5,3,GH+10); g.fillRect(cx+R+2,-5,3,GH+10);
+  g.setTransform(1,0,0,1,0,0); }
+function drawPeople(){ g.lineWidth=0.55; g.strokeStyle="#f2f2f2"; g.fillStyle="#f2f2f2"; g.lineCap="round";
+  for(let i=0;i<GW*GH;i++){ if(!cell[i]) continue; const x=i%GW+0.5, y=(i/GW|0)+0.5; const w=((i*2654435761)>>>0)%1000/1000;   // stable per-cell pose
+    g.beginPath(); g.arc(x,y-1.5,0.62,0,7); g.fill();
+    g.beginPath(); g.moveTo(x,y-0.9); g.lineTo(x,y+0.7);
+    g.moveTo(x,y-0.45); g.lineTo(x-1.1,y+(w<0.5?-0.5:0.4)); g.moveTo(x,y-0.45); g.lineTo(x+1.1,y+(w<0.5?0.4:-0.5));
+    g.moveTo(x,y+0.7); g.lineTo(x-0.85,y+2); g.moveTo(x,y+0.7); g.lineTo(x+0.85,y+2); g.stroke(); } }
+// ───────── timer ─────────
+function halfCount(top){ let n=0; const s= top?0:GW*(GH/2), e= top?GW*(GH/2):GW*GH; for(let i=s;i<e;i++) if(cell[i]) n++; return n; }
+function tick(){ vel+=(target-tilt)*0.055; vel*=0.9; tilt+=vel;
+  const steps= M.sprite?2:3; for(let k=0;k<steps;k++) step();
+  const upright=Math.cos(tilt)>0, up= upright?halfCount(true):halfCount(false), total=halfCount(true)+halfCount(false);
+  if(startT===null&&total&&up<total*0.99) startT=performance.now();
+  if(startT!==null&&endT===null&&up<total*0.006) endT=performance.now();
+  if(startT!==null){ const t=((endT||performance.now())-startT)/1000; $("t").textContent=Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0")+(endT?" ·":""); }
+  draw(); requestAnimationFrame(tick); }
+// ───────── controls ─────────
+let dragging=false, x0=0, t0=0;
+addEventListener("pointerdown",e=>{ if(e.target.tagName==="BUTTON") return; dragging=true; x0=e.clientX; t0=target; });
+addEventListener("pointermove",e=>{ if(dragging) target=t0+(e.clientX-x0)/150; });
+addEventListener("pointerup",()=>dragging=false);
+addEventListener("keydown",e=>{ if(e.key==="ArrowLeft") target-=0.14; if(e.key==="ArrowRight") target+=0.14; if(e.key===" "){ e.preventDefault(); doFlip(); } });
+if(window.DeviceOrientationEvent) addEventListener("deviceorientation",e=>{ if(e.gamma!=null&&!dragging) target=-e.gamma*Math.PI/180*1.5; });
+document.body.addEventListener("click",()=>{ if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(()=>{}); },{once:true});
+function doFlip(){ target+=Math.PI; vel+=0.08;                                   // a real flip: it turns over and everything inside falls loose
+  for(let i=0;i<GW*GH;i++) moved[i]=0; startT=null; endT=null; $("t").textContent="0:00"; }
+function refill(){ clear(); fill(M.n); target=Math.round(target/(2*Math.PI))*2*Math.PI; tilt=target; vel=0; startT=null; endT=null; $("t").textContent="0:00"; }
+$("flip").onclick=doFlip; $("reset").onclick=refill; $("more").onclick=()=>fill(Math.round(M.n*0.18));
+$("mats").innerHTML=MATERIALS.map((m,i)=>`<div class="m${i?"":" on"}" data-i="${i}" title="${m.name}">${m.icon}</div>`).join("");
+document.querySelectorAll(".m").forEach(el=>el.onclick=()=>{ document.querySelectorAll(".m").forEach(o=>o.classList.remove("on")); el.classList.add("on"); M=MATERIALS[+el.dataset.i]; $("label").textContent=M.name; refill(); });
+$("label").textContent=M.name; fill(M.n); tick();
+</script>
+</body>
+</html>
