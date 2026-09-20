@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Perfect Split · kaifun.fun</title>
+<style>
+  :root{
+    --ink:#141414; --paper:#ffffff; --muted:#8a8a8a; --line:#e2e2e2;
+    --coral:#ff6b5e; --sky:#4aa9d8; --moss:#6fb85c; --grape:#9b7fd4; --sun:#f5b829;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *,*::before,*::after{box-sizing:inherit;margin:0;padding:0;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Trebuchet MS",system-ui,sans-serif;
+    min-height:100%; display:flex; flex-direction:column; align-items:center;
+    padding:18px 14px 30px;
+  }
+  a.home{align-self:flex-start; color:var(--muted); text-decoration:none; font-size:13px; margin-bottom:4px;}
+  a.home:hover{color:var(--ink);}
+  header{text-align:center; margin:2px 0 14px;}
+  .wordmark{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif; font-weight:900;
+    font-size:clamp(34px,8vw,58px); line-height:.95; letter-spacing:.5px;
+    transform:rotate(-1.5deg); display:inline-block;
+  }
+  .wordmark .cut{position:relative; display:inline-block;}
+  .wordmark .cut::after{ /* the dashed slice through the logo */
+    content:""; position:absolute; left:-4%; right:-4%; top:52%;
+    border-top:3px dashed var(--coral); transform:rotate(-6deg);
+  }
+  .subtitle{color:var(--muted); font-size:clamp(13px,2.4vw,16px); margin-top:8px;}
+
+  .tabs{display:flex; gap:10px; margin:14px 0 16px;}
+  .tab{
+    font:inherit; font-weight:700; font-size:14px; cursor:pointer;
+    padding:9px 18px; background:#fff; color:var(--ink);
+    border:2px solid var(--ink); border-radius:999px; box-shadow:3px 3px 0 var(--ink);
+    transition:transform .1s;
+  }
+  .tab:hover{transform:translate(-1px,-1px);}
+  .tab.on{background:var(--ink); color:#fff;}
+
+  #stage{
+    position:relative; background:#fff;
+    border:2px solid var(--ink); border-radius:16px; box-shadow:6px 6px 0 var(--ink);
+    touch-action:none; overflow:hidden;
+  }
+  #board{display:block; cursor:crosshair; touch-action:none;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+  #hint{
+    position:absolute; left:0; right:0; bottom:12px; text-align:center;
+    color:var(--muted); font-size:14px; pointer-events:none; transition:opacity .3s;
+  }
+  #tag{ /* "it's alive" etc. */
+    position:absolute; top:10px; left:12px; font-size:12px; font-weight:900;
+    border:2px solid var(--ink); border-radius:999px; padding:2px 10px; background:#fff;
+    display:none;
+  }
+  #daynum{
+    position:absolute; top:10px; right:12px; font-size:12px; font-weight:900;
+    color:var(--muted);
+  }
+
+  #result{
+    width:100%; max-width:560px; text-align:center; margin-top:16px;
+    display:none;
+  }
+  #bigsplit{
+    font-family:"Comic Sans MS","Trebuchet MS",sans-serif; font-weight:900;
+    font-size:clamp(34px,9vw,54px); letter-spacing:1px;
+  }
+  #bigsplit .sep{color:var(--muted); font-size:.7em; padding:0 6px;}
+  #verdict{
+    display:inline-block; margin-top:10px; font-weight:900; font-size:18px;
+    border:2px solid var(--ink); border-radius:999px; padding:6px 18px;
+    box-shadow:3px 3px 0 var(--ink); background:#fff;
+  }
+  #offby{color:var(--muted); font-size:14px; margin-top:10px;}
+  .btnrow{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px;}
+  .btn{
+    font:inherit; font-weight:700; font-size:15px; cursor:pointer;
+    padding:11px 22px; border:2px solid var(--ink); border-radius:12px;
+    background:#fff; color:var(--ink); box-shadow:4px 4px 0 var(--ink);
+    transition:transform .1s, box-shadow .1s;
+  }
+  .btn:hover{transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--ink);}
+  .btn.primary{background:var(--sun);}
+  #countdown{color:var(--muted); font-size:13px; margin-top:12px;}
+
+  #stats{
+    display:flex; gap:18px; justify-content:center; flex-wrap:wrap;
+    margin-top:20px; color:var(--muted); font-size:14px;
+  }
+  #stats b{color:var(--ink); font-size:16px;}
+
+  footer{margin-top:26px; color:var(--muted); font-size:12px;}
+  footer a{color:var(--muted);}
+
+  #confetti{position:fixed; inset:0; pointer-events:none;}
+  #toast{
+    position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%) translateY(100px);
+    background:var(--ink); color:#fff; font-weight:700; font-size:14px;
+    padding:10px 18px; border-radius:10px; transition:transform .2s; max-width:86vw; text-align:center;
+  }
+  #toast.show{transform:translateX(-50%) translateY(0);}
+  @media (prefers-reduced-motion:reduce){ .tab,.btn{transition:none;} }
+</style>
+</head>
+<body>
+  <a class="home" href="https://kaifun.fun">← kaifun.fun</a>
+  <header>
+    <div class="wordmark">PERFECT <span class="cut">SPLIT</span></div>
+    <p class="subtitle">one straight cut. two equal halves. how close can you get?</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" id="tabDaily">today's blob</button>
+    <button class="tab" id="tabEndless">endless</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="board"></canvas>
+    <div id="tag"></div>
+    <div id="daynum"></div>
+    <div id="hint">draw a line all the way through it 🔪</div>
+  </div>
+
+  <div id="result">
+    <div id="bigsplit"></div>
+    <div id="verdict"></div>
+    <div id="offby"></div>
+    <div id="ghostnote" style="color:var(--muted);font-size:12px;margin-top:4px;">the faint line is the perfect cut from where you started</div>
+    <div class="btnrow">
+      <button class="btn primary" id="shareBtn">share 📋</button>
+      <button class="btn" id="nextBtn">next blob →</button>
+    </div>
+    <div id="countdown"></div>
+  </div>
+
+  <div id="stats"></div>
+
+  <footer>perfect split · part of <a href="https://kaifun.fun">kaifun.fun</a> · every cut is scored with actual geometry, no pixels harmed</footer>
+  <canvas id="confetti"></canvas>
+  <div id="toast">copied!</div>
+
+<script>
+"use strict";
+/* ============================================================
+   PERFECT SPLIT
+   - a blob appears. you draw one straight line through it.
+   - the game computes the exact area on each side (polygon
+     clipping + shoelace, no pixel counting) and tells you how
+     close you got to a 50/50 split.
+   - daily mode: same blob for everyone (seeded from the date),
+     one attempt, streaks, share text.
+   - endless mode: blobs get meaner as you go. holes show up.
+     eventually the blob starts wobbling while you aim.
+   ============================================================ */
+
+var SHARE_URL = "kaifun.fun/split.html";
+var EPOCH = [2026, 8, 20];          // day #1 = Sep 20 2026 (month is 0-based)
+var $ = function(id){ return document.getElementById(id); };
+
+/* ---------- seeded rng ---------- */
+function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+/* ---------- dates ---------- */
+function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function dayNumber(){
+  var n=new Date(), a=new Date(n.getFullYear(),n.getMonth(),n.getDate()),
+      b=new Date(EPOCH[0],EPOCH[1],EPOCH[2]);
+  return Math.round((a-b)/864e5)+1;
+}
+function msToMidnight(){ var n=new Date(), m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1); return m-n; }
+
+/* ---------- blob spec ----------
+   a blob = radius function r(θ) = 1 + Σ amp·sin(freq·θ+phase(+wob·t))
+   plus optional circular holes guaranteed to sit fully inside
+   (any disk centred within (minR − holeR) of the origin fits,
+   because the blob always contains the disk of radius minR).   */
+function makeSpec(rng, diff){
+  var harm=[], K=3+Math.floor(diff*4), total=0.14+diff*0.32, left=total;
+  for(var i=0;i<K;i++){
+    var amp=(i===K-1)? left : left*(0.3+rng()*0.4); left-=amp;
+    harm.push({ f:2+i+Math.floor(rng()*2), a:amp, p:rng()*Math.PI*2, w:(rng()*2-1)*0.9 });
+  }
+  var minR=1-total;
+  var holes=[], nH= diff>0.45 ? (diff>0.8?2:1) : (rng()<diff*0.5?1:0);
+  for(var h=0;h<nH;h++){
+    /* holes must not overlap each other — side areas are computed by
+       subtracting each hole, and an overlap would be subtracted twice */
+    for(var tries=0; tries<40; tries++){
+      var hr=(0.10+rng()*0.14)*minR/0.6; hr=Math.min(hr,minR*0.42);
+      var d=rng()*(minR-hr)*0.92, ang=rng()*Math.PI*2;
+      var cand={ x:Math.cos(ang)*d, y:Math.sin(ang)*d, r:hr }, clear=true;
+      for(var e=0;e<holes.length;e++){
+        var o=holes[e];
+        if(Math.hypot(cand.x-o.x,cand.y-o.y) < cand.r+o.r+0.05){ clear=false; break; }
+      }
+      if(clear){ holes.push(cand); break; }
+    }
+  }
+  return { harm:harm, holes:holes, wobble:diff>0.9, hue:Math.floor(rng()*5) };
+}
+var PALETTE=["#ff6b5e","#4aa9d8","#6fb85c","#9b7fd4","#f5b829"];
+
+/* ---------- polygons ---------- */
+function blobPoly(spec, t){
+  var pts=[], N=720;
+  for(var i=0;i<N;i++){
+    var th=i/N*Math.PI*2, r=1;
+    for(var k=0;k<spec.harm.length;k++){
+      var h=spec.harm[k];
+      r+=h.a*Math.sin(h.f*th+h.p+(spec.wobble? h.w*t:0));
+    }
+    pts.push([Math.cos(th)*r, Math.sin(th)*r]);
+  }
+  return pts;
+}
+function circlePoly(cx,cy,r){ var p=[],N=180; for(var i=0;i<N;i++){ var a=i/N*Math.PI*2; p.push([cx+Math.cos(a)*r, cy+Math.sin(a)*r]); } return p; }
+function polyArea(p){ var a=0; for(var i=0;i<p.length;i++){ var j=(i+1)%p.length; a+=p[i][0]*p[j][1]-p[j][0]*p[i][1]; } return Math.abs(a)/2; }
+/* keep the part of poly on `side` of line A→B (Sutherland–Hodgman vs one half-plane).
+   works on concave polygons too — any bridge edges land exactly on the line, so the
+   shoelace area of the output is still the true clipped area. */
+function clipHalf(poly, A, B, side){
+  var s=function(P){ return side*((B[0]-A[0])*(P[1]-A[1])-(B[1]-A[1])*(P[0]-A[0])); };
+  var out=[];
+  for(var i=0;i<poly.length;i++){
+    var P=poly[i], Q=poly[(i+1)%poly.length], sp=s(P), sq=s(Q);
+    if(sp>=0) out.push(P);
+    if((sp>=0)!==(sq>=0)){
+      var t=sp/(sp-sq);
+      out.push([P[0]+(Q[0]-P[0])*t, P[1]+(Q[1]-P[1])*t]);
+    }
+  }
+  return out;
+}
+function sideArea(spec, poly, holes, A, B, side){
+  var a=polyArea(clipHalf(poly,A,B,side));
+  for(var i=0;i<holes.length;i++) a-=polyArea(clipHalf(holes[i],A,B,side));
+  return Math.max(0,a);
+}
+function centroid(p){ if(!p.length) return [0,0]; var x=0,y=0; for(var i=0;i<p.length;i++){ x+=p[i][0]; y+=p[i][1]; } return [x/p.length,y/p.length]; }
+/* the perfect cut through point P: rotate a line around P until the split is
+   exactly 50/50. g(θ+π)=1−g(θ) (same line, sides swapped), so [θ, θ+π] always
+   brackets 0.5 and bisection lands on a true balancing angle. */
+function perfectAngleFrom(P, playerAng){
+  function frac(th){
+    var Q=[P[0]+Math.cos(th), P[1]+Math.sin(th)];
+    var aL=sideArea(spec,poly,holePolys,P,Q,1), aR=sideArea(spec,poly,holePolys,P,Q,-1);
+    var t=aL+aR; return t>0? aL/t : 0.5;
+  }
+  var lo=playerAng, hi=playerAng+Math.PI, flo=frac(lo);
+  if(Math.abs(flo-0.5)<1e-9) return playerAng;      // they nailed it — the ghost IS their line
+  for(var i=0;i<48;i++){
+    var mid=(lo+hi)/2, fm=frac(mid);
+    if((fm-0.5)*(flo-0.5)>0){ lo=mid; flo=fm; } else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+/* ---------- state ---------- */
+var mode="daily";                  // "daily" | "endless"
+var spec=null, poly=null, holePolys=[], color="#ff6b5e";
+var round=1;                       // endless round
+var cutDone=false, animating=false, wobT=0, wobRAF=null, frozenT=0;
+var drag=null;                     // {ax,ay,bx,by} in canvas px
+var lastCut=null;                  // {A,B (blob space), pa, pb}
+var board=$("board"), ctx=board.getContext("2d");
+var SIZE=0, SCALE=0, CX=0, CY=0;
+
+function store(k,v){ try{ localStorage.setItem("psplit_"+k, JSON.stringify(v)); }catch(e){} }
+function load(k,d){ try{ var v=localStorage.getItem("psplit_"+k); return v==null? d : JSON.parse(v); }catch(e){ return d; } }
+
+/* ---------- layout ---------- */
+function fit(){
+  var w=Math.min(window.innerWidth-36, 520);
+  SIZE=Math.max(280, w);
+  var dpr=window.devicePixelRatio||1;
+  board.width=SIZE*dpr; board.height=SIZE*dpr;
+  board.style.width=SIZE+"px"; board.style.height=SIZE+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  SCALE=SIZE*0.30; CX=SIZE/2; CY=SIZE/2;
+  draw();
+}
+window.addEventListener("resize", fit);
+
+/* ---------- drawing ---------- */
+function toPx(p){ return [CX+p[0]*SCALE, CY+p[1]*SCALE]; }
+function pathPoly(c,p){ c.beginPath(); for(var i=0;i<p.length;i++){ var q=toPx(p[i]); if(i===0)c.moveTo(q[0],q[1]); else c.lineTo(q[0],q[1]); } c.closePath(); }
+function drawShape(c, outer, holes, fill, dx, dy){
+  c.save(); c.translate(dx||0, dy||0);
+  c.beginPath();
+  for(var i=0;i<outer.length;i++){ var q=toPx(outer[i]); if(i===0)c.moveTo(q[0],q[1]); else c.lineTo(q[0],q[1]); } c.closePath();
+  for(var h=0;h<holes.length;h++){ var hp=holes[h]; if(hp.length<3) continue;
+    for(var j=0;j<hp.length;j++){ var r=toPx(hp[j]); if(j===0)c.moveTo(r[0],r[1]); else c.lineTo(r[0],r[1]); } c.closePath(); }
+  c.fillStyle=fill; c.fill("evenodd");
+  c.lineWidth=3; c.strokeStyle="#141414"; c.stroke();
+  c.restore();
+}
+function draw(splitAnim){
+  ctx.clearRect(0,0,SIZE,SIZE);
+  if(!poly) return;
+  if(splitAnim){ // two halves drifting apart
+    var n=splitAnim.n, k=splitAnim.k;
+    for(var s=0;s<2;s++){
+      var sign=s===0?1:-1;
+      var half=clipHalf(poly, splitAnim.A, splitAnim.B, sign);
+      var hh=holePolys.map(function(hp){ return clipHalf(hp, splitAnim.A, splitAnim.B, sign); });
+      drawShape(ctx, half, hh, color, sign*n[0]*k, sign*n[1]*k);
+      // percentage label on each half once it settles
+      if(splitAnim.labels){
+        var cen=toPx(centroid(half));
+        ctx.save(); ctx.translate(sign*n[0]*k, sign*n[1]*k);
+        ctx.font="900 "+Math.max(16,SIZE*0.052)+"px 'Comic Sans MS','Trebuchet MS',sans-serif";
+        ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.lineWidth=5; ctx.strokeStyle="#fff";
+        var txt=(s===0? splitAnim.pa : splitAnim.pb).toFixed(1)+"%";
+        ctx.strokeText(txt, cen[0], cen[1]); ctx.fillStyle="#141414"; ctx.fillText(txt, cen[0], cen[1]);
+        ctx.restore();
+      }
+    }
+    /* the reveal: a slightly translucent line = the perfect 50/50 cut
+       through the exact point where this cut started */
+    if(splitAnim.ghost && splitAnim.labels){
+      var g=splitAnim.ghost, gp=toPx(g.P), gc=Math.cos(g.ang), gs=Math.sin(g.ang);
+      ctx.save();
+      ctx.strokeStyle="rgba(20,20,20,0.25)"; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.moveTo(gp[0]-gc*2000, gp[1]-gs*2000);
+      ctx.lineTo(gp[0]+gc*2000, gp[1]+gs*2000);
+      ctx.stroke();
+      ctx.fillStyle="rgba(20,20,20,0.45)";
+      ctx.beginPath(); ctx.arc(gp[0],gp[1],5,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  } else {
+    drawShape(ctx, poly, holePolys, color, 0, 0);
+  }
+  if(drag){ // live cut preview, extended across the whole board
+    var dx=drag.bx-drag.ax, dy=drag.by-drag.ay, L=Math.hypot(dx,dy);
+    if(L>2){
+      dx/=L; dy/=L;
+      ctx.save();
+      ctx.setLineDash([9,7]); ctx.lineWidth=3; ctx.strokeStyle="#141414";
+      ctx.beginPath();
+      ctx.moveTo(drag.ax-dx*2000, drag.ay-dy*2000);
+      ctx.lineTo(drag.ax+dx*2000, drag.ay+dy*2000);
+      ctx.stroke(); ctx.restore();
+    }
+  }
+}
+
+/* ---------- rounds ---------- */
+function dailyDiff(rng){ return 0.35+rng()*0.35; }           // medium-spicy, varies by day
+function endlessDiff(r){ return Math.min(1,(r-1)/12); }      // ramps to max by round 13
+
+function newBlob(){
+  cutDone=false; animating=false; drag=null; lastCut=null;
+  cancelAnimationFrame(wobRAF); wobRAF=null;
+  $("result").style.display="none";
+  $("hint").style.opacity=1;
+  var rng, diff;
+  if(mode==="daily"){
+    rng=mulberry32(hashStr("kaifun-split-"+todayStr()));
+    diff=dailyDiff(rng);
+    $("daynum").textContent="split #"+dayNumber();
+  } else {
+    rng=mulberry32((Math.random()*4294967296)>>>0);
+    diff=endlessDiff(round);
+    $("daynum").textContent="round "+round;
+  }
+  spec=makeSpec(rng,diff);
+  color=PALETTE[spec.hue];
+  wobT=0;
+  rebuildPolys(0);
+  var tag=$("tag");
+  if(spec.wobble){ tag.style.display="block"; tag.textContent="⚠ it's alive"; startWobble(); }
+  else if(spec.holes.length){ tag.style.display="block"; tag.textContent=spec.holes.length===1? "1 hole":"2 holes"; }
+  else tag.style.display="none";
+  draw();
+  renderStats();
+}
+function rebuildPolys(t){
+  poly=blobPoly(spec,t);
+  holePolys=spec.holes.map(function(h){ return circlePoly(h.x,h.y,h.r); });
+}
+function startWobble(){
+  var t0=performance.now();
+  (function loop(now){
+    if(cutDone) return;
+    wobT=(now-t0)/1000;
+    rebuildPolys(wobT);
+    draw();
+    wobRAF=requestAnimationFrame(loop);
+  })(t0);
+}
+
+/* ---------- cutting ---------- */
+function toBlob(x,y){ return [(x-CX)/SCALE,(y-CY)/SCALE]; }
+board.addEventListener("pointerdown", function(e){
+  if(cutDone||animating) return;
+  try{ board.setPointerCapture(e.pointerId); }catch(err){}
+  var r=board.getBoundingClientRect();
+  drag={ax:e.clientX-r.left, ay:e.clientY-r.top, bx:e.clientX-r.left, by:e.clientY-r.top};
+  $("hint").style.opacity=0;
+  if(!spec.wobble) draw();
+});
+board.addEventListener("pointermove", function(e){
+  if(!drag) return;
+  var r=board.getBoundingClientRect();
+  drag.bx=e.clientX-r.left; drag.by=e.clientY-r.top;
+  if(!spec.wobble) draw();
+});
+board.addEventListener("pointerup", function(){
+  if(!drag) return;
+  var d=drag; drag=null;
+  if(Math.hypot(d.bx-d.ax, d.by-d.ay)<12){ draw(); return; }   // just a tap
+  commitCut(toBlob(d.ax,d.ay), toBlob(d.bx,d.by));
+});
+board.addEventListener("pointercancel", function(){ drag=null; draw(); });
+
+function commitCut(A,B){
+  frozenT=wobT; cutDone=true;                    // wobbler freezes at the moment of the cut
+  rebuildPolys(frozenT);
+  var aL=sideArea(spec,poly,holePolys,A,B, 1),
+      aR=sideArea(spec,poly,holePolys,A,B,-1),
+      tot=aL+aR;
+  if(tot<=0 || aL/tot<0.0005 || aR/tot<0.0005){  // missed (or grazed) the blob
+    cutDone=false;
+    toast("swing and a miss — the line has to go through it");
+    if(spec.wobble) startWobble(); else draw();
+    return;
+  }
+  var pa=aL/tot*100, pb=aR/tot*100;
+  var pAng=Math.atan2(B[1]-A[1], B[0]-A[0]);
+  var ghost={ P:A, ang:perfectAngleFrom(A, pAng) };
+  lastCut={A:A,B:B,pa:pa,pb:pb,ghost:ghost};
+  sliceSound();
+  animateSplit(A,B,pa,pb,ghost,function(){ showResult(pa,pb,false); });
+}
+
+function animateSplit(A,B,pa,pb,ghost,done){
+  animating=true;
+  var dx=B[0]-A[0], dy=B[1]-A[1], L=Math.hypot(dx,dy);
+  var n=[-dy/L, dx/L];                            // unit normal in blob space → px via SCALE
+  var t0=performance.now(), DUR=650, MAX=SIZE*0.035;
+  (function step(now){
+    var t=Math.min(1,(now-t0)/DUR), e=1-Math.pow(1-t,3);
+    draw({A:A,B:B,n:n,k:e*MAX,pa:pa,pb:pb,labels:t===1,ghost:ghost});
+    if(t<1) requestAnimationFrame(step);
+    else { animating=false; done(); }
+  })(t0);
+}
+
+/* ---------- results, verdicts, stats ---------- */
+function verdictFor(diffPts){
+  if(diffPts<0.005) return "🏆 THE PERFECT SPLIT";
+  if(diffPts<=0.05) return "🧬 atomic precision";
+  if(diffPts<=0.2)  return "🔪 surgeon";
+  if(diffPts<=0.5)  return "🍣 sushi chef";
+  if(diffPts<=1.5)  return "✂️ clean cut";
+  if(diffPts<=3)    return "👍 solid knife work";
+  if(diffPts<=6)    return "🪓 lumberjack";
+  if(diffPts<=12)   return "🥩 butcher";
+  if(diffPts<=25)   return "😬 yo who gave you a knife";
+  return "💀 ur cooked";
+}
+function showResult(pa,pb,restored){
+  var diff=Math.abs(pa-pb), acc=100-diff;
+  var lo=Math.min(pa,pb), hi=Math.max(pa,pb);
+  $("bigsplit").innerHTML=lo.toFixed(2)+'<span class="sep">/</span>'+hi.toFixed(2);
+  $("verdict").textContent=verdictFor(diff);
+  $("offby").textContent="off by "+diff.toFixed(2)+" — accuracy "+acc.toFixed(2)+"%";
+  $("ghostnote").style.display = diff<0.1 ? "none" : "block";
+  $("result").style.display="block";
+  $("nextBtn").style.display = mode==="endless" ? "inline-block" : "none";
+  $("countdown").style.display = mode==="daily" ? "block" : "none";
+
+  if(!restored){
+    if(diff<=0.4) confetti();
+    var best=load("bestAcc",0);
+    if(acc>best) store("bestAcc",acc);
+    if(mode==="daily"){
+      store("day_"+todayStr(), {A:lastCut.A,B:lastCut.B,pa:pa,pb:pb});
+      var last=load("lastPlayed",null), streak=load("streak",0);
+      var y=new Date(); y.setDate(y.getDate()-1);
+      var yStr=y.getFullYear()+"-"+(y.getMonth()+1)+"-"+y.getDate();
+      streak = (last===yStr)? streak+1 : 1;
+      store("streak",streak); store("lastPlayed",todayStr());
+      store("played",load("played",0)+1);
+    } else {
+      var eb=load("endlessBest",0); if(acc>eb) store("endlessBest",acc);
+    }
+    // hook for kai: award a smiledex mood here if you want —
+    // e.g. diff<=0.05 → "surgeon", diff>25 → something rude.
+  }
+  renderStats();
+}
+function renderStats(){
+  var s=$("stats");
+  if(mode==="daily"){
+    var streak=load("streak",0), played=load("played",0), best=load("bestAcc",0);
+    s.innerHTML="🔥 streak <b>"+streak+"</b>&nbsp;&nbsp; 🎯 best <b>"+(best?best.toFixed(2)+"%":"—")+"</b>&nbsp;&nbsp; 🗓 played <b>"+played+"</b>";
+  } else {
+    var eb=load("endlessBest",0);
+    s.innerHTML="🌀 round <b>"+round+"</b>&nbsp;&nbsp; 🎯 endless best <b>"+(eb?eb.toFixed(2)+"%":"—")+"</b>";
+  }
+}
+
+/* ---------- share ---------- */
+$("shareBtn").onclick=function(){
+  if(!lastCut) return;
+  var lo=Math.min(lastCut.pa,lastCut.pb), hi=Math.max(lastCut.pa,lastCut.pb);
+  var txt = mode==="daily"
+    ? "Perfect Split #"+dayNumber()+" 🔪 "+lo.toFixed(2)+" / "+hi.toFixed(2)
+    : "Perfect Split (endless r"+round+") 🔪 "+lo.toFixed(2)+" / "+hi.toFixed(2);
+  var streak=load("streak",0);
+  if(mode==="daily" && streak>=2) txt+=" 🔥"+streak;
+  txt+="\n"+SHARE_URL;
+  (navigator.clipboard? navigator.clipboard.writeText(txt):Promise.reject())
+    .then(function(){ toast("copied — go flex"); })
+    .catch(function(){ prompt("copy this:",txt); });
+};
+$("nextBtn").onclick=function(){ round++; newBlob(); };
+
+/* ---------- daily lock / countdown ---------- */
+function restoreDaily(){
+  var saved=load("day_"+todayStr(),null);
+  if(!saved) return false;
+  cutDone=true; lastCut={A:saved.A,B:saved.B,pa:saved.pa,pb:saved.pb};
+  rebuildPolys(0);
+  var dx=saved.B[0]-saved.A[0], dy=saved.B[1]-saved.A[1], L=Math.hypot(dx,dy)||1;
+  var ghost={ P:saved.A, ang:perfectAngleFrom(saved.A, Math.atan2(dy,dx)) };
+  draw({A:saved.A,B:saved.B,n:[-dy/L,dx/L],k:SIZE*0.035,pa:saved.pa,pb:saved.pb,labels:true,ghost:ghost});
+  $("hint").style.opacity=0;
+  showResult(saved.pa,saved.pb,true);
+  return true;
+}
+setInterval(function(){
+  if(mode!=="daily") return;
+  var ms=msToMidnight(), h=Math.floor(ms/36e5), m=Math.floor(ms%36e5/6e4), sec=Math.floor(ms%6e4/1e3);
+  var pad=function(n){return (n<10?"0":"")+n;};
+  $("countdown").textContent="next blob in "+pad(h)+":"+pad(m)+":"+pad(sec);
+},1000);
+
+/* ---------- tabs ---------- */
+function setMode(m){
+  mode=m;
+  $("tabDaily").classList.toggle("on",m==="daily");
+  $("tabEndless").classList.toggle("on",m==="endless");
+  if(m==="endless"){ round=1; newBlob(); }
+  else { newBlob(); restoreDaily(); }
+}
+$("tabDaily").onclick=function(){ setMode("daily"); };
+$("tabEndless").onclick=function(){ setMode("endless"); };
+
+/* ---------- juice ---------- */
+function toast(msg){ var t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},2200); }
+function sliceSound(){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!sliceSound.ctx) sliceSound.ctx=new AC();
+    var ac=sliceSound.ctx, n=ac.createBufferSource(),
+        buf=ac.createBuffer(1, ac.sampleRate*0.09, ac.sampleRate),
+        d=buf.getChannelData(0);
+    for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+    n.buffer=buf;
+    var f=ac.createBiquadFilter(); f.type="bandpass"; f.frequency.setValueAtTime(3200,ac.currentTime);
+    f.frequency.exponentialRampToValueAtTime(500,ac.currentTime+0.09);
+    var g=ac.createGain(); g.gain.value=0.22;
+    n.connect(f); f.connect(g); g.connect(ac.destination); n.start();
+  }catch(e){}
+}
+function confetti(){
+  var c=$("confetti"), x=c.getContext("2d"), dpr=window.devicePixelRatio||1;
+  c.width=innerWidth*dpr; c.height=innerHeight*dpr; x.setTransform(dpr,0,0,dpr,0,0);
+  var P=[], cols=[PALETTE[0],PALETTE[1],PALETTE[2],PALETTE[3],PALETTE[4]];
+  for(var i=0;i<120;i++) P.push({x:innerWidth/2,y:innerHeight*0.4,vx:(Math.random()*2-1)*7,vy:-Math.random()*9-3,
+    s:4+Math.random()*5,c:cols[i%5],r:Math.random()*Math.PI,vr:(Math.random()*2-1)*0.3});
+  var t0=performance.now();
+  (function step(now){
+    var t=(now-t0)/1000;
+    x.clearRect(0,0,innerWidth,innerHeight);
+    P.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.r+=p.vr;
+      x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillStyle=p.c; x.fillRect(-p.s/2,-p.s/2,p.s,p.s); x.restore(); });
+    if(t<1.6) requestAnimationFrame(step); else x.clearRect(0,0,innerWidth,innerHeight);
+  })(t0);
+}
+
+/* ---------- go ---------- */
+fit();
+setMode("daily");
+</script>
+</body>
+</html>

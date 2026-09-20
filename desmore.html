@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DESMORE · kaifun.fun</title>
+<style>
+  :root{ --bg:#0e1016; --panel:#171a24; --ink:#e8e6f0; --dim:#8a8aa8; --acc:#5ce0a0; --acc2:#ffd23f; --line:#2a2e42;
+    box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+  *,*::before,*::after{ box-sizing:inherit; }
+  html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+  html,body{ height:100%; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 "Courier New",ui-monospace,monospace; display:flex; flex-direction:column; }
+  header{ padding:12px 18px 10px; border-bottom:1px solid var(--line);
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  header a.home{ color:var(--dim); text-decoration:none; font-size:12px; }
+  header a.home:hover{ color:var(--acc); }
+  header h1{ margin:0; font-size:20px; letter-spacing:2px; }
+  header h1 span{ color:var(--acc); }
+  header p{ margin:0; color:var(--dim); font-size:12px; }
+  main{ flex:1; display:flex; min-height:0; }
+  #side{ width:290px; min-width:290px; border-right:1px solid var(--line); padding:14px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:13px; }
+  #calcwrap{ flex:1; position:relative; min-width:0; background:#fff; }
+  #calc{ position:absolute; inset:0; }
+  #noembed{ position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    color:#333; text-align:center; padding:30px; background:#f4f4f4; }
+  #drop{ border:2px dashed var(--line); border-radius:8px; padding:20px 12px; text-align:center;
+    color:var(--dim); cursor:pointer; }
+  #drop.hot,#drop:hover{ border-color:var(--acc); color:var(--ink); }
+  #drop b{ color:var(--acc); }
+  .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  label{ color:var(--dim); font-size:12px; }
+  input[type=number]{ background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-radius:4px; padding:4px 6px; font:inherit; width:70px; }
+  input[type=range]{ flex:1; accent-color:var(--acc); }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button{ flex:1; background:var(--panel); color:var(--dim); border:0; padding:7px 0; font:inherit; cursor:pointer; }
+  .seg button.on{ background:var(--acc); color:#0c1410; font-weight:bold; }
+  .btn{ background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:6px;
+    padding:9px 10px; font:inherit; cursor:pointer; width:100%; text-align:left; }
+  .btn:hover{ border-color:var(--acc); }
+  .btn.primary{ background:var(--acc); color:#0c1410; font-weight:bold; border-color:var(--acc); text-align:center; }
+  .btn.gold{ background:var(--acc2); color:#2a1f00; font-weight:bold; border-color:var(--acc2); text-align:center; }
+  .btn[disabled]{ opacity:.35; cursor:default; }
+  #stats{ color:var(--dim); font-size:12px; white-space:pre-line; }
+  #vidrow{ display:none; gap:8px; }
+  #vidrow.show{ display:flex; }
+  #thumb{ max-width:100%; border-radius:6px; border:1px solid var(--line); display:none; }
+  small.hint{ color:var(--dim); font-size:11px; line-height:1.45; display:block; }
+  small.hint b{ color:var(--acc2); }
+  footer{ border-top:1px solid var(--line); padding:8px 18px; color:var(--dim); font-size:11px; }
+  footer a{ color:var(--dim); }
+  #toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(90px);
+    background:var(--acc); color:#0c1410; font-weight:bold; padding:10px 16px; border-radius:8px;
+    transition:transform .2s; max-width:86vw; text-align:center; }
+  #toast.show{ transform:translateX(-50%) translateY(0); }
+  @media (max-width:760px){ main{ flex-direction:column; } #side{ width:auto; min-width:0; border-right:0;
+    border-bottom:1px solid var(--line); } #calcwrap{ min-height:55vh; } }
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="https://kaifun.fun">← kaifun.fun</a>
+  <h1>DESMORE<span>_</span></h1>
+  <p>any image or video → actual desmos math</p>
+</header>
+<main>
+  <div id="side">
+    <div id="drop">drop an image or video<br>or <b>click to pick one</b><br>
+      <span style="font-size:11px">png · jpg · gif · mp4 · webm</span></div>
+    <input type="file" id="file" accept="image/*,video/*,.gif" style="display:none">
+    <img id="thumb" alt="">
+    <div>
+      <label>mode</label>
+      <div class="seg" id="modeseg">
+        <button data-m="pixels" class="on">pixels</button>
+        <button data-m="lines">lines</button>
+        <button data-m="both">both</button>
+      </div>
+    </div>
+    <div class="row"><label>detail</label>
+      <input type="range" id="detail" min="1" max="5" value="4" step="1">
+      <span id="detailv" style="width:60px;text-align:right;font-size:12px">high</span></div>
+    <div class="row"><label>video fps</label><input type="number" id="fps" value="10" min="1" max="30" step="1"></div>
+    <button class="btn primary" id="render" disabled>render in desmos →</button>
+    <div id="vidrow" class="row">
+      <button class="btn" id="play" style="flex:1;text-align:center">▶ play</button>
+      <span id="frameno" style="color:var(--dim);font-size:12px">0 / 0</span>
+    </div>
+    <div id="stats">no file yet.</div>
+    <button class="btn gold" id="copymath" disabled>copy the math ∑</button>
+    <small class="hint">paste it straight into the desmos expression list.
+      for pixel colors: long-press the polygon's color circle and pick <b>K₁</b>. lines come in one color each — set them black if you want ink.</small>
+    <button class="btn" id="copy" disabled>copy console script (auto-colors)</button>
+    <button class="btn" id="dl" disabled>download .desmos.js</button>
+    <small class="hint">the script versions do the colors for you: F12 console on desmos.com/calculator, paste, enter. videos only move via the script.</small>
+  </div>
+  <div id="calcwrap">
+    <div id="calc"></div>
+    <div id="noembed">the embedded calculator couldn't load (offline?).<br><br>
+      the copy buttons still work — paste on desmos.com/calculator.</div>
+  </div>
+</main>
+<footer>desmore · part of <a href="https://kaifun.fun">kaifun.fun</a> · everything drawn here is just polygons and lists</footer>
+<div id="toast">copied!</div>
+<script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+<script>
+"use strict";
+var RUN_CAP=9000, VID_RUN_CAP=4200, MAX_LIST=10000;
+var DETAIL_W={1:[48,32],2:[80,64,48,32],3:[112,96,80,64,48],4:[160,144,128,112,96,80,64,48],5:[220,192,176,160,144,128,112,96]};
+var S={ mode:"pixels", detail:4, fps:10, kind:null, img:null, vid:null, gifFrames:null, srcFps:10,
+        runsFrames:null, exprs:null, gw:0, gh:0, playT:null, fi:0, mathText:"" };
+var $=function(id){ return document.getElementById(id); };
+var Calc=null;
+try{ if(window.Desmos) Calc=Desmos.GraphingCalculator($("calc"),
+  { expressions:false, settingsMenu:false, zoomButtons:true, border:false }); }catch(e){}
+if(!Calc) $("noembed").style.display="flex";
+
+// ── run-length pixels: merge same-color horizontal runs into wide rects ──
+function quant(v){ return Math.min(255,Math.round(v/8)*8); }
+function runsFromImageData(d,gw,gh){
+  var L=[],Rt=[],Y=[],R=[],G=[],B=[];
+  for(var r=0;r<gh;r++){
+    var c=0;
+    while(c<gw){
+      var i=(r*gw+c)*4;
+      var cr=quant(d.data[i]), cg=quant(d.data[i+1]), cb=quant(d.data[i+2]);
+      var c2=c+1;
+      while(c2<gw){
+        var j=(r*gw+c2)*4;
+        if(quant(d.data[j])!==cr||quant(d.data[j+1])!==cg||quant(d.data[j+2])!==cb) break;
+        c2++;
+      }
+      L.push(c); Rt.push(c2-1); Y.push(gh-1-r); R.push(cr); G.push(cg); B.push(cb);
+      c=c2;
+    }
+  }
+  return {L:L,R:Rt,Y:Y,CR:R,CG:G,CB:B,n:L.length};
+}
+function gridDims(w,h,gw){ var gh=Math.max(1,Math.round(h*gw/w));
+  while(gw*gh>60000){ gw-=8; gh=Math.max(1,Math.round(h*gw/w)); } return [gw,gh]; }
+// pick the biggest width whose run count fits the cap
+function bestRuns(sampler,w,h,widths,cap){
+  for(var i=0;i<widths.length;i++){
+    var g=gridDims(w,h,widths[i]), gw=g[0], gh=g[1];
+    var runs=runsFromImageData(sampler(gw,gh),gw,gh);
+    if(runs.n<=cap) return {runs:runs,gw:gw,gh:gh};
+  }
+  var g2=gridDims(w,h,widths[widths.length-1]);
+  return {runs:runsFromImageData(sampler(g2[0],g2[1]),g2[0],g2[1]),gw:g2[0],gh:g2[1]};
+}
+function lst(a){ return "["+a.join(",")+"]"; }
+function runExprs(runs){
+  return [
+    {id:"dm_l",latex:"L_{1}="+lst(runs.L),hidden:true},
+    {id:"dm_rr",latex:"R_{1}="+lst(runs.R),hidden:true},
+    {id:"dm_y",latex:"Y_{1}="+lst(runs.Y),hidden:true},
+    {id:"dm_cr",latex:"C_{R}="+lst(runs.CR),hidden:true},
+    {id:"dm_cg",latex:"C_{G}="+lst(runs.CG),hidden:true},
+    {id:"dm_cb",latex:"C_{B}="+lst(runs.CB),hidden:true},
+    {id:"dm_k",latex:"K_{1}=\\operatorname{rgb}\\left(C_{R},C_{G},C_{B}\\right)",hidden:true},
+    {id:"dm_px",latex:"\\operatorname{polygon}\\left(\\left(L_{1}-0.5,Y_{1}-0.5\\right),\\left(R_{1}+0.5,Y_{1}-0.5\\right),\\left(R_{1}+0.5,Y_{1}+0.5\\right),\\left(L_{1}-0.5,Y_{1}+0.5\\right)\\right)",
+     colorLatex:"K_{1}",fillOpacity:"1",lines:false}
+  ];
+}
+// the same thing in plain desmos syntax, for pasting into the expression list
+function runMath(runs){
+  return ["L_1="+lst(runs.L),"R_1="+lst(runs.R),"Y_1="+lst(runs.Y),
+    "C_R="+lst(runs.CR),"C_G="+lst(runs.CG),"C_B="+lst(runs.CB),
+    "K_1=rgb(C_R,C_G,C_B)",
+    "polygon((L_1-0.5,Y_1-0.5),(R_1+0.5,Y_1-0.5),(R_1+0.5,Y_1+0.5),(L_1-0.5,Y_1+0.5))"].join("\n");
+}
+// ── lines: sobel + non-max suppression, traced into paths ──────────────
+function edgeMap(d,w,h){
+  var g=new Float32Array(w*h),i,x,y;
+  for(i=0;i<w*h;i++) g[i]=0.299*d.data[i*4]+0.587*d.data[i*4+1]+0.114*d.data[i*4+2];
+  var bl=new Float32Array(w*h);
+  for(y=1;y<h-1;y++) for(x=1;x<w-1;x++){ var s=0;
+    for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++) s+=g[(y+dy)*w+(x+dx)];
+    bl[y*w+x]=s/9; }
+  var mag=new Float32Array(w*h), dir=new Uint8Array(w*h), vals=[];
+  for(y=1;y<h-1;y++) for(x=1;x<w-1;x++){
+    var gx=-bl[(y-1)*w+x-1]-2*bl[y*w+x-1]-bl[(y+1)*w+x-1]+bl[(y-1)*w+x+1]+2*bl[y*w+x+1]+bl[(y+1)*w+x+1];
+    var gy=-bl[(y-1)*w+x-1]-2*bl[(y-1)*w+x]-bl[(y-1)*w+x+1]+bl[(y+1)*w+x-1]+2*bl[(y+1)*w+x]+bl[(y+1)*w+x+1];
+    var m=Math.sqrt(gx*gx+gy*gy); mag[y*w+x]=m; if(m>2) vals.push(m);
+    var a=Math.atan2(gy,gx); dir[y*w+x]=((Math.round(a/(Math.PI/4))%4)+4)%4;
+  }
+  vals.sort(function(a,b){return a-b;});
+  var med=vals.length? vals[vals.length>>1]:0, th=Math.max(26,med*2.0);
+  var D=[[1,0],[1,1],[0,1],[-1,1]];
+  var bin=new Uint8Array(w*h);
+  for(y=1;y<h-1;y++) for(x=1;x<w-1;x++){
+    i=y*w+x;
+    if(mag[i]<=th) continue;
+    var v=D[dir[i]];
+    if(mag[i]>=mag[(y+v[1])*w+(x+v[0])]&&mag[i]>=mag[(y-v[1])*w+(x-v[0])]) bin[i]=1;
+  }
+  return bin;
+}
+function tracePaths(bin,w,h,maxPaths){
+  var seen=new Uint8Array(w*h), paths=[], NB=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  for(var y=0;y<h&&paths.length<maxPaths;y++) for(var x=0;x<w&&paths.length<maxPaths;x++){
+    var i=y*w+x;
+    if(!bin[i]||seen[i]) continue;
+    var path=[[x,y]]; seen[i]=1; var cx=x, cy=y;
+    for(;;){
+      var moved=false;
+      for(var n=0;n<8;n++){
+        var nx=cx+NB[n][0], ny=cy+NB[n][1];
+        if(nx<0||ny<0||nx>=w||ny>=h) continue;
+        var j=ny*w+nx;
+        if(bin[j]&&!seen[j]){ seen[j]=1; path.push([nx,ny]); cx=nx; cy=ny; moved=true; break; }
+      }
+      if(!moved) break;
+    }
+    if(path.length>=8) paths.push(path);
+  }
+  return paths;
+}
+function rdp(pts,eps){
+  if(pts.length<3) return pts;
+  var dmax=0, idx=0, a=pts[0], b=pts[pts.length-1];
+  var dx=b[0]-a[0], dy=b[1]-a[1], len=Math.sqrt(dx*dx+dy*dy)||1e-9;
+  for(var i=1;i<pts.length-1;i++){
+    var d=Math.abs(dy*pts[i][0]-dx*pts[i][1]+b[0]*a[1]-b[1]*a[0])/len;
+    if(d>dmax){ dmax=d; idx=i; }
+  }
+  if(dmax>eps){
+    var L=rdp(pts.slice(0,idx+1),eps), R2=rdp(pts.slice(idx),eps);
+    return L.slice(0,-1).concat(R2);
+  }
+  return [a,b];
+}
+function linePolys(d,w,h,unitW){
+  var bin=edgeMap(d,w,h), paths=tracePaths(bin,w,h,320), polys=[];
+  paths.sort(function(a,b){return b.length-a.length;});
+  for(var p=0;p<paths.length;p++){
+    var sim=rdp(paths[p],1.4);
+    if(sim.length<2) continue;
+    var seq=sim.concat(sim.slice(1,-1).reverse());
+    polys.push(seq.map(function(pt){
+      return "("+(pt[0]/w*unitW).toFixed(2)+","+((h-1-pt[1])/w*unitW).toFixed(2)+")"; }).join(","));
+  }
+  return polys;
+}
+function lineExprs(polys){
+  return polys.map(function(pp,i){
+    return {id:"dm_ln"+i,
+      latex:"\\operatorname{polygon}\\left("+pp.replace(/\(/g,"\\left(").replace(/\)/g,"\\right)")+"\\right)",
+      color:"#000000",fillOpacity:"0",lineWidth:"1.5"}; });
+}
+function lineMath(polys){          // chunk many strokes into few list-of-polygon expressions
+  var out=[], cur=[], len=0;
+  for(var i=0;i<polys.length;i++){
+    var piece="polygon("+polys[i]+")";
+    if(len+piece.length>18000&&cur.length){ out.push("["+cur.join(",")+"]"); cur=[]; len=0; }
+    cur.push(piece); len+=piece.length+1;
+  }
+  if(cur.length) out.push("["+cur.join(",")+"]");
+  return out.join("\n");
+}
+// ── files ───────────────────────────────────────────────────────────────
+var work=document.createElement("canvas"), wg=work.getContext("2d",{willReadFrequently:true});
+function sample(src,gw,gh){ work.width=gw; work.height=gh; wg.drawImage(src,0,0,gw,gh);
+  return wg.getImageData(0,0,gw,gh); }
+function setStats(t){ $("stats").textContent=t; }
+function stopPlay(){ if(S.playT){ clearInterval(S.playT); S.playT=null; $("play").textContent="▶ play"; } }
+$("drop").onclick=function(){ $("file").click(); };
+$("drop").ondragover=function(e){ e.preventDefault(); $("drop").classList.add("hot"); };
+$("drop").ondragleave=function(){ $("drop").classList.remove("hot"); };
+$("drop").ondrop=function(e){ e.preventDefault(); $("drop").classList.remove("hot");
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); };
+$("file").onchange=function(){ if(this.files[0]) loadFile(this.files[0]); };
+function loadFile(file){
+  stopPlay(); S.img=null; S.vid=null; S.gifFrames=null; S.runsFrames=null; S.exprs=null;
+  var isVideo=/^video\//.test(file.type), isGif=/gif$/i.test(file.name)||file.type==="image/gif";
+  if(isVideo){
+    var url=URL.createObjectURL(file), v=document.createElement("video");
+    v.muted=true; v.src=url;
+    v.onloadedmetadata=function(){ S.kind="video"; S.vid=v;
+      $("thumb").style.display="none";
+      setStats("video · "+v.videoWidth+"×"+v.videoHeight+" · "+v.duration.toFixed(1)+"s");
+      $("render").disabled=false; };
+    v.onerror=function(){ setStats("couldn't read that video."); };
+  } else if(isGif&&("ImageDecoder" in window)){
+    file.arrayBuffer().then(function(buf){
+      var dec=new ImageDecoder({data:buf,type:"image/gif"});
+      return dec.tracks.ready.then(function(){
+        var n=dec.tracks.selectedTrack.frameCount, fr=[], durs=[];
+        (function next(i){
+          if(i>=n){ S.kind= n>1? "video":"image"; S.gifFrames=fr;
+            var avg=durs.reduce(function(a,b){return a+b;},0)/Math.max(1,durs.length);
+            S.srcFps=1e6/Math.max(avg,1);
+            setStats("gif · "+n+" frames"); $("render").disabled=false; return; }
+          dec.decode({frameIndex:i}).then(function(res){ fr.push(res.image);
+            durs.push(res.image.duration||100000); next(i+1); });
+        })(0);
+      });
+    }).catch(function(){ setStats("gif decode failed — convert to mp4?"); });
+  } else {
+    var url2=URL.createObjectURL(file), im=new Image();
+    im.onload=function(){ S.kind="image"; S.img=im;
+      $("thumb").src=url2; $("thumb").style.display="block";
+      setStats("image · "+im.naturalWidth+"×"+im.naturalHeight);
+      $("render").disabled=false; };
+    im.onerror=function(){ setStats("couldn't read that image."); };
+    im.src=url2;
+  }
+}
+// ── render ──────────────────────────────────────────────────────────────
+document.querySelectorAll("#modeseg button").forEach(function(b){
+  b.onclick=function(){ document.querySelectorAll("#modeseg button").forEach(function(x){x.classList.remove("on");});
+    b.classList.add("on"); S.mode=b.dataset.m; };
+});
+var DETAIL_NAMES={1:"chunky",2:"low",3:"mid",4:"high",5:"MAX"};
+$("detail").oninput=function(){ S.detail=+this.value; $("detailv").textContent=DETAIL_NAMES[this.value]; };
+$("fps").onchange=function(){ S.fps=Math.max(1,Math.min(30,+this.value||10)); };
+function pushToCalc(){
+  if(!Calc) return;
+  Calc.setBlank();
+  var pad=Math.max(S.gw,S.gh)*0.08;
+  Calc.updateSettings({showGrid:false,showXAxis:false,showYAxis:false});
+  Calc.setMathBounds({left:-pad,right:S.gw+pad,bottom:-pad*(S.gh/S.gw||1),top:S.gh+pad});
+  S.exprs.forEach(function(e){ Calc.setExpression(e); });
+}
+$("render").onclick=function(){ stopPlay(); if(S.kind==="image") renderImage(); else renderVideo(); };
+function renderImage(){
+  var src=S.gifFrames? S.gifFrames[0] : S.img;
+  var w=src.displayWidth||src.naturalWidth||src.width, h=src.displayHeight||src.naturalHeight||src.height;
+  S.exprs=[]; var math=[];
+  var res=null;
+  if(S.mode!=="lines"){
+    res=bestRuns(function(gw,gh){ return sample(src,gw,gh); },w,h,DETAIL_W[S.detail],RUN_CAP);
+    S.gw=res.gw; S.gh=res.gh;
+    S.exprs=S.exprs.concat(runExprs(res.runs));
+    math.push(runMath(res.runs));
+  }
+  if(S.mode!=="pixels"){
+    if(!res){ var g=gridDims(w,h,DETAIL_W[S.detail][0]); S.gw=g[0]; S.gh=g[1]; }
+    var lw=Math.min(500,Math.max(300,S.gw*3)), lh=Math.max(2,Math.round(h*lw/w));
+    var polys=linePolys(sample(src,lw,lh),lw,lh,S.gw);
+    if(!polys.length) setStats("no edges found for lines mode");
+    S.exprs=S.exprs.concat(lineExprs(polys));
+    math.push(lineMath(polys));
+  }
+  S.mathText=math.join("\n");
+  S.runsFrames=null;
+  pushToCalc();
+  $("vidrow").classList.remove("show");
+  var det= res? res.runs.n+" rects (from "+S.gw+"×"+S.gh+" px)":S.exprs.length+" strokes";
+  setStats(S.mode+" · "+det+" · "+S.exprs.length+" expressions\ndrawn →");
+  $("copymath").disabled=$("copy").disabled=$("dl").disabled=false;
+}
+function renderVideo(){
+  setStats("grabbing frames…"); $("render").disabled=true;
+  var fps=S.fps, frames=[];
+  function finish(){
+    // size once on the busiest sampled frame, then encode all at that size
+    var w=frames[0].w, h=frames[0].h;
+    var probeIdx=[0,(frames.length>>1),frames.length-1];
+    var widths=DETAIL_W[Math.min(S.detail,4)];
+    var chosen=null;
+    for(var wi=0;wi<widths.length&&!chosen;wi++){
+      var g=gridDims(w,h,widths[wi]), ok=true, worst=0;
+      for(var pi=0;pi<probeIdx.length;pi++){
+        var r=runsFromImageData(sample(frames[probeIdx[pi]].src,g[0],g[1]),g[0],g[1]);
+        worst=Math.max(worst,r.n);
+        if(r.n>VID_RUN_CAP){ ok=false; break; }
+      }
+      if(ok) chosen=g;
+    }
+    if(!chosen){ var gl=gridDims(w,h,32); chosen=gl; }
+    S.gw=chosen[0]; S.gh=chosen[1];
+    S.runsFrames=frames.map(function(f){ return runsFromImageData(sample(f.src,S.gw,S.gh),S.gw,S.gh); });
+    S.exprs=runExprs(S.runsFrames[0]);
+    S.mathText=runMath(S.runsFrames[0]);
+    pushToCalc();
+    S.fi=0; $("vidrow").classList.add("show");
+    $("frameno").textContent="1 / "+S.runsFrames.length;
+    var maxN=Math.max.apply(null,S.runsFrames.map(function(r){return r.n;}));
+    setStats("video · "+S.runsFrames.length+" frames · "+S.gw+"×"+S.gh+" px · up to "+maxN+" rects/frame");
+    $("render").disabled=false;
+    $("copymath").disabled=$("copy").disabled=$("dl").disabled=false;
+    togglePlay();
+  }
+  if(S.gifFrames){
+    var step=Math.max(1,Math.round((S.srcFps||10)/fps));
+    for(var i=0;i<S.gifFrames.length;i+=step)
+      frames.push({src:S.gifFrames[i],w:S.gifFrames[i].displayWidth,h:S.gifFrames[i].displayHeight});
+    finish(); return;
+  }
+  var v=S.vid, t=0, maxFrames=240;
+  v.onseeked=function(){
+    frames.push({src:v,w:v.videoWidth,h:v.videoHeight});
+    // videos must be sampled NOW, not later — grab the ImageData immediately
+    frames[frames.length-1]={ src:(function(){ var c=document.createElement("canvas");
+        c.width=v.videoWidth; c.height=v.videoHeight;
+        c.getContext("2d").drawImage(v,0,0); return c; })(), w:v.videoWidth, h:v.videoHeight };
+    t+=1/fps;
+    if(t<v.duration&&frames.length<maxFrames){ v.currentTime=t;
+      if(frames.length%10===0) setStats("grabbing frames… "+frames.length); }
+    else finish();
+  };
+  v.currentTime=0;
+}
+function showFrame(i){
+  if(!Calc||!S.runsFrames) return;
+  var r=S.runsFrames[i];
+  Calc.setExpression({id:"dm_l",latex:"L_{1}="+lst(r.L),hidden:true});
+  Calc.setExpression({id:"dm_rr",latex:"R_{1}="+lst(r.R),hidden:true});
+  Calc.setExpression({id:"dm_y",latex:"Y_{1}="+lst(r.Y),hidden:true});
+  Calc.setExpression({id:"dm_cr",latex:"C_{R}="+lst(r.CR),hidden:true});
+  Calc.setExpression({id:"dm_cg",latex:"C_{G}="+lst(r.CG),hidden:true});
+  Calc.setExpression({id:"dm_cb",latex:"C_{B}="+lst(r.CB),hidden:true});
+  $("frameno").textContent=(i+1)+" / "+S.runsFrames.length;
+}
+function togglePlay(){
+  if(S.playT){ stopPlay(); return; }
+  if(!S.runsFrames||S.runsFrames.length<2) return;
+  $("play").textContent="⏸ pause";
+  S.playT=setInterval(function(){ S.fi=(S.fi+1)%S.runsFrames.length; showFrame(S.fi); },
+    1000/Math.min(S.srcFps||S.fps,S.fps));
+}
+$("play").onclick=togglePlay;
+// ── exports ─────────────────────────────────────────────────────────────
+function consoleScript(){
+  if(!S.exprs) return "";
+  var pad=Math.max(S.gw,S.gh)*0.08;
+  var js="// generated by DESMORE (kaifun.fun) — paste into the F12 console on desmos.com/calculator\n(function(){\n"+
+    "  var Calc=window.Calc; if(!Calc){ alert('open this on desmos.com/calculator'); return; }\n"+
+    "  Calc.setBlank();\n  Calc.updateSettings({expressionsCollapsed:true,showGrid:false,showXAxis:false,showYAxis:false});\n"+
+    "  Calc.setMathBounds({left:"+(-pad).toFixed(1)+",right:"+(S.gw+pad).toFixed(1)+
+      ",bottom:"+(-pad).toFixed(1)+",top:"+(S.gh+pad).toFixed(1)+"});\n"+
+    "  var E="+JSON.stringify(S.exprs)+";\n  E.forEach(function(e){Calc.setExpression(e);});\n";
+  if(S.runsFrames&&S.runsFrames.length>1){
+    var F=S.runsFrames.map(function(r){ return [r.L,r.R,r.Y,r.CR,r.CG,r.CB]; });
+    js+="  var SPEED_FPS="+(Math.min(S.srcFps,S.fps)||10).toFixed(2)+";\n"+
+        "  var F="+JSON.stringify(F)+";\n  var i=F.length>1?1:0;\n"+
+        "  function L(a){return '['+a.join(',')+']';}\n"+
+        "  var IDS=[['dm_l','L_{1}'],['dm_rr','R_{1}'],['dm_y','Y_{1}'],['dm_cr','C_{R}'],['dm_cg','C_{G}'],['dm_cb','C_{B}']];\n"+
+        "  setInterval(function(){var f=F[i]; i=(i+1)%F.length;\n"+
+        "    IDS.forEach(function(d,k){Calc.setExpression({id:d[0],latex:d[1]+'='+L(f[k]),hidden:true});});\n"+
+        "  },1000/SPEED_FPS);\n";
+  }
+  js+="  console.log('desmore: '+E.length+' expressions');\n})();\n";
+  return js;
+}
+function toast(msg){ var t=$("toast"); t.textContent=msg||"copied!";
+  t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},1800); }
+$("copymath").onclick=function(){
+  var txt=S.mathText;
+  var note= S.runsFrames&&S.runsFrames.length>1? "copied frame 1 as math — motion needs the script":"math copied — paste into desmos";
+  (navigator.clipboard? navigator.clipboard.writeText(txt):Promise.reject())
+    .then(function(){ toast(note); })
+    .catch(function(){ prompt("copy this:",txt); });
+};
+$("copy").onclick=function(){
+  (navigator.clipboard? navigator.clipboard.writeText(consoleScript()):Promise.reject())
+    .then(function(){ toast("console script copied"); })
+    .catch(function(){ toast("clipboard blocked — use download"); });
+};
+$("dl").onclick=function(){
+  var blob=new Blob([consoleScript()],{type:"text/javascript"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="desmore.desmos.js"; a.click();
+};
+</script>
+</body>
+</html>
