@@ -1,0 +1,2701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CLICK FOR BACON!!! - Official Homepage</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;background:#000;cursor:pointer;user-select:none;}
+  canvas{display:block;width:100vw;height:100vh;background:#000;}
+  a.back{position:fixed;left:10px;bottom:8px;z-index:5;color:#555;font-size:10px;
+    font-family:"Courier New",monospace;text-decoration:none;letter-spacing:.14em;}
+  a.back:hover{color:#fff;}
+  /* the console */
+  #term{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(92vw,660px);height:min(74vh,460px);z-index:20;flex-direction:column;
+    background:#000;border:2px solid #fff;box-shadow:0 0 0 4px #000,0 18px 60px rgba(0,0,0,.9);
+    font-family:"Courier New",monospace;color:#fff;font-size:13px;}
+  #tbar{display:flex;justify-content:space-between;align-items:center;padding:2px 7px;
+    background:#fff;color:#000;font-weight:bold;font-size:11px;letter-spacing:.2em;flex:0 0 auto;}
+  #tclose{cursor:pointer;}
+  #tout{flex:1;overflow-y:auto;padding:7px 9px;white-space:pre;line-height:1.45;}
+  #tout .hd{font-weight:bold;text-decoration:underline;}
+  #tout .in{color:#9a9a9a;}
+  #trow{display:flex;gap:6px;padding:5px 9px 7px;border-top:1px solid #444;flex:0 0 auto;}
+  #tp{color:#fff;}
+  #tin{flex:1;background:#000;border:0;outline:0;color:#fff;font-family:inherit;font-size:13px;caret-color:#fff;}
+  #part1{position:fixed;inset:0;}
+  #part2{display:none;position:fixed;inset:0;z-index:30;background:#000;}
+  #p2cv{display:block;width:100vw;height:100vh;background:#000;}
+  #p2box{display:none;position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);
+    width:min(90vw,700px);border:2px solid #fff;background:#000;color:#fff;padding:14px 16px 12px;
+    font-family:"Courier New",monospace;font-size:14px;line-height:1.55;z-index:32;}
+  #p2btn{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+  .p2b{background:#000;border:1px solid #fff;color:#fff;font-family:inherit;font-size:12px;
+    padding:6px 12px;cursor:pointer;letter-spacing:.06em;}
+  .p2b:hover{background:#fff;color:#000;}
+  #part3{display:none;position:fixed;inset:0;z-index:30;background:#000;}
+  #p3cv{display:block;width:100vw;height:100vh;background:#000;}
+  #part4,#part5,#part6,#part8{display:none;position:fixed;inset:0;z-index:30;background:#000;}
+  #p4cv,#p5cv,#p6cv,#p8cv{display:block;width:100vw;height:100vh;background:#000;}
+  #tp{position:fixed;right:8px;bottom:8px;z-index:40;display:flex;gap:4px;}
+  .tpb{width:22px;height:22px;background:#000;border:1px solid #444;color:#666;
+    font-family:"Courier New",monospace;font-size:11px;cursor:pointer;padding:0;}
+  .tpb:hover{border-color:#fff;color:#fff;}
+  .tpb.on{background:#fff;color:#000;border-color:#fff;}
+</style>
+</head>
+<body>
+<div id="part1"><canvas id="cv"></canvas></div>
+<a class="back" href="index.html">&lt; BACK</a>
+
+<div id="tp">
+  <button class="tpb on" data-p="1">1</button><button class="tpb" data-p="2">2</button><button class="tpb" data-p="3">3</button><button class="tpb" data-p="4">4</button><button class="tpb" data-p="5">5</button><button class="tpb" data-p="6">6</button><button class="tpb" data-p="7">7</button><button class="tpb" data-p="8">8</button><button class="tpb" data-p="9">9</button><button class="tpb" data-p="10">10</button>
+</div>
+
+<div id="term">
+  <div id="tbar"><span>CONSOLE</span><span id="tclose">[x]</span></div>
+  <div id="tout"></div>
+  <div id="trow"><span id="tp">&gt;</span><input id="tin" autocomplete="off" spellcheck="false"></div>
+</div>
+
+<div id="part2">
+  <canvas id="p2cv"></canvas>
+  <div id="p2box"><div id="p2txt"></div><div id="p2btn"></div></div>
+</div>
+<div id="part3"><canvas id="p3cv"></canvas></div>
+<div id="part4"><canvas id="p4cv"></canvas></div>
+<div id="part5"><canvas id="p5cv"></canvas></div>
+<div id="part6"><canvas id="p6cv"></canvas></div>
+<div id="part8"><canvas id="p8cv"></canvas></div>
+<script>
+"use strict";
+var cv = document.getElementById("cv"), g = cv.getContext("2d");
+var page = document.createElement("canvas"), pg = page.getContext("2d");
+var W = 0, H = 0, DPR = 1;
+var COLS = 26, ROWS = 18, tiles = [], falling = [], done = false, doneAt = 0, revealed = false;
+
+// ── draw the website once, onto an offscreen canvas ──
+function drawPage(w, h) {
+  page.width = w; page.height = h;
+  pg.fillStyle = "#fff"; pg.fillRect(0, 0, w, h);
+  pg.fillStyle = "#000";
+  var cx = w / 2, s = Math.min(1.3, Math.max(0.62, w / 900));
+  function txt(t, x, y, size, font, align) {
+    pg.font = (font || "") + " " + Math.round(size * s) + 'px "Times New Roman",Times,serif';
+    pg.textAlign = align || "left"; pg.fillText(t, x, y);
+  }
+  function mono(t, x, y, size, font, align) {
+    pg.font = (font || "") + " " + Math.round(size * s) + 'px "Courier New",monospace';
+    pg.textAlign = align || "left"; pg.fillText(t, x, y);
+  }
+  function rule(y, lw) { pg.lineWidth = lw || 2; pg.beginPath(); pg.moveTo(20 * s, y); pg.lineTo(w - 20 * s, y); pg.stroke(); }
+  pg.strokeStyle = "#000";
+  txt("CLICK FOR BACON!!!", cx, 46 * s, 38, "bold", "center");
+  var tw = pg.measureText("CLICK FOR BACON!!!").width;
+  pg.lineWidth = 3; pg.beginPath(); pg.moveTo(cx - tw / 2, 53 * s); pg.lineTo(cx + tw / 2, 53 * s); pg.stroke();
+  txt("the official homepage of clicking for bacon", cx, 76 * s, 15, "italic", "center");
+  rule(96 * s, 2);
+  rule(112 * s, 1);
+  txt("*** CLICK ANYWHERE ON THIS PAGE *** NOTHING IS COMING BACK ***", cx, 130 * s, 13, "bold", "center");
+  rule(140 * s, 1);
+  // the inset box
+  var bx = cx - 250 * s, by = 158 * s, bw = 500 * s, bh = 150 * s;
+  pg.lineWidth = 3; pg.strokeRect(bx, by, bw, bh);
+  txt(">>> CLICK ANYWHERE <<<", cx, by + 26 * s, 18, "bold", "center");
+  var lines = ["Welcome 2 my page. This page used to give u BACON.",
+               "It does not anymore. Now when u click, pieces of the",
+               "page come loose and fall off. I do not know why.",
+               "If u get stuck, try typing the word  h e l p  ."];
+  for (var i = 0; i < lines.length; i++) txt(lines[i], bx + 16 * s, by + 52 * s + i * 20 * s, 13, "", "left");
+  var bul = ["Every click takes a piece", "Nothing is added", "It ends black"];
+  for (var j = 0; j < bul.length; j++) txt("\u2022  " + bul[j], bx + 26 * s, by + 128 * s + j * 0 - (2 - j) * 0 + j * 0, 12, "", "left");
+  // stats table
+  txt("W E B S I T E   S T A T I S T I C S", cx, 330 * s, 13, "bold", "center");
+  var rows = [["pieces remaining", "-"], ["pieces lost", "-"], ["pieces recovered", "0"], ["server status", "FINE"]];
+  var ty = 344 * s, tx = cx - 135 * s;
+  pg.lineWidth = 1;
+  for (var k = 0; k < rows.length; k++) {
+    pg.strokeRect(tx, ty, 200 * s, 18 * s); pg.strokeRect(tx + 200 * s, ty, 70 * s, 18 * s);
+    mono(rows[k][0], tx + 6 * s, ty + 13 * s, 11, "", "left");
+    mono(rows[k][1], tx + 206 * s, ty + 13 * s, 11, "bold", "left");
+    ty += 18 * s;
+  }
+  // corner log box
+  pg.lineWidth = 1; pg.strokeRect(20 * s, h - 96 * s, 230 * s, 76 * s);
+  mono("PAGE LOG:", 27 * s, h - 80 * s, 10, "bold", "left");
+  mono("awaiting click...", 27 * s, h - 64 * s, 10, "", "left");
+  mono("COPYRIGHT KAI.  LAST UPDATED: NEVER", cx, h - 10 * s, 10, "", "center");
+}
+// ── cut the page into fragments ──
+function build() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = cv.width = Math.max(2, innerWidth * DPR);
+  H = cv.height = Math.max(2, innerHeight * DPR);
+  drawPage(W, H);
+  tiles = []; falling = []; done = false; doneAt = 0;
+  var tw = W / COLS, th = H / ROWS;
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++)
+    tiles.push({ sx: c * tw, sy: r * th, w: tw, h: th, cx: c * tw + tw / 2, cy: r * th + th / 2 });
+}
+addEventListener("resize", build);
+// ── knock pieces loose ──
+function knock(clientX, clientY) {
+  if (!tiles.length) return;
+  var px = (clientX == null ? innerWidth / 2 : clientX) * DPR;
+  var py = (clientY == null ? innerHeight / 2 : clientY) * DPR;
+  tiles.sort(function (a, b) {
+    return (Math.hypot(a.cx - px, a.cy - py) + Math.random() * 90 * DPR)
+         - (Math.hypot(b.cx - px, b.cy - py) + Math.random() * 90 * DPR);
+  });
+  var take = Math.min(tiles.length, 6 + Math.floor(Math.random() * 7));   // a good handful per click
+  for (var i = 0; i < take; i++) {
+    var t = tiles.shift();
+    t.x = t.sx; t.y = t.sy;
+    t.vx = (t.cx - px) * 0.006 + (Math.random() - 0.5) * 0.9;
+    t.vy = -0.5 - Math.random() * 0.9;           // a small lift, then gravity takes it
+    t.rot = 0; t.vr = (Math.random() - 0.5) * 0.02;
+    falling.push(t);
+  }
+}
+addEventListener("pointerdown", function (e) {
+  if (document.getElementById("part1").style.display === "none") return;
+  if (typeof T !== "undefined" && T.open) return;
+  if (done && revealed) { openTerm(); return; }
+  knock(e.clientX, e.clientY);
+});
+addEventListener("keydown", function (e) {
+  if (document.getElementById("part1").style.display === "none") return;
+  if (typeof T !== "undefined" && T.open) return;
+  if (e.code === "Space") { e.preventDefault(); knock(); }
+});
+addEventListener("contextmenu", function (e) { e.preventDefault(); });
+// ── loop ──
+function frame() {
+  requestAnimationFrame(frame);
+  g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
+  for (var i = 0; i < tiles.length; i++) {
+    var t = tiles[i];
+    g.drawImage(page, t.sx, t.sy, t.w, t.h, t.sx, t.sy, t.w + 1, t.h + 1);
+  }
+  for (var j = falling.length - 1; j >= 0; j--) {
+    var f = falling[j];
+    f.vy += 0.16 * DPR;                          // slow, heavy fall
+    f.x += f.vx * DPR; f.y += f.vy; f.rot += f.vr;
+    g.save();
+    g.translate(f.x + f.w / 2, f.y + f.h / 2);
+    g.rotate(f.rot);
+    g.drawImage(page, f.sx, f.sy, f.w, f.h, -f.w / 2, -f.h / 2, f.w + 1, f.h + 1);
+    g.restore();
+    if (f.y > H + f.h * 2) falling.splice(j, 1);
+  }
+  if (!tiles.length && !falling.length && !done) {
+    done = true;
+    doneAt = performance.now();
+  }
+  if (done && !revealed) {
+    var wait = performance.now() - doneAt;
+    if (wait > 900) {                       // a beat of black, then the console appears by itself
+      revealed = true;
+      if (typeof openTerm === "function") {
+        openTerm();
+        if (typeof say === "function") {
+          say("the page is gone.");
+          say("this console is what was under it.");
+          say("type 'help'.");
+          say("");
+        }
+      }
+    }
+  }
+  if (done && revealed && !T.open) {        // closed it? leave a prompt so it can be found again
+    g.fillStyle = "#fff";
+    g.font = Math.round(13 * DPR) + 'px "Courier New",monospace';
+    g.textAlign = "center";
+    g.globalAlpha = (Math.floor(performance.now() / 600) % 2) ? 0.15 : 0.8;
+    g.fillText("> _", W / 2, H / 2);
+    g.globalAlpha = 1;
+  }
+}
+build();
+frame();
+
+// three sections of commands, 41 / 42 / 43
+const S41=["status","ping","uptime","whoami","hostname","env","path","mount","df","du","ps","top","kill","jobs","fg","bg","nice","time","date","cal","who","last","id","groups","umask","alias","unalias","history","clear","reset","echo","printf","read","exit","logout","shutdown","reboot","halt","sync","flush","yield"];
+const S42=["page","frag","frags","shard","shards","glue","weld","patch","mend","restore","rollback","undo","redo","snap","snapshot","cache","purge","drop","hold","pin","unpin","lift","fall","gravity","float","anchor","tether","sever","split","merge","fuse","align","offset","rotate","mirror","invert","dim","lit","paint","erase","blank","void"];
+const S43=["key","keys","lock","unlock","door","gate","bolt","latch","hinge","seam","crack","fault","rift","hollow","depth","below","under","beneath","descend","climb","reach","grasp","hold2","listen","knock","answer","wait","count","name","forget","remember","trace","follow","lead","mark","signal","beacon","relay","echo2","carry","send","abc","next"];
+
+// ═══════════════════════════ terminal ═══════════════════════════
+var T = { open: false, buf: [], hist: [], hi: -1, part: 1 };
+var tEl = document.getElementById("term"), tOut = document.getElementById("tout"), tIn = document.getElementById("tin");
+var typed = "";
+function openTerm() {
+  if (T.open) return;
+  T.open = true; tEl.style.display = "flex";
+  if (!tOut.children.length) {
+    say("CONSOLE v0.3  (unstable)");
+    say("type 'help' for a list of commands.");
+    say("");
+  }
+  setTimeout(function () { tIn.focus(); }, 30);
+}
+function closeTerm() { T.open = false; tEl.style.display = "none"; }
+function say(line, cls) {
+  var d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = line;
+  tOut.appendChild(d);
+  tOut.scrollTop = tOut.scrollHeight;
+  while (tOut.children.length > 400) tOut.removeChild(tOut.children[0]);
+}
+function cols(list, per) {
+  var out = [], row = [];
+  for (var i = 0; i < list.length; i++) {
+    row.push((list[i] + "            ").slice(0, 12));
+    if (row.length === per) { out.push("  " + row.join("")); row = []; }
+  }
+  if (row.length) out.push("  " + row.join(""));
+  return out;
+}
+function doHelp() {
+  say("");
+  say("AVAILABLE COMMANDS", "hd");
+  say("");
+  say("(" + S41.length + ")", "hd");
+  cols(S41, 5).forEach(function (l) { say(l); });
+  say("");
+  say("(" + S42.length + ")", "hd");
+  cols(S42, 5).forEach(function (l) { say(l); });
+  say("");
+  say("(" + S43.length + ")", "hd");
+  cols(S43, 5).forEach(function (l) { say(l); });
+  say("");
+  say("  " + (S41.length + S42.length + S43.length) + " commands total. most of them do nothing.");
+  say("");
+}
+var KNOWN = {};
+[S41, S42, S43].forEach(function (s) { s.forEach(function (c) { KNOWN[c] = 1; }); });
+var SHRUG = ["not now.", "nothing happens.", "denied.", "no.", "not yet.", "that isn't it.",
+             "the console considers this and declines.", "no such luck.", "wrong one."];
+function run(raw) {
+  var line = String(raw).trim();
+  if (!line) return;
+  say("> " + line, "in");
+  var cmd = line.split(/\s+/)[0].toLowerCase();
+  if (cmd === "help" || cmd === "?" || cmd === "commands") { doHelp(); return; }
+  if (cmd === "clear" || cmd === "cls") { tOut.innerHTML = ""; return; }
+  if (cmd === "exit" || cmd === "close" || cmd === "quit" || cmd === "logout") { closeTerm(); return; }
+  if (cmd === "abc") { nextPart(); return; }
+  if (KNOWN[cmd]) { say("  " + SHRUG[Math.floor(Math.random() * SHRUG.length)]); return; }
+  say("  '" + cmd + "' is not a command. try 'help'.");
+}
+function nextPart() {
+  say("");
+  say("  ...", "hd");
+  T.part = 2;
+  setTimeout(function () { closeTerm(); goPart(2); }, 700);
+}
+tIn.addEventListener("keydown", function (e) {
+  e.stopPropagation();
+  if (e.key === "Enter") { var v = tIn.value; tIn.value = ""; if (v.trim()) { T.hist.push(v); T.hi = T.hist.length; } run(v); }
+  else if (e.key === "Escape") { closeTerm(); }
+  else if (e.key === "ArrowUp") { if (T.hi > 0) { T.hi--; tIn.value = T.hist[T.hi]; } e.preventDefault(); }
+  else if (e.key === "ArrowDown") { if (T.hi < T.hist.length - 1) { T.hi++; tIn.value = T.hist[T.hi]; } else { T.hi = T.hist.length; tIn.value = ""; } e.preventDefault(); }
+});
+// typing the word anywhere on the page opens it
+addEventListener("keydown", function (e) {
+  if (T.open) return;
+  if (typeof P2 !== "undefined" && P2.on) return;                 // the console lives under part one
+  if (typeof P3 !== "undefined" && P3.on) return;
+  if (typeof P4 !== "undefined" && P4.on) return;
+  if (typeof P5 !== "undefined" && P5.on) return;
+  if (typeof P6 !== "undefined" && P6.on) return;
+  if (typeof P8 !== "undefined" && P8.on) return;
+  if (e.key === "Escape") return;
+  if (e.key && e.key.length === 1) {
+    typed = (typed + e.key.toLowerCase()).slice(-6);
+    if (typed.indexOf("help") >= 0 || typed.indexOf("term") >= 0) { typed = ""; openTerm(); }
+  }
+});
+
+document.getElementById("tclose").onclick = closeTerm;
+// teleport 7 / after the fight: the credits, from the top (black and white)
+function startPart7(){
+  if(!p6cv) return;
+  P6.token++; P6.on=true; P6.t=0; P6.lastTick=0; P6.st=0;
+  P6.state="credits2"; P6.scroll2=0; P6.kx2=1.15; P6.yank=0;
+  P6.lineT=0; P6.lineSpoke=false; P6.D=null;
+  P6.you={x:0.25,y:0,vy:0,vx:0,face:1,hp:6,ifr:0,punch:0,pcool:0};
+  P6.kai={x:0.5,y:0,vy:0,vx:0,face:-1,hp:10,maxhp:10,ifr:0,phase:1,mode:"idle",mt:0};
+  P6.shots=[]; P6.waves=[]; P6.msg=""; P6.msgT=0;
+  p6Fit(); requestAnimationFrame(p6Frame);
+}
+
+// ═══════════════════════ PART EIGHT: REPAIRS (b&w) ═══════════════════════
+var P8={on:false,token:0,t:0,lastTick:0,view:"hub",active:-1,done:[false,false,false,true,false,false,false],m:null,D:null,allDone:false,state:"hub",scroll3:0};
+var p8cv=document.getElementById("p8cv"), p8g=p8cv?p8cv.getContext("2d"):null;
+var P8W=0,P8H=0,P8D=1;
+function p8Fit(){ if(!p8cv) return; P8D=Math.min(2,devicePixelRatio||1);
+  P8W=p8cv.width=Math.max(2,innerWidth*P8D); P8H=p8cv.height=Math.max(2,innerHeight*P8D); }
+addEventListener("resize",p8Fit);
+function p8Dialog(lines,done){ P8.D={lines:lines.slice(),idx:0,chars:0,done:done||null}; }
+function p8Adv(){ var D=P8.D; if(!D) return; var cur=D.lines[D.idx];
+  if(D.chars<cur.length){ D.chars=cur.length; return; }
+  D.idx++; D.chars=0; if(D.idx>=D.lines.length){ P8.D=null; if(D.done) D.done(); } }
+function repairedCount(){ return [0,1,2,4,5,6].filter(function(i){return P8.done[i];}).length; }
+var PROBLEMS=[
+ {open:["MIMIC: my voice came out wrong when they drew me.","MIMIC: three dials. pitch, gravel, echo.","MIMIC: turn them until i sound like a door should."],
+  win:["MIMIC: knock knock.","MIMIC: ...that's me. that's my voice.","MIMIC: thank you."]},
+ {open:["BOB: my brain was a json file.","BOB: it got corrupted somewhere around the jam incident.","BOB: write me a new one? get the fields right."],
+  win:["BOB: installing... installed.","BOB: oh WOW. i remember everything.","BOB: it was a good week."]},
+ {open:["ROCKY: six cracks, kid. your handiwork.","ROCKY: the pieces don't sit right anymore.","ROCKY: turn 'em till they do."],
+  win:["* the pieces settle. rocky is whole.","ROCKY: good as bedrock."]},
+ null,
+ {open:["BLENDER: you owe me one perfect smoothie.","BLENDER: right ingredients. then a perfect spin.","BLENDER: i will know if it isn't perfect."],
+  win:["BLENDER: ...PERFECT.","BLENDER: WHIRRRRRR. we're even."]},
+ {open:["TIM: look at me. LOOK at my spine.","TIM: every click of yours put a bend in it.","TIM: straighten the joints. all five."],
+  win:["TIM: whoa.","TIM: i'm... vertical. is this what tall feels like?"]},
+ {open:["ERR: Y0U BLACKED ME OUT.","ERR: MY SL1CES SLID.","ERR: PUSH THEM BACK IN LINE."],
+  win:["ERR: aligned.","ERR: i feel... contiguous. thank you."]}];
+// ── open + constructors ──
+function p8Open(i){
+  if(i===3){ // kai
+    if(repairedCount()<6){ p8Dialog(["KAI: not me. them.","KAI: i'll keep."],null); return; }
+    p8Dialog([
+      "KAI: ...you actually fixed everything.",
+      "KAI: you know, i built this whole thing to be broken.",
+      "KAI: the bad page. the console under it. the doors. bait, all of it.",
+      "KAI: i figured someone would smash through, win, and leave.",
+      "KAI: people love breaking things. nobody stays to fix them.",
+      "KAI: you stayed. you fixed a rock. you wrote a fly a new brain.",
+      "KAI: so, no more fights. no round two.",
+      "KAI: roll them. the real ones. hands off, i promise."],
+      function(){ P8.state="credits3"; P8.scroll3=0; });
+    return;
+  }
+  P8.active=i; P8.view="game";
+  var m={i:i};
+  if(i===0){ m.v=[50,50,50]; m.target=[0,0,0].map(function(){return 10+Math.floor(Math.random()*80);});
+    var names=["PITCH","GRAVEL","ECHO"]; m.names=names; m.okT=0; }
+  if(i===1){
+    m.lines=[
+      {txt:'{',fixed:1},
+      {key:'"species"', opts:['"a bird probably"','"fruit fly"','"ceiling fan"'], ok:1, sel:0},
+      {key:'"wings"',   opts:['"yes"','-1','2'], ok:2, sel:0},
+      {key:'"hobby"',   opts:['"laps of the kitchen"','"taxes"','"knocking"'], ok:0, sel:1},
+      {key:'"best day"',opts:['"the jam incident"','"the fruit bowl"','"compiling"'], ok:1, sel:2},
+      {key:'"status"',  opts:['"deleted"','"404"','"remembered"'], ok:2, sel:0},
+      {txt:'}',fixed:1}];
+    m.msg=""; m.installs=0; }
+  if(i===2){ m.rot=[]; for(var r=0;r<6;r++) m.rot.push([1,2,3][Math.floor(Math.random()*3)]); }
+  if(i===4){ m.stage=1; m.pool=["banana","gravel","mango","static","milk","doors","ice","regret"];
+    m.target=[]; while(m.target.length<3){ var c=Math.floor(Math.random()*8); if(m.target.indexOf(c)<0) m.target.push(c); }
+    m.sel=[]; m.feedback=""; m.tries=0; m.streak=0; m.spinMsg=""; }
+  if(i===5){ var opts=[-45,-30,-15,15,30,45]; m.j=[];
+    for(var jj=0;jj<5;jj++) m.j.push(opts[Math.floor(Math.random()*6)]); }
+  if(i===6){ m.s=[]; for(var ss=0;ss<6;ss++){ var v=[-3,-2,-1,1,2,3][Math.floor(Math.random()*6)]; m.s.push(ss<5?v:0); }
+    if(m.s.every(function(v){return v===0;})) m.s[0]=2; }
+  P8.m=m;
+  p8Dialog(PROBLEMS[i].open,null);
+}
+function p8Solve(){
+  P8.done[P8.active]=true;
+  var w=PROBLEMS[P8.active].win.slice();
+  p8Dialog(w,function(){ P8.view="hub"; P8.active=-1; P8.m=null;
+    if(repairedCount()>=6&&!P8.allDone){ P8.allDone=true;
+      p8Dialog(["* six repairs. all of them yours.","KAI: ...huh.","KAI: come talk to me."],null); } });
+}
+function p8Act(kind,a){
+  var m=P8.m; if(!m||P8.D) return;
+  if(m.i===0&&kind==="slider"){ m.v[a.i]=Math.max(0,Math.min(100,a.val)); }
+  else if(m.i===1){
+    if(kind==="line"){ var L=m.lines[a]; if(L&&!L.fixed){ L.sel=(L.sel+1)%L.opts.length; m.msg=""; } }
+    if(kind==="install"){ m.installs++;
+      for(var li=0;li<m.lines.length;li++){ var l2=m.lines[li];
+        if(!l2.fixed&&l2.sel!==l2.ok){ m.msg="bob.brain: line "+li+" — that doesn't sound like me."; return; } }
+      p8Solve(); }
+  }
+  else if(m.i===2&&kind==="shard"){ m.rot[a]=(m.rot[a]+1)%4;
+    if(m.rot.every(function(v){return v===0;})) p8Solve(); }
+  else if(m.i===4){
+    if(m.stage===1){
+      if(kind==="ing"){ var ix=m.sel.indexOf(a); if(ix>=0) m.sel.splice(ix,1); else if(m.sel.length<3) m.sel.push(a); m.feedback=""; }
+      if(kind==="blend"&&m.sel.length===3){ m.tries++;
+        var right=m.sel.filter(function(s){return m.target.indexOf(s)>=0;}).length;
+        if(right===3){ m.stage=2; m.feedback=""; m.spinMsg="now: the spin. stop it in the middle. three times."; }
+        else m.feedback=right+" of those belong."; }
+    } else if(kind==="stop"){
+      var pos=Math.sin(P8.t*2.6);
+      if(Math.abs(pos)<0.22){ m.streak++; m.spinMsg="clean. "+m.streak+"/3.";
+        if(m.streak>=3) p8Solve(); }
+      else { m.streak=0; m.spinMsg="too "+(pos<0?"early":"late")+". from the top."; }
+    }
+  }
+  else if(m.i===5&&kind==="joint"){ m.j[a]+=15; if(m.j[a]>45) m.j[a]=-45; if(m.j[a]===0){} 
+    if(m.j.every(function(v){return v===0;})) p8Solve(); }
+  else if(m.i===6&&kind==="slice"){ m.s[a]+=1; if(m.s[a]>3) m.s[a]=-3;
+    if(m.s.every(function(v){return v===0;})) p8Solve(); }
+}
+// ── frame ──
+function p8Frame(now){ p8Run(now,P8.token); }
+function p8Run(now,token){
+  if(!P8.on||!p8g||token!==P8.token) return;
+  var dt=Math.min(0.05,(now-(P8.lastTick||now))/1000); P8.lastTick=now; P8.t+=dt;
+  var g=p8g, mono=function(px,b){ return (b?"bold ":"")+Math.round(px)+'px "Courier New",monospace'; };
+  g.fillStyle="#000"; g.fillRect(0,0,P8W,P8H);
+  if(P8.state==="credits3"||P8.state==="thanks"||P8.state==="end"){ p8Credits(g,dt,mono); requestAnimationFrame(function(n){p8Run(n,token);}); return; }
+  var g0=P8H*0.72;
+  g.strokeStyle="#fff"; g.globalAlpha=0.35; g.lineWidth=Math.max(1,P8D);
+  g.beginPath(); g.moveTo(0,g0); g.lineTo(P8W,g0); g.stroke(); g.globalAlpha=1;
+  g.textAlign="center"; g.fillStyle="#fff"; g.font=mono(15*P8D,1);
+  g.fillText("REPAIRS", P8W/2, P8H*0.09);
+  g.font=mono(10*P8D); g.fillStyle="#888";
+  g.fillText(repairedCount()+" / 6 repaired", P8W/2, P8H*0.12);
+  for(var i=0;i<CAST.length;i++){
+    var ch=CAST[i], x=P8W*ch.slot;
+    drawCastChar(g, i, x, g0, P8H*0.15, P8.t+i, true);
+    g.fillStyle="#000"; g.strokeStyle="#fff"; g.lineWidth=1.5*P8D;
+    g.font=mono(9*P8D,1);
+    var tw=g.measureText(ch.n).width+10*P8D;
+    g.fillRect(x-tw/2,g0+8*P8D,tw,14*P8D); g.strokeRect(x-tw/2,g0+8*P8D,tw,14*P8D);
+    g.fillStyle="#fff"; g.textAlign="center"; g.fillText(ch.n, x, g0+18*P8D);
+    g.font=mono(14*P8D,1);
+    if(i===3){ if(repairedCount()>=6){ g.globalAlpha=0.6+0.4*Math.sin(P8.t*3); g.fillText("!", x, g0-P8H*0.17); g.globalAlpha=1; }
+      else { g.fillStyle="#555"; g.fillText("...", x, g0-P8H*0.17); } }
+    else if(P8.done[i]) g.fillText("✓", x, g0-P8H*0.17);
+    else { g.globalAlpha=0.6+0.4*Math.sin(P8.t*3+i); g.fillText("!", x, g0-P8H*0.17); g.globalAlpha=1; }
+  }
+  if(P8.view==="hub"&&!P8.D){ g.fillStyle="#666"; g.font=mono(10*P8D);
+    g.fillText(repairedCount()>=6?"kai is waiting.":"click someone. you did this to them.", P8W/2, P8H*0.95); }
+  if(P8.view==="game"&&P8.m) p8Game(g,dt,mono);
+  if(P8.D){
+    var D=P8.D, cur=D.lines[D.idx]||"";
+    D.chars=Math.min(cur.length,D.chars+dt*46);
+    var bw3=Math.min(P8W*0.8,660*P8D), bx3=(P8W-bw3)/2, by3=P8H*0.83, bh3=P8H*0.11;
+    g.fillStyle="#000"; g.fillRect(bx3,by3,bw3,bh3);
+    g.strokeStyle="#fff"; g.lineWidth=2*P8D; g.strokeRect(bx3,by3,bw3,bh3);
+    g.fillStyle="#fff"; g.font=mono(13*P8D,1); g.textAlign="left";
+    g.fillText(cur.slice(0,Math.floor(D.chars)), bx3+14*P8D, by3+bh3*0.5);
+    g.font=mono(9*P8D); g.textAlign="right"; g.fillStyle="#666"; g.fillText("[Z]", bx3+bw3-8*P8D, by3+bh3-8*P8D);
+  }
+  requestAnimationFrame(function(n){p8Run(n,token);});
+}
+function p8Game(g,dt,mono){
+  var m=P8.m, pw=Math.min(P8W*0.80,660*P8D), ph=P8H*0.50, px=(P8W-pw)/2, py=P8H*0.15, cx=px+pw/2;
+  g.fillStyle="rgba(0,0,0,0.75)"; g.fillRect(0,0,P8W,P8H);
+  g.fillStyle="#000"; g.strokeStyle="#fff"; g.lineWidth=2.5*P8D;
+  g.fillRect(px,py,pw,ph); g.strokeRect(px,py,pw,ph);
+  g.fillStyle="#fff"; g.font=mono(12*P8D,1); g.textAlign="left";
+  g.fillText(CAST[m.i].n+" — REPAIR", px+14*P8D, py+22*P8D);
+  g.textAlign="right"; g.fillText("[X] leave", px+pw-12*P8D, py+22*P8D);
+  g.textAlign="center";
+  m.hit=[];
+  if(m.i===0){ // voice sliders
+    var errs=m.v.map(function(v,k){ return v-m.target[k]; });
+    var clarity=1-Math.min(1,(Math.abs(errs[0])+Math.abs(errs[1])+Math.abs(errs[2]))/150);
+    var line="knock knock. it is me, the door.";
+    var noise="#%&@*!?~^=";
+    var out=""; for(var c=0;c<line.length;c++){ var h=(c*37+Math.floor(P8.t*4)*11)%100;
+      out+= (h/100<clarity||line[c]===" ")? line[c] : noise[(c+Math.floor(P8.t*7))%noise.length]; }
+    g.font=mono(13*P8D,1); g.fillStyle="#fff"; g.fillText('"'+out+'"', cx, py+ph*0.18);
+    for(var si=0;si<3;si++){
+      var sy=py+ph*(0.34+si*0.17), sx=px+pw*0.18, sw=pw*0.64;
+      g.font=mono(10*P8D,1); g.textAlign="left"; g.fillStyle="#fff";
+      g.fillText(m.names[si], px+pw*0.05, sy+4*P8D);
+      g.strokeStyle="#fff"; g.lineWidth=1.5*P8D;
+      g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx+sw,sy); g.stroke();
+      var vx=sx+sw*m.v[si]/100, close=Math.abs(errs[si])<=5, warm=Math.abs(errs[si])<=20;
+      g.fillStyle= close? "#fff":"#000"; g.strokeStyle="#fff"; g.lineWidth=2*P8D;
+      g.beginPath(); g.arc(vx,sy,7*P8D,0,7); g.fill(); g.stroke();
+      g.textAlign="center"; g.font=mono(10*P8D,1); g.fillStyle="#888";
+      g.fillText(close? "●" : warm? (errs[si]>0?"◀":"▶") : "?", sx+sw+18*P8D, sy+4*P8D);
+      m.hit.push({k:"sliderrow",a:si,x:sx-10*P8D,y:sy-14*P8D,w:sw+20*P8D,h:28*P8D,sx:sx,sw:sw});
+    }
+    g.textAlign="center"; g.font=mono(10*P8D); g.fillStyle="#888";
+    g.fillText("drag the dials. ◀ ▶ = which way. ● = there.", cx, py+ph*0.92);
+    var allOk=errs.every(function(e){return Math.abs(e)<=5;});
+    if(allOk){ m.okT+=dt; if(m.okT>0.6) p8Solve(); } else m.okT=0;
+  }
+  if(m.i===1){ // bob.brain.json
+    g.font=mono(11*P8D,1); g.fillStyle="#fff";
+    g.fillText("bob.brain.json — click a line to change it, then INSTALL", cx, py+ph*0.14);
+    g.textAlign="left"; g.font=mono(11*P8D);
+    for(var li=0;li<m.lines.length;li++){
+      var L=m.lines[li], ly=py+ph*(0.21+li*0.085), lx=px+pw*0.12;
+      var txt= L.fixed? L.txt : "  "+L.key+": "+L.opts[L.sel]+(li<m.lines.length-2?",":"");
+      g.fillStyle= L.fixed? "#666":"#fff";
+      g.fillText(txt, lx, ly);
+      if(!L.fixed) m.hit.push({k:"line",a:li,x:lx,y:ly-12*P8D,w:pw*0.76,h:16*P8D});
+    }
+    g.textAlign="center";
+    var gx=cx-pw*0.11, gy2=py+ph*0.82, gw=pw*0.22, gh=ph*0.11;
+    g.strokeStyle="#fff"; g.lineWidth=2*P8D; g.strokeRect(gx,gy2,gw,gh);
+    g.fillStyle="#fff"; g.font=mono(12*P8D,1); g.fillText("INSTALL", cx, gy2+gh*0.65);
+    m.hit.push({k:"install",a:0,x:gx,y:gy2,w:gw,h:gh});
+    if(m.msg){ g.font=mono(9*P8D); g.fillStyle="#888"; g.fillText(m.msg, cx, py+ph*0.965); }
+  }
+  if(m.i===2){ // rocky's shards
+    g.font=mono(11*P8D,1); g.fillStyle="#fff";
+    g.fillText("click a piece to turn it. all upright = whole.", cx, py+ph*0.15);
+    for(var s1=0;s1<6;s1++){
+      var ang=m.rot[s1]*Math.PI/2, a1=s1/6*Math.PI*2-Math.PI/2;
+      var sx1=cx+Math.cos(a1)*pw*0.15, sy1=py+ph*0.55+Math.sin(a1)*ph*0.27;
+      g.save(); g.translate(sx1,sy1); g.rotate(ang);
+      g.fillStyle= m.rot[s1]===0? "#fff":"#000"; g.strokeStyle="#fff"; g.lineWidth=2*P8D;
+      g.beginPath(); g.moveTo(0,-ph*0.085); g.lineTo(ph*0.075,ph*0.05); g.lineTo(-ph*0.075,ph*0.06); g.closePath();
+      g.fill(); g.stroke();
+      g.fillStyle= m.rot[s1]===0? "#000":"#fff"; g.beginPath(); g.arc(0,-ph*0.03,2.5*P8D,0,7); g.fill();
+      g.restore();
+      m.hit.push({k:"shard",a:s1,x:sx1-ph*0.09,y:sy1-ph*0.09,w:ph*0.18,h:ph*0.18});
+    }
+  }
+  if(m.i===4){ // the perfect smoothie
+    if(m.stage===1){
+      g.font=mono(11*P8D,1); g.fillStyle="#fff";
+      g.fillText("pick three, then BLEND. "+(m.feedback||("attempt "+(m.tries+1))), cx, py+ph*0.14);
+      for(var b1=0;b1<8;b1++){
+        var bx1=px+pw*0.13+(b1%4)*pw*0.19, by1=py+ph*(0.22+((b1/4)|0)*0.2), bw1=pw*0.17, bh1=ph*0.14;
+        var on=m.sel.indexOf(b1)>=0;
+        g.fillStyle= on? "#fff":"#000"; g.strokeStyle="#fff"; g.lineWidth=1.5*P8D;
+        g.fillRect(bx1,by1,bw1,bh1); g.strokeRect(bx1,by1,bw1,bh1);
+        g.fillStyle= on? "#000":"#fff"; g.font=mono(10*P8D,on);
+        g.fillText(m.pool[b1], bx1+bw1/2, by1+bh1*0.62);
+        m.hit.push({k:"ing",a:b1,x:bx1,y:by1,w:bw1,h:bh1});
+      }
+      var gx2=cx-pw*0.11, gy3=py+ph*0.72, gw2=pw*0.22, gh2=ph*0.13;
+      g.strokeStyle="#fff"; g.strokeRect(gx2,gy3,gw2,gh2);
+      g.fillStyle= m.sel.length===3? "#fff":"#444"; g.font=mono(12*P8D,1); g.fillText("BLEND", cx, gy3+gh2*0.65);
+      m.hit.push({k:"blend",a:0,x:gx2,y:gy3,w:gw2,h:gh2});
+    } else {
+      g.font=mono(11*P8D,1); g.fillStyle="#fff";
+      g.fillText(m.spinMsg||"stop the needle in the middle. three times.", cx, py+ph*0.16);
+      var nx=cx, ny=py+ph*0.55, nr=ph*0.24, pos=Math.sin(P8.t*2.6);
+      g.strokeStyle="#fff"; g.lineWidth=2*P8D;
+      g.beginPath(); g.arc(nx,ny,nr,Math.PI,0); g.stroke();
+      g.globalAlpha=0.3; g.fillStyle="#fff";
+      g.beginPath(); g.moveTo(nx,ny); g.arc(nx,ny,nr,-Math.PI/2-0.22,-Math.PI/2+0.22); g.closePath(); g.fill(); g.globalAlpha=1;
+      var na=-Math.PI/2+pos*Math.PI/2*0.9;
+      g.beginPath(); g.moveTo(nx,ny); g.lineTo(nx+Math.cos(na)*nr,ny+Math.sin(na)*nr); g.stroke();
+      var gx3=cx-pw*0.09, gy4=py+ph*0.72, gw3=pw*0.18, gh3=ph*0.13;
+      g.strokeRect(gx3,gy4,gw3,gh3);
+      g.fillStyle="#fff"; g.font=mono(12*P8D,1); g.fillText("STOP", cx, gy4+gh3*0.65);
+      g.font=mono(10*P8D); g.fillStyle="#888"; g.fillText("streak: "+m.streak+"/3", cx, py+ph*0.93);
+      m.hit.push({k:"stop",a:0,x:gx3,y:gy4,w:gw3,h:gh3});
+    }
+  }
+  if(m.i===5){ // straighten tim
+    g.font=mono(11*P8D,1); g.fillStyle="#fff";
+    g.fillText("click a joint to turn it 15°. straight = zero bends.", cx, py+ph*0.14);
+    var seg=ph*0.115, jx=cx, jy=py+ph*0.88, ang=0;
+    g.strokeStyle="#fff"; g.lineWidth=3*P8D; g.lineCap="round";
+    var pts=[[jx,jy]];
+    for(var t1=0;t1<5;t1++){ ang+=m.j[t1];
+      var rad=(ang-90)*Math.PI/180;
+      jx+=Math.cos(rad)*seg; jy+=Math.sin(rad)*seg;
+      pts.push([jx,jy]); }
+    g.beginPath(); g.moveTo(pts[0][0],pts[0][1]);
+    for(var t2=1;t2<pts.length;t2++) g.lineTo(pts[t2][0],pts[t2][1]);
+    g.stroke();
+    g.beginPath(); g.arc(jx,jy-ph*0.045,ph*0.045,0,7); g.stroke();
+    g.fillStyle="#fff";
+    g.beginPath(); g.arc(jx-ph*0.015,jy-ph*0.055,1.6*P8D,0,7); g.arc(jx+ph*0.015,jy-ph*0.055,1.6*P8D,0,7); g.fill();
+    for(var t3=0;t3<5;t3++){
+      var jp=pts[t3+0.5|0]; var mx=(pts[t3][0]+pts[t3+1][0])/2, my=(pts[t3][1]+pts[t3+1][1])/2;
+      g.fillStyle= m.j[t3]===0? "#fff":"#000"; g.strokeStyle="#fff"; g.lineWidth=1.5*P8D;
+      g.beginPath(); g.arc(pts[t3+1][0],pts[t3+1][1],6*P8D,0,7); g.fill(); g.stroke();
+      m.hit.push({k:"joint",a:t3,x:pts[t3+1][0]-12*P8D,y:pts[t3+1][1]-12*P8D,w:24*P8D,h:24*P8D});
+    }
+    g.font=mono(9*P8D); g.fillStyle="#888"; g.textAlign="center";
+    g.fillText("bends: "+m.j.map(function(v){return v+"°";}).join("  "), cx, py+ph*0.95);
+  }
+  if(m.i===6){ // align error smiley
+    g.font=mono(11*P8D,1); g.fillStyle="#fff";
+    g.fillText("click a slice to shift it. line them up.", cx, py+ph*0.14);
+    var r2=ph*0.24, ecx=cx, ecy=py+ph*0.55, sliceH=r2*2/6, u2=r2*0.16;
+    for(var e1=0;e1<6;e1++){
+      var off=m.s[e1]*u2;
+      var top=ecy-r2+e1*sliceH;
+      g.save(); g.beginPath(); g.rect(px,top,pw,sliceH); g.clip();
+      g.translate(off,0);
+      g.fillStyle="#000"; g.strokeStyle="#fff"; g.lineWidth=2.5*P8D;
+      g.beginPath(); g.arc(ecx,ecy,r2,0,7); g.fill(); g.stroke();
+      g.strokeStyle="#fff"; g.lineWidth=2*P8D;
+      g.beginPath(); g.moveTo(ecx-r2*0.44,ecy-r2*0.3); g.lineTo(ecx-r2*0.16,ecy-r2*0.05);
+      g.moveTo(ecx-r2*0.16,ecy-r2*0.3); g.lineTo(ecx-r2*0.44,ecy-r2*0.05); g.stroke();
+      g.fillStyle="#fff"; g.beginPath(); g.arc(ecx+r2*0.3,ecy-r2*0.18,r2*0.1,0,7); g.fill();
+      g.beginPath();
+      for(var z3=0;z3<=6;z3++){ var zx=ecx-r2*0.45+z3*r2*0.15, zy=ecy+r2*0.35+((z3%2)?-r2*0.1:0);
+        z3?g.lineTo(zx,zy):g.moveTo(zx,zy); }
+      g.stroke();
+      g.restore();
+      g.strokeStyle= m.s[e1]===0? "#444":"#888"; g.lineWidth=1*P8D;
+      g.strokeRect(ecx-r2*1.5,top,r2*3,sliceH);
+      m.hit.push({k:"slice",a:e1,x:ecx-r2*1.5,y:top,w:r2*3,h:sliceH});
+    }
+  }
+}
+// ── final credits ──
+var CR3=[
+ ["CLICK FOR BACON","big"],["",""],["the whole thing","dim"],["",""],
+ ["PART ONE","hd"],["the page that fell apart",""],
+ ["PART TWO","hd"],["the storyteller",""],
+ ["PART THREE","hd"],["rocky",""],
+ ["PART FOUR","hd"],["the credits (fake)",""],
+ ["PART FIVE","hd"],["the corridor",""],
+ ["PART SIX","hd"],["you vs kai",""],
+ ["PART SEVEN","hd"],["the interruption",""],
+ ["PART EIGHT","hd"],["repairs",""],["",""],
+ ["STARRING","hd"],["you",""],["kai",""],["the mimic",""],["bob",""],["rocky the rock",""],["the blender",""],["wobbly tim",""],["the error smiley",""],["",""],
+ ["HARM CAUSED","hd"],["considerable",""],
+ ["HARM REPAIRED","hd"],["all of it",""],["",""],
+ ["MADE ON","hd"],["kai.fun",""],
+ ["MADE BY","hd"],["kai",""],["",""],
+ ["THE END","big"]];
+function p8Credits(g,dt,mono){
+  var lh=36*P8D, yEnd=0;
+  g.textAlign="center";
+  if(P8.state==="credits3"){
+    for(var ci=0;ci<CR3.length;ci++){
+      var cy3=P8H*1.05 - P8.scroll3 + ci*lh;
+      if(ci===CR3.length-1) yEnd=cy3;
+      if(cy3<-lh||cy3>P8H+lh) continue;
+      var cc=CR3[ci];
+      g.fillStyle= cc[1]==="dim"?"#666":"#fff";
+      g.font=(cc[1]==="big"?"bold "+Math.round(28*P8D):cc[1]==="hd"?"bold "+Math.round(12*P8D):Math.round(15*P8D))+'px "Courier New",monospace';
+      g.fillText(cc[0], P8W/2, cy3);
+    }
+    P8.scroll3+=dt*62*P8D;
+    if(yEnd<P8H*0.42){ P8.state="thanks";
+      p8Dialog(["KAI: thanks for everything!"], function(){ P8.state="end"; }); }
+  }
+  if(P8.state==="thanks"||P8.state==="end"){
+    var g0=P8H*0.72;
+    g.strokeStyle="#fff"; g.globalAlpha=0.35; g.lineWidth=Math.max(1,P8D);
+    g.beginPath(); g.moveTo(0,g0); g.lineTo(P8W,g0); g.stroke(); g.globalAlpha=1;
+    if(typeof drawKai==="function") drawKai(g, P8W/2, g0, P8H*0.26, 0, false);
+    if(P8.state==="end"){
+      g.fillStyle="#fff"; g.font=mono(26*P8D,1); g.fillText("THE END", P8W/2, P8H*0.22);
+      g.font=mono(10*P8D); g.fillStyle="#666"; g.fillText("· kai.fun ·", P8W/2, P8H*0.27);
+      P8.endT=(P8.endT||0)+dt;
+      if(P8.endT>10&&!P8.pissed&&!P8.D){
+        P8.pissed=true;
+        if(P8.gauntletDone){ p8Dialog(["KAI: no."],null); }
+        else p8Dialog(["KAI: ...","KAI: you're still here.","KAI: the game ENDED. i thanked you and everything.",
+          "KAI: ...","KAI: ohhhhhh.","KAI: you want SOMETHING.","KAI: ok. ok. fine. i'll give you something.",
+          "KAI: ONE. LAST. FIGHT."], function(){ startGauntlet(0); });
+      }
+    }
+  }
+  if(P8.D){
+    var D=P8.D, cur=D.lines[D.idx]||"";
+    D.chars=Math.min(cur.length,D.chars+dt*46);
+    var bw3=Math.min(P8W*0.8,660*P8D), bx3=(P8W-bw3)/2, by3=P8H*0.83, bh3=P8H*0.11;
+    g.fillStyle="#000"; g.fillRect(bx3,by3,bw3,bh3);
+    g.strokeStyle="#fff"; g.lineWidth=2*P8D; g.strokeRect(bx3,by3,bw3,bh3);
+    g.fillStyle="#fff"; g.font=mono(13*P8D,1); g.textAlign="left";
+    g.fillText(cur.slice(0,Math.floor(D.chars)), bx3+14*P8D, by3+bh3*0.5);
+  }
+}
+// ── input ──
+P8.keys={};
+addEventListener("keydown",function(e){
+  if(!P8.on) return;
+  P8.keys[e.key]=1;
+  var z=(e.key==="z"||e.key==="Z"||e.key==="Enter");
+  if(P8.D&&z){ p8Adv(); return; }
+  if((e.key==="x"||e.key==="X"||e.key==="Escape")&&P8.view==="game"){ P8.view="hub"; P8.active=-1; P8.m=null; }
+});
+addEventListener("keyup",function(e){ if(P8.on) P8.keys[e.key]=0; });
+if(p8cv){
+  p8cv.addEventListener("pointerdown",function(e){
+    if(!P8.on) return;
+    var px=e.clientX*P8D, py=e.clientY*P8D;
+    if(P8.D){ p8Adv(); return; }
+    if(P8.state!=="hub") return;
+    if(P8.view==="hub"){
+      var g0=P8H*0.72;
+      for(var i=0;i<CAST.length;i++){ var x=P8W*CAST[i].slot;
+        if(Math.abs(px-x)<P8W*0.055&&py>g0-P8H*0.2&&py<g0+P8H*0.06){ p8Open(i); return; } }
+      return;
+    }
+    var m=P8.m; if(!m) return;
+    var pw=Math.min(P8W*0.80,660*P8D), px0=(P8W-pw)/2, py0=P8H*0.15;
+    if(px>px0+pw-90*P8D&&py<py0+30*P8D){ P8.view="hub"; P8.active=-1; P8.m=null; return; }
+    (m.hit||[]).forEach(function(h){
+      if(px>=h.x&&px<=h.x+h.w&&py>=h.y&&py<=h.y+h.h){
+        if(h.k==="sliderrow"){ var val=Math.round((px-h.sx)/h.sw*100); p8Act("slider",{i:h.a,val:val}); m.drag=h.a; }
+        else p8Act(h.k,h.a);
+      } });
+  });
+  p8cv.addEventListener("pointermove",function(e){
+    if(!P8.on||!P8.m||P8.m.i!==0||P8.m.drag==null||P8.m.drag<0) return;
+    var px=e.clientX*P8D;
+    var h=(P8.m.hit||[])[P8.m.drag];
+    if(h) p8Act("slider",{i:P8.m.drag,val:Math.round((px-h.sx)/h.sw*100)});
+  });
+  addEventListener("pointerup",function(){ if(P8.m) P8.m.drag=-1; });
+}
+// teleport 9: the final end credits, straight up
+function startPart9(){
+  if(!p8cv) return;
+  P8.token++; P8.on=true; P8.lastTick=0; P8.D=null; P8.m=null; P8.view="hub"; P8.greeted=true;
+  P8.state="credits3"; P8.scroll3=0; P8.endT=0; P8.pissed=false;
+  p8Fit(); requestAnimationFrame(p8Frame);
+}
+// teleport 10: what happens after the 10 second wait
+function startPart10(){
+  if(!p8cv) return;
+  P8.token++; P8.on=true; P8.lastTick=0; P8.D=null; P8.m=null; P8.view="hub"; P8.greeted=true;
+  P8.state="end"; P8.endT=10.01; P8.pissed=false; P8.gauntletDone=false;
+  p8Fit(); requestAnimationFrame(p8Frame);
+}
+function p8AfterGauntlet(){
+  if(!p8cv) return;
+  document.getElementById("part3").style.display="none";
+  document.getElementById("part8").style.display="block";
+  if(typeof P3!=="undefined") P3.on=false;
+  var tp=document.getElementById("tp");
+  if(tp) Array.prototype.forEach.call(tp.children, function(b){ b.className=(+b.dataset.p===8)?"tpb on":"tpb"; });
+  P8.token++; P8.on=true; P8.lastTick=0;
+  P8.state="end"; P8.endT=0; P8.pissed=false; P8.gauntletDone=true; P8.D=null;
+  p8Fit(); requestAnimationFrame(p8Frame);
+}
+function startPart8(){
+  if(!p8cv) return;
+  P8.token++; P8.on=true; P8.t=0; P8.lastTick=0; P8.view="hub"; P8.active=-1; P8.m=null; P8.D=null; P8.keys={}; P8.state="hub";
+  p8Fit();
+  if(!P8.greeted){ P8.greeted=true;
+    p8Dialog(["KAI: six repairs. all yours to make.","KAI: i'll be in the middle when you're done."],null); }
+  requestAnimationFrame(p8Frame);
+}
+
+// ═══════════════════════════ PART SIX: YOU vs KAI ═══════════════════════════
+var P6={on:false,token:0,state:"vs",t:0,lastTick:0,st:0,
+  you:{x:0.25,y:0,vy:0,vx:0,face:1,hp:6,ifr:0,punch:0,pcool:0},
+  kai:{x:0.72,y:0,vy:0,vx:0,face:-1,hp:8,maxhp:8,ifr:0,phase:1,mode:"idle",mt:0,tele:0,dashV:0,slams:0},
+  shots:[], waves:[], msg:"", msgT:0, D:null, keys:{}, touch:{}, shake:0};
+// ═════════════ the real credits, and the interruption ═════════════
+var CREDITS2=[
+ ["CLICK FOR BACON","big"],["",""],["a game in six parts","dim"],["",""],
+ ["PART ONE","hd"],["the page that fell apart",""],["",""],
+ ["PART TWO","hd"],["the storyteller",""],["",""],
+ ["PART THREE","hd"],["rocky",""],["",""],
+ ["PART FOUR","hd"],["the credits (fake)",""],["",""],
+ ["PART FIVE","hd"],["the corridor",""],["",""],
+ ["PART SIX","hd"],["you vs kai",""],["",""],
+ ["STARRING","hd"],["you",""],["kai",""],["rocky the rock",""],["the stickman",""],["",""],
+ ["MADE ON","hd"],["kai.fun",""],["",""],
+ ["MADE BY","hd"],["kai",""],["",""],
+ ["THE END","big"],["(for real this time)","dim"]];
+var CAST=[
+ {n:"THE MIMIC",slot:0.14,from:"left"},
+ {n:"BOB",slot:0.26,from:"top"},
+ {n:"ROCKY",slot:0.38,from:"left"},
+ {n:"KAI",slot:0.50,from:"stage"},
+ {n:"THE BLENDER",slot:0.62,from:"right"},
+ {n:"WOBBLY TIM",slot:0.74,from:"right"},
+ {n:"ERROR SMILEY",slot:0.86,from:"right"}];
+// white-line versions of the cast, for the black-and-white scenes
+function drawCastCharBW(g,i,x,gy,h,t){
+  var u=h/8;
+  g.lineCap="round"; g.lineJoin="round";
+  if(i===3){ if(typeof drawKai==="function") drawKai(g,x,gy,h,0,false); return; }
+  if(i===0){ var w=h*0.52;
+    g.strokeStyle="#fff"; g.fillStyle="#000"; g.lineWidth=Math.max(2,u*0.18);
+    g.fillRect(x-w/2,gy-h,w,h); g.strokeRect(x-w/2,gy-h,w,h);
+    g.strokeRect(x-w*0.32,gy-h*0.6,w*0.64,h*0.28);
+    g.fillStyle="#fff";
+    g.beginPath(); g.arc(x-w*0.16,gy-h*0.78,u*0.45,0,7); g.arc(x+w*0.16,gy-h*0.78,u*0.45,0,7); g.fill();
+    g.fillStyle="#000"; var lk=Math.sin(t*0.9)*u*0.13;
+    g.beginPath(); g.arc(x-w*0.16+lk,gy-h*0.78,u*0.17,0,7); g.arc(x+w*0.16+lk,gy-h*0.78,u*0.17,0,7); g.fill();
+    g.strokeStyle="#fff"; g.lineWidth=Math.max(1.5,u*0.1);
+    g.strokeRect(x-w*0.3,gy-h*0.42,w*0.6,u*0.7);
+    for(var th=0;th<6;th++){ var tx=x-w*0.3+th*w*0.12;
+      g.beginPath(); g.moveTo(tx,gy-h*0.42); g.lineTo(tx+w*0.06,gy-h*0.42+u*0.7); g.lineTo(tx+w*0.12,gy-h*0.42); g.stroke(); }
+    g.beginPath(); g.arc(x+w*0.34,gy-h*0.45,u*0.2,0,7); g.stroke();
+    return; }
+  if(i===1){ var by=gy-h*0.55+Math.sin(t*3)*u*0.6;
+    g.strokeStyle="#fff"; g.fillStyle="#000"; g.lineWidth=Math.max(2,u*0.15);
+    g.beginPath(); g.ellipse(x,by,u*1.1,u*0.8,0,0,7); g.fill(); g.stroke();
+    g.beginPath(); g.arc(x+u*1.15,by-u*0.3,u*0.55,0,7); g.fill(); g.stroke();
+    g.fillStyle="#fff"; g.beginPath(); g.arc(x+u*1.3,by-u*0.42,u*0.14,0,7); g.fill();
+    var fl=Math.sin(t*22)*0.3;
+    g.strokeStyle="#fff"; g.globalAlpha=0.7;
+    g.beginPath(); g.ellipse(x-u*0.2,by-u*0.9,u*0.9,u*0.4,-0.5+fl,0,7); g.stroke();
+    g.beginPath(); g.ellipse(x-u*0.5,by-u*0.85,u*0.8,u*0.35,-0.8+fl,0,7); g.stroke();
+    g.globalAlpha=1;
+    g.beginPath(); g.ellipse(x+u*1.15,by-u*1.25,u*0.55,u*0.16,0,0,7); g.stroke();
+    return; }
+  if(i===2){ var R=h*0.42;
+    g.strokeStyle="#fff"; g.fillStyle="#000"; g.lineWidth=Math.max(2,R*0.06);
+    g.beginPath();
+    var pts=[[-1,0.25],[-0.92,-0.35],[-0.55,-0.78],[0.05,-0.95],[0.6,-0.7],[0.95,-0.2],[0.9,0.4],[0.5,0.8],[-0.4,0.82]];
+    pts.forEach(function(p,k){ var px2=x+p[0]*R, py2=gy-R*0.9+p[1]*R; k?g.lineTo(px2,py2):g.moveTo(px2,py2); });
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle="#fff";
+    g.beginPath(); g.ellipse(x-R*0.28,gy-R*0.9-R*0.18,R*0.1,R*0.14,0,0,7); g.fill();
+    g.beginPath(); g.ellipse(x+R*0.28,gy-R*0.9-R*0.18,R*0.1,R*0.14,0,0,7); g.fill();
+    g.strokeStyle="#fff"; g.lineWidth=Math.max(2,R*0.05);
+    g.beginPath(); g.moveTo(x-R*0.2,gy-R*0.9+R*0.3); g.quadraticCurveTo(x,gy-R*0.9+R*0.4,x+R*0.2,gy-R*0.9+R*0.3); g.stroke();
+    return; }
+  if(i===4){ var w2=h*0.42, jh=h*0.72, jy=gy-jh;
+    g.strokeStyle="#fff"; g.fillStyle="#000"; g.lineWidth=Math.max(2,u*0.16);
+    g.beginPath(); g.moveTo(x-w2*0.42,jy); g.lineTo(x-w2*0.32,gy-h*0.12); g.lineTo(x+w2*0.32,gy-h*0.12); g.lineTo(x+w2*0.42,jy);
+    g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x-w2*0.42,jy); g.lineTo(x-w2*0.2,jy-u*0.5); g.lineTo(x+w2*0.5,jy-u*0.4); g.lineTo(x+w2*0.42,jy); g.stroke();
+    g.beginPath(); g.arc(x+w2*0.62,gy-h*0.42,u*1.0,-1.4,1.4); g.stroke();
+    g.strokeRect(x-w2*0.36,gy-h*0.12,w2*0.72,h*0.12);
+    g.save(); g.translate(x,gy-h*0.24); g.rotate(t*2.2);
+    g.beginPath(); g.moveTo(-u*0.7,0); g.lineTo(u*0.7,0); g.moveTo(0,-u*0.7); g.lineTo(0,u*0.7); g.stroke(); g.restore();
+    g.fillStyle="#fff";
+    g.beginPath(); g.arc(x-w2*0.14,jy+u*1.1,u*0.16,0,7); g.arc(x+w2*0.14,jy+u*1.1,u*0.16,0,7); g.fill();
+    g.beginPath(); g.arc(x,jy+u*1.5,u*0.5,0.3,Math.PI-0.3); g.stroke();
+    return; }
+  if(i===5){ g.strokeStyle="#fff"; g.lineWidth=Math.max(2,u*0.18);
+    g.beginPath();
+    for(var seg=0;seg<=8;seg++){ var sy=gy-(h*0.75)*seg/8, sx=x+Math.sin(t*2.6+seg*0.7)*u*(seg/8)*1.6;
+      seg?g.lineTo(sx,sy):g.moveTo(sx,sy); }
+    g.stroke();
+    var hx=x+Math.sin(t*2.6+5.6)*u*1.6, hy2=gy-h*0.75-u*0.9;
+    g.beginPath(); g.arc(hx,hy2,u*0.9,0,7); g.stroke();
+    g.fillStyle="#fff";
+    g.beginPath(); g.arc(hx-u*0.3,hy2-u*0.1,u*0.12,0,7); g.arc(hx+u*0.3,hy2-u*0.1,u*0.12,0,7); g.fill();
+    g.beginPath(); g.moveTo(x-u*0.05,gy-h*0.28); g.lineTo(x-u*1.2,gy-h*0.24);
+    g.moveTo(x+u*0.05,gy-h*0.28); g.lineTo(x+u*1.2,gy-h*0.32); g.stroke();
+    g.beginPath(); g.moveTo(x-u*0.05,gy-h*0.02); g.lineTo(x-u*0.7,gy);
+    g.moveTo(x+u*0.05,gy-h*0.02); g.lineTo(x+u*0.7,gy); g.stroke();
+    return; }
+  if(i===6){ var r=h*0.34, cy2=gy-r-h*0.06, gl=Math.floor(t*7)%5===0, ox=gl?(Math.random()-0.5)*u*0.7:0;
+    g.fillStyle= gl? "#fff":"#000"; g.strokeStyle="#fff"; g.lineWidth=Math.max(2,r*0.07);
+    g.beginPath(); g.arc(x+ox,cy2,r,0,7); g.fill(); g.stroke();
+    var ink= gl? "#000":"#fff";
+    if(gl){ g.fillStyle="#000"; g.fillRect(x-r,cy2-r*0.35,r*2,r*0.14); }
+    g.strokeStyle=ink; g.lineWidth=Math.max(2,r*0.08);
+    g.beginPath(); g.moveTo(x-r*0.44+ox,cy2-r*0.3); g.lineTo(x-r*0.2+ox,cy2-r*0.06);
+    g.moveTo(x-r*0.2+ox,cy2-r*0.3); g.lineTo(x-r*0.44+ox,cy2-r*0.06); g.stroke();
+    g.fillStyle=ink; g.beginPath(); g.arc(x+r*0.32+ox,cy2-r*0.18,r*0.11,0,7); g.fill();
+    g.beginPath();
+    for(var z2=0;z2<=6;z2++){ var zx=x-r*0.45+z2*r*0.15+ox, zy=cy2+r*0.35+((z2%2)?-r*0.1:r*0.1);
+      z2?g.lineTo(zx,zy):g.moveTo(zx,zy); }
+    g.stroke();
+    if(gl){ g.fillStyle="#fff"; g.font="bold "+Math.round(u*1.0)+"px monospace"; g.textAlign="center";
+      g.fillText("ERR", x, cy2-r-u*0.4); }
+    return; }
+}
+function drawCastChar(g,i,x,gy,h,t,bw){
+  if(bw){ drawCastCharBW(g,i,x,gy,h,t); return; }
+  var u=h/8;
+  g.lineCap="round"; g.lineJoin="round";
+  if(i===3){ drawKai6(g,x,gy,h,false,"idle",t); return; }
+  if(i===0){ // the mimic: the door that was only a drawing of a door
+    var w=h*0.52;
+    g.fillStyle="#7a4a1a"; g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2.5,u*0.2);
+    g.fillRect(x-w/2,gy-h,w,h); g.strokeRect(x-w/2,gy-h,w,h);
+    g.strokeRect(x-w*0.32,gy-h*0.6,w*0.64,h*0.28);
+    g.fillStyle="#fff";
+    g.beginPath(); g.arc(x-w*0.16,gy-h*0.78,u*0.5,0,7); g.arc(x+w*0.16,gy-h*0.78,u*0.5,0,7); g.fill();
+    g.fillStyle="#1a1208";
+    var lk=Math.sin(t*0.9)*u*0.15;
+    g.beginPath(); g.arc(x-w*0.16+lk,gy-h*0.78,u*0.2,0,7); g.arc(x+w*0.16+lk,gy-h*0.78,u*0.2,0,7); g.fill();
+    g.fillStyle="#fff"; g.beginPath(); g.rect(x-w*0.3,gy-h*0.42,w*0.6,u*0.7); g.fill();
+    g.strokeStyle="#1a1208"; g.lineWidth=Math.max(1.5,u*0.1);
+    for(var th=0;th<6;th++){ var tx=x-w*0.3+th*w*0.12;
+      g.beginPath(); g.moveTo(tx,gy-h*0.42); g.lineTo(tx+w*0.06,gy-h*0.42+u*0.7); g.lineTo(tx+w*0.12,gy-h*0.42); g.stroke(); }
+    g.beginPath(); g.arc(x+w*0.34,gy-h*0.45,u*0.22,0,7); g.stroke();
+    return; }
+  if(i===1){ // bob, on break from being remembered
+    var by=gy-h*0.55+Math.sin(t*3)*u*0.6;
+    g.strokeStyle="#1a1208"; g.fillStyle="#3a3a3a"; g.lineWidth=Math.max(2,u*0.16);
+    g.beginPath(); g.ellipse(x,by,u*1.1,u*0.8,0,0,7); g.fill(); g.stroke();
+    g.beginPath(); g.arc(x+u*1.15,by-u*0.3,u*0.55,0,7); g.fillStyle="#3a3a3a"; g.fill(); g.stroke();
+    g.fillStyle="#fff"; g.beginPath(); g.arc(x+u*1.3,by-u*0.42,u*0.16,0,7); g.fill();
+    var fl=Math.sin(t*22)*0.8;
+    g.strokeStyle="#8ac0d0"; g.globalAlpha=0.85; g.lineWidth=Math.max(2,u*0.14);
+    g.beginPath(); g.ellipse(x-u*0.2,by-u*0.9,u*0.9,u*0.4,-0.5+fl*0.3,0,7); g.stroke();
+    g.beginPath(); g.ellipse(x-u*0.5,by-u*0.85,u*0.8,u*0.35,-0.8+fl*0.3,0,7); g.stroke();
+    g.globalAlpha=1;
+    g.strokeStyle="#e8c84a"; g.lineWidth=Math.max(2,u*0.18);
+    g.beginPath(); g.ellipse(x+u*1.15,by-u*1.25,u*0.55,u*0.16,0,0,7); g.stroke();     // the halo
+    return; }
+  if(i===2){ // rocky
+    var R=h*0.42;
+    g.strokeStyle="#1a1208"; g.fillStyle="#8a8078"; g.lineWidth=Math.max(2.5,R*0.07);
+    g.beginPath();
+    var pts=[[-1,0.25],[-0.92,-0.35],[-0.55,-0.78],[0.05,-0.95],[0.6,-0.7],[0.95,-0.2],[0.9,0.4],[0.5,0.8],[-0.4,0.82]];
+    pts.forEach(function(p,k){ var px=x+p[0]*R, py=gy-R*0.9+p[1]*R; k?g.lineTo(px,py):g.moveTo(px,py); });
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle="#fff";
+    g.beginPath(); g.ellipse(x-R*0.28,gy-R*0.9-R*0.18,R*0.1,R*0.14,0,0,7); g.fill();
+    g.beginPath(); g.ellipse(x+R*0.28,gy-R*0.9-R*0.18,R*0.1,R*0.14,0,0,7); g.fill();
+    g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2,R*0.06);
+    g.beginPath(); g.moveTo(x-R*0.2,gy-R*0.9+R*0.3); g.quadraticCurveTo(x,gy-R*0.9+R*0.4,x+R*0.2,gy-R*0.9+R*0.3); g.stroke();
+    return; }
+  if(i===4){ // the blender. don't put your hand in.
+    var w=h*0.42, jh=h*0.72, jy=gy-jh;
+    g.fillStyle="#dfe8ec"; g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2.5,u*0.2);
+    g.beginPath(); g.moveTo(x-w*0.42,jy); g.lineTo(x-w*0.32,gy-h*0.12); g.lineTo(x+w*0.32,gy-h*0.12); g.lineTo(x+w*0.42,jy);
+    g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x-w*0.42,jy); g.lineTo(x-w*0.2,jy-u*0.5); g.lineTo(x+w*0.5,jy-u*0.4); g.lineTo(x+w*0.42,jy); g.stroke();
+    g.beginPath(); g.arc(x+w*0.62,gy-h*0.42,u*1.0,-1.4,1.4); g.stroke();          // handle
+    g.fillStyle="#1a1a1a"; g.fillRect(x-w*0.36,gy-h*0.12,w*0.72,h*0.12);          // base
+    g.save(); g.translate(x,gy-h*0.24); g.rotate(t*2.2);                          // idle blade whir
+    g.strokeStyle="#8a8a8a"; g.lineWidth=Math.max(2,u*0.16);
+    g.beginPath(); g.moveTo(-u*0.7,0); g.lineTo(u*0.7,0); g.moveTo(0,-u*0.7); g.lineTo(0,u*0.7); g.stroke(); g.restore();
+    g.fillStyle="#1a1208";
+    g.beginPath(); g.arc(x-w*0.14,jy+u*1.1,u*0.18,0,7); g.arc(x+w*0.14,jy+u*1.1,u*0.18,0,7); g.fill();
+    g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2,u*0.14);
+    g.beginPath(); g.arc(x,jy+u*1.5,u*0.55,0.3,Math.PI-0.3); g.stroke();
+    return; }
+  if(i===5){ // wobbly tim. he's... tim.
+    var sway=Math.sin(t*2.6)*u;
+    g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2.5,u*0.2);
+    g.beginPath();
+    for(var seg=0;seg<=8;seg++){ var sy=gy - (h*0.75)*seg/8;
+      var sx=x + Math.sin(t*2.6+seg*0.7)*u*(seg/8)*1.6;
+      seg?g.lineTo(sx,sy):g.moveTo(sx,sy); }
+    g.stroke();
+    var hx=x+Math.sin(t*2.6+8*0.7)*u*1.6, hy=gy-h*0.75-u*0.9;
+    g.beginPath(); g.arc(hx,hy,u*0.9,0,7); g.stroke();
+    g.fillStyle="#1a1208";
+    g.beginPath(); g.arc(hx-u*0.3,hy-u*0.1,u*0.12,0,7); g.arc(hx+u*0.3,hy-u*0.1,u*0.12,0,7); g.fill();
+    g.beginPath(); g.moveTo(hx-u*0.3,hy+u*0.35+sway*0.06); g.quadraticCurveTo(hx,hy+u*(0.5+Math.sin(t*2.6)*0.2),hx+u*0.3,hy+u*0.35-sway*0.06); g.stroke();
+    g.beginPath(); g.moveTo(x-u*0.05,gy-h*0.28); g.lineTo(x-u*1.2,gy-h*0.28+sway*0.4);
+    g.moveTo(x+u*0.05,gy-h*0.28); g.lineTo(x+u*1.2,gy-h*0.28-sway*0.4); g.stroke();
+    g.beginPath(); g.moveTo(x,gy); g.moveTo(x-u*0.05,gy-h*0.02); g.lineTo(x-u*0.7,gy);
+    g.moveTo(x+u*0.05,gy-h*0.02); g.lineTo(x+u*0.7,gy); g.stroke();
+    return; }
+  if(i===6){ // the error smiley. we don't talk about the error smiley.
+    var r=h*0.34, cy2=gy-r-h*0.06;
+    var gl=Math.floor(t*7)%5===0;
+    var ox= gl? (Math.random()-0.5)*u*0.8 : 0;
+    g.fillStyle= gl? "#fff":"#ffd23f"; g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2.5,r*0.08);
+    g.beginPath(); g.arc(x+ox,cy2,r,0,7); g.fill(); g.stroke();
+    if(gl){ g.fillStyle="#1a1208";
+      g.fillRect(x-r,cy2-r*0.35,r*2,r*0.16);
+      g.fillStyle="#ffd23f"; g.fillRect(x-r+u*0.6,cy2-r*0.35,r*2,r*0.16); }
+    g.strokeStyle="#1a1208"; g.lineWidth=Math.max(2,r*0.09);
+    g.beginPath(); g.moveTo(x-r*0.44+ox,cy2-r*0.3); g.lineTo(x-r*0.2+ox,cy2-r*0.06);   // X eye
+    g.moveTo(x-r*0.2+ox,cy2-r*0.3); g.lineTo(x-r*0.44+ox,cy2-r*0.06); g.stroke();
+    g.fillStyle="#1a1208"; g.beginPath(); g.arc(x+r*0.32+ox,cy2-r*0.18,r*0.11,0,7); g.fill();
+    g.beginPath();                                                                     // jagged mouth
+    for(var z2=0;z2<=6;z2++){ var zx=x-r*0.45+z2*r*0.15+ox, zy=cy2+r*0.35+((z2%2)?-r*0.1:r*0.1);
+      z2?g.lineTo(zx,zy):g.moveTo(zx,zy); }
+    g.stroke();
+    if(gl){ g.fillStyle="#1a1208"; g.font="bold "+Math.round(u*1.1)+"px monospace"; g.textAlign="center";
+      g.fillText("ERR", x, cy2-r-u*0.5); }
+    return; }
+}
+
+var p6cv=document.getElementById("p6cv"), p6g=p6cv?p6cv.getContext("2d"):null;
+var P6W=0,P6H=0,P6D=1;
+function p6Fit(){ if(!p6cv) return; P6D=Math.min(2,devicePixelRatio||1);
+  P6W=p6cv.width=Math.max(2,innerWidth*P6D); P6H=p6cv.height=Math.max(2,innerHeight*P6D); }
+addEventListener("resize",p6Fit);
+var RING={l:0.10,r:0.90};
+function groundY(){ return P6H*0.74; }
+function p6Dialog(lines,done){ P6.D={lines:lines.slice(),idx:0,chars:0,done:done||null}; }
+function p6Adv(){ var D=P6.D; if(!D) return; var cur=D.lines[D.idx];
+  if(D.chars<cur.length){ D.chars=cur.length; return; }
+  D.idx++; D.chars=0; if(D.idx>=D.lines.length){ P6.D=null; if(D.done) D.done(); } }
+// ── drawing helpers ──
+function comicText(g,txt,x,y,px,fill){
+  g.font="bold "+Math.round(px)+'px "Trebuchet MS","Courier New",sans-serif';
+  g.textAlign="center"; g.lineWidth=Math.max(3,px*0.14); g.lineJoin="round";
+  g.strokeStyle="#1a1208"; g.strokeText(txt,x,y+px*0.06);
+  g.fillStyle=fill; g.fillText(txt,x,y);
+}
+function flames(g,t,base,col,amp,yoff){
+  g.fillStyle=col; g.beginPath(); g.moveTo(0,P6H);
+  for(var x=0;x<=P6W;x+=P6W/28){
+    var y=P6H*yoff + Math.sin(x*0.013/P6D+t*0.7+base)*amp + Math.sin(x*0.031/P6D-t*1.1+base*2)*amp*0.5;
+    g.lineTo(x,y);
+  }
+  g.lineTo(P6W,P6H); g.closePath(); g.fill();
+}
+function drawBaconIcon(g,x,y,s,dead){
+  g.save(); g.translate(x,y);
+  g.strokeStyle=dead?"#4a2a20":"#7d2415"; g.fillStyle=dead?"#3a221c":"#c0442c";
+  g.lineWidth=Math.max(1.5,s*0.14);
+  g.beginPath();
+  for(var i=0;i<=8;i++){ var xx=-s+ i/8*2*s, yy=Math.sin(i/8*Math.PI*2)*s*0.22; i?g.lineTo(xx,yy):g.moveTo(xx,yy); }
+  for(var i2=8;i2>=0;i2--){ var xx2=-s+ i2/8*2*s, yy2=Math.sin(i2/8*Math.PI*2)*s*0.22+s*0.6; g.lineTo(xx2,yy2); }
+  g.closePath(); g.fill(); g.stroke();
+  if(!dead){ g.strokeStyle="#f2e3d6"; g.lineWidth=Math.max(1,s*0.16);
+    g.beginPath(); for(var i3=0;i3<=8;i3++){ var x3=-s*0.9+i3/8*1.8*s, y3=Math.sin(i3/8*Math.PI*2)*s*0.22+s*0.3; i3?g.lineTo(x3,y3):g.moveTo(x3,y3); } g.stroke(); }
+  g.restore();
+}
+function drawSmileIcon(g,x,y,r,dead,superK){
+  g.beginPath(); g.arc(x,y,r,0,7);
+  g.fillStyle= dead? "#111" : (superK? "#1a1a1a":"#ffd23f"); g.fill();
+  g.lineWidth=Math.max(1.5,r*0.16); g.strokeStyle= dead? "#333" : (superK? "#fff":"#1a1a1a"); g.stroke();
+  if(!dead){ g.fillStyle= superK? "#fff":"#1a1a1a";
+    g.beginPath(); g.arc(x-r*0.34,y-r*0.2,r*0.13,0,7); g.arc(x+r*0.34,y-r*0.2,r*0.13,0,7); g.fill();
+    g.beginPath(); g.strokeStyle= superK? "#fff":"#1a1a1a"; g.arc(x,y+r*0.06,r*0.55,0.3,Math.PI-0.3); g.stroke(); }
+}
+function drawKai6(g,cx,cy,h,superK,mode,t){
+  var u=h/8;
+  var line= superK? "#1a1a1a" : "#1a1a1a";
+  g.strokeStyle=line; g.lineWidth=Math.max(2.5,u*0.2); g.lineCap="round";
+  var hr=u*1.25, hy=cy-h+hr;
+  g.beginPath(); g.arc(cx,hy,hr,0,7);
+  g.fillStyle= superK? "#1a1a1a" : "#ffd23f"; g.fill();
+  g.strokeStyle= superK? "#fff":"#1a1a1a"; g.stroke();
+  var fc= superK? "#fff":"#1a1a1a";
+  g.fillStyle=fc;
+  var mad= mode==="tele"||mode==="dash";
+  g.beginPath(); g.arc(cx-hr*0.34,hy-hr*0.18,u*(mad?0.2:0.15),0,7); g.arc(cx+hr*0.34,hy-hr*0.18,u*(mad?0.2:0.15),0,7); g.fill();
+  g.strokeStyle=fc; g.beginPath();
+  if(mode==="hurt"){ g.moveTo(cx-hr*0.35,hy+hr*0.45); g.lineTo(cx+hr*0.35,hy+hr*0.45); }
+  else if(superK){ g.arc(cx,hy+hr*0.55,hr*0.5,Math.PI+0.4,-0.4); }
+  else g.arc(cx,hy+hr*0.05,hr*0.55,0.3,Math.PI-0.3);
+  g.stroke();
+  g.strokeStyle=line; if(superK) g.strokeStyle="#1a1a1a";
+  var neck=hy+hr, hip=cy-u*2.4, sw=Math.sin(t*10);
+  g.strokeStyle= superK? "#1a1a1a":"#1a1a1a";
+  g.beginPath(); g.moveTo(cx,neck); g.lineTo(cx,hip); g.stroke();
+  g.beginPath();
+  if(mode==="tele"){ g.moveTo(cx,neck+u*0.4); g.lineTo(cx-u*1.4,neck-u*0.4); g.moveTo(cx,neck+u*0.4); g.lineTo(cx+u*1.4,neck-u*0.4); }
+  else { g.moveTo(cx,neck+u*0.4); g.lineTo(cx-u*1.1+sw*u*0.2,neck+u*1.8); g.moveTo(cx,neck+u*0.4); g.lineTo(cx+u*1.1-sw*u*0.2,neck+u*1.8); }
+  g.stroke();
+  g.beginPath(); g.moveTo(cx,hip); g.lineTo(cx-u*0.8,cy); g.moveTo(cx,hip); g.lineTo(cx+u*0.8,cy); g.stroke();
+  if(superK){ g.globalAlpha=0.5+0.3*Math.sin(t*9);                      // super aura
+    g.strokeStyle="#fff"; g.lineWidth=Math.max(2,u*0.12);
+    g.beginPath(); g.arc(cx,hy,hr*1.5+Math.sin(t*7)*u*0.3,0,7); g.stroke(); g.globalAlpha=1; }
+}
+// ── fight logic ──
+function kaiHurt(){
+  var K=P6.kai;
+  if(K.ifr>0) return;
+  K.hp--; K.ifr=0.7; K.mode="hurt"; K.mt=0; P6.shake=6*P6D;
+  K.vx = (K.x>P6.you.x?1:-1)*0.25; K.vy=-P6H*0.5;
+  if(K.hp<=0){
+    P6.shots=[]; P6.waves=[];
+    if(K.phase===1){ P6.state="midcut"; P6.st=0;
+      p6Dialog(["* Kai hits the mat.","KAI: ok.","KAI: OK.","KAI: you're actually good at this.",
+        "KAI: but this is my website.","* Kai starts to glow.","KAI: SUPER KAI."],
+        function(){ K.phase=2; K.maxhp=10; K.hp=10; K.ifr=1; K.mode="idle"; K.mt=0; P6.state="fight"; banner("PHASE 2"); });
+    } else { P6.state="woncut"; P6.st=0;
+      p6Dialog(["* Super Kai lands flat on his back.","KAI: ...heh.","KAI: ok. that's everything i've got.",
+        "KAI: for now.","KAI: the site's yours tonight, champ.","* somewhere, rocky is cheering."],
+        function(){ P6.state="won"; });
+    }
+  }
+}
+function youHurt(){
+  var Y=P6.you;
+  if(Y.ifr>0) return;
+  Y.hp--; Y.ifr=1.1; P6.shake=7*P6D;
+  Y.vx=(Y.x>P6.kai.x?1:-1)*0.2; 
+  if(Y.hp<=0){ P6.state="gameover"; P6.shots=[]; P6.waves=[]; }
+}
+function banner(txt){ P6.msg=txt; P6.msgT=1.4; }
+function kaiAI(dt){
+  var K=P6.kai, Y=P6.you, sup=K.phase===2, g0=groundY();
+  K.mt+=dt;
+  var spd= sup? 0.34:0.24;
+  if(K.mode==="idle"){
+    if(K.mt>(sup?0.5:0.8)){
+      var r=Math.random();
+      if(r<0.34) { K.mode="hop"; K.mt=0; K.vy=-P6H*(0.9+Math.random()*0.3); K.vx=(Y.x-K.x)*(sup?1.6:1.1); }
+      else if(r<0.6){ K.mode="tele"; K.mt=0; K.tele= sup?0.4:0.6; }
+      else if(r<0.85){ K.mode="toss"; K.mt=0; K.tossed=0; }
+      else if(sup){ K.mode="slamjump"; K.mt=0; K.vy=-P6H*1.5; }
+      else { K.mode="hop"; K.mt=0; K.vy=-P6H*0.8; K.vx=(Math.random()<0.5?-1:1)*0.2; }
+    }
+  }
+  else if(K.mode==="tele"){ if(K.mt>K.tele){ K.mode="dash"; K.mt=0; K.dashV=(Y.x>K.x?1:-1)*(sup?1.5:1.0); K.dashN= sup?2:1; } }
+  else if(K.mode==="dash"){
+    K.x+=K.dashV*dt;
+    if(K.x<RING.l){ K.x=RING.l; K.dashV*=-1; K.dashN--; }
+    if(K.x>RING.r){ K.x=RING.r; K.dashV*=-1; K.dashN--; }
+    if(K.mt>1.6||K.dashN<=0&&(K.x<RING.l+0.02||K.x>RING.r-0.02||K.mt>0.8)){ K.mode="idle"; K.mt=0; }
+  }
+  else if(K.mode==="toss"){
+    var per= sup?0.28:0.45, want= sup?3:2;
+    if(K.mt>per*(K.tossed+1)){
+      K.tossed++;
+      var dx=(Y.x-K.x), fy=-(0.9+Math.random()*0.5);
+      P6.shots.push({x:K.x,y:-P6H*0.28,vx:dx*(0.8+Math.random()*0.5),vy:P6H*fy,r:P6H*0.022});
+      if(sup&&Math.random()<0.6) P6.shots.push({x:Math.random()*0.8+0.1,y:-P6H*1.05,vx:0,vy:P6H*0.1,r:P6H*0.022,fall:1});
+    }
+    if(K.tossed>=want){ K.mode="idle"; K.mt=0; }
+  }
+  else if(K.mode==="slamjump"){ if(K.y>=0&&K.mt>0.3){ K.mode="idle"; K.mt=0; P6.shake=10*P6D;
+      P6.waves.push({x:K.x,dir:1,h:P6H*0.06}); P6.waves.push({x:K.x,dir:-1,h:P6H*0.06}); } }
+  else if(K.mode==="hurt"){ if(K.mt>0.5){ K.mode="idle"; K.mt=0; } }
+  if(K.mode==="hop"&&K.y>=0&&K.mt>0.2){ K.mode="idle"; K.mt=0; }
+  // physics
+  if(K.mode!=="dash"){ K.x+=K.vx*dt; K.vx*=Math.pow(0.05,dt); }
+  K.vy+=P6H*3.2*dt; K.y+=K.vy*dt;
+  if(K.y>0){ K.y=0; K.vy=0; }
+  K.x=Math.max(RING.l,Math.min(RING.r,K.x));
+  if(K.ifr>0) K.ifr-=dt;
+  K.face= Y.x>K.x?1:-1;
+}
+function stepFight(dt){
+  var Y=P6.you, K=P6.kai, g0=groundY();
+  // you
+  var mv=(P6.keys.ArrowLeft||P6.keys.a?-1:0)+(P6.keys.ArrowRight||P6.keys.d?1:0)+(P6.touch.left?-1:0)+(P6.touch.right?1:0);
+  Y.x+=mv*dt*0.42 + Y.vx*dt; Y.vx*=Math.pow(0.02,dt);
+  if(mv) Y.face=mv>0?1:-1;
+  var jump=P6.keys.ArrowUp||P6.keys.w||P6.keys[" "]||P6.touch.jump;
+  if(jump&&Y.y>=0){ Y.vy=-P6H*1.15; }
+  Y.vy+=P6H*3.2*dt; Y.y+=Y.vy*dt; if(Y.y>0){ Y.y=0; Y.vy=0; }
+  Y.x=Math.max(RING.l,Math.min(RING.r,Y.x));
+  if(Y.ifr>0) Y.ifr-=dt;
+  if(Y.pcool>0) Y.pcool-=dt;
+  if(Y.punch>0){
+    Y.punch-=dt;
+    var reach=0.075, dy=Math.abs(Y.y-K.y)/P6H;
+    if(Math.abs((Y.x+Y.face*0.045)-K.x)<reach && dy<0.14) kaiHurt();
+  }
+  kaiAI(dt);
+  // contact damage
+  if(K.mode!=="hurt" && Math.abs(Y.x-K.x)<0.05 && Math.abs(Y.y-K.y)/P6H<0.12) youHurt();
+  // shots
+  for(var i=P6.shots.length-1;i>=0;i--){ var s=P6.shots[i];
+    s.vy+= (s.fall? P6H*1.6 : P6H*2.6)*dt; s.x+=s.vx*dt*0.14; s.y+=s.vy*dt;
+    if(s.y>0){ P6.shots.splice(i,1); continue; }
+    if(Math.abs(s.x-Y.x)<0.035 && Math.abs(s.y-Y.y)/P6H<0.08){ P6.shots.splice(i,1); youHurt(); }
+  }
+  for(var j=P6.waves.length-1;j>=0;j--){ var w=P6.waves[j];
+    w.x+=w.dir*dt*0.5;
+    if(w.x<RING.l-0.05||w.x>RING.r+0.05){ P6.waves.splice(j,1); continue; }
+    if(Math.abs(w.x-Y.x)<0.03 && Y.y>-w.h*1.2){ youHurt(); }
+  }
+  if(P6.shake>0) P6.shake*=Math.pow(0.001,dt);
+}
+function punch(){ var Y=P6.you; if(Y.pcool>0||P6.state!=="fight") return; Y.punch=0.16; Y.pcool=0.4; Y.vx=Y.face*0.14; }
+// ── render ──
+function drawVS(g,t){
+  g.fillStyle="#c0181c"; g.fillRect(0,0,P6W,P6H);
+  flames(g,t,0,"#d97a10",P6H*0.06,0.25);
+  flames(g,t,2,"#c0181c",P6H*0.07,0.45);
+  flames(g,t,4,"#d97a10",P6H*0.06,0.65);
+  flames(g,t,6,"#c0181c",P6H*0.07,0.85);
+  comicText(g,"YOU",P6W*0.22,P6H*0.24,Math.min(P6W*0.10,P6H*0.14),"#fff");
+  comicText(g,"KAI",P6W*0.78,P6H*0.24,Math.min(P6W*0.10,P6H*0.14),"#ffd23f");
+  // burst
+  var cx=P6W/2, cy=P6H*0.42, R=Math.min(P6W,P6H)*0.16;
+  g.save(); g.translate(cx,cy); g.rotate(Math.sin(t*2)*0.05);
+  g.fillStyle="#d97a10"; g.strokeStyle="#1a1208"; g.lineWidth=4*P6D;
+  g.beginPath();
+  for(var i=0;i<24;i++){ var a=i/24*Math.PI*2, r=(i%2)?R:R*1.5+Math.sin(t*6+i)*R*0.05;
+    i?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r); }
+  g.closePath(); g.fill(); g.stroke();
+  g.fillStyle="#f5e6b8"; g.beginPath(); g.ellipse(0,0,R*0.85,R*0.7,0,0,7); g.fill();
+  comicText(g,"VS",0,R*0.28,R*0.9,"#c0181c");
+  g.restore();
+  // portraits: you (fists up), kai (pointing)
+  var gy=P6H*0.98;
+  if(typeof drawMan==="function"){
+    g.save(); g.lineWidth=5*P6D;
+    drawMan(g,P6W*0.18,gy,P6H*0.42,0,0,false);
+    g.strokeStyle="#fff"; g.fillStyle="#fff";
+    g.beginPath(); g.arc(P6W*0.18-P6H*0.075,gy-P6H*0.30,P6H*0.02,0,7); g.fill();
+    g.beginPath(); g.arc(P6W*0.18+P6H*0.075,gy-P6H*0.30,P6H*0.02,0,7); g.fill();
+    g.restore();
+  }
+  g.save(); g.strokeStyle="#1a1208";
+  drawKai6(g,P6W*0.82,gy,P6H*0.44,false,"idle",t);
+  g.restore();
+  g.fillStyle="#f5e6b8"; g.font="bold "+Math.round(12*P6D)+'px "Courier New",monospace'; g.textAlign="center";
+  if(Math.floor(t*2)%2===0) g.fillText("[Z] FIGHT", P6W/2, P6H*0.93);
+}
+function drawArena(g,t){
+  // stage frame
+  g.fillStyle="#8a5a20"; g.fillRect(0,0,P6W,P6H);
+  g.fillStyle="#c07818";
+  g.fillRect(P6W*0.03,P6H*0.03,P6W*0.94,P6H*0.94);
+  var ix=P6W*0.07, iy=P6H*0.06, iw=P6W*0.86, ih=P6H*0.86;
+  // sky
+  var sky=g.createLinearGradient(0,iy,0,iy+ih);
+  sky.addColorStop(0,"#7a5ad0"); sky.addColorStop(1,"#b89ae8");
+  g.fillStyle=sky; g.fillRect(ix,iy,iw,ih);
+  g.save(); g.beginPath(); g.rect(ix,iy,iw,ih); g.clip();
+  // clouds
+  g.fillStyle="#fff";
+  for(var c=0;c<5;c++){ var cx2=ix+((c*197)%100)/100*iw + Math.sin(t*0.2+c)*20*P6D, cy2=iy+ih*(0.10+((c*61)%30)/100);
+    g.beginPath(); g.arc(cx2,cy2,18*P6D,0,7); g.arc(cx2+22*P6D,cy2+4*P6D,14*P6D,0,7); g.arc(cx2-20*P6D,cy2+6*P6D,12*P6D,0,7); g.fill(); }
+  // giant kai face in the sky, watching
+  var fx=ix+iw*0.32, fy=iy+ih*0.30, fr=ih*0.24, sup=P6.kai.phase===2;
+  g.beginPath(); g.arc(fx,fy,fr,0,7); g.fillStyle= sup? "#1a1a1a":"#ffd23f"; g.fill();
+  g.lineWidth=5*P6D; g.strokeStyle= sup? "#fff":"#3a2a10"; g.stroke();
+  var look=(P6.you.x-0.5)*fr*0.3;
+  g.fillStyle= sup? "#fff":"#1a1a1a";
+  g.beginPath(); g.arc(fx-fr*0.32+look,fy-fr*0.18,fr*0.11,0,7); g.arc(fx+fr*0.32+look,fy-fr*0.18,fr*0.11,0,7); g.fill();
+  g.strokeStyle= sup? "#fff":"#1a1a1a"; g.lineWidth=5*P6D;
+  g.beginPath(); g.arc(fx,fy+fr*0.15,fr*0.5,0.3,Math.PI-0.3); g.stroke();
+  // KAI.FUN tower
+  var tx=ix+iw*0.74, tw2=iw*0.13, ty=iy+ih*0.18;
+  g.fillStyle="#a06a30"; g.fillRect(tx,ty,tw2,ih*0.5);
+  g.fillStyle="#7a4a1a"; for(var wnd=0;wnd<6;wnd++) g.fillRect(tx+tw2*0.18+(wnd%2)*tw2*0.42, ty+ih*0.06+((wnd/2)|0)*ih*0.12, tw2*0.22, ih*0.07);
+  g.fillStyle="#f5e6b8"; g.beginPath(); g.ellipse(tx+tw2/2,ty+ih*0.03,tw2*0.52,ih*0.045,0,0,7); g.fill();
+  g.fillStyle="#c0181c"; g.font="bold "+Math.round(ih*0.035)+'px "Trebuchet MS",sans-serif'; g.textAlign="center";
+  g.fillText("KAI.FUN", tx+tw2/2, ty+ih*0.045);
+  // ground
+  var g0=groundY();
+  g.fillStyle="#c99a5b"; g.fillRect(ix,g0,iw,iy+ih-g0);
+  g.fillStyle="#8a6a3a"; g.fillRect(ix,g0,iw,6*P6D);
+  // ring posts + ropes
+  var rl=P6W*RING.l-14*P6D, rr=P6W*RING.r+14*P6D;
+  g.fillStyle="#eee";
+  g.fillRect(rl-4*P6D,g0-P6H*0.20,8*P6D,P6H*0.20);
+  g.fillRect(rr-4*P6D,g0-P6H*0.20,8*P6D,P6H*0.20);
+  g.strokeStyle="#d02828"; g.lineWidth=4*P6D;
+  for(var rp=1;rp<=3;rp++){ var ry=g0-P6H*0.055*rp;
+    g.beginPath(); g.moveTo(rl,ry); g.lineTo(rr,ry+Math.sin(t*1.4+rp)*1.5*P6D); g.stroke(); }
+  g.restore();
+}
+function p6Frame(now){ p6Run(now,P6.token); }
+function p6Run(now,token){
+  if(!P6.on||!p6g||token!==P6.token) return;
+  var dt=Math.min(0.04,(now-(P6.lastTick||now))/1000); P6.lastTick=now; P6.t+=dt; P6.st+=dt;
+  var g=p6g;
+  if(P6.state==="vs"){ drawVS(g,P6.t);
+    if(P6.st>6){ toIntro(); }
+    requestAnimationFrame(function(n){p6Run(n,token);}); return; }
+  g.save();
+  if(P6.shake>0.5) g.translate((Math.random()-0.5)*P6.shake,(Math.random()-0.5)*P6.shake);
+  var cine=["credits2","yankwalk","yank","lineup","tbc"].indexOf(P6.state)>=0;
+  if(cine){ g.fillStyle="#000"; g.fillRect(0,0,P6W,P6H); }
+  else drawArena(g,P6.t);
+  var g0=groundY();
+  if(!cine){
+  // shots
+  P6.shots.forEach(function(s){ drawSmileIcon(g, P6W*s.x, g0+s.y, s.r, false, P6.kai.phase===2); });
+  P6.waves.forEach(function(w){ g.fillStyle="#c99a5b"; g.strokeStyle="#8a6a3a"; g.lineWidth=3*P6D;
+    g.beginPath(); g.moveTo(P6W*w.x-P6W*0.03,g0); g.lineTo(P6W*w.x,g0-w.h); g.lineTo(P6W*w.x+P6W*0.03,g0); g.closePath(); g.fill(); g.stroke(); });
+  // fighters
+  var Y=P6.you, K=P6.kai;
+  if(!(Y.ifr>0&&Math.floor(P6.t*16)%2===0)){
+    g.save(); g.strokeStyle="#1a1a1a";
+    var oldW=g.lineWidth;
+    // draw you as the dark stickman on the bright stage
+    (function(){ var cx=P6W*Y.x, cy=g0+Y.y, h=P6H*0.20, u=h/8;
+      g.lineWidth=Math.max(2.5,u*0.2); g.lineCap="round";
+      var hr=u*0.9, hy=cy-h+hr;
+      g.beginPath(); g.arc(cx,hy,hr,0,7); g.stroke();
+      var neck=hy+hr, hip=cy-u*2.5;
+      g.beginPath(); g.moveTo(cx,neck); g.lineTo(cx,hip); g.stroke();
+      var ph= (P6.keys.ArrowLeft||P6.keys.ArrowRight||P6.keys.a||P6.keys.d||P6.touch.left||P6.touch.right)&&Y.y>=0? P6.t*11:0;
+      var sw=Math.sin(ph), sw2=Math.sin(ph+Math.PI);
+      g.beginPath();
+      if(Y.punch>0){ g.moveTo(cx,neck+u*0.5); g.lineTo(cx+Y.face*u*2.1,neck+u*0.4);
+        g.moveTo(cx,neck+u*0.5); g.lineTo(cx-Y.face*u*0.8,neck+u*1.6); }
+      else { g.moveTo(cx,neck+u*0.5); g.lineTo(cx+sw*u*1.0,neck+u*1.9);
+        g.moveTo(cx,neck+u*0.5); g.lineTo(cx+sw2*u*1.0,neck+u*1.9); }
+      g.stroke();
+      if(Y.punch>0){ g.fillStyle="#1a1a1a"; g.beginPath(); g.arc(cx+Y.face*u*2.1,neck+u*0.4,u*0.3,0,7); g.fill(); }
+      g.beginPath();
+      if(Y.y<0){ g.moveTo(cx,hip); g.lineTo(cx-u*0.8,cy-u*0.6); g.moveTo(cx,hip); g.lineTo(cx+u*0.8,cy-u*0.4); }
+      else { g.moveTo(cx,hip); g.lineTo(cx+sw2*u*1.1,cy); g.moveTo(cx,hip); g.lineTo(cx+sw*u*1.1,cy); }
+      g.stroke();
+    })();
+    g.lineWidth=oldW; g.restore();
+  }
+  if(!(K.ifr>0&&Math.floor(P6.t*16)%2===0))
+    drawKai6(g, P6W*K.x, g0+K.y, P6H*(K.phase===2?0.24:0.21), K.phase===2, K.mode, P6.t);
+  if(K.mode==="tele"){ g.fillStyle="rgba(255,255,255,0.6)"; g.font="bold "+Math.round(20*P6D)+"px monospace"; g.textAlign="center";
+    g.fillText("!", P6W*K.x, g0+K.y-P6H*(K.phase===2?0.27:0.24)); }
+  // HUD: bacon for you, smiles for kai
+  for(var b=0;b<6;b++) drawBaconIcon(g, P6W*0.06+b*30*P6D, P6H*0.06, 11*P6D, b>=Y.hp);
+  for(var m=0;m<K.maxhp;m++) drawSmileIcon(g, P6W*0.94-m*26*P6D, P6H*0.06, 10*P6D, m>=K.hp, K.phase===2);
+  g.fillStyle="#1a1208"; g.font="bold "+Math.round(11*P6D)+'px "Courier New",monospace';
+  g.textAlign="left"; g.fillText("YOU", P6W*0.06-11*P6D, P6H*0.105);
+  g.textAlign="right"; g.fillText(K.phase===2?"SUPER KAI":"KAI", P6W*0.94+10*P6D, P6H*0.105);
+  }
+  if(P6.state==="fight") stepFight(dt);
+  if(P6.msgT>0){ P6.msgT-=dt;
+    comicText(g, P6.msg, P6W/2, P6H*0.30, Math.min(P6W,P6H)*0.10, "#fff"); }
+  if(P6.state==="gameover"){
+    g.fillStyle="rgba(0,0,0,0.55)"; g.fillRect(0,0,P6W,P6H);
+    comicText(g,"KNOCKED OUT",P6W/2,P6H*0.42,Math.min(P6W,P6H)*0.09,"#fff");
+    g.fillStyle="#fff"; g.font="bold "+Math.round(13*P6D)+'px "Courier New",monospace'; g.textAlign="center";
+    g.fillText("[Z] rematch", P6W/2, P6H*0.5);
+  }
+  if(P6.state==="won"){
+    comicText(g,"YOU WIN",P6W/2,P6H*0.32,Math.min(P6W,P6H)*0.11,"#ffd23f");
+    g.fillStyle="#1a1208"; g.font="bold "+Math.round(12*P6D)+'px "Courier New",monospace'; g.textAlign="center";
+    g.fillText("for real this time.", P6W/2, P6H*0.38);
+    if(P6.st>2.5){ P6.state="credits2"; P6.scroll2=0; P6.kx2=1.15; P6.yank=0; }
+  }
+  if(P6.state==="credits2"||P6.state==="yankwalk"||P6.state==="yank"){
+    var lh=36*P6D, yEnd=0;
+    g.textAlign="center";
+    for(var ci=0;ci<CREDITS2.length;ci++){
+      var cy3=P6H*1.05 - P6.scroll2 - P6.yank + ci*lh;
+      if(ci===CREDITS2.length-1) yEnd=cy3;
+      if(cy3<-lh||cy3>P6H+lh) continue;
+      var cc=CREDITS2[ci];
+      g.fillStyle= cc[1]==="dim"?"#888":"#fff";
+      g.font=(cc[1]==="big"?"bold "+Math.round(28*P6D):cc[1]==="hd"?"bold "+Math.round(12*P6D):Math.round(15*P6D))+'px "Courier New",monospace';
+      g.fillText(cc[0], P6W/2, cy3);
+    }
+    if(P6.state==="credits2"){
+      P6.scroll2+=dt*66*P6D;
+      if(yEnd<P6H*0.55){ P6.state="yankwalk"; }
+    } else if(P6.state==="yankwalk"){
+      P6.kx2-=dt*0.22;
+      if(typeof drawKai==="function") drawKai(g, P6W*P6.kx2, groundY(), P6H*0.24, P6.t*7, true);
+      if(P6.kx2<=0.62){ P6.state="yank"; }
+    } else if(P6.state==="yank"){
+      if(typeof drawKai==="function") drawKai(g, P6W*0.62, groundY(), P6H*0.24, 0, false);   // b&w kai, reaching up
+      P6.yank+=dt*(2600*P6D)*Math.min(1,P6.yank/300+0.3);
+      if(yEnd<-lh){ P6.state="lineup"; P6.lineT=0;
+        p6Dialog(["KAI: you didn't think it would be that easy, did you?"], null); }
+    }
+  }
+  if(P6.state==="lineup"||P6.state==="tbc"){
+    P6.lineT+=dt;
+    if(P6.state==="tbc"&&!P6.D){ g.fillStyle="rgba(20,14,8,0.35)"; g.fillRect(0,0,P6W,P6H); }
+    var g0b=groundY();
+    for(var li=0;li<CAST.length;li++){
+      var ch=CAST[li], at=li*0.75, e=Math.max(0,Math.min(1,(P6.lineT-at)/0.6));
+      if(e<=0) continue;
+      var ease=1-Math.pow(1-e,3), tx2;
+      if(ch.from==="left") tx2=-0.15+(ch.slot+0.15)*ease;
+      else if(ch.from==="right") tx2=1.15-(1.15-ch.slot)*ease;
+      else if(ch.from==="top") tx2=ch.slot;
+      else tx2=0.62+(ch.slot-0.62)*ease;
+      var ty2=g0b;
+      if(ch.from==="top") ty2=g0b-(1-ease)*P6H*0.8;
+      drawCastChar(g, li, P6W*tx2, ty2, P6H*0.17, P6.t+li, true);
+      if(e>=1){
+        g.fillStyle="#000"; g.strokeStyle="#fff"; g.lineWidth=1.5*P6D;
+        var nm=ch.n; g.font="bold "+Math.round(10*P6D)+'px "Courier New",monospace';
+        var tw3=g.measureText(nm).width+12*P6D;
+        g.fillRect(P6W*ch.slot-tw3/2, g0b+8*P6D, tw3, 16*P6D);
+        g.strokeRect(P6W*ch.slot-tw3/2, g0b+8*P6D, tw3, 16*P6D);
+        g.fillStyle="#fff"; g.textAlign="center"; g.fillText(nm, P6W*ch.slot, g0b+19.5*P6D);
+      }
+    }
+    if(P6.state==="lineup"&&P6.lineT>CAST.length*0.75+1.2&&!P6.D&&!P6.lineSpoke){
+      P6.lineSpoke=true;
+      p6Dialog(["KAI: before you go. the cast would like a word.",
+        "MIMIC: you knocked once. then you put a fist through the wall i was drawn on.",
+        "BOB: the page you tore apart? i was living in the margins.",
+        "ROCKY: six cracks, kid. i counted them on the way down.",
+        "BLENDER: six thousand recipes. you washed the jug zero times.",
+        "TIM: the clicking. the shaking. i haven't stood straight since part one.",
+        "ERR: Y0U D1D TH1S T0 M3.",
+        "KAI: and me? you punched me eighteen times. i counted.",
+        "KAI: so. no round two.",
+        "KAI: you're going to fix it. fix all of it."],
+        function(){ goPart(8); });
+    }
+    if(P6.state==="tbc"){
+      comicText(g,"TO BE CONTINUED",P6W/2,P6H*0.26,Math.min(P6W,P6H)*0.075,"#fff");
+    }
+  }
+  // dialog
+  if(P6.D){
+    var D=P6.D, cur=D.lines[D.idx]||"";
+    D.chars=Math.min(cur.length,D.chars+dt*46);
+    var bw=Math.min(P6W*0.8,660*P6D), bx=(P6W-bw)/2, by=P6H*0.80, bh=P6H*0.12;
+    var inkD= cine? "#fff":"#1a1208", papD= cine? "#000":"#fff";
+    g.fillStyle=papD; g.fillRect(bx,by,bw,bh);
+    g.strokeStyle=inkD; g.lineWidth=3*P6D; g.strokeRect(bx,by,bw,bh);
+    g.fillStyle=inkD; g.font="bold "+Math.round(14*P6D)+'px "Courier New",monospace'; g.textAlign="left";
+    g.fillText(cur.slice(0,Math.floor(D.chars)), bx+16*P6D, by+bh*0.45);
+    g.font=Math.round(10*P6D)+'px "Courier New",monospace'; g.textAlign="right"; g.fillStyle="#8a7a5a";
+    g.fillText("[Z]", bx+bw-10*P6D, by+bh-10*P6D);
+  }
+  // touch controls
+  if(P6.state==="fight"){
+    g.globalAlpha=0.18; g.fillStyle="#000";
+    var tb=touchBtns();
+    tb.forEach(function(b){ g.beginPath(); g.arc(b.x,b.y,b.r,0,7); g.fill(); });
+    g.globalAlpha=0.6; g.fillStyle="#fff"; g.font="bold "+Math.round(14*P6D)+"px monospace"; g.textAlign="center";
+    tb.forEach(function(b){ g.fillText(b.l, b.x, b.y+5*P6D); });
+    g.globalAlpha=1;
+  }
+  g.restore();
+  requestAnimationFrame(function(n){p6Run(n,token);});
+}
+function touchBtns(){
+  var r=Math.min(P6W,P6H)*0.055, y=P6H*0.90;
+  return [{l:"◀",x:P6W*0.09,y:y,r:r,k:"left"},{l:"▶",x:P6W*0.20,y:y,r:r,k:"right"},
+          {l:"⤒",x:P6W*0.80,y:y,r:r,k:"jump"},{l:"✊",x:P6W*0.91,y:y,r:r,k:"hit"}];
+}
+function toIntro(){
+  P6.state="introcut"; P6.st=0;
+  P6.msg=""; 
+  p6Dialog(["* The corridor opens into a ring.","* The whole site is watching.","KAI: you walked all that way.",
+    "KAI: let's make it worth something.","* KAI bounces on his heels."],
+    function(){ P6.state="fight"; banner("FIGHT"); });
+}
+addEventListener("keydown",function(e){
+  if(!P6.on) return;
+  P6.keys[e.key]=1;
+  if(["ArrowLeft","ArrowRight","ArrowUp"," "].indexOf(e.key)>=0) e.preventDefault();
+  var z=(e.key==="z"||e.key==="Z"||e.key==="Enter");
+  if(P6.D&&z){ p6Adv(); return; }
+  if(P6.state==="vs"&&z){ toIntro(); return; }
+  if(P6.state==="fight"&&z){ punch(); return; }
+  if(P6.state==="gameover"&&z){ startPart6(true); return; }
+  if(P6.state==="won"&&z){ P6.state="credits2"; P6.scroll2=0; P6.kx2=1.15; P6.yank=0; return; }
+  if(P6.state==="credits2"&&z){ P6.scroll2+=200*P6D; return; }
+});
+addEventListener("keyup",function(e){ if(P6.on) P6.keys[e.key]=0; });
+if(p6cv){
+  p6cv.addEventListener("pointerdown",function(e){
+    if(!P6.on) return;
+    var px=e.clientX*P6D, py=e.clientY*P6D;
+    if(P6.D){ p6Adv(); return; }
+    if(P6.state==="vs"){ toIntro(); return; }
+    if(P6.state==="gameover"){ startPart6(true); return; }
+    if(P6.state==="fight"){
+      var hit=false;
+      touchBtns().forEach(function(b){ if((px-b.x)*(px-b.x)+(py-b.y)*(py-b.y)<b.r*b.r*1.6){ hit=true;
+        if(b.k==="hit") punch(); else P6.touch[b.k]=1; } });
+      if(!hit) punch();
+    }
+  });
+  addEventListener("pointerup",function(){ P6.touch={}; });
+}
+function startPart6(rematch){
+  if(!p6cv) return;
+  P6.token++; P6.on=true; P6.t=0; P6.lastTick=0; P6.st=0;
+  P6.state= rematch? "fight":"vs";
+  P6.you={x:0.25,y:0,vy:0,vx:0,face:1,hp:6,ifr:0,punch:0,pcool:0};
+  var ph= rematch&&P6.kai&&P6.kai.phase===2? 2:1;
+  P6.kai={x:0.72,y:0,vy:0,vx:0,face:-1,hp:ph===2?10:8,maxhp:ph===2?10:8,ifr:0,phase:ph,mode:"idle",mt:0,tele:0,dashV:0};
+  P6.shots=[]; P6.waves=[]; P6.msg=""; P6.msgT=0; P6.D=null; P6.keys={}; P6.touch={}; P6.shake=0;
+  P6.scroll2=0; P6.yank=0; P6.lineT=0; P6.lineSpoke=false;
+  if(rematch) banner(ph===2?"PHASE 2":"FIGHT");
+  p6Fit(); requestAnimationFrame(p6Frame);
+}
+
+// ═══════════════════════════ PART FOUR: THE CREDITS ═══════════════════════════
+var P4={on:false,token:0,state:"win",t:0,lastTick:0,scroll:0,rev:false,D:null,kaiX:1.2,thrown:0,fall:0,
+  stare:0,staring:false,mx:0.5,my:0.5,flips:null,bgFlip:0};
+var p4cv=document.getElementById("p4cv"), p4g=p4cv?p4cv.getContext("2d"):null;
+var P4W=0,P4H=0,P4D=1;
+function p4Fit(){ if(!p4cv) return; P4D=Math.min(2,devicePixelRatio||1);
+  P4W=p4cv.width=Math.max(2,innerWidth*P4D); P4H=p4cv.height=Math.max(2,innerHeight*P4D); }
+addEventListener("resize",p4Fit);
+
+var CREDITS=[
+ ["CLICK FOR BACON","big"],["",""],["a kai.fun production","dim"],["",""],
+ ["DIRECTED BY","hd"],["the mouse cursor",""],["",""],
+ ["PAGE DESTRUCTION","hd"],["you",""],["",""],
+ ["CONSOLE DEPARTMENT","hd"],["126 commands, 3 useful",""],["",""],
+ ["STICKMAN CHOREOGRAPHY","hd"],["the stickman",""],["",""],
+ ["DOOR WRANGLER","hd"],["the second door",""],["",""],
+ ["ROCKY THE ROCK AS","hd"],["himself",""],["",""],
+ ["GEOLOGY CONSULTANT","hd"],["also rocky",""],["",""],
+ ["CATERING","hd"],["bacon (uncredited)",""],["",""],
+ ["MUSIC","hd"],["[silence]",""],["",""],
+ ["SPECIAL THANKS","hd"],["the jug",""],["the blade",""],["mango sorbet",""],["",""],
+ ["OTHER ROOMS IN THIS HOUSE","hd"],["a piano that tells jokes",""],["a blender that invents food",""],
+ ["an hourglass full of people",""],["a sports hall",""],["a small ai in a text file",""],["bob. rest easy, bob.",""],["",""],
+ ["MADE BY","hd"],["kai","kai"],["",""],
+ ["no rocks were harmed","dim"],["",""],["THE END","big"]];
+var KAI_IDX=CREDITS.findIndex(function(c){return c[1]==="kai";});
+
+var LORE=[
+ "wait.",
+ "kai.",
+ "* The credits stop on the name like a record scratch.",
+ "* Let me tell you about this place.",
+ "* Every game on that site is a room in the same house.",
+ "* A piano that plays forty-eight jokes and one apology.",
+ "* A blender that has invented six thousand foods nobody ordered.",
+ "* An hourglass with seven hundred tiny people inside. They queue politely.",
+ "* A sports hall. A search engine that mostly finds itself.",
+ "* A small artificial mind that lives in a text file and tries its best.",
+ "* Bob. One week. A good week.",
+ "* All of it built by one person, mostly at hours a person should be asleep.",
+ "* The stickman? First thing kai ever drew. Before the site. Before any of it.",
+ "* The smile on the front page was drawn second.",
+ "* This bacon page was supposed to be a joke.",
+ "* Then it grew a console. Then doors. Then a rock with opinions.",
+ "* You kept clicking, and the house noticed.",
+ "* And when the house notices...",
+ "* ...the landlord shows up."];
+var KAI_LINES=[
+ "KAI: oh hey. you actually got past rocky.",
+ "KAI: he's a softie. don't tell him i said that.",
+ "KAI: welcome to the credits. i live back here.",
+ "KAI: you've seen the site from the outside. front page, tiles, the smile.",
+ "KAI: want to see it from the inside?",
+ "KAI: bad news. there are no stairs.",
+ "* Kai grabs you by the collar.",
+ "KAI: sorry about this."];
+
+function p4Dialog(lines,done){ P4.D={lines:lines.slice(),idx:0,chars:0,done:done||null}; }
+function p4Advance(){ var D=P4.D; if(!D) return;
+  var cur=D.lines[D.idx];
+  if(D.chars<cur.length){ D.chars=cur.length; return; }
+  D.idx++; D.chars=0;
+  if(D.idx>=D.lines.length){ P4.D=null; if(D.done) D.done(); } }
+
+function drawKai(g,cx,cy,h,phase,walking){
+  var u=h/8;
+  g.strokeStyle="#fff"; g.lineWidth=Math.max(2,u*0.18); g.lineCap="round";
+  var hr=u*1.05, hy=cy-h+hr;
+  g.beginPath(); g.arc(cx,hy,hr,0,7); g.stroke();          // kai's head is the site's smile
+  g.fillStyle="#fff";
+  g.beginPath(); g.arc(cx-hr*0.36,hy-hr*0.2,u*0.13,0,7); g.arc(cx+hr*0.36,hy-hr*0.2,u*0.13,0,7); g.fill();
+  g.beginPath(); g.arc(cx,hy+hr*0.05,hr*0.55,0.35,Math.PI-0.35); g.stroke();
+  var neck=hy+hr, hip=cy-u*2.5, sw=Math.sin(phase), sw2=Math.sin(phase+Math.PI);
+  g.beginPath(); g.moveTo(cx,neck); g.lineTo(cx,hip); g.stroke();
+  g.beginPath();
+  if(walking){ g.moveTo(cx,neck+u*0.5); g.lineTo(cx+sw*u*1.1,neck+u*2.0);
+    g.moveTo(cx,neck+u*0.5); g.lineTo(cx+sw2*u*1.1,neck+u*2.0); }
+  else { g.moveTo(cx,neck+u*0.5); g.lineTo(cx-u*1.2,neck+u*2.0);
+    g.moveTo(cx,neck+u*0.5); g.lineTo(cx+u*1.2,neck+u*2.0); }
+  g.stroke();
+  g.beginPath();
+  if(walking){ g.moveTo(cx,hip); g.lineTo(cx+sw2*u*1.2,cy); g.moveTo(cx,hip); g.lineTo(cx+sw*u*1.2,cy); }
+  else { g.moveTo(cx,hip); g.lineTo(cx-u*0.7,cy); g.moveTo(cx,hip); g.lineTo(cx+u*0.7,cy); }
+  g.stroke();
+}
+// ── the fake front page ──
+var TILES=[["CLICK FOR BACON","#2a1712","#ffb56b"],["BLENDER","#0f1117","#7ee787"],["HOURGLASS","#161a22","#8ecbff"],
+ ["THE PIANO","#1b1410","#e8c84a"],["K.AI","#101418","#b48cff"],["SPORTS","#12181a","#ff8c66"],
+ ["SEARCH","#14141a","#7ad0d0"],["WIKI","#181818","#d0d0d0"],["CHORELY","#141a14","#9ad07a"],
+ ["STICKON","#1a1414","#ff9ad0"],["WOBBLE","#171320","#ffd07a"],["BOB","#101010","#8a8a8a"]];
+function fiLayout(){
+  var cols= P4W>P4H?4:3, rows=Math.ceil(TILES.length/cols);
+  var gw=P4W*0.72, gx=(P4W-gw)/2, tw=(gw-(cols-1)*P4W*0.015)/cols, th=Math.min(tw*0.52,P4H*0.10);
+  var gy=P4H*0.40, out=[];
+  for(var i=0;i<TILES.length;i++){ var c=i%cols, r=(i/cols)|0;
+    out.push({x:gx+c*(tw+P4W*0.015), y:gy+r*(th+P4H*0.028), w:tw, h:th}); }
+  return out;
+}
+function startFakeIndex(){
+  P4.state="fakeindex"; P4.staring=false; P4.stare=0; P4.flips=null; P4.bgFlip=0; P4.fiT=0;
+}
+function beginStare(){ if(P4.staring||P4.flips) return; P4.staring=true; P4.stare=0; }
+function beginBlackout(){
+  var lay=fiLayout(), items=[];
+  items.push({ty:"title"}); items.push({ty:"sub"}); items.push({ty:"smile"});
+  for(var i=0;i<TILES.length;i++) items.push({ty:"tile",i:i});
+  items.sort(function(){ return Math.random()-0.5; });
+  items.forEach(function(it,k){ it.at=0.12+k*0.11; });
+  P4.flips=items; P4.flipT=0;
+}
+function p4Frame(now){ p4Run(now,P4.token); }
+function p4Run(now,token){
+  if(!P4.on||!p4g||token!==P4.token) return;
+  var dt=Math.min(0.05,(now-(P4.lastTick||now))/1000); P4.lastTick=now; P4.t+=dt;
+  var g=p4g, mono=function(px,b){ return (b?"bold ":"")+Math.round(px)+'px "Courier New",monospace'; };
+  if(P4.state==="fakeindex"){ drawFakeIndex(g,dt); requestAnimationFrame(function(n){p4Run(n,token);}); return; }
+  g.fillStyle="#000"; g.fillRect(0,0,P4W,P4H);
+  var lineH=34*P4D, cx=P4W/2;
+  if(P4.state==="win"){
+    g.fillStyle="#fff"; g.textAlign="center"; g.font=mono(52*P4D,1);
+    g.fillText("YOU WIN", cx, P4H*0.46);
+    g.font=mono(13*P4D); g.fillStyle="#888";
+    g.fillText("congratulations. that is the whole game.", cx, P4H*0.53);
+    if(P4.t>2.6){ P4.state="credits"; P4.scroll=0; }
+  }
+  else if(P4.state==="credits"||P4.state==="creditsback"){
+    var yKai=0;
+    g.textAlign="center";
+    for(var i=0;i<CREDITS.length;i++){
+      var y=P4H*1.05 - P4.scroll + i*lineH;
+      if(i===KAI_IDX) yKai=y;
+      if(y<-lineH||y>P4H+lineH) continue;
+      var c=CREDITS[i];
+      g.fillStyle= c[1]==="dim"?"#666":"#fff";
+      g.font= c[1]==="big"? mono(30*P4D,1) : c[1]==="hd"? mono(13*P4D,1) : mono(16*P4D, c[1]==="kai");
+      g.fillText(c[0], cx, y);
+    }
+    if(P4.state==="credits"){
+      P4.scroll += dt*(64+ (P4.fast?260:0))*P4D;
+      if(yKai < P4H*0.18){ P4.state="creditsback"; }                 // ...it spots the name
+    } else {
+      P4.scroll -= dt*900*P4D;                                        // and drags the reel back
+      if(yKai>=P4H*0.5){ P4.state="spot"; P4.spotT=0;
+        p4Dialog(LORE, function(){ P4.state="kai"; P4.kaiX=1.15; }); }
+    }
+  }
+  else if(P4.state==="spot"||P4.state==="kai"||P4.state==="throw"){
+    // the name, alone
+    g.textAlign="center"; g.fillStyle="#fff"; g.font=mono(34*P4D,1);
+    if(P4.state==="spot") g.fillText("kai", cx, P4H*0.42);
+    var ground=P4H*0.72;
+    if(P4.state==="kai"||P4.state==="throw"){
+      g.strokeStyle="#fff"; g.globalAlpha=0.3; g.lineWidth=P4D;
+      g.beginPath(); g.moveTo(0,ground); g.lineTo(P4W,ground); g.stroke(); g.globalAlpha=1;
+      var walking=P4.kaiX>0.60;
+      if(walking) P4.kaiX-=dt*0.11;
+      drawKai(g, P4W*P4.kaiX, ground, P4H*0.26, P4.t*7, walking);
+      if(typeof drawMan==="function") drawMan(g, P4W*0.42, ground, P4H*0.22, 0, 0, false);   // you
+      if(P4.state==="kai"&&!P4.D&&!walking&&!P4.kaiSpoke){ P4.kaiSpoke=true;
+        p4Dialog(KAI_LINES, function(){ P4.state="throw"; P4.thrown=0; }); }
+    }
+    if(P4.state==="throw"){
+      P4.thrown+=dt;
+      var t=P4.thrown, you={x:P4W*0.42, y:ground};
+      if(t<0.5){ you.x+=Math.sin(t*40)*4*P4D; }                       // grabbed
+      else { var f=(t-0.5); you.x=P4W*(0.42+f*0.5); you.y=ground - Math.sin(Math.min(1,f)*Math.PI)*P4H*0.2 + f*f*P4H*0.9; }
+      g.save(); g.translate(you.x,you.y); g.rotate(t>0.5?(t-0.5)*9:0);
+      if(typeof drawMan==="function") drawMan(g,0,0,P4H*0.22,0,0,false);
+      g.restore();
+      if(t>1.6){ P4.state="abyss"; P4.fall=0; }
+    }
+  }
+  else if(P4.state==="abyss"){
+    P4.fall+=dt;
+    g.strokeStyle="#fff";
+    for(var s=0;s<26;s++){ var sx=( (s*97)%100 )/100*P4W, len=(30+(s*53)%80)*P4D;
+      var sy=((s*131)%100)/100*P4H + (P4.fall*900*P4D)%(P4H+len) - len;
+      g.globalAlpha=0.25; g.lineWidth=P4D; g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx,sy+len); g.stroke(); }
+    g.globalAlpha=1;
+    g.save(); g.translate(P4W/2, P4H*0.4+Math.sin(P4.fall*3)*20*P4D); g.rotate(P4.fall*4);
+    if(typeof drawMan==="function") drawMan(g,0,0,P4H*0.2,0,0,false);
+    g.restore();
+    g.fillStyle="#888"; g.font=mono(12*P4D); g.textAlign="center";
+    if(P4.fall<1.4) g.fillText("KAI (above, fading): it's faster than the stairs—", P4W/2, P4H*0.12);
+    if(P4.fall>2.6) startFakeIndex();
+  }
+  // dialogue box
+  if(P4.D){
+    var D=P4.D, cur=D.lines[D.idx]||"";
+    D.chars=Math.min(cur.length,D.chars+dt*46);
+    var bw=Math.min(P4W*0.8,680*P4D), bx=(P4W-bw)/2, by=P4H*0.80, bh=P4H*0.13;
+    g.fillStyle="#000"; g.fillRect(bx,by,bw,bh);
+    g.strokeStyle="#fff"; g.lineWidth=2*P4D; g.strokeRect(bx,by,bw,bh);
+    g.fillStyle="#fff"; g.font=mono(14*P4D); g.textAlign="left";
+    var shown=cur.slice(0,Math.floor(D.chars)), words=shown.split(" "), line="", yy=by+26*P4D;
+    for(var wi=0;wi<words.length;wi++){ var test=line?line+" "+words[wi]:words[wi];
+      if(g.measureText(test).width>bw-36*P4D){ g.fillText(line,bx+18*P4D,yy); yy+=20*P4D; line=words[wi]; } else line=test; }
+    g.fillText(line,bx+18*P4D,yy);
+    g.fillStyle="#888"; g.font=mono(10*P4D); g.textAlign="right"; g.fillText("[Z]", bx+bw-10*P4D, by+bh-10*P4D);
+  }
+  requestAnimationFrame(function(n){p4Run(n,token);});
+}
+function drawFakeIndex(g,dt){
+  P4.fiT+=dt;
+  var flipped={}, allAt=0;
+  if(P4.flips){ P4.flipT+=dt;
+    P4.flips.forEach(function(it){ if(P4.flipT>=it.at) flipped[it.ty+(it.i!=null?it.i:"")]=1; allAt=Math.max(allAt,it.at); });
+    if(P4.flipT>allAt+0.7) P4.bgFlip=Math.min(1,P4.bgFlip+dt*1.6);
+  }
+  // background drains last
+  var bg= P4.bgFlip>0? Math.round(244*(1-P4.bgFlip)) : 244;
+  g.fillStyle="rgb("+bg+","+(bg-4>0?bg-4:0)+","+Math.max(0,bg-14)+")";
+  g.fillRect(0,0,P4W,P4H);
+  if(P4.bgFlip>=1){ startPart5(); return; }
+  var mono=function(px,b){ return (b?"bold ":"")+Math.round(px)+'px "Courier New",monospace'; };
+  var wob=Math.sin(P4.fiT*0.8)*2*P4D;
+  // title
+  g.textAlign="center";
+  g.fillStyle= flipped["title"]? "#000" : "#222";
+  g.font=mono(40*P4D,1);
+  g.fillText(flipped["title"]?"███.███":"KAI.FUN", P4W/2, P4H*0.13+wob);
+  g.fillStyle= flipped["sub"]? "#000" : "#777";
+  g.font=mono(13*P4D);
+  g.fillText(flipped["sub"]?"█████████████":"games and stuff. by kai.", P4W/2, P4H*0.175);
+  // the smile
+  var sr=P4H*0.07, sx=P4W/2, sy=P4H*0.27+wob;
+  if(flipped["smile"]){ g.fillStyle="#000"; g.beginPath(); g.arc(sx,sy,sr,0,7); g.fill(); }
+  else{
+    g.fillStyle="#ffd23f"; g.beginPath(); g.arc(sx,sy,sr,0,7); g.fill();
+    g.strokeStyle="#1a1a1a"; g.lineWidth=Math.max(2,sr*0.07);
+    g.beginPath(); g.arc(sx,sy,sr,0,7); g.stroke();
+    var ex=0, ey=0;
+    if(P4.staring){ P4.stare+=dt;
+      ex=(P4.mx-0.5)*sr*0.5; ey=(P4.my-0.35)*sr*0.5;                  // the smile looks AT you
+      if(P4.stare>1.25&&!P4.flips) beginBlackout();
+    } else { ex=Math.sin(P4.fiT*0.6)*sr*0.08; }
+    g.fillStyle="#1a1a1a";
+    var pr= P4.staring? sr*0.16 : sr*0.11;                            // pupils widen
+    g.beginPath(); g.arc(sx-sr*0.34+ex,sy-sr*0.18+ey,pr,0,7); g.fill();
+    g.beginPath(); g.arc(sx+sr*0.34+ex,sy-sr*0.18+ey,pr,0,7); g.fill();
+    g.lineWidth=Math.max(2,sr*0.09); g.beginPath();
+    if(P4.staring){ g.moveTo(sx-sr*0.4,sy+sr*0.42); g.lineTo(sx+sr*0.4,sy+sr*0.42); }  // the smile stops smiling
+    else g.arc(sx,sy+sr*0.08,sr*0.55,0.3,Math.PI-0.3);
+    g.stroke();
+  }
+  // tiles
+  var lay=fiLayout();
+  g.textAlign="center";
+  for(var i=0;i<lay.length;i++){ var L=lay[i], T=TILES[i];
+    var off= flipped["tile"+i];
+    var j=Math.sin(P4.fiT*1.3+i)*1.5*P4D;
+    if(off){ g.fillStyle="#000"; g.fillRect(L.x,L.y+j,L.w,L.h); continue; }
+    g.fillStyle=T[2]; g.fillRect(L.x+4*P4D,L.y+4*P4D+j,L.w,L.h);      // the site's drop shadows
+    g.fillStyle=T[1]; g.fillRect(L.x,L.y+j,L.w,L.h);
+    g.fillStyle="#eee"; g.font=mono(Math.min(12*P4D,L.h*0.3),1);
+    var label=T[0];
+    if(i===7&&Math.floor(P4.fiT*2)%7===0) label="IKIW";              // something isn't right
+    g.fillText(label, L.x+L.w/2, L.y+j+L.h*0.58);
+  }
+  if(!P4.staring&&!P4.flips){ g.fillStyle="#999"; g.font=mono(11*P4D); g.fillText("something isn't right. click.", P4W/2, P4H*0.94); }
+}
+if(p4cv){
+  p4cv.addEventListener("pointerdown", function(e){
+    if(!P4.on) return;
+    P4.mx=e.clientX/innerWidth; P4.my=e.clientY/innerHeight;
+    if(P4.D){ p4Advance(); return; }
+    if(P4.state==="win"){ P4.t=99; return; }
+    if(P4.state==="credits"){ P4.fast=true; return; }
+    if(P4.state==="fakeindex"){ beginStare(); return; }
+  });
+  p4cv.addEventListener("pointerup", function(){ P4.fast=false; });
+  p4cv.addEventListener("pointermove", function(e){ P4.mx=e.clientX/innerWidth; P4.my=e.clientY/innerHeight; });
+}
+addEventListener("keydown", function(e){
+  if(!P4.on) return;
+  if(e.key==="z"||e.key==="Z"||e.key==="Enter"||e.key===" "){
+    if(P4.D){ p4Advance(); }
+    else if(P4.state==="win") P4.t=99;
+    else if(P4.state==="fakeindex") beginStare();
+    e.preventDefault();
+  }
+});
+function startPart4(){
+  if(!p4cv) return;
+  P4.token++; P4.on=true; P4.t=0; P4.lastTick=0; P4.state="win"; P4.scroll=0; P4.D=null;
+  P4.kaiSpoke=false; P4.fast=false; P4.flips=null; P4.staring=false; P4.bgFlip=0;
+  p4Fit(); requestAnimationFrame(p4Frame);
+}
+
+// ═══════════════════════════ PART FIVE: THE CORRIDOR ═══════════════════════════
+var P5={on:false,token:0,t:0,lastTick:0,dist:0,walk:0,keys:{},hold:false,woke:false};
+var p5cv=document.getElementById("p5cv"), p5g=p5cv?p5cv.getContext("2d"):null;
+var P5W=0,P5H=0,P5D=1;
+function p5Fit(){ if(!p5cv) return; P5D=Math.min(2,devicePixelRatio||1);
+  P5W=p5cv.width=Math.max(2,innerWidth*P5D); P5H=p5cv.height=Math.max(2,innerHeight*P5D); }
+addEventListener("resize",p5Fit);
+var WALLNOTES=[[60,"41"],[120,"you again"],[190,"the smile knows"],[260,"keep going"],[330,"||||  ||||  ||"],[410,"it is longer than it looks"]];
+function p5Frame(now){ p5Run(now,P5.token); }
+function p5Run(now,token){
+  if(!P5.on||!p5g||token!==P5.token) return;
+  var dt=Math.min(0.05,(now-(P5.lastTick||now))/1000); P5.lastTick=now; P5.t+=dt;
+  var g=p5g, mono=function(px,b){ return (b?"bold ":"")+Math.round(px)+'px "Courier New",monospace'; };
+  g.fillStyle="#000"; g.fillRect(0,0,P5W,P5H);
+  var wake=Math.min(1,P5.t/1.6);                                   // eyes opening after the fall
+  var moving = P5.keys.ArrowRight||P5.keys.d||P5.keys.D||P5.hold;
+  if(P5.dist>140) P5.running=true;                                  // the corridor makes you run
+  var rate= P5.running? 64:26, wrate= P5.running? 16:9;
+  if((moving||P5.running)&&wake>=1&&!P5.flash){ P5.dist+=dt*rate; P5.walk+=dt*wrate; }
+  if(P5.dist>320&&!P5.flash){ P5.flash=0.001; }
+  if(P5.flash){ P5.flash+=dt;
+    if(P5.flash>0.9){ P5.on=false;
+      document.getElementById("part5").style.display="none";
+      document.getElementById("part6").style.display="block";
+      var tp6=document.getElementById("tp");
+      if(tp6) Array.prototype.forEach.call(tp6.children,function(b){ b.className=(+b.dataset.p===6)?"tpb on":"tpb"; });
+      startPart6(); return; } }
+  var cy=P5H*0.5, vpx=P5W*0.78;                                    // vanishing point ahead
+  g.strokeStyle="#fff"; g.lineWidth=Math.max(1,1.4*P5D);
+  var top=P5H*0.16, bot=P5H*0.84;
+  g.globalAlpha=0.85*wake;
+  g.beginPath(); g.moveTo(0,top); g.lineTo(vpx,cy-P5H*0.03); g.stroke();
+  g.beginPath(); g.moveTo(0,bot); g.lineTo(vpx,cy+P5H*0.03); g.stroke();
+  // door frames sliding past
+  for(var k=0;k<9;k++){
+    var wz=(k*46) - (P5.dist%46), z=wz+8;
+    var s=120/(z+18);
+    if(s<=0.05||s>3) continue;
+    var x= vpx - s*P5W*0.42;
+    var fh=(bot-top)*Math.min(1,s), fy=cy+P5H*0.03*Math.min(1,s);
+    g.globalAlpha=Math.min(0.7,s)*wake;
+    g.strokeRect(x-14*P5D*s, fy-fh*0.5-fh*0.5, 28*P5D*s, fh);
+    g.globalAlpha=0.25*wake;
+    g.beginPath(); g.arc(x+7*P5D*s, fy-fh*0.5, 2.4*P5D*s, 0, 7); g.stroke();
+  }
+  // scratched notes on the wall
+  g.textAlign="left"; 
+  WALLNOTES.forEach(function(n){
+    var wz=n[0]-P5.dist; if(wz<2||wz>90) return;
+    var s=120/(wz+18), x=vpx - s*P5W*0.30;
+    g.globalAlpha=Math.min(0.5,s*0.4)*wake;
+    g.fillStyle="#fff"; g.font=mono(Math.max(8,11*P5D*s));
+    g.fillText(n[1], x, cy - (P5H*0.10)*Math.min(1,s));
+  });
+  g.globalAlpha=1;
+  // you, walking
+  var ground=bot - (bot-cy-P5H*0.03)*0.12;
+  if(typeof drawMan==="function"){
+    g.save(); g.globalAlpha=wake;
+    drawMan(g, P5W*0.22, ground, P5H*0.30, moving?P5.walk:0, moving?1:0, false);
+    g.restore();
+  }
+  g.fillStyle="#666"; g.font=mono(11*P5D); g.textAlign="center"; g.globalAlpha=wake;
+  if(P5.t<4) g.fillText("hold [→] to walk", P5W/2, P5H*0.93);
+  else if(P5.running&&P5.dist<300) g.fillText("you are not doing the running.", P5W/2, P5H*0.93);
+  g.fillStyle="#333"; g.textAlign="right"; g.fillText(Math.floor(P5.dist)+" steps", P5W-14*P5D, P5H*0.06);
+  g.globalAlpha=1;
+  if(P5.running&&!P5.flash){ g.strokeStyle="#fff"; g.globalAlpha=0.18;
+    for(var st2=0;st2<8;st2++){ var sy2=P5H*(0.2+((st2*37)%60)/100);
+      var sx2=P5W - ((P5.t*1400+st2*300)%(P5W*1.2));
+      g.lineWidth=P5D; g.beginPath(); g.moveTo(sx2,sy2); g.lineTo(sx2+70*P5D,sy2); g.stroke(); }
+    g.globalAlpha=1; }
+  if(P5.flash){ g.fillStyle="#fff"; g.globalAlpha=Math.min(1,P5.flash*1.6); g.fillRect(0,0,P5W,P5H); g.globalAlpha=1; }
+  if(!P5.woke&&P5.t>0.3){ P5.woke=true; }
+  requestAnimationFrame(function(n){p5Run(n,token);});
+}
+addEventListener("keydown", function(e){ if(!P5.on) return; P5.keys[e.key]=1;
+  if(["ArrowRight","ArrowLeft"," "].indexOf(e.key)>=0) e.preventDefault(); });
+addEventListener("keyup", function(e){ if(!P5.on) return; P5.keys[e.key]=0; });
+if(p5cv){
+  p5cv.addEventListener("pointerdown", function(){ if(P5.on) P5.hold=true; });
+  addEventListener("pointerup", function(){ P5.hold=false; });
+}
+function startPart5(){
+  if(!p5cv) return;
+  if(typeof P4!=="undefined"){ P4.on=false; }
+  document.getElementById("part4").style.display="none";
+  document.getElementById("part5").style.display="block";
+  var tp=document.getElementById("tp");
+  if(tp) Array.prototype.forEach.call(tp.children, function(b){ b.className = (+b.dataset.p===5)?"tpb on":"tpb"; });
+  P5.token++; P5.on=true; P5.t=0; P5.lastTick=0; P5.dist=0; P5.walk=0; P5.keys={}; P5.hold=false; P5.running=false; P5.flash=0;
+  p5Fit(); requestAnimationFrame(p5Frame);
+}
+
+// ═══════════════════════════ PART THREE: THE FIGHT ENGINE ═══════════════════════════
+// one engine, many bosses. rocky's original fight, plus the last-fight gauntlet.
+var P3 = { on:false, token:0, state:"intro", t:0, lastTick:0,
+  hp:20, maxhp:20, rhp:60, rmaxhp:60, turn:0, sel:0, subsel:0,
+  talks:{}, talkCount:0, spareReady:false, items:[
+    {n:"PET ROCK", heal:8, d:"it appreciates you. heals 8.", used:false},
+    {n:"HARD WATER", heal:12, d:"it is just ice. heals 12.", used:false},
+    {n:"GRAVELOLA BAR", heal:20, d:"crunchy. heals 20.", used:false}],
+  bullets:[], px:0, py:0, pvy:0, grav:false, iframe:0, hurtFlash:0, atkT:0, atkDur:5.5, pattern:0, custom:0,
+  barX:0, barDir:1, dmgFlash:0, ended:"", D:null, boss:0, gq:null, gat:0 };
+var p3cv = document.getElementById("p3cv"), p3g = p3cv ? p3cv.getContext("2d") : null;
+var P3W=0, P3H=0, P3D=1;
+function p3Fit(){ if(!p3cv) return; P3D=Math.min(2,devicePixelRatio||1);
+  P3W=p3cv.width=Math.max(2,innerWidth*P3D); P3H=p3cv.height=Math.max(2,innerHeight*P3D); }
+addEventListener("resize", p3Fit);
+var MENU=["FIGHT","TALK","ITEM","SPARE"];
+// ── the bosses ──
+// pat: list of attack turns; m: "free" floats, "grav" = feet on the floor, you can only jump
+var BOSSES=[
+ { key:"rocky", name:"ROCKY THE ROCK", cast:-1,
+   intro:["* You made it through both doors.","* Something is blocking the way.","* It is a rock.",
+     "* The rock clears its throat. Somehow.","ROCKY: name's rocky.","ROCKY: you broke the page. you did the quiz.",
+     "ROCKY: but this part is boulder territory, kid.","ROCKY: nothing personal. it's just my one job.","* ROCKY THE ROCK blocks the way!"],
+   block:"* Rocky blocks the way.",
+   talks:[{n:"COMPLIMENT", r:["* You tell Rocky he is looking solid today.","ROCKY: aw. that means a lot.","ROCKY: i work out. i mean, i sit still.","ROCKY: same thing."]},
+          {n:"GEOLOGY",    r:["* You recite a geology fact.","ROCKY: close. i'm igneous, actually.","ROCKY: most people take me for granite."]},
+          {n:"SMALL TALK", r:["* You ask about the weather down here.","ROCKY: gravelly.","ROCKY: with a chance of debris."]}],
+   flavor:["* Rocky stands there. Igneously.","* The air tastes like dust.","* Rocky hums something sedimental.",
+     "* Pebbles orbit Rocky lazily.","* Rocky is between a rock and another rock.","* You feel the ground thinking."],
+   soften:["* Something in Rocky softens.","* Which is hard, for a rock.","* SPARE is glowing."],
+   noSpare:["* You try to spare Rocky.","* Rocky isn't ready to let this slide."],
+   spare:["* You lower your fists.","ROCKY: heh. you're solid, kid.","ROCKY: door was never locked, you know.",
+     "ROCKY: i just like the company.","* Rocky rolls politely aside.","* YOU WIN. (the nice way)"],
+   crumble:["* Rocky wobbles.","ROCKY: heh... shattering performance, kid.","* Rocky crumbles into gravel.",
+     "* The gravel is still smiling.","* YOU WIN. (the loud way)"],
+   pat:[{m:"free",id:0},{m:"grav",id:1},{m:"grav",id:2},{m:"free",id:3},{m:"grav",id:4},{m:"free",id:5}] },
+ { key:"mimic", name:"THE MIMIC", cast:0,
+   intro:["* The mimic steps up. Frame and all.","MIMIC: you fixed my voice.","MIMIC: so listen to it: KNOCK. KNOCK.","* THE MIMIC wants one honest fight!"],
+   block:"* The mimic stands in the way. Politely.",
+   talks:[{n:"KNOCK", r:["* You knock on the mimic.","MIMIC: ...come in.","MIMIC: that was the whole dream. thank you."]},
+          {n:"HINGES", r:["* You compliment its hinges.","MIMIC: oiled them myself.","MIMIC: i contain multitudes. mostly hinges."]},
+          {n:"APOLOGIZE", r:["* You apologize for the wall.","MIMIC: ...the wall had it coming.","MIMIC: but i appreciate it."]}],
+   flavor:["* The mimic creaks thoughtfully.","* Somewhere, a hallway misses a door.","* The mimic practices being ajar."],
+   soften:["* The mimic swings gently. Open, then shut.","* SPARE is glowing."],
+   noSpare:["* You try to spare the mimic.","* It isn't open to it. yet."],
+   spare:["MIMIC: alright.","MIMIC: you may pass through me.","* That is the nicest thing a door can say.","* YOU WIN. (the open way)"],
+   crumble:["* The mimic comes off its hinges.","MIMIC: worth it.","* YOU WIN. (the loud way)"],
+   pat:[{m:"grav",id:10},{m:"free",id:11},{m:"grav",id:12}] },
+ { key:"bob", name:"BOB", cast:1,
+   intro:["* Bob descends. Halo and all.","BOB: new brain. old grudges.","BOB: let's have a lap of the kitchen.","* BOB requests one fight!"],
+   block:"* Bob hovers in the way.",
+   talks:[{n:"CONDOLENCES", r:["* You offer condolences.","BOB: i'm literally right here.","BOB: ...but thank you."]},
+          {n:"THE JAM", r:["* You ask about the jam incident.","BOB: we don't talk about the jam.","BOB: it knows what it did."]},
+          {n:"BUZZ", r:["* You buzz, respectfully.","BOB: ...you speak fly?","BOB: your accent is terrible. i'm moved."]}],
+   flavor:["* Bob does a lap. For old times.","* The halo needs a polish.","* Bob remembers everything now. Everything."],
+   soften:["* Bob slows his wings.","* SPARE is glowing."],
+   noSpare:["* You try to spare Bob.","* He has one more lap in him."],
+   spare:["BOB: ok. flight's over.","BOB: it was a good week. it's a good day too.","* YOU WIN. (the gentle way)"],
+   crumble:["* Bob lands, dramatically.","BOB: tell the fruit bowl... i lived.","* He's fine. He's dramatic.","* YOU WIN. (the loud way)"],
+   pat:[{m:"free",id:13},{m:"grav",id:14}] },
+ { key:"blender", name:"THE BLENDER", cast:4,
+   intro:["* The blender rolls up, blade first.","BLENDER: ONE PERFECT SMOOTHIE WASN'T ENOUGH.","BLENDER: NOW WE SPIN.","* THE BLENDER whirrs into position!"],
+   block:"* The blender idles menacingly.",
+   talks:[{n:"RECIPE", r:["* You suggest a recipe.","BLENDER: banana AND gravel?","BLENDER: ...you're hired."]},
+          {n:"WASH IT", r:["* You offer to wash the jug.","BLENDER: NOW you offer.","BLENDER: ...apology accepted. partially."]},
+          {n:"HUM ALONG", r:["* You hum at blender pitch.","BLENDER: WHIRRR?","BLENDER: WHIRRRRR. harmony."]}],
+   flavor:["* The blade spins, patiently.","* Something in the jug sloshes.","* The blender dreams of smoothies."],
+   soften:["* The blender drops to a gentle purr.","* SPARE is glowing."],
+   noSpare:["* You try to spare the blender.","* It still has settings left."],
+   spare:["BLENDER: FINE. SMOOTH.","BLENDER: we're even. again. more even.","* YOU WIN. (the smooth way)"],
+   crumble:["* The blade wobbles to a stop.","BLENDER: unplugged... with honor.","* YOU WIN. (the loud way)"],
+   pat:[{m:"free",id:15},{m:"grav",id:16}] },
+ { key:"tim", name:"WOBBLY TIM", cast:5,
+   intro:["* Tim walks in. Perfectly straight.","TIM: look what you gave me. POSTURE.","TIM: let me show you what a spine can do.","* WOBBLY TIM stands tall!"],
+   block:"* Tim sways in the way. On purpose now.",
+   talks:[{n:"POSTURE", r:["* You admire his posture.","TIM: dead straight, baby.","TIM: i can see over THINGS now."]},
+          {n:"WOBBLE", r:["* You ask if he misses the wobble.","TIM: ...between us?","TIM: a little. don't tell my spine."]},
+          {n:"STRETCH", r:["* You stretch together.","TIM: feel that?","TIM: that's vertebrae, friend."]}],
+   flavor:["* Tim sways exactly 4 degrees. For style.","* Tim is enjoying being tall.","* Somewhere, a chiropractor weeps with joy."],
+   soften:["* Tim settles into a proud, still stance.","* SPARE is glowing."],
+   noSpare:["* You try to spare Tim.","* He's not done demonstrating."],
+   spare:["TIM: ok ok. point made.","TIM: thanks for the spine, friend.","* YOU WIN. (the upright way)"],
+   crumble:["* Tim folds up like a deck chair.","TIM: worth... every... degree.","* YOU WIN. (the loud way)"],
+   pat:[{m:"free",id:17},{m:"grav",id:18}] },
+ { key:"err", name:"ERROR SMILEY", cast:6,
+   intro:["* The error smiley flickers in.","ERR: AL1GNED AND DANGEROUS.","ERR: LET'S TRADE GLITCHES.","* ERROR SMILEY is feeling contiguous!"],
+   block:"* The error smiley buffers in the way.",
+   talks:[{n:"REBOOT", r:["* You suggest turning it off and on.","ERR: I AM the off and on.","ERR: but noted."]},
+          {n:"SLICES", r:["* You compliment its alignment.","ERR: SEAMLESS, RIGHT?","ERR: you did the seams. fair."]},
+          {n:"SMILE", r:["* You smile back at it.","ERR: ...","ERR: F1LE SAVED."]}],
+   flavor:["* The smiley holds together. Mostly.","* A pixel blinks somewhere it shouldn't.","* ERR is 98% contiguous and proud."],
+   soften:["* The static goes soft, like snow.","* SPARE is glowing."],
+   noSpare:["* You try to spare the smiley.","* IT H4SN'T F1NISHED."],
+   spare:["ERR: OK.","ERR: EXIT CODE 0. that's the good one.","* YOU WIN. (the clean way)"],
+   crumble:["* The smiley de-rezzes politely.","ERR: SEE YOU IN THE LOGS.","* YOU WIN. (the loud way)"],
+   pat:[{m:"free",id:19},{m:"grav",id:20}] }];
+function BOSS(){ return BOSSES[P3.boss]; }
+var TALKS=BOSSES[0].talks;   // kept for old callers
+function p3Dialog(lines, done){ P3.D={lines:lines.slice(), idx:0, chars:0, done:done||null}; P3.state="dialog"; }
+function p3Advance(){
+  var D=P3.D; if(!D) return;
+  var cur=D.lines[D.idx];
+  if(D.chars < cur.length){ D.chars=cur.length; return; }
+  D.idx++; D.chars=0;
+  if(D.idx>=D.lines.length){ P3.D=null; if(D.done) D.done(); }
+}
+function toMenu(){ P3.state="menu"; P3.sel=0; }
+var FLOOR=0.93, JUMPV=1.75, GRAVG=4.8;
+function startDodge(){
+  P3.state="dodge"; P3.bullets=[]; P3.atkT=0; P3.iframe=0;
+  P3.spikeAt=0; P3.wallAt=0; P3.spin=0; P3.ptr=null; P3.doorAt=0; P3.ringAt=0; P3.flyAt=0; P3.fruitAt=0;
+  P3.chunkAt=0; P3.wobAt=0; P3.poleAt=0; P3.blockAt=0; P3.zoneAt=0; P3.knobAt=0;
+  var pats=BOSS().pat, p=pats[P3.turn % pats.length];
+  P3.custom=p.id; P3.pattern=p.id; P3.grav=(p.m==="grav");
+  P3.turn++;
+  P3.px=0.5;
+  if(P3.grav){ P3.py=FLOOR; P3.pvy=0; } else P3.py=0.75;
+  P3.atkDur = 4.5 + Math.min(3, P3.turn*0.35);
+}
+function afterDodge(){
+  var f=BOSS().flavor;
+  p3Dialog([f[P3.turn % f.length]], toMenu);
+}
+// ── attacks. ids 0-5 rocky, 10+ the cast ──
+function spawnAttack(dt){
+  var p=P3.custom, t=P3.atkT;
+  if(p===0){ if(Math.random()<dt*9) P3.bullets.push({x:Math.random(),y:-0.05,vx:0,vy:0.28+Math.random()*0.22,r:0.018,ty:"pebble"}); }
+  if(p===1){ if(Math.random()<dt*1.8){ var side=Math.random()<0.5?-1:1;
+      P3.bullets.push({x:side<0?-0.08:1.08,y:0.9,vx:side<0?0.30:-0.30,vy:0,r:0.05+Math.random()*0.025,ty:"boulder",rot:0}); } }
+  if(p===2){ if(!P3.spikeAt||t-P3.spikeAt>0.9){ P3.spikeAt=t;
+      var col=Math.random()*0.8+0.1;
+      P3.bullets.push({x:col,y:1,vx:0,vy:0,r:0.05,ty:"spike",born:t,warn:0.55}); } }
+  if(p===3){ if(P3.bullets.length<5&&Math.random()<dt*3)
+      P3.bullets.push({x:Math.random(),y:0.1,vx:(Math.random()-0.5)*0.5,vy:0.25+Math.random()*0.2,r:0.03,ty:"bounce"}); }
+  if(p===4){ if(!P3.wallAt||t-P3.wallAt>2.2){ P3.wallAt=t;
+      if(P3.grav) P3.bullets.push({x:-0.1,y:0,vx:0.30,vy:0,h:0.24,ty:"hurdle"});
+      else P3.bullets.push({x:-0.1,y:0,vx:0.34,vy:0,gap:0.15+Math.random()*0.6,ty:"wall"}); } }
+  if(p===5){ P3.spin=(P3.spin||0)+dt*4.4;
+      if(Math.random()<dt*10){ var a=P3.spin;
+        P3.bullets.push({x:0.5,y:0.4,vx:Math.cos(a)*0.3,vy:Math.sin(a)*0.3,r:0.016,ty:"pebble"}); } }
+  // THE MIMIC
+  if(p===10){ if(!P3.doorAt||t-P3.doorAt>1.5){ P3.doorAt=t; var s10=Math.random()<0.5?-1:1;
+      P3.bullets.push({x:s10<0?-0.1:1.1,y:0,vx:s10<0?0.33:-0.33,h:0.22+Math.random()*0.06,ty:"hurdle"}); } }
+  if(p===11){ if(!P3.ringAt||t-P3.ringAt>1.1){ P3.ringAt=t;
+      P3.bullets.push({cx:0.2+Math.random()*0.6,cy:0.2+Math.random()*0.5,r:0.02,vr:0.34,th:0.03,ty:"ring"}); } }
+  if(p===12){ if(!P3.knobAt||t-P3.knobAt>0.7){ P3.knobAt=t;
+      P3.bullets.push({x:Math.random()*0.8+0.1,y:-0.05,vx:(Math.random()-0.5)*0.2,vy:0.1,r:0.024,ty:"knob"}); } }
+  // BOB
+  if(p===13){ if((!P3.flyAt||t-P3.flyAt>0.8)&&P3.bullets.length<6){ P3.flyAt=t;
+      P3.bullets.push({x:Math.random()<0.5?-0.05:1.05,y:Math.random()*0.6+0.1,ty:"fly",born:t,ph:Math.random()*7}); } }
+  if(p===14){ if(!P3.fruitAt||t-P3.fruitAt>0.75){ P3.fruitAt=t;
+      P3.bullets.push({x:Math.random()*0.8+0.1,y:-0.1,vx:0,vy:0.16,r:0.05+Math.random()*0.02,ty:"fruit"}); } }
+  // THE BLENDER
+  if(p===15){ if(!P3.bullets.some(function(b){return b.ty==="spokes";}))
+      P3.bullets.push({ty:"spokes",ang:0,n:3,len:0.42,th:0.025}); }
+  if(p===16){ if(!P3.chunkAt||t-P3.chunkAt>0.65){ P3.chunkAt=t; var s16=Math.random()<0.5?0:1;
+      P3.bullets.push({x:s16?1.05:-0.05,y:0.25,vx:s16?-(0.25+Math.random()*0.25):(0.25+Math.random()*0.25),vy:-0.5-Math.random()*0.3,r:0.03,ty:"chunk"}); } }
+  // WOBBLY TIM
+  if(p===17){ if(!P3.wobAt||t-P3.wobAt>2.0){ P3.wobAt=t;
+      P3.bullets.push({x:-0.08,vx:0.3,ph:Math.random()*7,ty:"wob"}); } }
+  if(p===18){ if(!P3.poleAt||t-P3.poleAt>1.8){ P3.poleAt=t; var s18=Math.random()<0.5?-1:1;
+      P3.bullets.push({x:s18<0?-0.2:1.2,vx:s18<0?0.4:-0.4,h:0.16,w:0.14,ty:"hurdle"}); } }
+  // ERROR SMILEY
+  if(p===19){ if(!P3.blockAt||t-P3.blockAt>0.8){ P3.blockAt=t;
+      P3.bullets.push({x:Math.random()*0.7+0.1,y:Math.random()*0.6+0.1,w:0.12,h:0.14,born:t,warn:0.5,life:1.0,ty:"block"}); } }
+  if(p===20){ if(!P3.zoneAt||t-P3.zoneAt>1.4){ P3.zoneAt=t;
+      P3.bullets.push({x:Math.random()*0.6+0.1,w:0.22,born:t,warn:0.7,life:0.9,ty:"zone"}); }
+    if(Math.random()<dt*5) P3.bullets.push({x:Math.random(),y:-0.05,vx:0,vy:0.24,r:0.016,ty:"glyph",ch:"#%&@*"[Math.floor(Math.random()*5)]}); }
+}
+function stepBullets(dt){
+  for(var i=P3.bullets.length-1;i>=0;i--){
+    var b=P3.bullets[i];
+    if(b.ty==="spike"){ var age=P3.atkT-b.born;
+      b.rise = age<b.warn? 0 : Math.min(1,(age-b.warn)*3.2);
+      if(age>b.warn+1.4) P3.bullets.splice(i,1);
+      continue; }
+    if(b.ty==="wall"||b.ty==="hurdle"||b.ty==="wob"){ b.x+=b.vx*dt; if(b.x>1.25||b.x<-0.25) P3.bullets.splice(i,1); continue; }
+    if(b.ty==="ring"){ b.r+=b.vr*dt; if(b.r>0.9) P3.bullets.splice(i,1); continue; }
+    if(b.ty==="spokes"){ b.ang+=dt*1.5; continue; }
+    if(b.ty==="fly"){ b.ph+=dt*6;
+      var dx=P3.px-b.x, dy=P3.py-b.y, dd=Math.hypot(dx,dy)||1;
+      b.x+=dx/dd*dt*0.16+Math.sin(b.ph)*dt*0.1; b.y+=dy/dd*dt*0.13+Math.cos(b.ph*1.3)*dt*0.1;
+      if(P3.atkT-b.born>4.2) P3.bullets.splice(i,1); continue; }
+    if(b.ty==="block"||b.ty==="zone"){ if(P3.atkT-b.born>b.warn+b.life) P3.bullets.splice(i,1); continue; }
+    if(b.ty==="chunk"||b.ty==="knob"){ b.vy+=dt*1.4; b.x+=b.vx*dt; b.y+=b.vy*dt;
+      if(b.ty==="knob"&&b.y>0.97){ b.y=0.97; b.vy*=-0.65; }
+      if(b.y>1.2||b.x<-0.2||b.x>1.2) P3.bullets.splice(i,1); continue; }
+    b.x+=b.vx*dt; b.y+=b.vy*dt;
+    if(b.ty==="bounce"){ if(b.x<b.r||b.x>1-b.r){ b.vx*=-1; b.x=Math.max(b.r,Math.min(1-b.r,b.x)); }
+      if(b.y<b.r||b.y>1-b.r){ b.vy*=-1; b.y=Math.max(b.r,Math.min(1-b.r,b.y)); } }
+    else if(b.y>1.15||b.y<-0.2||b.x<-0.15||b.x>1.15) P3.bullets.splice(i,1);
+    if(b.ty==="boulder") b.rot+=b.vx*dt*14;
+  }
+}
+function hitTest(){
+  if(P3.iframe>0) return false;
+  var pr=0.02;
+  for(var i=0;i<P3.bullets.length;i++){
+    var b=P3.bullets[i];
+    if(b.ty==="wall"){ var wx=b.x, ww=0.06;
+      if(P3.px>wx-ww&&P3.px<wx+ww){ if(P3.py<b.gap-0.10||P3.py>b.gap+0.10) return true; } continue; }
+    if(b.ty==="hurdle"){ var hw=(b.w||0.06);
+      if(Math.abs(P3.px-b.x)<hw/2+pr && P3.py>1-b.h) return true; continue; }
+    if(b.ty==="spike"){ if(!b.rise) continue;
+      var h=b.rise*0.34; if(Math.abs(P3.px-b.x)<0.045&&P3.py>1-h) return true; continue; }
+    if(b.ty==="ring"){ var d=Math.hypot(P3.px-b.cx,P3.py-b.cy);
+      if(Math.abs(d-b.r)<b.th+pr) return true; continue; }
+    if(b.ty==="spokes"){ var ddx=P3.px-0.5, ddy=P3.py-0.5, rr=Math.hypot(ddx,ddy);
+      if(rr<b.len&&rr>0.06){ var pa=Math.atan2(ddy,ddx);
+        for(var s=0;s<b.n;s++){ var sa=b.ang+s*Math.PI*2/b.n;
+          var diff=Math.atan2(Math.sin(pa-sa),Math.cos(pa-sa));
+          if(Math.abs(diff)<b.th/Math.max(0.1,rr)) return true; } } continue; }
+    if(b.ty==="wob"){ var gy=0.5+Math.sin(P3.atkT*3+b.ph)*0.3;
+      if(Math.abs(P3.px-b.x)<0.04){ if(P3.py<gy-0.12||P3.py>gy+0.12) return true; } continue; }
+    if(b.ty==="block"){ var age2=P3.atkT-b.born;
+      if(age2>b.warn && P3.px>b.x-pr&&P3.px<b.x+b.w+pr&&P3.py>b.y-pr&&P3.py<b.y+b.h+pr) return true; continue; }
+    if(b.ty==="zone"){ var age3=P3.atkT-b.born;
+      if(age3>b.warn && Math.abs(P3.px-(b.x+b.w/2))<b.w/2 && P3.py>FLOOR-0.03) return true; continue; }
+    if(b.ty==="fly"||b.ty==="fruit"||b.ty==="chunk"||b.ty==="knob"||b.ty==="glyph"||b.ty==="pebble"||b.ty==="boulder"||b.ty==="bounce"){
+      var r2=b.r||0.03, dx2=P3.px-b.x, dy2=P3.py-b.y;
+      if(dx2*dx2+dy2*dy2 < (r2+pr)*(r2+pr)) return true; }
+  }
+  return false;
+}
+function hurt(){ P3.hp--; P3.iframe=1.0; P3.hurtFlash=0.3;
+  if(P3.hp<=0){ P3.hp=0; P3.state="dead";
+    p3Dialog(["* You crumbled.","* But gravel gets back up."], function(){ P3.state="gameover"; }); } }
+function chooseMenu(){
+  var m=MENU[P3.sel], B=BOSS();
+  if(m==="FIGHT"){ P3.state="attackbar"; P3.barX=0; P3.barDir=1; }
+  if(m==="TALK"){ P3.state="talkmenu"; P3.subsel=0; }
+  if(m==="ITEM"){ P3.state="itemmenu"; P3.subsel=0; }
+  if(m==="SPARE"){
+    if(P3.spareReady||P3.rhp<=15){ P3.ended="spare"; P3.state="dialog";
+      p3Dialog(B.spare.slice(), winBoss); }
+    else p3Dialog(B.noSpare.slice(), startDodge);
+  }
+}
+function chooseTalk(){
+  var B=BOSS(), t=B.talks[P3.subsel];
+  if(!P3.talks[t.n]){ P3.talks[t.n]=1; P3.talkCount++; }
+  var lines=t.r.slice();
+  if(P3.talkCount>=3&&!P3.spareReady){ P3.spareReady=true;
+    B.soften.forEach(function(l){ lines.push(l); }); }
+  p3Dialog(lines, startDodge);
+}
+function chooseItem(){
+  var it=P3.items[P3.subsel];
+  if(it.used){ p3Dialog(["* It is gone. You ate it."], function(){ P3.state="itemmenu"; }); return; }
+  it.used=true; P3.hp=Math.min(P3.maxhp, P3.hp+it.heal);
+  p3Dialog(["* You use the "+it.n+".","* "+it.d,"* HP restored."], startDodge);
+}
+function swingHit(){
+  var d=Math.abs(P3.barX-0.5);
+  var dmg = d<0.04? 10 : Math.max(2, Math.round(10-d*26));
+  P3.rhp=Math.max(0,P3.rhp-dmg); P3.dmgFlash=0.5; P3.lastDmg=dmg;
+  if(P3.rhp<=0){ P3.ended="fight";
+    p3Dialog(BOSS().crumble.slice(), winBoss);
+  } else p3Dialog(["* You hit "+BOSS().name+" for "+dmg+"!", dmg>=9?"* Critical chip!":"* Bits flake off."], startDodge);
+}
+function winBoss(){
+  if(P3.gq && P3.gat < P3.gq.length-1){
+    P3.gat++;
+    var nb=P3.gq[P3.gat];
+    p3Dialog(["KAI (offstage): next!","* "+BOSSES[nb].name+" steps up."], function(){ bossReset(nb); });
+    P3.state="dialog";
+  } else if(P3.gq){
+    P3.gq=null;
+    p3Dialog(["KAI: ok.","KAI: that was ACTUALLY the last one.","KAI: five bosses. you absolute menace.",
+      "KAI: now we're done. seriously.","KAI: ...thanks for everything. again.","KAI: go home."],
+      function(){ if(typeof p8AfterGauntlet==="function") p8AfterGauntlet(); });
+    P3.state="dialog";
+  } else P3.state="won";
+}
+function bossReset(idx){
+  P3.boss=idx; P3.hp=P3.maxhp; P3.rhp=P3.rmaxhp=60; P3.turn=0; P3.sel=0; P3.subsel=0;
+  P3.talks={}; P3.talkCount=0; P3.spareReady=false; P3.bullets=[]; P3.ended="";
+  p3Dialog(BOSSES[idx].intro.slice(), toMenu);
+}
+// ── drawing ──
+function drawRocky(g, cx, cy, R){
+  g.strokeStyle="#fff"; g.fillStyle="#000"; g.lineWidth=Math.max(2,R*0.06); g.lineJoin="round";
+  var wob=Math.sin(P3.t*1.4)*R*0.02;
+  g.save(); g.translate(cx,cy+wob);
+  if(P3.dmgFlash>0&&Math.floor(P3.t*20)%2===0) g.strokeStyle="#888";
+  g.beginPath();
+  var pts=[[-1,0.25],[-0.92,-0.35],[-0.55,-0.78],[0.05,-0.95],[0.6,-0.7],[0.95,-0.2],[0.9,0.4],[0.5,0.8],[-0.4,0.82]];
+  pts.forEach(function(p,i){ var x=p[0]*R,y=p[1]*R; i?g.lineTo(x,y):g.moveTo(x,y); });
+  g.closePath(); g.fill(); g.stroke();
+  var dmg=1-P3.rhp/P3.rmaxhp;
+  g.lineWidth=Math.max(1.5,R*0.035);
+  function crack(x1,y1,x2,y2,x3,y3){ g.beginPath(); g.moveTo(x1*R,y1*R); g.lineTo(x2*R,y2*R); g.lineTo(x3*R,y3*R); g.stroke(); }
+  if(dmg>0.15) crack(-0.6,-0.5,-0.45,-0.2,-0.6,0.1);
+  if(dmg>0.35) crack(0.55,-0.5,0.4,-0.25,0.55,0.05);
+  if(dmg>0.55) crack(-0.1,0.8,0,0.5,-0.15,0.25);
+  if(dmg>0.75){ crack(0.2,-0.9,0.15,-0.6,0.3,-0.4); crack(-0.9,0.2,-0.6,0.3,-0.7,0.55); }
+  g.fillStyle="#fff"; g.lineWidth=Math.max(2,R*0.05);
+  var blink=(Math.floor(P3.t*0.7)%5===0)?0.25:1;
+  g.beginPath(); g.ellipse(-R*0.28,-R*0.18,R*0.09,R*0.13*blink,0,0,7); g.fill();
+  g.beginPath(); g.ellipse( R*0.28,-R*0.18,R*0.09,R*0.13*blink,0,0,7); g.fill();
+  g.strokeStyle="#fff"; g.beginPath();
+  if(P3.state==="won"&&P3.ended==="spare"){ g.arc(0,R*0.15,R*0.3,0.15,Math.PI-0.15); }
+  else if(dmg>0.6){ g.arc(0,R*0.45,R*0.25,Math.PI+0.3,-0.3); }
+  else { g.moveTo(-R*0.22,R*0.28); g.quadraticCurveTo(0,R*0.36,R*0.22,R*0.28); }
+  g.stroke();
+  g.restore();
+}
+function drawBoss(g){
+  var B=BOSS();
+  if(B.cast<0){ drawRocky(g, P3W/2, P3H*0.20, Math.min(P3W,P3H)*0.11); return; }
+  var flick=P3.dmgFlash>0&&Math.floor(P3.t*20)%2===0;
+  g.save(); if(flick) g.globalAlpha=0.4;
+  if(typeof drawCastCharBW==="function") drawCastCharBW(g, B.cast, P3W/2, P3H*0.335, P3H*0.24, P3.t);
+  g.restore();
+}
+function drawTinyMan(g,x,y,s){
+  g.strokeStyle="#fff"; g.lineWidth=Math.max(1.5,s*0.16); g.lineCap="round";
+  if(P3.iframe>0&&Math.floor(P3.t*18)%2===0) g.strokeStyle="#555";
+  g.beginPath(); g.arc(x,y-s*0.75,s*0.28,0,7); g.stroke();
+  g.beginPath(); g.moveTo(x,y-s*0.5); g.lineTo(x,y-s*0.05); g.stroke();
+  g.beginPath(); g.moveTo(x,y-s*0.42); g.lineTo(x-s*0.3,y-s*0.18); g.moveTo(x,y-s*0.42); g.lineTo(x+s*0.3,y-s*0.18); g.stroke();
+  g.beginPath(); g.moveTo(x,y-s*0.05); g.lineTo(x-s*0.22,y+s*0.3); g.moveTo(x,y-s*0.05); g.lineTo(x+s*0.22,y+s*0.3); g.stroke();
+}
+function p3Box(){ var bw=Math.min(P3W*0.62,560*P3D), bh=P3H*0.30;
+  return {x:(P3W-bw)/2, y:P3H*0.40, w:bw, h:bh}; }
+function p3Buttons(){
+  var n=4, gap=P3W*0.02, w=Math.min(P3W*0.2,190*P3D), h=Math.max(34*P3D,P3H*0.062);
+  var total=n*w+(n-1)*gap, x0=(P3W-total)/2, y=P3H*0.86, out=[];
+  for(var i=0;i<n;i++) out.push({x:x0+i*(w+gap), y:y, w:w, h:h});
+  return out;
+}
+function p3Frame(now){ p3LoopRun(now, P3.token); }
+function p3LoopRun(now, token){
+  if(!P3.on||!p3g||token!==P3.token) return;
+  var dt=Math.min(0.05,(now-(P3.lastTick||now))/1000); P3.lastTick=now; P3.t+=dt;
+  var g=p3g;
+  g.fillStyle="#000"; g.fillRect(0,0,P3W,P3H);
+  var mono=function(px){ return "bold "+Math.round(px)+'px "Courier New",monospace'; };
+  drawBoss(g);
+  var B=p3Box();
+  g.strokeStyle="#fff"; g.lineWidth=Math.max(2,3*P3D);
+  g.strokeRect(B.x,B.y,B.w,B.h);
+  if(P3.D){
+    var D=P3.D, cur=D.lines[D.idx]||"";
+    D.chars=Math.min(cur.length, D.chars+dt*46);
+    g.fillStyle="#fff"; g.font=mono(15*P3D); g.textAlign="left";
+    var shown=cur.slice(0,Math.floor(D.chars));
+    var words=shown.split(" "), line="", yy=B.y+30*P3D, maxw=B.w-40*P3D;
+    for(var wi=0;wi<words.length;wi++){ var test=line?line+" "+words[wi]:words[wi];
+      if(g.measureText(test).width>maxw){ g.fillText(line,B.x+20*P3D,yy); yy+=22*P3D; line=words[wi]; } else line=test; }
+    g.fillText(line,B.x+20*P3D,yy);
+    g.font=mono(11*P3D); g.fillStyle="#888"; g.textAlign="right";
+    g.fillText("[Z]", B.x+B.w-14*P3D, B.y+B.h-12*P3D);
+  }
+  if(P3.state==="dodge"){
+    P3.atkT+=dt; spawnAttack(dt); stepBullets(dt);
+    if(P3.iframe>0) P3.iframe-=dt;
+    if(hitTest()) hurt();
+    var sp=0.62*dt;
+    if(P3.grav){
+      if(KEYS.ArrowLeft||KEYS.a) P3.px-=sp; if(KEYS.ArrowRight||KEYS.d) P3.px+=sp;
+      var wantJump=KEYS.ArrowUp||KEYS.w||KEYS[" "]||P3.jumpQ;
+      if(wantJump&&P3.py>=FLOOR-0.001){ P3.pvy=-JUMPV; }
+      P3.jumpQ=false;
+      P3.pvy+=GRAVG*dt; P3.py+=P3.pvy*dt;
+      if(P3.py>=FLOOR){ P3.py=FLOOR; P3.pvy=0; }
+      if(P3.ptr){ P3.px+=( (P3.ptr.x-B.x)/B.w - P3.px )*dt*9; }
+      P3.px=Math.max(0.03,Math.min(0.97,P3.px));
+    } else {
+      if(KEYS.ArrowLeft||KEYS.a) P3.px-=sp; if(KEYS.ArrowRight||KEYS.d) P3.px+=sp;
+      if(KEYS.ArrowUp||KEYS.w) P3.py-=sp; if(KEYS.ArrowDown||KEYS.s) P3.py+=sp;
+      if(P3.ptr){ P3.px+=( (P3.ptr.x-B.x)/B.w - P3.px )*dt*9; P3.py+=( (P3.ptr.y-B.y)/B.h - P3.py )*dt*9; }
+      P3.px=Math.max(0.03,Math.min(0.97,P3.px)); P3.py=Math.max(0.05,Math.min(0.96,P3.py));
+    }
+    g.fillStyle="#fff"; g.strokeStyle="#fff";
+    if(P3.grav){ g.globalAlpha=0.5; g.lineWidth=Math.max(1.5,2*P3D);
+      g.beginPath(); g.moveTo(B.x,B.y+FLOOR*B.h+8*P3D); g.lineTo(B.x+B.w,B.y+FLOOR*B.h+8*P3D); g.stroke(); g.globalAlpha=1; }
+    P3.bullets.forEach(function(b){
+      if(b.ty==="wall"){ var wx=B.x+b.x*B.w;
+        g.fillRect(wx-0.03*B.w,B.y,0.06*B.w,(b.gap-0.10)*B.h);
+        g.fillRect(wx-0.03*B.w,B.y+(b.gap+0.10)*B.h,0.06*B.w,B.h-(b.gap+0.10)*B.h); return; }
+      if(b.ty==="hurdle"){ var hx=B.x+b.x*B.w, hw=(b.w||0.06)*B.w;
+        g.fillRect(hx-hw/2, B.y+(1-b.h)*B.h, hw, b.h*B.h); return; }
+      if(b.ty==="spike"){ var sx=B.x+b.x*B.w;
+        if(!b.rise){ g.globalAlpha=0.4; g.fillRect(sx-2*P3D,B.y+B.h-6*P3D,4*P3D,6*P3D); g.globalAlpha=1; }
+        else { var hh=b.rise*0.34*B.h; g.beginPath();
+          g.moveTo(sx-0.045*B.w,B.y+B.h); g.lineTo(sx,B.y+B.h-hh); g.lineTo(sx+0.045*B.w,B.y+B.h); g.closePath(); g.fill(); }
+        return; }
+      if(b.ty==="ring"){ g.lineWidth=Math.max(2,b.th*B.w);
+        g.beginPath(); g.arc(B.x+b.cx*B.w,B.y+b.cy*B.h,Math.max(1,b.r*B.w*0.7),0,7); g.stroke(); return; }
+      if(b.ty==="spokes"){ g.lineWidth=Math.max(3,0.02*B.w);
+        for(var s2=0;s2<b.n;s2++){ var sa=b.ang+s2*Math.PI*2/b.n;
+          g.beginPath(); g.moveTo(B.x+B.w/2,B.y+B.h/2);
+          g.lineTo(B.x+B.w/2+Math.cos(sa)*b.len*B.w*0.8, B.y+B.h/2+Math.sin(sa)*b.len*B.h*1.3); g.stroke(); }
+        return; }
+      if(b.ty==="wob"){ var gy2=0.5+Math.sin(P3.atkT*3+b.ph)*0.3, wx2=B.x+b.x*B.w;
+        g.fillRect(wx2-0.02*B.w,B.y,0.04*B.w,Math.max(0,(gy2-0.12))*B.h);
+        g.fillRect(wx2-0.02*B.w,B.y+(gy2+0.12)*B.h,0.04*B.w,Math.max(0,B.h-(gy2+0.12)*B.h)); return; }
+      if(b.ty==="block"){ var age=P3.atkT-b.born, bx2=B.x+b.x*B.w, by2=B.y+b.y*B.h;
+        if(age<b.warn){ g.globalAlpha=0.35; g.strokeRect(bx2,by2,b.w*B.w,b.h*B.h); g.globalAlpha=1; }
+        else g.fillRect(bx2,by2,b.w*B.w,b.h*B.h); return; }
+      if(b.ty==="zone"){ var age4=P3.atkT-b.born, zx=B.x+b.x*B.w;
+        if(age4<b.warn){ g.globalAlpha=0.3; g.fillRect(zx,B.y+B.h-5*P3D,b.w*B.w,5*P3D); g.globalAlpha=1; }
+        else { g.globalAlpha=0.85;
+          for(var q=0;q<5;q++) g.fillRect(zx+q*b.w*B.w/5, B.y+B.h-(6+((q*7)%3)*4)*P3D, b.w*B.w/9, (6+((q*7)%3)*4)*P3D);
+          g.globalAlpha=1; }
+        return; }
+      if(b.ty==="fly"){ var fx=B.x+b.x*B.w, fy=B.y+b.y*B.h, fr=0.016*B.w;
+        g.beginPath(); g.ellipse(fx,fy,fr*1.2,fr*0.8,0,0,7); g.fill();
+        g.globalAlpha=0.6; g.beginPath(); g.ellipse(fx-fr*0.4,fy-fr*0.9,fr*0.9,fr*0.4,Math.sin(b.ph)*0.5,0,7); g.stroke(); g.globalAlpha=1;
+        return; }
+      if(b.ty==="glyph"){ g.font="bold "+Math.round(0.03*B.w)+"px monospace"; g.textAlign="center";
+        g.fillText(b.ch, B.x+b.x*B.w, B.y+b.y*B.h); return; }
+      var bx=B.x+b.x*B.w, by=B.y+b.y*B.h, br=(b.r||0.02)*B.w;
+      g.save(); g.translate(bx,by); if(b.rot) g.rotate(b.rot);
+      g.beginPath();
+      for(var k=0;k<7;k++){ var a=k/7*Math.PI*2, rr=br*(0.85+((k*37)%10)/33);
+        k?g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr):g.moveTo(Math.cos(a)*rr,Math.sin(a)*rr); }
+      g.closePath();
+      if(b.ty==="boulder"||b.ty==="fruit"){ g.fillStyle="#000"; g.fill(); g.lineWidth=Math.max(1.5,2*P3D); g.stroke(); g.fillStyle="#fff"; }
+      else g.fill();
+      g.restore();
+    });
+    drawTinyMan(g, B.x+P3.px*B.w, B.y+P3.py*B.h, Math.max(14,B.h*0.10));
+    if(P3.atkT>=P3.atkDur&&P3.state==="dodge"){ P3.bullets=[]; afterDodge(); }
+  }
+  if(P3.state==="attackbar"){
+    P3.barX+=P3.barDir*dt*1.15;
+    if(P3.barX>1){P3.barX=1;P3.barDir=-1;} if(P3.barX<0){P3.barX=0;P3.barDir=1;}
+    g.fillStyle="#fff"; g.font=mono(13*P3D); g.textAlign="center";
+    g.fillText("press [Z] in the middle", P3W/2, B.y+26*P3D);
+    var tx=B.x+B.w*0.12, tw=B.w*0.76, ty=B.y+B.h*0.42, th=B.h*0.3;
+    g.strokeRect(tx,ty,tw,th);
+    g.globalAlpha=0.25; g.fillRect(tx+tw*0.46,ty,tw*0.08,th); g.globalAlpha=1;
+    g.fillRect(tx+tw*P3.barX-2*P3D, ty-6*P3D, 4*P3D, th+12*P3D);
+  }
+  if(P3.state==="menu"||P3.state==="talkmenu"||P3.state==="itemmenu"){
+    if(!P3.D){ g.fillStyle="#fff"; g.font=mono(15*P3D); g.textAlign="left";
+      if(P3.state==="menu") g.fillText(BOSS().block, B.x+20*P3D, B.y+30*P3D);
+      var list= P3.state==="talkmenu"? BOSS().talks.map(function(t){return t.n;}) :
+                P3.state==="itemmenu"? P3.items.map(function(t){return t.n+(t.used?" (gone)":"");}) : null;
+      if(list) list.forEach(function(item,i){
+        g.fillText((i===P3.subsel?"> ":"  ")+item, B.x+30*P3D, B.y+30*P3D+i*26*P3D); });
+      if(list){ g.font=mono(11*P3D); g.fillStyle="#888"; g.fillText("[Z] pick   [X] back", B.x+30*P3D, B.y+B.h-14*P3D); }
+    }
+  }
+  g.fillStyle="#fff"; g.font=mono(13*P3D); g.textAlign="left";
+  var hy=P3H*0.795;
+  g.fillText("YOU   LV 1", B.x, hy);
+  g.fillText("HP", B.x+150*P3D, hy);
+  var hw=120*P3D;
+  g.strokeRect(B.x+178*P3D, hy-12*P3D, hw, 14*P3D);
+  g.fillRect(B.x+178*P3D, hy-12*P3D, hw*(P3.hp/P3.maxhp), 14*P3D);
+  g.fillText(P3.hp+" / "+P3.maxhp, B.x+178*P3D+hw+10*P3D, hy);
+  if(P3.grav&&P3.state==="dodge"){ g.font=mono(11*P3D); g.fillStyle="#888"; g.textAlign="center";
+    g.fillText("↑ JUMP", P3W/2, B.y-10*P3D); g.textAlign="left"; g.fillStyle="#fff"; }
+  if(P3.gq){ g.font=mono(11*P3D); g.fillStyle="#888"; g.textAlign="right";
+    g.fillText("last fight · "+(P3.gat+1)+" / "+P3.gq.length, B.x+B.w, P3H*0.36); g.textAlign="left"; g.fillStyle="#fff"; }
+  if(P3.spareReady){ g.fillStyle="#fff"; g.font=mono(11*P3D); g.textAlign="right"; g.fillText("SPARE is glowing", B.x+B.w, hy); }
+  if(P3.state!=="won"&&P3.state!=="gameover"){
+    var btns=p3Buttons();
+    g.font=mono(16*P3D); g.textAlign="center";
+    btns.forEach(function(b,i){
+      var on= P3.state==="menu" && i===P3.sel;
+      var glow= MENU[i]==="SPARE"&&P3.spareReady;
+      g.lineWidth=Math.max(2,(on?4:2)*P3D);
+      g.strokeStyle= on?"#fff":(glow?"#fff":"#666");
+      g.strokeRect(b.x,b.y,b.w,b.h);
+      g.fillStyle= on?"#fff":(glow?"#fff":"#888");
+      g.fillText(MENU[i], b.x+b.w/2, b.y+b.h/2+5*P3D);
+      if(glow&&!on){ g.globalAlpha=0.25+0.2*Math.sin(P3.t*5); g.fillRect(b.x,b.y,b.w,b.h); g.globalAlpha=1; }
+    });
+  }
+  if(P3.dmgFlash>0){ P3.dmgFlash-=dt;
+    g.fillStyle="#fff"; g.font=mono(20*P3D); g.textAlign="center";
+    g.fillText("-"+P3.lastDmg, P3W/2+Math.sin(P3.t*30)*3, P3H*0.20-Math.min(P3W,P3H)*0.15-(0.5-P3.dmgFlash)*30*P3D); }
+  if(P3.state==="gameover"){
+    g.fillStyle="#fff"; g.font=mono(30*P3D); g.textAlign="center";
+    g.fillText("GAME OVER", P3W/2, P3H*0.47);
+    g.font=mono(13*P3D); g.fillText("[Z] retry", P3W/2, P3H*0.53);
+  }
+  if(P3.state==="won"){
+    g.font=mono(13*P3D); g.textAlign="center"; g.fillStyle="#888";
+    g.fillText(P3.ended==="spare"?"rocky rolled aside. the way is open.":"the gravel settles. the way is open.", P3W/2, P3H*0.90);
+    g.fillStyle="#fff"; g.fillText("[Z] walk on   ·   [R] fight again", P3W/2, P3H*0.94);
+    // (walking on leads somewhere new now)
+  }
+  requestAnimationFrame(function(n){ p3LoopRun(n, token); });
+}
+var KEYS={};
+addEventListener("keydown", function(e){
+  if(!P3.on) return;
+  KEYS[e.key]=1;
+  if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].indexOf(e.key)>=0) e.preventDefault();
+  var z=(e.key==="z"||e.key==="Z"||e.key==="Enter");
+  var x=(e.key==="x"||e.key==="X"||e.key==="Escape");
+  if(P3.state==="dialog"&&z){ p3Advance(); return; }
+  if(P3.state==="menu"){
+    if(e.key==="ArrowLeft") P3.sel=(P3.sel+3)%4;
+    if(e.key==="ArrowRight") P3.sel=(P3.sel+1)%4;
+    if(z) chooseMenu();
+  } else if(P3.state==="talkmenu"||P3.state==="itemmenu"){
+    var len= P3.state==="talkmenu"? BOSS().talks.length : P3.items.length;
+    if(e.key==="ArrowUp") P3.subsel=(P3.subsel+len-1)%len;
+    if(e.key==="ArrowDown") P3.subsel=(P3.subsel+1)%len;
+    if(z){ P3.state==="talkmenu"? chooseTalk() : chooseItem(); }
+    if(x) toMenu();
+  } else if(P3.state==="attackbar"&&z){ swingHit(); }
+  else if(P3.state==="gameover"&&z){ if(P3.gq){ startGauntlet(P3.gat); } else startPart3(); }
+  else if(P3.state==="won"){ if(z) goPart(4); if(e.key==="r"||e.key==="R") startPart3(); }
+});
+addEventListener("keyup", function(e){ KEYS[e.key]=0; });
+if(p3cv){
+  p3cv.addEventListener("pointerdown", function(e){
+    if(!P3.on) return;
+    var px=e.clientX*P3D, py=e.clientY*P3D;
+    if(P3.state==="dialog"){ p3Advance(); return; }
+    if(P3.state==="attackbar"){ swingHit(); return; }
+    if(P3.state==="gameover"){ if(P3.gq){ startGauntlet(P3.gat); } else startPart3(); return; }
+    if(P3.state==="won"){ goPart(4); return; }
+    if(P3.state==="dodge"){ P3.ptr={x:px,y:py}; if(P3.grav) P3.jumpQ=true; return; }
+    var btns=p3Buttons();
+    for(var i=0;i<btns.length;i++){ var b=btns[i];
+      if(px>=b.x&&px<=b.x+b.w&&py>=b.y&&py<=b.y+b.h){
+        if(P3.state==="menu"){ P3.sel=i; chooseMenu(); } return; } }
+    var B=p3Box();
+    if(P3.state==="talkmenu"||P3.state==="itemmenu"){
+      var len= P3.state==="talkmenu"? BOSS().talks.length : P3.items.length;
+      var idx=Math.floor((py-(B.y+16*P3D))/(26*P3D));
+      if(idx>=0&&idx<len){ P3.subsel=idx; P3.state==="talkmenu"? chooseTalk() : chooseItem(); }
+      else toMenu();
+    }
+  });
+  p3cv.addEventListener("pointermove", function(e){ if(P3.on&&P3.state==="dodge"&&P3.ptr) P3.ptr={x:e.clientX*P3D,y:e.clientY*P3D}; });
+  addEventListener("pointerup", function(){ P3.ptr=null; });
+}
+function startPart3(){
+  if(!p3cv) return;
+  P3.token++;
+  P3.on=true; P3.t=0; P3.lastTick=0; P3.gq=null;
+  P3.items.forEach(function(it){ it.used=false; });
+  bossReset(0);
+  p3Fit();
+  requestAnimationFrame(p3Frame);
+}
+// KAI's one last fight: mimic, bob, blender, tim, error smiley. same health each. custom attacks.
+function startGauntlet(at){
+  if(!p3cv) return;
+  document.getElementById("part8").style.display="none";
+  document.getElementById("part3").style.display="block";
+  if(typeof P8!=="undefined") P8.on=false;
+  var tp=document.getElementById("tp");
+  if(tp) Array.prototype.forEach.call(tp.children, function(b){ b.className=(+b.dataset.p===3)?"tpb on":"tpb"; });
+  P3.token++;
+  P3.on=true; P3.t=0; P3.lastTick=0;
+  P3.gq=[1,2,3,4,5]; P3.gat=at||0;
+  if(!at) P3.items.forEach(function(it){ it.used=false; });
+  bossReset(P3.gq[P3.gat]);
+  p3Fit();
+  requestAnimationFrame(p3Frame);
+}
+
+// ═══════════════════════════ PART TWO ═══════════════════════════
+var P2 = {
+  on:false, t:0, state:"walk", x:-0.12, face:1, line:0, shown:0, lastTick:0,
+  doorOpen:0, fall:0, fallen:false, realOpen:0, wrong:0, q:0, correct:0, token:0
+};
+var p2cv = document.getElementById("p2cv"), p2g = p2cv ? p2cv.getContext("2d") : null;
+var p2box = document.getElementById("p2box"), p2txt = document.getElementById("p2txt"), p2btn = document.getElementById("p2btn");
+var PW = 0, PH = 0, PD = 1;
+
+// his story. everything the questions ask about is in here.
+var MONO = [
+ "Oh. You're here.",
+ "Nobody is ever here.",
+ "I should tell you something, since you came all this way and broke the whole front page to do it.",
+ "I have been walking for eleven years.",
+ "Not in a straight line. I'm not an idiot. In a loop, mostly, because a loop is a line that forgave itself.",
+ "When I started there was a house, and in the house there was a chair, and I sat in the chair for a long time thinking about whether to leave it.",
+ "I left the chair. That was the hard part. Everything after the chair was just walking.",
+ "I counted the doors. That's the thing I did instead of having a personality.",
+ "Forty-one doors. Eleven years. Some of them were painted. One of them was only a drawing of a door, and I still knocked, because it is rude not to.",
+ "None of them opened.",
+ "That's not a metaphor, by the way. I want to be really clear. They were doors and they were shut and I was tired.",
+ "So I stopped walking, and I built this page instead. A bad one. On purpose.",
+ "I thought: nobody clicks a bad page forty-one times.",
+ "And then you did. You clicked it until it came apart in your hands.",
+ "You found the console under the floor, and you typed three letters, and here I am, saying all this out loud to a person I cannot see.",
+ "Anyway.",
+ "That's the story.",
+ "That's the whole thing."
+];
+var Q = [
+ { q:"How long had he been walking?", a:["Eleven years","Forty-one years","Three years","He never said"], c:0 },
+ { q:"How many doors did he count?", a:["Eleven","Twelve","Forty-one","He lost count"], c:2 },
+ { q:"What did he leave behind at the start?", a:["A lamp","A chair","A door","His brother"], c:1 }
+];
+
+function p2Fit(){
+  if(!p2cv) return;
+  PD = Math.min(2, devicePixelRatio || 1);
+  PW = p2cv.width = Math.max(2, innerWidth * PD);
+  PH = p2cv.height = Math.max(2, innerHeight * PD);
+}
+addEventListener("resize", p2Fit);
+
+function p2Say(txt, buttons){
+  p2box.style.display = "block";
+  p2txt.textContent = txt;
+  p2btn.innerHTML = "";
+  (buttons || []).forEach(function(b){
+    var el = document.createElement("button");
+    el.className = "p2b";
+    el.textContent = b.label;
+    el.onclick = function(ev){ if(ev && ev.stopPropagation) ev.stopPropagation(); b.go(); };
+    el.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
+    p2btn.appendChild(el);
+  });
+}
+function p2Hide(){ p2box.style.display = "none"; }
+
+// ── the man himself: drawn from scratch, every frame ──
+function drawMan(g, cx, cy, h, phase, facing, talking){
+  var u = h / 8;                                   // one unit = an eighth of his height
+  g.strokeStyle = "#fff"; g.fillStyle = "#fff";
+  g.lineWidth = Math.max(2, u * 0.16); g.lineCap = "round"; g.lineJoin = "round";
+  var headR = u * 0.85, headY = cy - h + headR;
+  g.beginPath(); g.arc(cx, headY, headR, 0, 7); g.stroke();
+  if(facing === 0){                                 // facing us: a face
+    g.beginPath();
+    g.arc(cx - headR*0.34, headY - headR*0.12, Math.max(1, u*0.10), 0, 7);
+    g.arc(cx + headR*0.34, headY - headR*0.12, Math.max(1, u*0.10), 0, 7);
+    g.fill();
+    g.beginPath();
+    if(talking){ g.arc(cx, headY + headR*0.34, headR*0.30, 0, Math.PI); }
+    else { g.moveTo(cx - headR*0.28, headY + headR*0.38); g.lineTo(cx + headR*0.28, headY + headR*0.38); }
+    g.stroke();
+  }
+  var neck = headY + headR, hip = cy - u * 2.6;
+  g.beginPath(); g.moveTo(cx, neck); g.lineTo(cx, hip); g.stroke();
+  var sw = Math.sin(phase), sw2 = Math.sin(phase + Math.PI);
+  if(facing === 0){                                  // standing still, arms loose
+    g.beginPath(); g.moveTo(cx, neck + u*0.5); g.lineTo(cx - u*1.25, neck + u*2.1);
+    g.moveTo(cx, neck + u*0.5); g.lineTo(cx + u*1.25, neck + u*2.1); g.stroke();
+    g.beginPath(); g.moveTo(cx, hip); g.lineTo(cx - u*0.75, cy);
+    g.moveTo(cx, hip); g.lineTo(cx + u*0.75, cy); g.stroke();
+  } else {                                           // walking
+    g.beginPath();
+    g.moveTo(cx, neck + u*0.5); g.lineTo(cx + facing*u*0.4 + sw*u*1.15, neck + u*2.0);
+    g.moveTo(cx, neck + u*0.5); g.lineTo(cx + facing*u*0.4 + sw2*u*1.15, neck + u*2.0);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(cx, hip); g.lineTo(cx + sw2*u*1.25, cy);
+    g.moveTo(cx, hip); g.lineTo(cx + sw*u*1.25, cy);
+    g.stroke();
+  }
+}
+// ── the two doors ──
+function drawDoor(g, x, y, w, h, open, tilt, real){
+  g.save();
+  g.translate(x, y + h);
+  if(tilt) g.rotate(tilt);
+  g.strokeStyle = "#fff"; g.lineWidth = Math.max(2, w * 0.045);
+  g.fillStyle = real ? "#fff" : "#000";
+  g.beginPath(); g.rect(-w/2, -h, w, h);
+  if(real) g.fill();
+  g.stroke();
+  if(!real){
+    g.beginPath(); g.rect(-w*0.33, -h*0.86, w*0.66, h*0.38); g.stroke();
+    g.beginPath(); g.rect(-w*0.33, -h*0.42, w*0.66, h*0.30); g.stroke();
+    g.beginPath(); g.arc(w*0.30, -h*0.48, Math.max(1.5, w*0.045), 0, 7); g.stroke();
+  } else {
+    g.fillStyle = "#000"; g.beginPath(); g.arc(-w*0.28, -h*0.50, Math.max(1.5, w*0.05), 0, 7); g.fill();
+    g.strokeStyle = "#000"; g.lineWidth = Math.max(1, w*0.03);
+    g.beginPath(); g.moveTo(-w*0.5, -h*0.62); g.lineTo(w*0.5, -h*0.62); g.stroke();
+  }
+  if(open > 0){                                      // light leaking out from behind
+    g.globalAlpha = open * 0.9;
+    g.fillStyle = "#fff";
+    g.beginPath(); g.moveTo(-w*0.5, -h); g.lineTo(-w*0.5 - w*1.6*open, 0); g.lineTo(w*0.5 + w*1.6*open, 0); g.lineTo(w*0.5, -h); g.closePath();
+    g.globalAlpha = open * 0.14; g.fill(); g.globalAlpha = 1;
+  }
+  g.restore();
+}
+function p2Frame(now){ p2Loop(now, P2.token); }
+function p2Loop(now, token){
+  if(!P2.on || !p2g || token !== P2.token) return;
+  var dt = Math.min(0.05, (now - (P2.lastTick || now)) / 1000); P2.lastTick = now;
+  P2.t += dt;
+  p2g.fillStyle = "#000"; p2g.fillRect(0, 0, PW, PH);
+  var ground = PH * 0.78, h = PH * 0.30, cx = PW * P2.x;
+  // floor line
+  p2g.strokeStyle = "#fff"; p2g.globalAlpha = 0.35; p2g.lineWidth = Math.max(1, PD);
+  p2g.beginPath(); p2g.moveTo(0, ground); p2g.lineTo(PW, ground); p2g.stroke(); p2g.globalAlpha = 1;
+  // the doors, behind him
+  var dw = PW * 0.11, dh = PH * 0.30, dx = PW * 0.74;
+  if(P2.doorOpen > 0){
+    if(!P2.fallen){
+      drawDoor(p2g, dx, ground - dh, dw, dh, P2.doorOpen, P2.fall * 0.9, false);
+    } else {
+      drawDoor(p2g, dx, ground - dh, dw, dh, 1, 0, true);                    // the real one
+      if(P2.realOpen > 0){
+        p2g.save(); p2g.globalAlpha = Math.min(1, P2.realOpen);
+        p2g.fillStyle = "#fff";
+        p2g.beginPath(); p2g.rect(dx - dw/2, ground - dh, dw * P2.realOpen, dh); p2g.fill();
+        p2g.restore();
+      }
+    }
+  }
+  // him
+  var walking = P2.state === "walk";
+  var phase = walking ? P2.t * 7.5 : 0;
+  drawMan(p2g, cx, ground, h, phase, walking ? 1 : 0, P2.state === "talk" && (Math.floor(P2.t * 6) % 2 === 0));
+  // state machine
+  if(P2.state === "walk"){
+    P2.x += dt * 0.085;
+    if(P2.x >= 0.34){ P2.x = 0.34; P2.state = "turn"; P2.turnAt = P2.t; }
+  } else if(P2.state === "turn"){
+    if(P2.t - P2.turnAt > 0.7){ P2.state = "talk"; P2.line = 0; showLine(); }
+  } else if(P2.state === "fall"){
+    P2.fall += dt * 1.6;
+    if(P2.fall > Math.PI/2){ P2.fall = Math.PI/2; P2.fallen = true; P2.state = "real";
+      p2Say("Behind it: another door. A real one.", [{ label:"OPEN IT", go:openReal }]); }
+  } else if(P2.state === "realopen"){
+    P2.realOpen += dt * 0.8;
+    if(P2.realOpen >= 1){ P2.realOpen = 1; P2.state = "gone"; goPart(3); }
+  }
+  requestAnimationFrame(function(n){ p2Loop(n, token); });
+}
+function showLine(){
+  var txt = MONO[P2.line];
+  var last = P2.line >= MONO.length - 1;
+  p2Say(txt, [{ label: last ? "..." : "NEXT", go: nextLine }]);
+}
+function nextLine(){
+  P2.line++;
+  if(P2.line < MONO.length){ showLine(); }
+  else { P2.state = "ask"; askOpinion(); }
+}
+function askOpinion(){
+  p2Say("So. What did you think of my story?", [
+    { label:"It was good", go:function(){ afterOpinion("Thank you. You don't have to say that."); } },
+    { label:"It was long", go:function(){ afterOpinion("It was eleven years. I compressed it."); } },
+    { label:"I wasn't listening", go:function(){ afterOpinion("That's alright. Let's find out."); } }
+  ]);
+}
+function afterOpinion(reply){
+  p2Say(reply + " Three questions. Get them right and something opens.", [{ label:"READY", go:function(){ P2.q = 0; P2.correct = 0; askQ(); } }]);
+}
+function askQ(){
+  var item = Q[P2.q];
+  p2Say("(" + (P2.q + 1) + "/3)  " + item.q, item.a.map(function(opt, i){
+    return { label: opt, go: function(){ answer(i); } };
+  }));
+}
+function answer(i){
+  var item = Q[P2.q];
+  if(i === item.c){
+    P2.correct++;
+    P2.q++;
+    if(P2.q < Q.length){ p2Say("Yes.", [{ label:"NEXT", go: askQ }]); }
+    else {
+      P2.state = "door";
+      p2Say("All three. You really were listening.", [{ label:"...", go: openDoor }]);
+    }
+  } else {
+    P2.wrong++;
+    p2Say("No. " + (P2.wrong > 2 ? "It was in there. I promise." : "Try again."), [{ label:"AGAIN", go: askQ }]);
+  }
+}
+function openDoor(){
+  P2.doorOpen = 0;
+  var grow = setInterval(function(){
+    P2.doorOpen += 0.05;
+    if(P2.doorOpen >= 1){ P2.doorOpen = 1; clearInterval(grow);
+      p2Say("A door. Click it. The door, I mean. Actually click the door.", [{ label:"CLICK THE DOOR", go: knockDoor }]); }
+  }, 30);
+}
+function knockDoor(){ p2Hide(); P2.state = "fall"; P2.fall = 0.001; }
+function openReal(){ p2Hide(); P2.state = "realopen"; P2.realOpen = 0.001; }
+function p2DoorRect(){
+  var ground = PH * 0.78, dw = PW * 0.11, dh = PH * 0.30, dx = PW * 0.74;
+  return { x: dx - dw/2 - dw*0.3, y: ground - dh - dh*0.15, w: dw*1.6, h: dh*1.3 };
+}
+p2cv.addEventListener("pointerdown", function(e){
+  if(!P2.on) return;
+  var px = e.clientX * PD, py = e.clientY * PD;
+  if(P2.state === "walk"){ P2.x = 0.34; P2.state = "turn"; P2.turnAt = P2.t; return; }   // skip the stroll
+  if(P2.state === "turn"){ P2.state = "talk"; P2.line = 0; showLine(); return; }
+  if(P2.state === "talk"){ nextLine(); return; }                                          // tap anywhere = NEXT
+  var d = p2DoorRect();
+  var onDoor = px >= d.x && px <= d.x + d.w && py >= d.y && py <= d.y + d.h;
+  if(P2.state === "door" && P2.doorOpen >= 1 && onDoor){ knockDoor(); return; }           // click the door itself
+  if(P2.state === "real" && onDoor){ openReal(); return; }                                // and the real one
+});
+addEventListener("keydown", function(e){
+  if(!P2.on) return;
+  if(e.code !== "Space" && e.key !== "Enter") return;
+  if(document.activeElement === tIn) return;
+  e.preventDefault();
+  if(P2.state === "walk"){ P2.x = 0.34; P2.state = "turn"; P2.turnAt = P2.t; return; }
+  if(P2.state === "talk"){ nextLine(); return; }
+  if(p2btn.children.length === 1) p2btn.children[0].onclick({ stopPropagation:function(){} });
+});
+function startPart2(){
+  if(!p2cv) return;
+  P2.token++;
+  P2.on = true; P2.t = 0; P2.state = "walk"; P2.x = -0.12; P2.line = 0;
+  P2.doorOpen = 0; P2.fall = 0; P2.fallen = false; P2.realOpen = 0; P2.wrong = 0; P2.lastTick = 0;
+  p2Fit(); p2Hide();
+  requestAnimationFrame(p2Frame);
+}
+// ═══════════════════════════ teleporter ═══════════════════════════
+function goPart(n){
+  P2.on = (n === 2);
+  if(typeof P3 !== "undefined") P3.on = (n === 3);
+  if(typeof P4 !== "undefined") P4.on = (n === 4);
+  if(typeof P5 !== "undefined") P5.on = (n === 5);
+  if(typeof P6 !== "undefined") P6.on = (n === 6 || n === 7);
+  if(typeof P8 !== "undefined") P8.on = (n === 8 || n === 9 || n === 10);
+  document.getElementById("part1").style.display = (n === 1) ? "block" : "none";
+  document.getElementById("part2").style.display = (n === 2) ? "block" : "none";
+  document.getElementById("part3").style.display = (n === 3) ? "block" : "none";
+  document.getElementById("part4").style.display = (n === 4) ? "block" : "none";
+  document.getElementById("part5").style.display = (n === 5) ? "block" : "none";
+  document.getElementById("part6").style.display = (n === 6 || n === 7) ? "block" : "none";
+  document.getElementById("part8").style.display = (n === 8 || n === 9 || n === 10) ? "block" : "none";
+  if(typeof closeTerm === "function") closeTerm();
+  if(n === 2) startPart2();
+  if(n === 3 && typeof startPart3 === "function") startPart3();
+  if(n === 4 && typeof startPart4 === "function") startPart4();
+  if(n === 5 && typeof startPart5 === "function") startPart5();
+  if(n === 6 && typeof startPart6 === "function") startPart6();
+  if(n === 7 && typeof startPart7 === "function") startPart7();
+  if(n === 8 && typeof startPart8 === "function") startPart8();
+  if(n === 9 && typeof startPart9 === "function") startPart9();
+  if(n === 10 && typeof startPart10 === "function") startPart10();
+  var tp = document.getElementById("tp");
+  if(tp) Array.prototype.forEach.call(tp.children, function(b, i){ b.className = (i + 1 === n) ? "tpb on" : "tpb"; });
+}
+document.getElementById("tp").onclick = function(e){
+  var b = e.target.closest ? e.target.closest(".tpb") : null;
+  if(b) { e.stopPropagation(); goPart(+b.dataset.p); }
+};
+
+</script>
+</body>
+</html>
