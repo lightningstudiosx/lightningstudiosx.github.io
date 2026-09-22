@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>chush</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #111111; --dim: #999999; --glow: #c9a400;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0d0d0d; --fg: #eaeaea; --dim: #666666; --glow: #ffd84d; }
+  }
+  :root[data-theme="dark"] { --bg: #0d0d0d; --fg: #eaeaea; --dim: #666666; --glow: #ffd84d; }
+  * { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  #root { padding: 24px; max-width: 40em; }
+  .glyph { font-size: clamp(6rem, 30vw, 14rem); line-height: 1; user-select: none; }
+  .duck { font-size: clamp(4rem, 20vw, 8rem); line-height: 1.1; user-select: none; }
+  .small { font-size: 1.05rem; line-height: 1.7; }
+  .dim { color: var(--dim); font-size: .85rem; }
+  .para { font-size: 1.05rem; line-height: 2; text-align: left; margin-top: 2em; }
+  .para .k:hover, .para .k:active { color: var(--glow); text-shadow: 0 0 8px var(--glow); }
+  .find { font-size: 1.6rem; letter-spacing: .3em; }
+  form.answer { margin-top: 2.2em; }
+  form.answer input {
+    font-family: inherit; font-size: 1rem; text-align: center;
+    background: transparent; color: var(--fg);
+    border: none; border-bottom: 1px solid var(--dim);
+    padding: 6px 10px; outline: none; width: 12em; max-width: 70vw;
+  }
+  form.answer input:focus { border-bottom-color: var(--fg); }
+  form.answer button {
+    font-family: inherit; font-size: 1rem; background: none; color: var(--dim);
+    border: none; cursor: pointer; padding: 6px 10px;
+  }
+  form.answer button:hover { color: var(--fg); }
+  .no { margin-top: 1em; color: var(--dim); font-size: .85rem; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  // ==========================================================================
+  // chush — a url puzzle game.
+  // GitHub Pages serves this 404.html for every path that isn't a real file,
+  // so this file IS the game: it looks at the URL and renders that level.
+  //
+  // A level: { title, html, answer: [accepted answers], next: "path" }
+  // answer/next are optional (level 1 is solved by editing the URL itself).
+  // ==========================================================================
+
+  const DUCK_LEVEL_HTML =
+    '<!-- TODO: remove legacy duck registration code before launch -->' +
+    '<div id="duck-registry" hidden aria-hidden="true"' +
+    ' data-species="mallard" data-color="classic" data-name="jimmybob"' +
+    ' data-registered="true" data-schema-version="3"></div>' +
+    '<!-- deprecated: window.duck = registry.lookup("jimmybob") // old api -->' +
+    '<div class="duck">&#129414;</div>' +
+    '<p class="small">this is a duck. name him.</p>';
+
+  const FIND_PARAGRAPH =
+    "somewhere in this pond there is a number. the duck knows it, but he " +
+    "is not telling. he just floats, watching the water, waiting for " +
+    "someone patient enough to look closer at things. maybe he is right " +
+    "to wait and watch his own reflection.";
+
+  const HIDDEN_SEQUENCE = "onefoureighttwo";
+
+  function buildFindHTML() {
+    let k = 0, out = "";
+    for (const ch of FIND_PARAGRAPH) {
+      if (k < HIDDEN_SEQUENCE.length && ch.toLowerCase() === HIDDEN_SEQUENCE[k]) {
+        out += '<span class="k">' + ch + '</span>';
+        k++;
+      } else {
+        out += ch;
+      }
+    }
+    return '<div class="find">find</div><p class="para">' + out + '</p>';
+  }
+
+  const LEVELS = {
+    // Level 1 — the URL says ! but the screen says @ ...
+    "!": {
+      title: "chush - !",
+      html: '<div class="glyph">@</div>'
+    },
+
+    // Level 2 — the duck. his name is somewhere in this page.
+    "@": {
+      title: "chush - name him",
+      html: DUCK_LEVEL_HTML,
+      answer: ["jimmybob"],
+      next: "jimmybob"
+    },
+
+    // Level 3 — find. hover the paragraph; glowing letters spell the code.
+    "jimmybob": {
+      title: "chush - find",
+      html: buildFindHTML(),
+      answer: ["1482", "onefoureighttwo"],
+      next: "1482"
+    },
+
+    // Level 4 — not built yet
+    "1482": {
+      title: "chush - ?",
+      html: '<div class="small">you found it.<br><br>' +
+            '<span class="dim">level 4 is being built. chush continues soon.</span></div>'
+    },
+  };
+
+  const WRONG = {
+    title: "chush",
+    html: '<div class="small dim">there is nothing here.</div>'
+  };
+
+  const norm = s => s.toLowerCase().replace(/\s+/g, "");
+
+  let path = decodeURIComponent(location.pathname).replace(/^\/+|\/+$/g, "");
+  const level = LEVELS[path] || WRONG;
+  document.title = level.title;
+  const root = document.getElementById("root");
+  root.innerHTML = level.html;
+
+  if (level.answer) {
+    const form = document.createElement("form");
+    form.className = "answer";
+    form.innerHTML = '<input autocomplete="off" spellcheck="false" ' +
+                     'aria-label="answer"><button type="submit">&#8594;</button>' +
+                     '<div class="no"></div>';
+    root.appendChild(form);
+    const input = form.querySelector("input");
+    const no = form.querySelector(".no");
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      if (level.answer.includes(norm(input.value))) {
+        location.href = "/" + level.next;
+      } else {
+        no.textContent = "no.";
+        input.value = "";
+        setTimeout(() => { no.textContent = ""; }, 1500);
+      }
+    });
+    input.focus();
+  }
+</script>
+</body>
+</html>
