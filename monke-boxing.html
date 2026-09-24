@@ -463,7 +463,10 @@ function setButtonLabel(btn, label, size){
   btn.face.material.map.needsUpdate = true; btn.face.material.needsUpdate = true;
 }
 const _bw = new THREE.Vector3(), _hw = new THREE.Vector3();
+let pokeLockT = 0;
 function updatePokeButtons(dt){
+  pokeLockT = Math.max(0, pokeLockT - dt);
+  let best = null, bestD = 1e9;
   for (const b of pokeButtons){
     if (b.cooldown > 0){
       b.cooldown -= dt;
@@ -474,12 +477,13 @@ function updatePokeButtons(dt){
     if (b.enabled && !b.enabled()) ok = false;
     if (!ok){ b.wasIn = false; continue; }
     b.group.getWorldPosition(_bw);
-    let inRange = false, fast = false;
+    let inRange = false, fast = false, d = 1e9;
     if (game.vr){
       for (let i=0;i<2;i++){
         hands[i].glove.getWorldPosition(_hw);
-        if (_hw.distanceTo(_bw) < b.r + 0.05*S.handSize*pScale){
-          inRange = true;
+        const dd = _hw.distanceTo(_bw);
+        if (dd < b.r + 0.05*S.handSize*pScale){
+          inRange = true; d = Math.min(d, dd);
           if (hands[i].vel.length() > 0.45) fast = true;
         }
       }
@@ -487,18 +491,21 @@ function updatePokeButtons(dt){
       for (let i=0;i<2;i++){
         if (pcPunch[i].t > 0.3 && pcPunch[i].t < 0.65){
           pcGloves[i].getWorldPosition(_hw);
-          if (_hw.distanceTo(_bw) < b.r + 0.25){ inRange = true; fast = true; }
+          const dd = _hw.distanceTo(_bw);
+          if (dd < b.r + 0.25){ inRange = true; fast = true; d = Math.min(d, dd); }
         }
       }
     }
-    const pressed = b.gentle ? (inRange && !b.wasIn) : (inRange && fast);
+    const wants = b.gentle ? (inRange && !b.wasIn) : (inRange && fast);
     b.wasIn = inRange;
-    if (pressed && b.cooldown <= 0){
-      b.cooldown = 0.45;
-      b.group.scale.z = 0.45;
-      click();
-      b.action(b);
-    }
+    if (wants && b.cooldown <= 0 && pokeLockT <= 0 && d < bestD){ best = b; bestD = d; }
+  }
+  if (best){
+    best.cooldown = 0.45;
+    pokeLockT = 0.3;   // one button per poke
+    best.group.scale.z = 0.45;
+    click();
+    best.action(best);
   }
 }
 
@@ -537,11 +544,13 @@ function gloveMaterial(hex, metal){
 function makeGlove(mat){
   const g = new THREE.Group();
   const ball = new THREE.Mesh(gloveGeo, mat); ball.castShadow=true; ball.name='ball';
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.07,0.1,12),
+  ball.scale.set(1,0.95,1.12);   // a bit longer front-to-back like a real glove
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.11,12),
     new THREE.MeshStandardMaterial({ color:0xf5edd8, roughness:0.6 }));
-  cuff.position.y=-0.09; cuff.name='cuff';
-  const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8), mat);
-  thumb.position.set(0.07,0.01,0.03); thumb.name='thumb';
+  cuff.rotation.x = Math.PI/2;   // cylinder axis along z
+  cuff.position.z = 0.1; cuff.name='cuff';   // +z = toward your wrist in controller grip space
+  const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.038,10,8), mat);
+  thumb.position.set(0,-0.045,-0.05); thumb.name='thumb';   // tucked under the front of the fist
   g.add(ball); g.add(cuff); g.add(thumb);
   return g;
 }
@@ -600,6 +609,8 @@ vignette.position.z=-0.4; vignette.renderOrder=999; vignette.material.opacity=0;
 ============================================================ */
 let pScale = 1;
 const TARGET_EYE = 1.6;   // the "standard monke" eye height the gym is built around
+const MONKE_EYE = 0.9;    // your actual in-game eye height — low to the ground, knuckles reach the floor
+const HEIGHT_OFF = MONKE_EYE - TARGET_EYE;   // rig rides this far below whatever you stand on (VR only)
 function applyHeightScale(){
   if (!game.vr){ pScale = 1; rig.scale.setScalar(1); return; }
   const eyeH = Math.max(0.9, S.height*0.01 - 0.11);
@@ -698,7 +709,7 @@ function makeKnuckles(){
   const mat = new THREE.MeshStandardMaterial({ color:0xc8a445, metalness:0.9, roughness:0.25 });
   for (let i=0;i<4;i++){
     const k = new THREE.Mesh(new THREE.BoxGeometry(0.02,0.03,0.03), mat);
-    k.position.set(-0.045+i*0.03, 0.03, -0.085); g.add(k);
+    k.position.set(-0.045+i*0.03, 0.025, -0.105); g.add(k);
   }
   return g;
 }
@@ -815,6 +826,7 @@ function makeMonke(cfg){
   const guardL = new THREE.Vector3(-0.3, 1.32, 0.3);
   const guardR = new THREE.Vector3( 0.3, 1.32, 0.3);
   gloveL.position.copy(guardL); gloveR.position.copy(guardR);
+  gloveL.rotation.y = Math.PI; gloveR.rotation.y = Math.PI;   // knuckles toward the opponent
 
   g.add(body, belly, hips, legL, legR, footL, footR, headGrp, gloveL, gloveR);
   g.userData = { headGrp, head, torso:body, gloveL, gloveR, guardL, guardR, bodyMat, gm };
@@ -918,7 +930,7 @@ const pracSign = new THREE.Mesh(new THREE.PlaneGeometry(3.2,0.8),
 pracSign.position.set(-7.6, 3.4, -ARENA+0.06); scene.add(pracSign);
 
 /* heavy bag — pendulum */
-const bagPivot = new THREE.Group(); bagPivot.position.set(-8.4, 4.6, -8.2); practice.add(bagPivot);
+const bagPivot = new THREE.Group(); bagPivot.position.set(-8.4, 3.35, -8.2); practice.add(bagPivot);
 const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1.4,6),
   new THREE.MeshStandardMaterial({color:0x777, metalness:0.7, roughness:0.4}));
 chain.position.y=-0.7; bagPivot.add(chain);
@@ -931,7 +943,7 @@ const bagPhys = { ax:0, az:0, vx:0, vz:0, cd:0 };
 
 /* bop dummy — wobbles on a round base */
 const bopBaseP = new THREE.Vector3(-5.6, 0, -8.6);
-const bopPivot = new THREE.Group(); bopPivot.position.copy(bopBaseP); practice.add(bopPivot);
+const bopPivot = new THREE.Group(); bopPivot.position.copy(bopBaseP); bopPivot.scale.setScalar(0.75); practice.add(bopPivot);
 const bopBase = new THREE.Mesh(new THREE.SphereGeometry(0.42,16,10,0,Math.PI*2,0,Math.PI/2),
   new THREE.MeshStandardMaterial({color:0x2266cc, roughness:0.5}));
 bopBase.scale.y=0.7; bopPivot.add(bopBase);
@@ -949,8 +961,8 @@ const bopPhys = { ax:0, az:0, vx:0, vz:0, cd:0 };
 /* speed bag on wall */
 const sbMount = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.08,0.7),
   new THREE.MeshStandardMaterial({color:0x4a3a2a, roughness:0.7}));
-sbMount.position.set(-ARENA+0.4, 2.2, -6.4); practice.add(sbMount);
-const sbPivot = new THREE.Group(); sbPivot.position.set(-ARENA+0.4, 2.16, -6.4); practice.add(sbPivot);
+sbMount.position.set(-ARENA+0.4, 1.7, -6.4); practice.add(sbMount);
+const sbPivot = new THREE.Group(); sbPivot.position.set(-ARENA+0.4, 1.66, -6.4); practice.add(sbPivot);
 const sbBall = new THREE.Mesh(new THREE.SphereGeometry(0.14,12,10),
   new THREE.MeshStandardMaterial({color:0x8a4dd8, roughness:0.45}));
 sbBall.scale.set(1,1.3,1); sbBall.position.y=-0.24; sbPivot.add(sbBall);
@@ -959,11 +971,11 @@ crate(-ARENA+0.9, -6.4 + 0, 1.0, 0.7, 1.0); // step to reach the speed bag
 
 /* spin dummy — pole with spinning crossbar arms + spinning head */
 const spinBase = new THREE.Vector3(-7.2, 0, -5.4);
-const spinPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,1.7,10),
+const spinPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,1.3,10),
   new THREE.MeshStandardMaterial({color:0x555, metalness:0.6, roughness:0.4}));
-spinPole.position.set(spinBase.x, 0.85, spinBase.z); practice.add(spinPole);
+spinPole.position.set(spinBase.x, 0.65, spinBase.z); practice.add(spinPole);
 addBoxCollider(spinBase.x,0,spinBase.z,0.3,0.4,0.3);
-const spinArms = new THREE.Group(); spinArms.position.set(spinBase.x, 1.25, spinBase.z); practice.add(spinArms);
+const spinArms = new THREE.Group(); spinArms.position.set(spinBase.x, 0.95, spinBase.z); practice.add(spinArms);
 const armG = new THREE.BoxGeometry(1.5,0.08,0.14);
 const armMesh = new THREE.Mesh(armG, new THREE.MeshStandardMaterial({color:0xffcf4d, roughness:0.5}));
 spinArms.add(armMesh);
@@ -971,7 +983,7 @@ spinArms.add(armMesh);
   new THREE.MeshStandardMaterial({color:0xd8322a, roughness:0.5})); padz.position.x=x; spinArms.add(padz); });
 const spinHead = new THREE.Mesh(new THREE.SphereGeometry(0.16,12,10),
   new THREE.MeshStandardMaterial({color:0xe8c48a, roughness:0.7}));
-spinHead.position.set(spinBase.x, 1.78, spinBase.z); practice.add(spinHead);
+spinHead.position.set(spinBase.x, 1.32, spinBase.z); practice.add(spinHead);
 const spinHeadFace = new THREE.Mesh(new THREE.PlaneGeometry(0.2,0.2),
   new THREE.MeshBasicMaterial({ map:textTexture([{t:'@_@',size:84}],128,128,{bg:'#e8c48a'}) }));
 spinHeadFace.position.z=0.155; spinHead.add(spinHeadFace);
@@ -1063,10 +1075,11 @@ const ROSTER = [
   { name:'THE CHAMP',   color:0x2a1c14, belly:0xa07a50, glove:0xf5c542, gloveMetal:true, tier:2, acc:'crown', angry:true },
 ];
 const TIER = [
-  { interval:[2.0,3.2], tele:0.7,  dmg:7,  speed:2.4, hp:90 },
-  { interval:[1.3,2.2], tele:0.5,  dmg:11, speed:3.2, hp:120 },
-  { interval:[0.85,1.5],tele:0.36, dmg:16, speed:4.2, hp:170 },
+  { interval:[1.9,3.0], tele:0.7,  dmg:7,  speed:2.6, hp:90,  strafe:0.45, block:0.10, combo:0.10, dodge:0.06 },
+  { interval:[1.2,2.0], tele:0.5,  dmg:11, speed:3.4, hp:120, strafe:0.85, block:0.22, combo:0.28, dodge:0.18 },
+  { interval:[0.8,1.4], tele:0.36, dmg:16, speed:4.4, hp:170, strafe:1.25, block:0.38, combo:0.48, dodge:0.32 },
 ];
+const BOT_SCALE = 0.57;   // monke-sized so their head lines up with your new low stance
 let bot = null;         // current monke group
 let botCfg = null;      // roster entry
 let botTier = null;     // TIER entry (scaled)
@@ -1089,10 +1102,13 @@ function spawnBot(cfg, tierScale){
   const t = TIER[Math.min(2, cfg.tier + (tierScale||0))] || TIER[2];
   botTier = t;
   bot = makeMonke({ color:cfg.color, belly:cfg.belly, gloveColor:cfg.glove, gloveMetal:cfg.gloveMetal, acc:cfg.acc, angry:cfg.angry });
+  bot.scale.setScalar(BOT_SCALE);
   bot.position.set(0, RING_TOP, -1.8);
   scene.add(bot);
   game.botHp = game.botMaxHp = Math.round(t.hp);
   game.botState='idle'; game.botTimer=1.6; game.botHitDone=false; game.botStun=0;
+  game.botStrafeDir = Math.random()<0.5?-1:1; game.botStrafeT=1;
+  game.botDodgeT=0; game.botDodgeCd=0; game.botGuardT=0;
   botHpBar.visible = true;
   drawBotHpBar();
   document.getElementById('botName').textContent = cfg.name;
@@ -1112,6 +1128,8 @@ const game = {
   downed:null,            // {left, t, stars:[], need}
   reviveUsed:0,
   menuOpen:false,
+  preFight:null,          // {t} countdown before a fight goes live
+  botStrafeDir:1, botStrafeT:1, botDodgeT:0, botDodgeCd:0, botDodgeDir:null, botGuardT:0,
 };
 const bigMsg = document.getElementById('bigMsg');
 const subMsg = document.getElementById('subMsg');
@@ -1246,7 +1264,8 @@ function startQuickFight(){
   game.playerHp=S.maxHp; game.downed=null;
   spawnBot(ROSTER[(Math.random()*3)|0 + 0], S.diff);   // random low-tier body, scaled by settings diff
   // ^ tier scaling: cfg.tier + S.diff capped at 2 inside spawnBot
-  bell(); showMsg('FIGHT!'); cheer(false);
+  game.preFight={t:3.4};
+  showMsg('READY?'); cheer(false);
   updateHud();
 }
 function startTournament(){
@@ -1262,7 +1281,8 @@ function startTournamentMatch(){
   const idx = tournamentOpponentIdx();
   const cfg = T.entrants[idx];
   game.playerHp = S.maxHp; game.downed=null; game.reviveUsed=0;
-  spawnBot(cfg, T.stage===2?0:0);
+  spawnBot(cfg, 0);
+  game.preFight = { t: game.vr ? 6.5 : 4.0 };   // time to look at the bracket; on PC the clock pauses while the bracket overlay is open
   showSub('vs ' + cfg.name);
   updateHud();
 }
@@ -1270,6 +1290,7 @@ function endFight(byButton){
   game.mode='free'; T.active=false;
   despawnBot();
   game.downed = null; clearStars();
+  game.preFight = null;
   game.playerHp = S.maxHp;
   if (byButton) showSub('Back to free roam');
   updateHud();
@@ -1308,6 +1329,7 @@ function onPlayerKO(){
     game.botWins++; game.round++;
     game.playerHp=S.maxHp;
     game.botHp=game.botMaxHp; drawBotHpBar();
+    game.preFight={t:3.4};
     updateHud();
   }
 }
@@ -1495,11 +1517,12 @@ function updateVRMovement(dt){
     rig.position.addScaledVector(vel,dt);
   }
   const gh=groundHeightAt(rig.position.x,rig.position.z);
-  if (rig.position.y < gh){
+  const fy=gh + HEIGHT_OFF;   // monke stance: you sit low so the floor is right there
+  if (rig.position.y < fy){
     if (vel.y < -6) thump(0.35,60);
-    rig.position.y=gh; vel.y=0; grounded=true;
+    rig.position.y=fy; vel.y=0; grounded=true;
     if (!touching){ vel.x*=(1-Math.min(1,dt*2.5)); vel.z*=(1-Math.min(1,dt*2.5)); }
-  } else grounded=(rig.position.y-gh)<0.02;
+  } else grounded=(rig.position.y-fy)<0.02;
   rig.position.x=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.x));
   rig.position.z=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.z));
   if (rig.position.y > WALL_H-1.8){ rig.position.y=WALL_H-1.8; vel.y=Math.min(vel.y,0); }
@@ -1616,7 +1639,7 @@ function hapticPulse(handIdx,intensity,ms){
   }
 }
 function tryHitBot(gloveWorld, speed, handIdx){
-  if (!bot || game.hitCd[handIdx]>0 || game.botState==='ko' || game.downed || game.menuOpen) return;
+  if (!bot || game.hitCd[handIdx]>0 || game.botState==='ko' || game.downed || game.menuOpen || game.preFight) return;
   const u=bot.userData;
   u.head.getWorldPosition(tmpV);
   u.torso.getWorldPosition(tmpV2);
@@ -1626,6 +1649,13 @@ function tryHitBot(gloveWorld, speed, handIdx){
   if (!dmgMul) return;
   const minSpeed=1.4;
   if (speed<minSpeed) return;
+  if (game.botState==='idle' && game.botStun<=0 && Math.random()<botTier.block){
+    game.hitCd[handIdx]=0.3;
+    game.botGuardT=0.35;   // hands snap up to cover
+    thump(0.25,260); hapticPulse(handIdx,0.35,40);
+    if (Math.random()<0.3) showSub(botCfg.name+' blocked it!');
+    return;
+  }
   game.hitCd[handIdx]=0.26;
   const st = playerStats();
   const dmg = Math.min(26,(speed-minSpeed)*3.2) * dmgMul * S.punch * st.punch;
@@ -1662,7 +1692,7 @@ function updateBot(dt){
 
   /* floating hp bar */
   u.headGrp.getWorldPosition(tmpV3);
-  botHpBar.position.set(tmpV3.x, tmpV3.y+0.42, tmpV3.z);
+  botHpBar.position.set(tmpV3.x, tmpV3.y+0.3, tmpV3.z);
   botHpBar.lookAt(headP);
 
   if (game.botState==='ko'){
@@ -1671,11 +1701,17 @@ function updateBot(dt){
     if (game.botKoT<=0 && game.mode==='quick'){
       bot.rotation.x=0;
       spawnBot(ROSTER[(Math.random()*ROSTER.length)|0], S.diff===2?1:S.diff);
-      bot.position.set(0,RING_TOP,-1.8);
-      showMsg('ROUND '+game.round); bell();
+      showMsg('ROUND '+game.round);
       game.playerHp=S.maxHp;
+      game.preFight={t:2.6};
       updateHud();
     }
+    return;
+  }
+  if (game.preFight){
+    /* waiting for the bell — stay put, hands up */
+    u.gloveL.position.lerp(u.guardL, dt*5);
+    u.gloveR.position.lerp(u.guardR, dt*5);
     return;
   }
   if (game.botStun>0){ game.botStun-=dt; return; }
@@ -1687,35 +1723,70 @@ function updateBot(dt){
     u.gloveR.position.lerp(u.guardR, dt*5);
     return;
   }
-  if (game.menuOpen) return;
 
-  /* footwork */
-  const want=1.15;
+  /* --- reads your fists: fast incoming punch → chance to slip it --- */
+  game.botDodgeCd = Math.max(0, game.botDodgeCd - dt);
+  if (game.botState!=='punch' && game.botState!=='dodge' && game.botDodgeCd<=0){
+    u.headGrp.getWorldPosition(tmpV3);
+    let threat=false;
+    if (game.vr){
+      for (let i=0;i<2;i++){
+        hands[i].glove.getWorldPosition(tmpV2);
+        if (tmpV2.distanceTo(tmpV3)<0.8 && hands[i].vel.length()>3.2) threat=true;
+      }
+    } else {
+      for (let i=0;i<2;i++) if (pcPunch[i].t>0.55){ pcGloves[i].getWorldPosition(tmpV2); if (tmpV2.distanceTo(tmpV3)<1.0) threat=true; }
+    }
+    if (threat && Math.random()<t.dodge){
+      game.botState='dodge'; game.botDodgeT=0.26; game.botDodgeCd=1.4;
+      const side=Math.random()<0.5?-1:1;
+      const dirN=toPlayer.clone().normalize();
+      game.botDodgeDir=new THREE.Vector3(-dirN.z*side,0,dirN.x*side).multiplyScalar(0.75).addScaledVector(dirN,-0.6).normalize();
+      resetBotGloveGlow();
+    }
+  }
+  if (game.botState==='dodge'){
+    game.botDodgeT-=dt;
+    bot.position.addScaledVector(game.botDodgeDir, t.speed*1.5*dt);
+    clampBotToRing();
+    if (game.botDodgeT<=0){ game.botState='idle'; game.botTimer=0.25+Math.random()*0.3; }
+    return;
+  }
+
+  /* footwork: hold range + circle you */
+  const want=0.85;
   if (game.botState!=='punch'){
     const dir=toPlayer.clone().normalize();
     let step=0;
-    if (dist>want+0.15) step=t.speed*0.55*dt;
-    else if (dist<want-0.2) step=-t.speed*0.4*dt;
+    if (dist>want+0.15) step=t.speed*0.6*dt;
+    else if (dist<want-0.18) step=-t.speed*0.45*dt;
     bot.position.addScaledVector(dir,step);
+    game.botStrafeT-=dt;
+    if (game.botStrafeT<=0){ game.botStrafeT=0.7+Math.random()*1.3; if (Math.random()<0.65) game.botStrafeDir*=-1; }
+    const tang=new THREE.Vector3(-dir.z,0,dir.x);
+    bot.position.addScaledVector(tang, t.strafe*game.botStrafeDir*dt);
     bot.position.y = RING_TOP + Math.abs(Math.sin(performance.now()*0.005))*0.02;
-    if (Math.abs(bot.position.x)>RING_HALF-0.4) bot.position.x=Math.sign(bot.position.x)*(RING_HALF-0.4);
-    if (Math.abs(bot.position.z)>RING_HALF-0.4) bot.position.z=Math.sign(bot.position.z)*(RING_HALF-0.4);
+    if (clampBotToRing()) game.botStrafeDir*=-1;
   }
 
   const tt=performance.now()*0.003;
   const idleL=u.guardL.clone(); idleL.y+=Math.sin(tt)*0.02;
   const idleR=u.guardR.clone(); idleR.y+=Math.cos(tt)*0.02;
+  if (game.botGuardT>0){
+    game.botGuardT-=dt;
+    idleL.set(-0.13,1.5,0.3); idleR.set(0.13,1.5,0.3);   // hands up covering the face
+  }
 
   if (game.botState==='idle' || game.botState==='corner'){
     game.botState='idle';
     game.botTimer-=dt;
-    u.gloveL.position.lerp(idleL,dt*6);
-    u.gloveR.position.lerp(idleR,dt*6);
-    if (game.botTimer<=0 && dist<2.1 && Math.abs(headP.y-(RING_TOP+1.6))<1.2){
+    u.gloveL.position.lerp(idleL,dt*7);
+    u.gloveR.position.lerp(idleR,dt*7);
+    if (game.botTimer<=0 && dist<1.7 && Math.abs(headP.y-(RING_TOP+1.1))<1.0){
       game.botState='telegraph'; game.botTimer=t.tele;
       game.botPunchHand=Math.random()<0.5?0:1;
       game.botTarget = Math.random()<0.6 ? 'head' : 'body';
-    } else if (game.botTimer<=0) game.botTimer=0.4;
+    } else if (game.botTimer<=0) game.botTimer=0.35;
   } else if (game.botState==='telegraph'){
     game.botTimer-=dt;
     const g=game.botPunchHand===0?u.gloveL:u.gloveR;
@@ -1762,11 +1833,26 @@ function updateBot(dt){
       }
     }
     if (game.botPunchT>=1){
-      game.botState='idle'; game.botHitDone=false;
-      game.botTimer=t.interval[0]+Math.random()*(t.interval[1]-t.interval[0]);
+      game.botHitDone=false;
       resetBotGloveGlow();
+      const aggr = game.playerHp < S.maxHp*0.35 ? 0.7 : 1;   // smells blood → presses harder
+      if (Math.random()<t.combo && dist<1.6){
+        game.botState='telegraph';
+        game.botTimer=t.tele*0.55;                 // quick follow-up shot
+        game.botPunchHand=1-game.botPunchHand;
+        game.botTarget = Math.random()<0.5 ? 'head' : 'body';
+      } else {
+        game.botState='idle';
+        game.botTimer=(t.interval[0]+Math.random()*(t.interval[1]-t.interval[0]))*aggr;
+      }
     }
   }
+}
+function clampBotToRing(){
+  let hit=false;
+  if (Math.abs(bot.position.x)>RING_HALF-0.4){ bot.position.x=Math.sign(bot.position.x)*(RING_HALF-0.4); hit=true; }
+  if (Math.abs(bot.position.z)>RING_HALF-0.4){ bot.position.z=Math.sign(bot.position.z)*(RING_HALF-0.4); hit=true; }
+  return hit;
 }
 
 /* ============================================================
@@ -1808,6 +1894,9 @@ function bumpRow(r, dir){
   else { S[r.k]=Math.round(Math.min(r.max,Math.max(r.min,S[r.k]+dir*r.step))/r.step)*r.step; S[r.k]=+S[r.k].toFixed(3); }
   onSettingsChanged();
 }
+function menuRowTexture(r){
+  return textTexture([{t:r.label+' · '+rowValueText(r), size:36}],384,80,{bg:'#241a2e',fg:'#f0e6d0'});
+}
 const vrMenu = new THREE.Group(); vrMenu.visible=false; scene.add(vrMenu);
 const menuValueFaces = [];
 {
@@ -1820,17 +1909,14 @@ const menuValueFaces = [];
   MENU_ROWS.forEach((r,i)=>{
     const col=i<8?0:1, row=i%8;
     const cx=col===0?-0.37:0.37, cy=0.44-row*0.135;
-    const lab=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.1),
-      new THREE.MeshBasicMaterial({ map:textTexture([{t:r.label,size:44}],256,64,{bg:'#1c1426',fg:'#c9b8d8'}) }));
-    lab.position.set(cx-0.24,cy,0.01); vrMenu.add(lab);
-    const valFace=new THREE.Mesh(new THREE.PlaneGeometry(0.26,0.1),
-      new THREE.MeshBasicMaterial({ map:textTexture([{t:rowValueText(r),size:44}],192,64,{bg:'#241a2e',fg:'#ffcf4d'}) }));
-    valFace.position.set(cx+0.13,cy,0.01); vrMenu.add(valFace);
+    const valFace=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.105),
+      new THREE.MeshBasicMaterial({ map:menuRowTexture(r) }));
+    valFace.position.set(cx,cy,0.01); vrMenu.add(valFace);
     menuValueFaces.push({r, mesh:valFace});
-    const bm=makePokeButton('−',0.09,0.09,0x3d2f52,()=>bumpRow(r,-1),{gentle:true,fontSize:96,enabled:()=>game.menuOpen});
-    bm.group.position.set(cx-0.01,cy,0.03); vrMenu.add(bm.group);
-    const bp=makePokeButton('+',0.09,0.09,0x3d2f52,()=>bumpRow(r,1),{gentle:true,fontSize:96,enabled:()=>game.menuOpen});
-    bp.group.position.set(cx+0.3,cy,0.03); vrMenu.add(bp.group);
+    const bm=makePokeButton('−',0.12,0.12,0x6b2430,()=>bumpRow(r,-1),{gentle:true,fontSize:110,enabled:()=>game.menuOpen});
+    bm.group.position.set(cx-0.3,cy,0.035); vrMenu.add(bm.group);
+    const bp=makePokeButton('+',0.12,0.12,0x2c6b3a,()=>bumpRow(r,1),{gentle:true,fontSize:110,enabled:()=>game.menuOpen});
+    bp.group.position.set(cx+0.3,cy,0.035); vrMenu.add(bp.group);
   });
   const closeB=makePokeButton('CLOSE',0.34,0.12,0xa3341f,()=>toggleVRMenu(),{gentle:true,fontSize:52,enabled:()=>game.menuOpen});
   closeB.group.position.set(-0.2,-0.615,0.03); vrMenu.add(closeB.group);
@@ -1840,7 +1926,7 @@ const menuValueFaces = [];
 function refreshVRMenuValues(){
   for (const f of menuValueFaces){
     if (f.mesh.material.map) f.mesh.material.map.dispose();
-    f.mesh.material.map=textTexture([{t:rowValueText(f.r),size:44}],192,64,{bg:'#241a2e',fg:'#ffcf4d'});
+    f.mesh.material.map=menuRowTexture(f.r);
     f.mesh.material.needsUpdate=true;
   }
 }
@@ -1914,6 +2000,7 @@ document.getElementById('btnReset').addEventListener('click', ()=>{ S=Object.ass
 /* ============================================================
    MAIN LOOP
 ============================================================ */
+const bracketPanelEl = document.getElementById('bracketPanel');
 let lastT=0;
 renderer.setAnimationLoop(function(time){
   const t=time*0.001;
@@ -1939,6 +2026,14 @@ renderer.setAnimationLoop(function(time){
       punchDummies(w, h.vel, sp2);
       tryPunchStars(w, sp2);
     }
+  }
+
+  if (game.preFight && !game.menuOpen && bracketPanelEl.style.display!=='flex'){
+    const prev=Math.ceil(game.preFight.t);
+    game.preFight.t-=dt;
+    const cur=Math.ceil(game.preFight.t);
+    if (cur!==prev && cur>=1 && cur<=3){ showMsg(String(cur)); pop(380+(4-cur)*140); }
+    if (game.preFight.t<=0){ game.preFight=null; showMsg('FIGHT!'); bell(); cheer(false); }
   }
 
   if (!game.menuOpen){
