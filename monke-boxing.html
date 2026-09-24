@@ -74,7 +74,7 @@
 
 <div id="overlay">
   <h1>MONKE<span>BOXING</span></h1>
-  <p class="tag">Push off the floor, walls and crates with your hands to move — then swing. In the gym: a fight console, a practice corner with dummies, a cosmetics corner, and an 8-monke tournament. Press <b>Y</b> (or the menu button) in VR for settings.</p>
+  <p class="tag">Push off the floor, walls and crates with your hands to move — then swing. In the gym: a fight console, a practice corner with dummies, a cosmetics corner, and an 8-monke tournament. Entering VR auto-sizes the game to your height. Press <b>Y</b> (or the menu button) in VR for settings.</p>
   <div>
     <button class="btn" id="btnVR">Enter VR</button>
     <button class="btn alt" id="btnPC">Play on PC (fullscreen)</button>
@@ -116,7 +116,7 @@ if (!window.THREE) { document.getElementById('vrNote').textContent = 'Failed to 
    SETTINGS + SAVE DATA
 ============================================================ */
 const DEFAULTS = {
-  grip:1.0, maxSpeed:8, gravity:9.8, handSize:1.0, punch:1.0, maxHp:100,
+  grip:1.0, maxSpeed:8, gravity:9.8, handSize:1.0, punch:1.0, maxHp:100, height:170,
   diff:1, snap:true, turn:45, vignette:true, blockAssist:false,
   sound:true, music:true, haptics:true, crowd:true, shadows:true, lefty:false
 };
@@ -478,7 +478,7 @@ function updatePokeButtons(dt){
     if (game.vr){
       for (let i=0;i<2;i++){
         hands[i].glove.getWorldPosition(_hw);
-        if (_hw.distanceTo(_bw) < b.r + 0.05*S.handSize){
+        if (_hw.distanceTo(_bw) < b.r + 0.05*S.handSize*pScale){
           inRange = true;
           if (hands[i].vel.length() > 0.45) fast = true;
         }
@@ -592,6 +592,75 @@ const vigCanvas = document.createElement('canvas'); vigCanvas.width=vigCanvas.he
 const vignette = new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),
   new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(vigCanvas), transparent:true, depthTest:false }));
 vignette.position.z=-0.4; vignette.renderOrder=999; vignette.material.opacity=0; camera.add(vignette);
+
+/* ============================================================
+   HEIGHT — auto-calibration + player scaling
+   Measures your real eye height when you enter VR, then scales
+   the rig so everyone plays at standard monke size.
+============================================================ */
+let pScale = 1;
+const TARGET_EYE = 1.6;   // the "standard monke" eye height the gym is built around
+function applyHeightScale(){
+  if (!game.vr){ pScale = 1; rig.scale.setScalar(1); return; }
+  const eyeH = Math.max(0.9, S.height*0.01 - 0.11);
+  pScale = Math.max(0.75, Math.min(1.7, TARGET_EYE/eyeH));
+  rig.scale.setScalar(pScale);
+}
+const calib = { active:false, t:0, samples:[], redraw:0 };
+const calibCanvas = document.createElement('canvas'); calibCanvas.width=768; calibCanvas.height=400;
+const calibTex = new THREE.CanvasTexture(calibCanvas);
+const calibPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.78),
+  new THREE.MeshBasicMaterial({ map:calibTex }));
+calibPanel.visible=false; scene.add(calibPanel);
+function drawCalib(progress, line1, line2){
+  const x = calibCanvas.getContext('2d');
+  x.fillStyle='#1c1426'; x.fillRect(0,0,768,400);
+  x.strokeStyle='#3d2f52'; x.lineWidth=10; x.strokeRect(5,5,758,390);
+  x.textAlign='center';
+  x.fillStyle='#ffcf4d'; x.font='900 62px Trebuchet MS,sans-serif';
+  x.fillText(line1, 384, 120);
+  x.fillStyle='#c9b8d8'; x.font='700 36px Trebuchet MS,sans-serif';
+  x.fillText(line2, 384, 192);
+  x.fillStyle='#241a2e'; x.fillRect(84,260,600,52);
+  x.fillStyle='#59ff8a'; x.fillRect(90,266,588*Math.max(0,Math.min(1,progress)),40);
+  calibTex.needsUpdate = true;
+}
+function fmtHeight(cm){
+  const inches = cm/2.54; let ft = Math.floor(inches/12), rem = Math.round(inches%12);
+  if (rem===12){ ft++; rem=0; }
+  return ft + "'" + rem + '" (' + cm + ' cm)';
+}
+function startCalibration(){
+  calib.active = true; calib.t = 0; calib.samples.length = 0; calib.redraw = 0;
+  pScale = 1; rig.scale.setScalar(1);   // measure raw
+  calibPanel.visible = true;
+  drawCalib(0, 'SIZING YOUR MONKE', 'stand up straight!');
+}
+function finishCalibration(){
+  const s = calib.samples.slice().sort((a,b)=>a-b);
+  if (s.length){
+    const eyeH = Math.max(0.95, Math.min(2.05, s[(s.length/2)|0]));   // median, sanity-clamped
+    S.height = Math.round((eyeH + 0.11) * 100);
+  }
+  applyHeightScale(); saveAll();
+  drawCalib(1, 'HEIGHT: ' + fmtHeight(S.height), 'tweak it anytime in settings (Y)');
+  calib.active = false;
+  hands.forEach(h=>{ h.inited = false; });   // reset hand deltas so the scale change doesn't launch you
+  setTimeout(()=>{ calibPanel.visible = false; }, 2200);
+  pop(700);
+}
+function updateCalibration(dt){
+  calib.t += dt;
+  const cam = new THREE.Vector3(); camera.getWorldPosition(cam);
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir); dir.y = 0;
+  if (dir.lengthSq() < 0.001) dir.set(0,0,-1); dir.normalize();
+  calibPanel.position.copy(cam).addScaledVector(dir, 1.35);
+  calibPanel.lookAt(cam);
+  if (calib.t > 0.7) calib.samples.push(camera.position.y);   // local eye height above the real floor
+  calib.redraw -= dt;
+  if (calib.redraw <= 0){ calib.redraw = 0.08; drawCalib(calib.t/2.6, 'SIZING YOUR MONKE', 'stand up straight!'); }
+  if (calib.t >= 2.6) finishCalibration();
+}
 
 /* ============================================================
    COSMETICS
@@ -1276,7 +1345,8 @@ function updateDowned(dt){
   for (const s of starGrp.children){
     if (!s.userData.alive){ s.visible=false; continue; }
     const a = d.phase + (s.userData.idx / d.need) * Math.PI*2;
-    s.position.set(head.x + Math.cos(a)*0.55, head.y + Math.sin(d.phase*1.7 + i)*0.08, head.z + Math.sin(a)*0.55);
+    const orbitR = 0.55*pScale;
+    s.position.set(head.x + Math.cos(a)*orbitR, head.y + Math.sin(d.phase*1.7 + i)*0.08*pScale, head.z + Math.sin(a)*orbitR);
     s.lookAt(head);
     i++;
   }
@@ -1301,7 +1371,7 @@ function tryPunchStars(worldPos, speed){
   if (speed < 0.8) return;
   for (const s of starGrp.children){
     if (!s.userData.alive) continue;
-    if (s.position.distanceTo(worldPos) < 0.16 + 0.06*S.handSize){
+    if (s.position.distanceTo(worldPos) < (0.16 + 0.06*S.handSize)*pScale){
       s.userData.alive=false; s.visible=false; d.left--;
       pop(600 + (d.need-d.left)*120); hapticNear(worldPos, 0.6, 40);
       if (d.left <= 0){
@@ -1397,7 +1467,7 @@ function updateVRMovement(dt){
   let touching=false;
   const pushSum=new THREE.Vector3(), velSum=new THREE.Vector3();
   let n=0;
-  const handR = 0.09*S.handSize;
+  const handR = 0.09*S.handSize*pScale;
   for (let i=0;i<2;i++){
     const h=hands[i];
     const w=new THREE.Vector3(); h.glove.getWorldPosition(w);
@@ -1534,7 +1604,7 @@ function updatePCMovement(dt){
 ============================================================ */
 const tmpV=new THREE.Vector3(), tmpV2=new THREE.Vector3(), tmpV3=new THREE.Vector3();
 function playerHeadPos(out){ camera.getWorldPosition(out); return out; }
-function playerBodyPos(out){ camera.getWorldPosition(out); out.y-=0.45; return out; }
+function playerBodyPos(out){ camera.getWorldPosition(out); out.y-=0.45*pScale; return out; }
 function hapticPulse(handIdx,intensity,ms){
   if (!S.haptics) return;
   const session=renderer.xr.getSession && renderer.xr.getSession();
@@ -1551,7 +1621,7 @@ function tryHitBot(gloveWorld, speed, handIdx){
   u.head.getWorldPosition(tmpV);
   u.torso.getWorldPosition(tmpV2);
   let dmgMul=0;
-  if (tmpV.distanceTo(gloveWorld) < 0.17+0.1*S.handSize) dmgMul=2;
+  if (tmpV.distanceTo(gloveWorld) < 0.17+0.1*S.handSize*pScale) dmgMul=2;
   else if (tmpV2.distanceTo(gloveWorld) < 0.45) dmgMul=1;
   if (!dmgMul) return;
   const minSpeed=1.4;
@@ -1666,7 +1736,7 @@ function updateBot(dt){
       game.botHitDone=true;
       const gw=new THREE.Vector3(); g.getWorldPosition(gw);
       if (gw.distanceTo(targetWorld)<0.42){
-        const blockR = S.blockAssist ? 0.5 : 0.34;
+        const blockR = (S.blockAssist ? 0.5 : 0.34)*pScale;
         let blocked = false;
         if (game.vr){
           for (let i=0;i<2;i++){
@@ -1707,6 +1777,7 @@ const MENU_ROWS = [
   { k:'maxSpeed', label:'Max speed', min:3,   max:14,  step:1,    fmt:v=>v.toFixed(0) },
   { k:'gravity',  label:'Gravity',   min:3,   max:16,  step:1,    fmt:v=>v.toFixed(0) },
   { k:'handSize', label:'Hand size', min:0.6, max:1.6, step:0.1,  fmt:v=>v.toFixed(1) },
+  { k:'height',   label:'Height',    min:120, max:210, step:5,    fmt:v=>v.toFixed(0)+' cm' },
   { k:'punch',    label:'Punch pow', min:0.5, max:2.5, step:0.25, fmt:v=>v.toFixed(2) },
   { k:'maxHp',    label:'Max HP',    min:60,  max:200, step:20,   fmt:v=>v.toFixed(0) },
   { k:'diff',     label:'Difficulty', cycle:['EASY','MED','HARD'] },
@@ -1762,9 +1833,9 @@ const menuValueFaces = [];
     bp.group.position.set(cx+0.3,cy,0.03); vrMenu.add(bp.group);
   });
   const closeB=makePokeButton('CLOSE',0.34,0.12,0xa3341f,()=>toggleVRMenu(),{gentle:true,fontSize:52,enabled:()=>game.menuOpen});
-  closeB.group.position.set(-0.2,-0.58,0.03); vrMenu.add(closeB.group);
+  closeB.group.position.set(-0.2,-0.615,0.03); vrMenu.add(closeB.group);
   const resetB=makePokeButton('RESET',0.34,0.12,0x2f2440,()=>{ S=Object.assign({},DEFAULTS); onSettingsChanged(); },{gentle:true,fontSize:52,enabled:()=>game.menuOpen});
-  resetB.group.position.set(0.2,-0.58,0.03); vrMenu.add(resetB.group);
+  resetB.group.position.set(0.2,-0.615,0.03); vrMenu.add(resetB.group);
 }
 function refreshVRMenuValues(){
   for (const f of menuValueFaces){
@@ -1825,6 +1896,7 @@ function syncPCSettings(){ pcSyncs.forEach(f=>f()); }
 function onSettingsChanged(){
   game.playerHp=Math.min(game.playerHp,S.maxHp);
   renderer.shadowMap.enabled=S.shadows;
+  applyHeightScale();
   applyAudioSettings();
   syncPCSettings(); refreshVRMenuValues(); updateHud(); saveAll();
 }
@@ -1849,7 +1921,10 @@ renderer.setAnimationLoop(function(time){
   lastT=t;
   if (!game.running){ renderer.render(scene,camera); return; }
 
-  if (renderer.xr.isPresenting) updateVRMovement(dt);
+  if (renderer.xr.isPresenting){
+    if (calib.active) updateCalibration(dt);
+    else updateVRMovement(dt);
+  }
   else if (pcMode) updatePCMovement(dt);
 
   game.hitCd[0]=Math.max(0,game.hitCd[0]-dt);
@@ -1904,6 +1979,7 @@ function startCommon(){
 document.getElementById('btnPC').addEventListener('click', ()=>{
   audio();
   pcMode=true; game.vr=false;
+  rig.scale.setScalar(1); pScale=1;
   pcGloves.forEach(g=>g.visible=true);
   hands.forEach(h=>{ h.glove.visible=false; });
   rig.position.set(0,0,6.8);
@@ -1936,8 +2012,11 @@ btnVRel.addEventListener('click', ()=>{
     hands.forEach(h=>{ h.glove.visible=true; h.inited=false; });
     rig.position.set(0,0,6.8); rig.rotation.y=0; vel.set(0,0,0);
     startCommon();
+    startCalibration();
     session.addEventListener('end', ()=>{
       game.running=false; game.vr=false;
+      rig.scale.setScalar(1); pScale=1;
+      calib.active=false; calibPanel.visible=false;
       stopMusic(); stopCrowd();
       overlay.style.display='flex'; hud.style.display='none';
     });
