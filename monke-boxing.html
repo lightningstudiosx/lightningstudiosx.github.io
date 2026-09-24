@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MONKE BOXING</title>
+<title>MONKE SPORTS</title>
 <style>
   :root { box-sizing: border-box; }
   html, body { margin:0; padding:0; height:100%; background:#0d0a12; overflow:hidden; }
@@ -73,8 +73,8 @@
 <body>
 
 <div id="overlay">
-  <h1>MONKE<span>BOXING</span></h1>
-  <p class="tag">Push off the floor, walls and crates with your hands to move — then swing. In the gym: a fight console, a practice corner with dummies, a cosmetics corner, and an 8-monke tournament. Entering VR auto-sizes the game to your height. Press <b>Y</b> (or the menu button) in VR for settings.</p>
+  <h1>MONKE<span>SPORTS</span></h1>
+  <p class="tag">Push off the floor, walls and crates with your hands to move — then compete. The <b>gym</b> has fights, dummies, cosmetics and an 8-monke tournament. Poke the glowing <b>TRACK &amp; FIELD</b> arch to travel to the stadium: sprint, hurdles, long jump, high jump, shot, discus and javelin — all live, plus a full 7-event <b>TRACK MEET</b>. On PC press <b>E</b> to grab throws. Entering VR auto-sizes the game to your height; press <b>Y</b> for settings.</p>
   <div>
     <button class="btn" id="btnVR">Enter VR</button>
     <button class="btn alt" id="btnPC">Play on PC (fullscreen)</button>
@@ -90,7 +90,7 @@
 <div id="bigMsg"></div>
 <div id="subMsg"></div>
 <div id="hurt"></div>
-<div id="pcTips">WASD move · mouse look · L/R click punch · hold Q guard · space jump · Esc settings · walk up and click the consoles</div>
+<div id="pcTips">WASD move · mouse look · L/R click punch · hold Q guard · space jump · E grab/drop throws · hold click to charge a throw · Esc settings</div>
 
 <div id="settingsPanel">
   <div id="settingsCard">
@@ -121,7 +121,7 @@ const DEFAULTS = {
   sound:true, music:true, haptics:true, crowd:true, shadows:true, lefty:false
 };
 let S = Object.assign({}, DEFAULTS);
-let unlocks = { belt:false };
+let unlocks = { belt:false, medal:false };
 let equipped = [];   // cosmetic ids, in equip order
 try {
   const sv = JSON.parse(localStorage.getItem('monke2_settings')); if (sv && typeof sv==='object') S = Object.assign({}, DEFAULTS, sv);
@@ -238,7 +238,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x110c18);
 scene.fog = new THREE.Fog(0x110c18, 20, 46);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.05, 80);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.05, 320);
 const rig = new THREE.Group(); rig.add(camera); scene.add(rig);
 rig.position.set(0, 0, 6.5);
 
@@ -250,7 +250,7 @@ renderer.shadowMap.enabled = S.shadows;
 document.body.appendChild(renderer.domElement);
 addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
-scene.add(new THREE.HemisphereLight(0xbfa8e8, 0x1c1220, 0.75));
+const gymHemi = new THREE.HemisphereLight(0xbfa8e8, 0x1c1220, 0.75); scene.add(gymHemi);
 const keyLight = new THREE.SpotLight(0xffe9c0, 1.2, 40, Math.PI/3.2, 0.45);
 keyLight.position.set(0, 9, 2); keyLight.castShadow = S.shadows; keyLight.shadow.mapSize.set(1024,1024);
 scene.add(keyLight);
@@ -308,8 +308,10 @@ function ringTopTexture(){
    ARENA
 ============================================================ */
 const ARENA = 11, WALL_H = 6.5;
-const colliders = [];   // AABBs you can grab / stand on
-function addBoxCollider(x,y,z,sx,sy,sz){ colliders.push({min:new THREE.Vector3(x-sx/2,y,z-sz/2), max:new THREE.Vector3(x+sx/2,y+sy,z+sz/2)}); }
+const colliders = [];   // AABBs you can grab / stand on (gym)
+const collidersField = [];   // stadium colliders
+let activeCols = colliders;  // swapped when you travel
+function addBoxCollider(x,y,z,sx,sy,sz,arr){ (arr||colliders).push({min:new THREE.Vector3(x-sx/2,y,z-sz/2), max:new THREE.Vector3(x+sx/2,y+sy,z+sz/2)}); }
 
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2, ARENA*2),
   new THREE.MeshStandardMaterial({ map:floorTexture(), roughness:0.92 }));
@@ -527,12 +529,12 @@ const btnEnd = makePokeButton('END FIGHT', 0.72, 0.3, 0x2f2440, ()=>endFight(tru
 [btnQuick, btnTourney, btnEnd].forEach((b,i)=>{
   b.group.position.set(-0.8+i*0.8, 0.95, 0.18); b.group.rotation.x = -0.35; consoleGrp.add(b.group);
 });
-consoleGrp.position.set(0, 0, 5.4);   // spawn is at z≈6.8 looking toward the ring, so the console front (+z) faces the player
+consoleGrp.position.set(-2.1, 0, 4.6); consoleGrp.rotation.y = 0.5;   // hub: fight console left of spawn, angled at you
 scene.add(consoleGrp);
-addBoxCollider(0,0,5.4, 2.4,1.0,0.5);
+addBoxCollider(-2.1,0,4.6, 2.6,1.0,1.5);
 const hintSign = new THREE.Mesh(new THREE.PlaneGeometry(2.2,0.42),
   new THREE.MeshBasicMaterial({ map:textTexture([{t:'punch a button · Y = settings', size:44, color:'#c9b8d8'}],512,96,{bg:'#0d0a12'}) }));
-hintSign.position.set(0, 0.22, 5.9); hintSign.rotation.x = -0.35; scene.add(hintSign);
+hintSign.position.set(0, 0.22, 0.55); hintSign.rotation.x = -0.35; consoleGrp.add(hintSign);
 
 /* ============================================================
    GLOVES / HANDS
@@ -689,6 +691,7 @@ const COSMETICS = [
   { id:'horns',    name:'Horns',          fx:'menace' },
   { id:'shades',   name:'Cool Shades',    fx:'deal with it' },
   { id:'belt',     name:'Champ Belt',     fx:'win the tournament', locked:()=>!unlocks.belt },
+  { id:'medal',    name:'Gold Medal',     fx:'win the track meet', locked:()=>!unlocks.medal },
 ];
 function isEquipped(id){ return equipped.indexOf(id) >= 0; }
 function playerStats(){
@@ -772,7 +775,7 @@ function buildBelt(){
   plate.rotation.x=Math.PI/2; plate.position.set(0,0,0.26);
   g.add(strap); g.add(plate); return g;
 }
-const HEAD_ACC = { crown:buildCrown, halo:buildHalo, horns:buildHorns, shades:buildShades, helmet:buildHelmet };
+const HEAD_ACC = { crown:buildCrown, halo:buildHalo, horns:buildHorns, shades:buildShades, helmet:buildHelmet, medal:()=>buildMedal() };
 
 /* ============================================================
    MONKE BUILDER
@@ -901,7 +904,7 @@ const pedestals = [];
     const ped = { c, icon, ringSel, lockBar, x, z };
     pedestals.push(ped);
     const hotspot = makePokeButton('◈', 0.4, 0.4, 0x3d2f52, ()=>{
-      if (c.locked && c.locked()){ showSub('Win the tournament to unlock the belt'); rattle(); return; }
+      if (c.locked && c.locked()){ showSub(c.id==='medal' ? 'Win GOLD at the track meet to unlock the medal' : 'Win the tournament to unlock the belt'); rattle(); return; }
       const idx = equipped.indexOf(c.id);
       if (idx>=0) equipped.splice(idx,1); else equipped.push(c.id);
       ringSel.visible = isEquipped(c.id);
@@ -1129,6 +1132,7 @@ const game = {
   reviveUsed:0,
   menuOpen:false,
   preFight:null,          // {t} countdown before a fight goes live
+  world:'gym',            // 'gym' | 'field'
   botStrafeDir:1, botStrafeT:1, botDodgeT:0, botDodgeCd:0, botDodgeDir:null, botGuardT:0,
 };
 const bigMsg = document.getElementById('bigMsg');
@@ -1419,8 +1423,9 @@ confPts.visible=false; confPts.frustumCulled=false; scene.add(confPts);
 let confT = 0;
 function confettiBurst(){
   const cols=[[1,0.36,0.24],[1,0.81,0.3],[0.35,0.79,0.37],[0.54,0.3,0.85],[0.4,0.55,1]];
+  const cw=new THREE.Vector3(); camera.getWorldPosition(cw);
   for (let i=0;i<CONF_N;i++){
-    confPos[i*3]=(Math.random()*4-2); confPos[i*3+1]=5+Math.random()*1.2; confPos[i*3+2]=(Math.random()*4-2);
+    confPos[i*3]=cw.x+(Math.random()*4-2); confPos[i*3+1]=cw.y+2.5+Math.random()*1.2; confPos[i*3+2]=cw.z+(Math.random()*4-2);
     confVel[i*3]=(Math.random()-0.5)*1.4; confVel[i*3+1]=-(0.5+Math.random()*0.8); confVel[i*3+2]=(Math.random()-0.5)*1.4;
     const c=cols[(Math.random()*cols.length)|0];
     confCol[i*3]=c[0]; confCol[i*3+1]=c[1]; confCol[i*3+2]=c[2];
@@ -1450,12 +1455,14 @@ let grounded = true;
 function surfaceContact(p, r){
   let hit = null;
   if (p.y - r < 0) hit = new THREE.Vector3(0, -(p.y-r), 0);
-  const lim = ARENA - 0.02;
-  if (p.x - r < -lim) hit = new THREE.Vector3(-lim-(p.x-r),0,0);
-  if (p.x + r >  lim) hit = new THREE.Vector3(lim-(p.x+r),0,0);
-  if (p.z - r < -lim) hit = new THREE.Vector3(0,0,-lim-(p.z-r));
-  if (p.z + r >  lim) hit = new THREE.Vector3(0,0,lim-(p.z+r));
-  for (const b of colliders){
+  if (game.world==='gym'){
+    const lim = ARENA - 0.02;
+    if (p.x - r < -lim) hit = new THREE.Vector3(-lim-(p.x-r),0,0);
+    if (p.x + r >  lim) hit = new THREE.Vector3(lim-(p.x+r),0,0);
+    if (p.z - r < -lim) hit = new THREE.Vector3(0,0,-lim-(p.z-r));
+    if (p.z + r >  lim) hit = new THREE.Vector3(0,0,lim-(p.z+r));
+  }
+  for (const b of activeCols){
     const cx=Math.max(b.min.x,Math.min(p.x,b.max.x));
     const cy=Math.max(b.min.y,Math.min(p.y,b.max.y));
     const cz=Math.max(b.min.z,Math.min(p.z,b.max.z));
@@ -1469,7 +1476,7 @@ function surfaceContact(p, r){
 }
 function groundHeightAt(x,z){
   let h=0;
-  for (const b of colliders){
+  for (const b of activeCols){
     if (x>b.min.x-0.15 && x<b.max.x+0.15 && z>b.min.z-0.15 && z<b.max.z+0.15) h=Math.max(h,b.max.y);
   }
   return h;
@@ -1523,9 +1530,7 @@ function updateVRMovement(dt){
     rig.position.y=fy; vel.y=0; grounded=true;
     if (!touching){ vel.x*=(1-Math.min(1,dt*2.5)); vel.z*=(1-Math.min(1,dt*2.5)); }
   } else grounded=(rig.position.y-fy)<0.02;
-  rig.position.x=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.x));
-  rig.position.z=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.z));
-  if (rig.position.y > WALL_H-1.8){ rig.position.y=WALL_H-1.8; vel.y=Math.min(vel.y,0); }
+  clampRigToWorld();
 
   /* thumbstick turn + menu button */
   const session = renderer.xr.getSession && renderer.xr.getSession();
@@ -1576,6 +1581,7 @@ document.addEventListener('mousemove', e=>{
 renderer.domElement.addEventListener('mousedown', e=>{
   if (!pcMode || !game.running) return;
   if (document.pointerLockElement!==renderer.domElement){ renderer.domElement.requestPointerLock(); return; }
+  if (pcHeld>=0){ pcCharge=0; return; }
   const i = e.button===2 ? 1 : 0;
   if (pcPunch[i].t<=0) pcPunch[i].t=1;
 });
@@ -1599,8 +1605,7 @@ function updatePCMovement(dt){
   rig.position.addScaledVector(vel,dt);
   const gh=groundHeightAt(rig.position.x,rig.position.z);
   if (rig.position.y<=gh){ rig.position.y=gh; vel.y=0; grounded=true; }
-  rig.position.x=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.x));
-  rig.position.z=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.z));
+  clampRigToWorld();
   for (let i=0;i<2;i++){
     const p=pcPunch[i];
     if (p.t>0){
@@ -1855,6 +1860,937 @@ function clampBotToRing(){
   return hit;
 }
 
+
+/* ============================================================
+   TRACK & FIELD — the second sport. A full stadium 400m north
+   of the gym: oval track, jumps, throws, stands, jumbotron.
+============================================================ */
+const FZ = -400;                       // stadium centre z (far enough that each world is culled from the other)
+const FB = { halfX:74, halfZ:53 };     // stadium bounds
+const fieldGrp = new THREE.Group(); fieldGrp.visible=false; scene.add(fieldGrp);
+const gymLights = [gymHemi, keyLight, rim1, rim2];
+const GYM_BG = 0x110c18;
+
+/* --- the whole ground (grass + track + runways + sectors) painted into one big canvas --- */
+function paintStadium(){
+  const W=2048, H=1448, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  const sx=W/150, sy=H/106;
+  const cu=v=>(v+75)*sx, cv=lz=>(lz+53)*sy, m=v=>v*sx;
+  const label=(wx,lz,txt,size,col)=>{ x.save(); x.translate(cu(wx),cv(lz)); x.rotate(Math.PI);
+    x.fillStyle=col||'#fff'; x.font='700 '+size+'px Trebuchet MS, sans-serif';
+    x.textAlign='center'; x.textBaseline='middle'; x.fillText(txt,0,0); x.restore(); };
+  const stripes=()=>{ for(let gx=-75;gx<75;gx+=6){ if(((gx/6)|0)%2===0){ x.fillStyle='rgba(255,255,255,0.05)'; x.fillRect(cu(gx),0,m(6),H); } } };
+  x.fillStyle='#4c8a3c'; x.fillRect(0,0,W,H);
+  stripes();
+  const R0=16, R1=24.4;
+  const oval=(r)=>{ x.beginPath(); x.rect(cu(-30),cv(-r),m(60),m(2*r));
+    x.arc(cu(-30),cv(0),m(r),0,Math.PI*2); x.arc(cu(30),cv(0),m(r),0,Math.PI*2); x.fill(); };
+  x.fillStyle='#bd4f35'; oval(R1);
+  x.fillStyle='#4c8a3c'; oval(R0);
+  x.save(); x.beginPath(); x.rect(cu(-30),cv(-R0),m(60),m(2*R0));
+  x.arc(cu(-30),cv(0),m(R0),0,Math.PI*2); x.arc(cu(30),cv(0),m(R0),0,Math.PI*2); x.clip();
+  stripes(); x.restore();
+  x.strokeStyle='rgba(255,255,255,0.9)';
+  for(let li=0;li<=6;li++){
+    const r=R0+li*1.4; x.lineWidth=li===0?4:2;
+    x.beginPath(); x.moveTo(cu(-30),cv(-r)); x.lineTo(cu(30),cv(-r)); x.stroke();
+    x.beginPath(); x.moveTo(cu(-30),cv(r)); x.lineTo(cu(30),cv(r)); x.stroke();
+    x.beginPath(); x.arc(cu(-30),cv(0),m(r),Math.PI/2,Math.PI*1.5); x.stroke();
+    x.beginPath(); x.arc(cu(30),cv(0),m(r),-Math.PI/2,Math.PI/2); x.stroke();
+  }
+  x.lineWidth=5; x.strokeStyle='#fff';
+  x.beginPath(); x.moveTo(cu(-25),cv(-R1)); x.lineTo(cu(-25),cv(-R0)); x.stroke();
+  x.beginPath(); x.moveTo(cu(25),cv(-R1)); x.lineTo(cu(25),cv(-R0)); x.stroke();
+  x.lineWidth=2; x.beginPath(); x.moveTo(cu(25.5),cv(-R1)); x.lineTo(cu(25.5),cv(-R0)); x.stroke();
+  for(let li=0;li<6;li++) label(-26.8, -(R0+0.7+li*1.4), String(li+1), 26);
+  label(0,-25.8,'MONKE FIELD 50m DASH  →',24,'rgba(255,255,255,0.75)');
+  /* long jump runway + board + pit */
+  x.fillStyle='#c8a262'; x.fillRect(cu(-24),cv(-11.75),m(20.5),m(1.5));
+  x.strokeStyle='#fff'; x.lineWidth=2; x.strokeRect(cu(-24),cv(-11.75),m(20.5),m(1.5));
+  x.fillStyle='#fff'; x.fillRect(cu(-4.25),cv(-11.75),m(0.5),m(1.5));
+  x.fillStyle='#d94a3a'; x.fillRect(cu(-3.75),cv(-11.75),m(0.22),m(1.5));
+  x.fillStyle='#e7d093'; x.fillRect(cu(-3.5),cv(-12.4),m(12),m(2.8));
+  x.strokeStyle='#fff'; x.strokeRect(cu(-3.5),cv(-12.4),m(12),m(2.8));
+  x.strokeStyle='rgba(160,130,70,0.5)'; x.lineWidth=1;
+  for(let rk=0;rk<10;rk++){ x.beginPath(); x.moveTo(cu(-3.2+rk*1.2),cv(-12.2)); x.lineTo(cu(-3.2+rk*1.2),cv(-9.8)); x.stroke(); }
+  for(let dd=2;dd<=10;dd+=2) label(-4+dd,-13.1,dd+'m',18,'#eef');
+  /* javelin runway + arc + sector */
+  x.fillStyle='#c8a262'; x.fillRect(cu(-30),cv(-1.5),m(16),m(3));
+  x.strokeStyle='#fff'; x.lineWidth=2; x.strokeRect(cu(-30),cv(-1.5),m(16),m(3));
+  x.lineWidth=4; x.beginPath(); x.arc(cu(-18),cv(0),m(4),-0.64,0.64); x.stroke();
+  x.lineWidth=2;
+  [0.3,-0.3].forEach(a=>{ x.beginPath(); x.moveTo(cu(-18+4*Math.cos(a)),cv(4*Math.sin(a)));
+    x.lineTo(cu(-18+50*Math.cos(a)),cv(50*Math.sin(a))); x.stroke(); });
+  for(let d=10;d<=35;d+=5){ x.lineWidth=1.5; x.beginPath(); x.arc(cu(-18),cv(0),m(4+d),-0.3,0.3); x.stroke(); label(-18+4+d,1.7,d+'m',20,'#fff'); }
+  /* shot + discus circles, sectors */
+  const circle=(cxw,czl,r)=>{ x.fillStyle='#cfcabf'; x.beginPath(); x.arc(cu(cxw),cv(czl),m(r),0,7); x.fill();
+    x.strokeStyle='#fff'; x.lineWidth=3; x.beginPath(); x.arc(cu(cxw),cv(czl),m(r),0,7); x.stroke(); };
+  circle(-38,-6,1.07);
+  x.lineWidth=5; x.beginPath(); x.arc(cu(-38),cv(-6),m(1.25),-0.6,0.6); x.stroke();
+  [0.3,-0.3].forEach(a=>{ x.lineWidth=2; x.beginPath(); x.moveTo(cu(-38+1.07*Math.cos(a)),cv(-6+1.07*Math.sin(a)));
+    x.lineTo(cu(-38+22*Math.cos(a)),cv(-6+22*Math.sin(a))); x.stroke(); });
+  for(let d=4;d<=18;d+=2){ x.lineWidth=1.5; x.beginPath(); x.arc(cu(-38),cv(-6),m(d),-0.3,0.3); x.stroke(); if(d%4===0) label(-38+d,-4.4,d+'m',18,'#fff'); }
+  circle(-38,6,1.25);
+  [0.3,-0.3].forEach(a=>{ x.lineWidth=2; x.beginPath(); x.moveTo(cu(-38+1.25*Math.cos(a)),cv(6+1.25*Math.sin(a)));
+    x.lineTo(cu(-38+30*Math.cos(a)),cv(6+30*Math.sin(a))); x.stroke(); });
+  for(let d=5;d<=30;d+=5){ x.lineWidth=1.5; x.beginPath(); x.arc(cu(-38),cv(6),m(d),-0.3,0.3); x.stroke(); label(-38+d,7.7,d+'m',18,'#fff'); }
+  /* high jump apron + bar line */
+  x.fillStyle='rgba(120,160,220,0.22)'; x.beginPath(); x.arc(cu(20),cv(-4.5),m(7),Math.PI/2,Math.PI*1.5); x.fill();
+  x.strokeStyle='#fff'; x.lineWidth=3; x.beginPath(); x.moveTo(cu(20),cv(-6.5)); x.lineTo(cu(20),cv(-2.5)); x.stroke();
+  x.save(); x.translate(cu(8),cv(6)); x.rotate(Math.PI); x.globalAlpha=0.15; x.fillStyle='#fff';
+  x.font='900 110px Trebuchet MS, sans-serif'; x.textAlign='center'; x.fillText('MONKE FIELD',0,0); x.restore();
+  return new THREE.CanvasTexture(c);
+}
+const fieldFloor = new THREE.Mesh(new THREE.PlaneGeometry(150,106),
+  new THREE.MeshStandardMaterial({ map:paintStadium(), roughness:0.95 }));
+fieldFloor.rotation.x=-Math.PI/2; fieldFloor.position.set(0,0,FZ);
+fieldFloor.material.map.anisotropy=4; fieldGrp.add(fieldFloor);
+
+/* --- stands with an instanced crowd, climbable like bleachers --- */
+const fStepMat = new THREE.MeshStandardMaterial({ color:0x35424f, roughness:0.85 });
+const fCrowdBodies = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34,0.42,0.26),
+  new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.9 }), 540);
+const fCrowdHeads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.14,8,6),
+  new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.85 }), 540);
+fCrowdBodies.frustumCulled=false; fCrowdHeads.frustumCulled=false;
+let fci=0;
+{
+  const dummy=new THREE.Object3D();
+  const bodyCols=[0xd8503c,0xf5c542,0x59c95f,0x8a4dd8,0x4d8ad8,0xe8eef2,0xd87ab8];
+  const skinCols=[0x6b4a2c,0x8a6a4c,0x3a2c22,0x9c7250];
+  function buildStand(frontLz, dir){
+    for (let k=0;k<4;k++){
+      const hgt=0.55+k*0.62;
+      const step=new THREE.Mesh(new THREE.BoxGeometry(80,hgt,1.75), fStepMat);
+      step.position.set(0, hgt/2, FZ+frontLz+dir*k*1.75); fieldGrp.add(step);
+      addBoxCollider(0,0,FZ+frontLz+dir*k*1.75,80,hgt,1.75,collidersField);
+      for (let s=-38.5;s<=38.5;s+=1.3){
+        if (Math.random()>0.8 || fci>=538) continue;
+        const bx=s+(Math.random()-0.5)*0.3, bz=FZ+frontLz+dir*k*1.75+(Math.random()-0.5)*0.5;
+        dummy.position.set(bx, hgt+0.21, bz); dummy.rotation.y=dir>0?Math.PI:0; dummy.updateMatrix();
+        fCrowdBodies.setMatrixAt(fci, dummy.matrix);
+        fCrowdBodies.setColorAt(fci, new THREE.Color(bodyCols[(Math.random()*bodyCols.length)|0]));
+        dummy.position.y=hgt+0.54; dummy.updateMatrix();
+        fCrowdHeads.setMatrixAt(fci, dummy.matrix);
+        fCrowdHeads.setColorAt(fci, new THREE.Color(skinCols[(Math.random()*skinCols.length)|0]));
+        fci++;
+      }
+    }
+  }
+  buildStand(-27,-1);
+  buildStand(27,1);
+  fCrowdBodies.count=fci; fCrowdHeads.count=fci;
+  fieldGrp.add(fCrowdBodies); fieldGrp.add(fCrowdHeads);
+  /* flags on the back rows */
+  const flagCols=[0xff5a3c,0xffcf4d,0x59ff8a,0x4d8ad8,0xd87ab8];
+  for (let fx2=-36; fx2<=36; fx2+=9){
+    [[-32.9],[32.9]].forEach(([flz])=>{
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.4,6), fStepMat);
+      pole.position.set(fx2, 2.41+0.7, FZ+flz); fieldGrp.add(pole);
+      const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.4),
+        new THREE.MeshBasicMaterial({ color:flagCols[(Math.abs(fx2/9)|0)%flagCols.length], side:THREE.DoubleSide }));
+      flag.position.set(fx2+0.33, 2.41+1.2, FZ+flz); fieldGrp.add(flag);
+    });
+  }
+}
+/* jumbotron */
+const scrC=document.createElement('canvas'); scrC.width=640; scrC.height=340;
+const scrX=scrC.getContext('2d');
+const scrTex=new THREE.CanvasTexture(scrC);
+{
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(13.8,7.6,0.5), new THREE.MeshStandardMaterial({color:0x11161f,roughness:0.6}));
+  frame.position.set(0,7.8,FZ+31.9); fieldGrp.add(frame);
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(13,6.9), new THREE.MeshBasicMaterial({ map:scrTex }));
+  scr.position.set(0,7.8,FZ+31.6); scr.rotation.y=Math.PI; fieldGrp.add(scr);
+  [-5.5,5.5].forEach(px=>{ const py=new THREE.Mesh(new THREE.BoxGeometry(0.5,4.2,0.5), fStepMat);
+    py.position.set(px,2.1,FZ+31.9); fieldGrp.add(py); });
+}
+function scrDraw(lines){
+  scrX.fillStyle='#0b0f16'; scrX.fillRect(0,0,640,340);
+  scrX.strokeStyle='#2a3a52'; scrX.lineWidth=8; scrX.strokeRect(4,4,632,332);
+  scrX.textAlign='center';
+  lines.forEach(L=>{ scrX.fillStyle=L.color||'#ffcf4d'; scrX.font=(L.w||700)+' '+L.size+'px Trebuchet MS, sans-serif'; scrX.fillText(L.t,320,L.y); });
+  scrTex.needsUpdate=true;
+}
+/* sky bits + stadium light */
+{
+  const cloudMat=new THREE.MeshBasicMaterial({ color:0xffffff });
+  for (let i=0;i<6;i++){
+    const cg2=new THREE.Group();
+    for (let b=0;b<3;b++){
+      const s=new THREE.Mesh(new THREE.SphereGeometry(2.6+Math.random()*2,10,8), cloudMat);
+      s.position.set(b*3.2-3.2+Math.random(), Math.random()*0.8, Math.random()*1.5);
+      s.scale.y=0.55; cg2.add(s);
+    }
+    cg2.position.set(Math.random()*120-60, 26+Math.random()*10, FZ+Math.random()*90-45);
+    fieldGrp.add(cg2);
+  }
+  const sun=new THREE.Mesh(new THREE.CircleGeometry(5.5,24), new THREE.MeshBasicMaterial({ color:0xfff3c9 }));
+  sun.position.set(85,55,FZ-60); sun.lookAt(0,10,FZ); fieldGrp.add(sun);
+  const fHemi=new THREE.HemisphereLight(0xcfe6ff, 0x3f7a3a, 1.05); fieldGrp.add(fHemi);
+  const fSun=new THREE.DirectionalLight(0xfff1d6, 0.85);
+  fSun.position.set(60,90,FZ-30); fieldGrp.add(fSun);
+  fSun.target.position.set(0,0,FZ); fieldGrp.add(fSun.target);
+}
+/* --- high jump station --- */
+const hj={ h:1.05, up:true, fallT:-1, pend:0, prevX:0 };
+let hjBar=null, hjLabel=null;
+function labelSprite(){
+  const cn=document.createElement('canvas'); cn.width=256; cn.height=96;
+  const cx2=cn.getContext('2d');
+  const tx=new THREE.CanvasTexture(cn);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tx, transparent:true, depthWrite:false }));
+  spr.scale.set(1.2,0.45,1);
+  spr.userData.set=(t)=>{
+    cx2.clearRect(0,0,256,96);
+    cx2.fillStyle='rgba(12,10,18,0.85)'; cx2.fillRect(6,10,244,76);
+    cx2.strokeStyle='#3d2f52'; cx2.lineWidth=4; cx2.strokeRect(6,10,244,76);
+    cx2.fillStyle='#ffcf4d'; cx2.font='700 44px Trebuchet MS, sans-serif';
+    cx2.textAlign='center'; cx2.textBaseline='middle'; cx2.fillText(t,128,48);
+    tx.needsUpdate=true;
+  };
+  return spr;
+}
+{
+  const upMat=new THREE.MeshStandardMaterial({ color:0xdde3ea, metalness:0.4, roughness:0.4 });
+  [-6.5,-2.5].forEach(z=>{
+    const u=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,2.3,10), upMat);
+    u.position.set(20,1.15,FZ+z); fieldGrp.add(u);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,0.5), upMat);
+    b.position.set(20,0.04,FZ+z); fieldGrp.add(b);
+  });
+  hjBar=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,4.05,10),
+    new THREE.MeshStandardMaterial({ color:0xf2f2f2, roughness:0.5 }));
+  hjBar.rotation.x=Math.PI/2; hjBar.position.set(20,1.05,FZ-4.5); fieldGrp.add(hjBar);
+  const mat=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.55,4.6),
+    new THREE.MeshStandardMaterial({ color:0x2f5fae, roughness:0.9 }));
+  mat.position.set(22.2,0.275,FZ-4.5); fieldGrp.add(mat);
+  addBoxCollider(22.2,0,FZ-4.5,3.4,0.55,4.6,collidersField);
+  const post=new THREE.Mesh(new THREE.BoxGeometry(0.14,1.1,0.14), upMat);
+  post.position.set(20,0.55,FZ-7.7); fieldGrp.add(post);
+  const hgrp=new THREE.Group(); hgrp.position.set(20,0,FZ-7.7); hgrp.rotation.y=-Math.PI/2; fieldGrp.add(hgrp);
+  const bm=makePokeButton('−',0.16,0.16,0x6b2430,()=>{ hj.h=Math.max(0.65,Math.round((hj.h-0.05)*100)/100); hjApply(); },{gentle:true,fontSize:100});
+  bm.group.position.set(-0.24,1.15,0.12); hgrp.add(bm.group);
+  const bp=makePokeButton('+',0.16,0.16,0x2c6b3a,()=>{ hj.h=Math.min(2.05,Math.round((hj.h+0.05)*100)/100); hjApply(); },{gentle:true,fontSize:100});
+  bp.group.position.set(0.24,1.15,0.12); hgrp.add(bp.group);
+  hjLabel=labelSprite(); hjLabel.position.set(20,1.8,FZ-7.7); fieldGrp.add(hjLabel);
+}
+function hjApply(){
+  hjBar.position.y=hj.h; hjBar.position.x=20; hjBar.rotation.z=0;
+  hj.up=true; hj.fallT=-1; hj.pend=0;
+  hjLabel.userData.set(hj.h.toFixed(2)+' m');
+}
+/* --- hurdles --- */
+const hurdles=[];
+{
+  const hMat=new THREE.MeshStandardMaterial({ color:0xe8eef2, roughness:0.5 });
+  const barMat=new THREE.MeshStandardMaterial({ color:0xd8503c, roughness:0.6 });
+  [-13,-5,3,11,19].forEach(hx=>{
+    const grp=new THREE.Group(); grp.position.set(hx,0,FZ-22.3); fieldGrp.add(grp);
+    [-1.85,1.85].forEach(pz=>{
+      const post=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.5,0.05), hMat); post.position.set(0,0.25,pz); grp.add(post);
+      const foot=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.05,0.09), hMat); foot.position.set(0.1,0.025,pz); grp.add(foot);
+    });
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.1,3.85), barMat); bar.position.set(0,0.52,0); grp.add(bar);
+    hurdles.push({ grp, x:hx, up:true, fall:-1 });
+  });
+}
+function resetHurdles(){ for (const h of hurdles){ h.up=true; h.fall=-1; h.grp.rotation.z=0; } }
+/* --- throw implements (grab with grip / E, throw with a swing) --- */
+function mkShot(){ return new THREE.Mesh(new THREE.SphereGeometry(0.095,14,10),
+  new THREE.MeshStandardMaterial({ color:0x4a4f56, metalness:0.8, roughness:0.35 })); }
+function mkDiscus(){
+  const g=new THREE.Group();
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.155,0.03,18),
+    new THREE.MeshStandardMaterial({ color:0xd8a13a, metalness:0.7, roughness:0.35 }));
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.05,12),
+    new THREE.MeshStandardMaterial({ color:0x6b5a2c, metalness:0.5, roughness:0.5 }));
+  g.add(disc); g.add(hub); return g;
+}
+function mkJavelin(){
+  const g=new THREE.Group();
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,1.7,8),
+    new THREE.MeshStandardMaterial({ color:0xe8e2d2, roughness:0.5 }));
+  shaft.rotation.x=Math.PI/2; g.add(shaft);
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(0.03,0.2,8),
+    new THREE.MeshStandardMaterial({ color:0x9aa2ac, metalness:0.8, roughness:0.3 }));
+  tip.rotation.x=Math.PI/2; tip.position.z=0.95; g.add(tip);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.22,8),
+    new THREE.MeshStandardMaterial({ color:0x5a4632, roughness:0.8 }));
+  grip.rotation.x=Math.PI/2; g.add(grip);
+  return g;
+}
+const THROWS=[];
+const THROW_CFG={ shot:{mult:1.15,max:10.5,g:1.0,rest:0.095}, discus:{mult:1.9,max:16,g:0.72,rest:0.05}, javelin:{mult:2.1,max:18,g:0.8,rest:0.5} };
+function addThrow(kind, mesh, x,y,z){
+  mesh.position.set(x,y,z); fieldGrp.add(mesh);
+  THROWS.push({ kind, mesh, home:{ p:new THREE.Vector3(x,y,z), q:mesh.quaternion.clone() },
+    state:'rest', vel:new THREE.Vector3(), t:0, hand:-1, relOK:false });
+}
+function homeThrow(t){
+  t.mesh.position.copy(t.home.p); t.mesh.quaternion.copy(t.home.q);
+  t.state='rest'; t.hand=-1; t.t=0; t.vel.set(0,0,0);
+}
+{
+  const rackMat=new THREE.MeshStandardMaterial({ color:0x5a4632, roughness:0.8 });
+  const rack=(x,z,w,d)=>{ const r=new THREE.Mesh(new THREE.BoxGeometry(w,0.55,d), rackMat);
+    r.position.set(x,0.275,z); fieldGrp.add(r); addBoxCollider(x,0,z,w,0.55,d,collidersField); };
+  rack(-40.6,FZ-7.4,1.4,0.7);
+  rack(-40.6,FZ+7.4,1.4,0.7);
+  rack(-31.6,FZ+2.2,0.7,0.7);
+  addThrow('shot', mkShot(), -40.9,0.65,FZ-7.4);
+  addThrow('shot', mkShot(), -40.3,0.65,FZ-7.4);
+  addThrow('discus', mkDiscus(), -40.9,0.585,FZ+7.4);
+  addThrow('discus', mkDiscus(), -40.3,0.585,FZ+7.7);
+  const j1=mkJavelin(); j1.rotation.set(-1.2,0,0.15);
+  addThrow('javelin', j1, -31.8,0.95,FZ+2.2);
+  const j2=mkJavelin(); j2.rotation.set(-1.2,0,-0.2);
+  addThrow('javelin', j2, -31.4,0.95,FZ+2.2);
+}
+/* landing markers */
+const markers={};
+function moveMarker(kind, pos, txt){
+  let mk=markers[kind];
+  if (!mk){
+    const grp=new THREE.Group();
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.32,10),
+      new THREE.MeshStandardMaterial({ color:kind==='long'?0xe7d093:kind==='shot'?0x9aa2ac:kind==='discus'?0xf5c542:0xffffff, roughness:0.5 }));
+    cone.position.y=0.16; grp.add(cone);
+    const spr=labelSprite(); spr.position.y=0.75; grp.add(spr);
+    fieldGrp.add(grp);
+    mk=markers[kind]={ grp, spr };
+  }
+  mk.grp.position.set(pos.x, 0, pos.z);
+  mk.spr.userData.set(txt);
+  mk.grp.visible=true;
+}
+/* PBs */
+let pbs={};
+try{ const pv=JSON.parse(localStorage.getItem('monke2_pbs')); if (pv && typeof pv==='object') pbs=pv; }catch(e){}
+function savePbs(){ try{ localStorage.setItem('monke2_pbs', JSON.stringify(pbs)); }catch(e){} }
+const RUN_KINDS={ sprint:1, hurdles:1 };
+const KIND_NAME={ sprint:'50m SPRINT', hurdles:'50m HURDLES', long:'LONG JUMP', high:'HIGH JUMP', shot:'SHOT PUT', discus:'DISCUS', javelin:'JAVELIN' };
+function isBetter(kind,a,b){ if (b==null) return true; return RUN_KINDS[kind] ? a<b : a>b; }
+function fmtVal(kind,v){ return RUN_KINDS[kind] ? v.toFixed(2)+'s' : v.toFixed(2)+'m'; }
+/* grab + throw + fly */
+const sqPrev=[false,false];
+let pcHeld=-1, pcCharge=-1;
+function nearestThrow(p, maxD){
+  let best=-1, bd=maxD;
+  for (let i=0;i<THROWS.length;i++){
+    const t=THROWS[i]; if (t.state==='held') continue;
+    const d=t.mesh.position.distanceTo(p);
+    if (d<bd){ bd=d; best=i; }
+  }
+  return best;
+}
+function grabThrow(i, hand){
+  const t=THROWS[i]; t.state='held'; t.hand=hand; t.t=0;
+  click(); if (hand>=0) hapticPulse(hand,0.4,30);
+}
+function releaseThrow(t, v){
+  t.state='fly'; t.hand=-1;
+  const cfg=THROW_CFG[t.kind];
+  t.vel.copy(v).multiplyScalar(cfg.mult);
+  t.vel.y += t.vel.length()*0.1;
+  if (t.vel.length()>cfg.max) t.vel.setLength(cfg.max);
+  const lx=t.mesh.position.x, lz=t.mesh.position.z-FZ;
+  t.relOK = (t.kind==='shot') ? (Math.hypot(lx+38,lz+6)<2.3)
+          : (t.kind==='discus') ? (Math.hypot(lx+38,lz-6)<2.5)
+          : (lx<-13.2 && Math.abs(lz)<2.7);
+  pop(300);
+}
+function landThrow(t){
+  thump(0.4, t.kind==='shot'?90:160);
+  const lx=t.mesh.position.x, lz=t.mesh.position.z-FZ;
+  let d=0;
+  if (t.kind==='shot') d=Math.hypot(lx+38,lz+6)-1.0;
+  else if (t.kind==='discus') d=Math.hypot(lx+38,lz-6)-1.2;
+  else d=Math.hypot(lx+18,lz)-4;
+  d=Math.max(0, Math.round(d*100)/100);
+  moveMarker(t.kind, t.mesh.position, d.toFixed(2)+'m');
+  if (meet && MEET_SEQ[meet.i] && MEET_SEQ[meet.i].kind===t.kind && !t.relOK){
+    showSub('No mark — throw from the '+(t.kind==='javelin'?'runway, behind the arc':'circle')); rattle();
+    return;
+  }
+  fieldResult(t.kind, d);
+}
+function updateThrowables(dt){
+  if (game.vr && game.world==='field' && !game.menuOpen){
+    const ses=renderer.xr.getSession && renderer.xr.getSession();
+    if (ses){
+      for (const src of ses.inputSources){
+        const i = src.handedness==='left' ? 0 : src.handedness==='right' ? 1 : -1;
+        if (i<0) continue;
+        const g=src.gamepad;
+        const sq=!!(g && g.buttons[1] && g.buttons[1].pressed);
+        if (sq && !sqPrev[i]){
+          if (!THROWS.some(t=>t.hand===i && t.state==='held')){
+            const hw=new THREE.Vector3(); hands[i].glove.getWorldPosition(hw);
+            const ni=nearestThrow(hw,0.45); if (ni>=0) grabThrow(ni,i);
+          }
+        }
+        if (!sq && sqPrev[i]){
+          const t=THROWS.find(t=>t.hand===i && t.state==='held');
+          if (t) releaseThrow(t, hands[i].vel);
+        }
+        sqPrev[i]=sq;
+      }
+    }
+  }
+  for (const t of THROWS){
+    if (t.state==='held'){
+      if (t.hand>=0){
+        hands[t.hand].glove.getWorldPosition(t.mesh.position);
+        hands[t.hand].glove.getWorldQuaternion(t.mesh.quaternion);
+      } else {
+        const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+        camera.getWorldPosition(t.mesh.position);
+        t.mesh.position.addScaledVector(dir,0.55); t.mesh.position.y-=0.12;
+        t.mesh.quaternion.copy(camera.quaternion);
+      }
+    } else if (t.state==='fly'){
+      const cfg=THROW_CFG[t.kind];
+      t.vel.y -= 9.8*cfg.g*dt;
+      t.mesh.position.addScaledVector(t.vel,dt);
+      if (t.kind==='discus') t.mesh.rotation.y += 10*dt;
+      if (t.kind==='javelin' && t.vel.lengthSq()>0.4){
+        tmpV2.copy(t.mesh.position).add(t.vel);
+        t.mesh.lookAt(tmpV2);
+      }
+      if (t.mesh.position.y <= cfg.rest && t.vel.y<0){
+        t.mesh.position.y = t.kind==='javelin' ? 0.42 : cfg.rest;
+        t.state='landed'; t.t=0;
+        landThrow(t);
+      }
+      if (Math.abs(t.mesh.position.x)>FB.halfX+4 || Math.abs(t.mesh.position.z-FZ)>FB.halfZ+4) homeThrow(t);
+    } else if (t.state==='landed'){
+      t.t+=dt; if (t.t>5) homeThrow(t);
+    }
+  }
+  if (pcCharge>=0) pcCharge=Math.min(1.2, pcCharge+dt);
+}
+addEventListener('keydown', e=>{
+  if (e.code!=='KeyE' || !pcMode || !game.running || game.world!=='field' || game.menuOpen) return;
+  if (pcHeld>=0){
+    const t=THROWS[pcHeld]; pcHeld=-1; pcCharge=-1;
+    releaseThrow(t, new THREE.Vector3(0,0.4,0));
+  } else {
+    const cw=new THREE.Vector3(); camera.getWorldPosition(cw);
+    const ni=nearestThrow(cw,2.6);
+    if (ni>=0){ pcHeld=ni; grabThrow(ni,-1); showSub('Hold click to charge, release to throw — E to drop'); }
+  }
+});
+addEventListener('mouseup', ()=>{
+  if (pcHeld<0 || pcCharge<0) return;
+  const t=THROWS[pcHeld]; pcHeld=-1;
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+  dir.y+=0.42; dir.normalize();
+  const base = t.kind==='shot'?4.5 : t.kind==='discus'?5.5 : 6;
+  const per  = t.kind==='shot'?5.5 : t.kind==='discus'?8 : 9;
+  releaseThrow(t, dir.multiplyScalar(base+per*Math.min(1,pcCharge)));
+  pcCharge=-1;
+});
+/* --- fade transition + travelling between worlds --- */
+const fadeBall=new THREE.Mesh(new THREE.SphereGeometry(0.45,16,10),
+  new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide, transparent:true, opacity:0, depthTest:false, depthWrite:false }));
+fadeBall.renderOrder=990; fadeBall.frustumCulled=false; camera.add(fadeBall);
+const fade={ phase:0, t:0, cb:null };
+function startFade(cb){ if (fade.phase) return false; fade.phase=1; fade.t=0; fade.cb=cb; return true; }
+function updateFade(dt){
+  if (!fade.phase) return;
+  fade.t+=dt;
+  if (fade.phase===1){
+    fadeBall.material.opacity=Math.min(1,fade.t/0.35);
+    if (fade.t>=0.35){ fade.phase=2; fade.t=0; const cb=fade.cb; fade.cb=null; if (cb) cb(); }
+  } else {
+    fadeBall.material.opacity=Math.max(0,1-fade.t/0.4);
+    if (fade.t>=0.4) fade.phase=0;
+  }
+}
+function placeRigAtSpawn(){
+  vel.set(0,0,0);
+  const gy = game.vr ? HEIGHT_OFF : 0;
+  if (game.world==='field'){ rig.position.set(-30, gy, FZ-28); setFacing(Math.PI); }
+  else { rig.position.set(0, gy, 6.8); setFacing(0); }
+}
+function setWorld(w){
+  game.world=w;
+  const f = w==='field';
+  fieldGrp.visible=f;
+  gymLights.forEach(l=>l.visible=!f);
+  activeCols = f ? collidersField : colliders;
+  scene.background.setHex(f?0x8ec8ee:GYM_BG);
+  scene.fog.color.setHex(f?0x9fd0ef:GYM_BG);
+  scene.fog.near=f?100:20; scene.fog.far=f?310:46;
+  placeRigAtSpawn();
+  document.getElementById('roundTag').textContent = f?'MONKE FIELD':'FREE ROAM';
+  if (f){ showMsg('MONKE FIELD'); showSub('Everything is live — cross a line, grab a throw, clear the bar'); scrIdle(); }
+  else { showMsg('MONKE GYM'); showSub('Punch the console to pick a fight'); }
+}
+function travelTo(w){
+  if (game.world===w || fade.phase) return;
+  if (meet) cancelMeet(true);
+  if (game.mode!=='free') endFight(false);
+  for (const t of THROWS) if (t.state==='held') homeThrow(t);
+  pcHeld=-1; pcCharge=-1;
+  bell();
+  startFade(()=>setWorld(w));
+}
+function clampRigToWorld(){
+  if (game.world==='gym'){
+    rig.position.x=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.x));
+    rig.position.z=Math.max(-ARENA+PLAYER_R,Math.min(ARENA-PLAYER_R,rig.position.z));
+    if (rig.position.y > WALL_H-1.8){ rig.position.y=WALL_H-1.8; vel.y=Math.min(vel.y,0); }
+  } else {
+    rig.position.x=Math.max(-FB.halfX,Math.min(FB.halfX,rig.position.x));
+    rig.position.z=Math.max(FZ-FB.halfZ,Math.min(FZ+FB.halfZ,rig.position.z));
+    if (rig.position.y > 26){ rig.position.y=26; vel.y=Math.min(vel.y,0); }
+  }
+}
+/* --- jumbotron modes --- */
+let scrMode='idle', scrT=0, scrLive=0, scrIdleFlip=false;
+function scrIdle(){
+  scrMode='idle'; scrT=0;
+  if (!scrIdleFlip){
+    scrDraw([{t:'MONKE FIELD',size:64,y:120,color:'#ffcf4d',w:900},
+             {t:'sprint · hurdles · jumps · throws',size:26,y:170,color:'#9fd0ef'},
+             {t:'poke TRACK MEET at the console for the full 7 events',size:22,y:290,color:'#c9b8d8'}]);
+  } else {
+    const L=[{t:'PERSONAL BESTS',size:34,y:52,color:'#ffcf4d',w:900}];
+    ['sprint','hurdles','long','high','shot','discus','javelin'].forEach((k,i)=>{
+      L.push({t:KIND_NAME[k]+'  —  '+(pbs[k]!=null?fmtVal(k,pbs[k]):'—'),size:24,y:94+i*34,color:'#e8ddf2'});
+    });
+    scrDraw(L);
+  }
+}
+function scrLiveDraw(){
+  scrMode='live';
+  scrDraw([{t:KIND_NAME[fRun.kind],size:30,y:64,color:'#9fd0ef'},
+           {t:fRun.t.toFixed(2),size:130,y:210,color:'#ffcf4d',w:900},
+           {t:'RUN!',size:30,y:296,color:'#ff5a3c',w:900}]);
+}
+function scrResult(kind,val){
+  scrMode='result'; scrT=0;
+  scrDraw([{t:KIND_NAME[kind],size:36,y:84,color:'#9fd0ef'},
+           {t:fmtVal(kind,val),size:112,y:212,color:'#ffcf4d',w:900},
+           {t:(pbs[kind]!=null?'PB  '+fmtVal(kind,pbs[kind]):''),size:26,y:296,color:'#c9b8d8'}]);
+}
+function scrMeetBoard(){
+  if (!meet) return;
+  const ev=MEET_SEQ[meet.i];
+  const rows=[{n:'YOU',v:meet.total,me:1}].concat(rivals.map(r=>({n:r.cfg.name,v:r.total})));
+  rows.sort((a,b)=>b.v-a.v);
+  const L=[{t:'TRACK MEET — '+(ev?ev.name:''),size:28,y:40,color:'#ffcf4d',w:900}];
+  if (ev && ev.attempts>1) L.push({t:'attempt '+Math.min(meet.attempt+1,ev.attempts)+'/'+ev.attempts,size:20,y:68,color:'#9fd0ef'});
+  rows.forEach((r,i)=>{
+    L.push({t:(i+1)+'.   '+r.n+'   '+r.v+' pts',size:24,y:100+i*33,color:r.me?'#59ff8a':'#e8ddf2',w:r.me?900:700});
+  });
+  scrDraw(L);
+}
+/* --- results (training + meet) --- */
+function fieldResult(kind, val){
+  scrResult(kind, val);
+  let pbTxt='';
+  if (isBetter(kind, val, pbs[kind])){
+    pbs[kind]=val; savePbs(); pbTxt=' — NEW PB!';
+    cheer(true); confettiBurst();
+  } else cheer(false);
+  showMsg(fmtVal(kind,val));
+  showSub(KIND_NAME[kind]+pbTxt);
+  if (meet) meetResult(kind, val, false);
+}
+/* --- the live stations --- */
+const fRun={ active:false, kind:'sprint', t:0 };
+const SPRINT_X0=-25, SPRINT_X1=25;
+let fPrevX=0, fPrevGrounded=true, takeoff=null;
+const lastG={ x:0, z:0 };
+function updateField(dt, tNow){
+  if (game.menuOpen){ fPrevX=rig.position.x; fPrevGrounded=grounded; return; }
+  const lx=rig.position.x, lz=rig.position.z-FZ;
+  const e = rig.position.y - (game.vr?HEIGHT_OFF:0);
+  const inStraight = lz>-24.6 && lz<-15.8;
+  /* sprint + hurdle timing lines */
+  if (!fRun.active && fPrevX<SPRINT_X0 && lx>=SPRINT_X0 && inStraight && !(meet && MEET_SEQ[meet.i] && MEET_SEQ[meet.i].run)){
+    fRun.active=true; fRun.t=0;
+    fRun.kind = lz<-20.3 ? 'hurdles' : 'sprint';
+    if (fRun.kind==='hurdles') resetHurdles();
+    click(); showSub(KIND_NAME[fRun.kind]+' — to the far line!');
+  }
+  if (fRun.active){
+    fRun.t+=dt;
+    scrLive+=dt; if (scrLive>0.08){ scrLive=0; scrLiveDraw(); }
+    if (fPrevX<SPRINT_X1 && lx>=SPRINT_X1 && inStraight){
+      fRun.active=false;
+      fieldResult(fRun.kind, Math.round(fRun.t*100)/100);
+    } else if (fRun.t>75 || Math.abs(lz+20.2)>8){
+      fRun.active=false; scrIdle();
+    }
+  }
+  /* hurdles */
+  for (const h of hurdles){
+    if (h.fall>=0){
+      h.fall+=dt*3.2;
+      h.grp.rotation.z=-Math.min(1.42,h.fall);
+    } else if (h.up && Math.abs(lx-h.x)<0.32 && Math.abs(lz+22.3)<2.0 && e<0.34){
+      h.up=false; h.fall=0;
+      thump(0.5,200); rattle();
+      hapticPulse(0,0.5,50); hapticPulse(1,0.5,50);
+    }
+  }
+  /* long jump */
+  if (grounded){ lastG.x=lx; lastG.z=lz; }
+  if (fPrevGrounded && !grounded) takeoff={ x:lastG.x, z:lastG.z };
+  if (!fPrevGrounded && grounded){
+    const inPit = lx>-3.5 && lx<12.5 && lz>-12.6 && lz<-9.4;
+    if (inPit && takeoff && takeoff.x<-3.0 && Math.abs(takeoff.z+11)<3.4){
+      if (takeoff.x>-3.88){
+        rattle(); showMsg('FOUL'); showSub('Take off before the white board');
+        if (meet) meetResult('long', 0, true);
+      } else {
+        const d=Math.max(0, Math.round((lx+4)*100)/100);
+        moveMarker('long', rig.position, d.toFixed(2)+'m');
+        thump(0.35,140);
+        fieldResult('long', d);
+      }
+    }
+    takeoff=null;
+  }
+  /* high jump */
+  if (hj.fallT>=0){
+    hj.fallT+=dt;
+    hjBar.position.y=Math.max(0.32, hj.h - hj.fallT*2.2);
+    hjBar.rotation.z=Math.sin(hj.fallT*6)*0.25*Math.max(0,1-hj.fallT);
+    if (hj.fallT>2.2) hjApply();
+  } else if (hj.up){
+    let knock=false;
+    const cw=new THREE.Vector3(); camera.getWorldPosition(cw);
+    const pts=[cw, cw.clone().setY(cw.y-0.4)];
+    if (game.vr){ for (let i=0;i<2;i++){ const hw=new THREE.Vector3(); hands[i].glove.getWorldPosition(hw); pts.push(hw); } }
+    for (const p of pts){
+      const cz=Math.max(FZ-6.5, Math.min(FZ-2.5, p.z));
+      const dx=p.x-20, dy=p.y-hj.h, dz=p.z-cz;
+      if (dx*dx+dy*dy+dz*dz < 0.032){ knock=true; break; }
+    }
+    if (knock){
+      hj.fallT=0; hj.pend=0; hj.up=false;
+      rattle(); thump(0.3,220);
+      if (meet && MEET_SEQ[meet.i] && MEET_SEQ[meet.i].kind==='high') meetResult('high', 0, true);
+    } else {
+      if (hj.pend>0){
+        hj.pend-=dt;
+        if (hj.pend<=0){
+          const hc=hj.h;
+          fieldResult('high', hc);
+          hj.h=Math.min(2.05, Math.round((hj.h+(meet&&MEET_SEQ[meet.i]&&MEET_SEQ[meet.i].kind==='high'?0.10:0.05))*100)/100);
+          hjApply();
+        }
+      }
+      const crossed=(hj.prevX<20 && lx>=20) || (hj.prevX>20 && lx<=20);
+      if (crossed && Math.abs(lz+4.5)<2.1 && !grounded && (cw.y-(game.vr?0.42:1.12))>hj.h-0.2) hj.pend=0.38;
+    }
+  }
+  hj.prevX=lx;
+  updateRivals(dt, tNow);
+  if (meet) updateMeet(dt);
+  scrT+=dt;
+  if (scrMode==='idle' && scrT>6){ scrT=0; scrIdleFlip=!scrIdleFlip; scrIdle(); }
+  if (scrMode==='result' && scrT>6){ scrT=0; scrIdle(); }
+  fPrevX=lx; fPrevGrounded=grounded;
+}
+/* --- THE TRACK MEET: all 7 events in order, fading between each --- */
+let meet=null;
+const MEET_SEQ=[
+  { kind:'sprint',  name:'50m SPRINT',  pos:[-28.5,-18.2], yaw:-Math.PI/2, hint:'Down the straight — go on the gun!', attempts:1, run:true },
+  { kind:'hurdles', name:'50m HURDLES', pos:[-28.5,-22.3], yaw:-Math.PI/2, hint:'Leap every hurdle to the line', attempts:1, run:true },
+  { kind:'long',    name:'LONG JUMP',   pos:[-23,-11],     yaw:-Math.PI/2, hint:'Sprint, jump before the board, land in the sand', attempts:2 },
+  { kind:'high',    name:'HIGH JUMP',   pos:[11,-4.5],     yaw:-Math.PI/2, hint:'Over the bar without touching it — 3 tries, it rises', attempts:3 },
+  { kind:'shot',    name:'SHOT PUT',    pos:[-38,-8.8],    yaw:Math.PI,    hint:'Grab a shot off the rack — heave it from the circle', attempts:2 },
+  { kind:'discus',  name:'DISCUS',      pos:[-38,3.4],     yaw:Math.PI,    hint:'Big flat swing from the circle', attempts:2 },
+  { kind:'javelin', name:'JAVELIN',     pos:[-29,0],       yaw:-Math.PI/2, hint:'Run the runway — let it fly before the arc', attempts:2 },
+];
+function gun(){ thump(0.95,320); pop(140); hapticPulse(0,0.7,60); hapticPulse(1,0.7,60); }
+function startMeet(){
+  if (meet || game.world!=='field') return;
+  if (game.mode!=='free') endFight(false);
+  meet={ i:-1, total:0, pts:{}, attempt:0, bestVal:null, phase:'idle', t:0, evT:0 };
+  for (const r of rivals){ r.total=0; r.pts={}; r.state='idle'; }
+  showMsg('TRACK MEET'); showSub('7 events vs 6 rivals · finish top 3 for a medal · false start = −100');
+  bell(); cheer(true);
+  nextMeetEvent();
+}
+function nextMeetEvent(){
+  meet.i++;
+  if (meet.i>=MEET_SEQ.length){ finishMeet(); return; }
+  startFade(setupMeetEvent);
+}
+function setupMeetEvent(){
+  const ev=MEET_SEQ[meet.i];
+  meet.attempt=0; meet.bestVal=null; meet.evT=0;
+  meet.phase = ev.run ? 'marks' : 'play';
+  meet.t = ev.run ? 1.9 : 0;
+  vel.set(0,0,0);
+  rig.position.set(ev.pos[0], game.vr?HEIGHT_OFF:0, FZ+ev.pos[1]);
+  setFacing(ev.yaw);
+  fRun.active=false;
+  rivalsStage(ev);
+  if (ev.kind==='hurdles') resetHurdles();
+  if (ev.kind==='high'){ hj.h=1.0; hjApply(); }
+  for (const t of THROWS) homeThrow(t);
+  if (ev.run) showMsg('ON YOUR MARKS'); else showMsg(ev.name);
+  showSub(ev.hint);
+  scrMeetBoard();
+}
+function falseStart(){
+  meet.total=Math.max(0, meet.total-100);
+  rattle(); showMsg('FALSE START'); showSub('−100 points — wait for the gun!');
+  const ev=MEET_SEQ[meet.i];
+  rig.position.set(ev.pos[0], game.vr?HEIGHT_OFF:0, FZ+ev.pos[1]); vel.set(0,0,0);
+  setFacing(ev.yaw);
+  meet.phase='marks'; meet.t=2.0;
+  scrMeetBoard();
+}
+function updateMeet(dt){
+  const ev=MEET_SEQ[meet.i]; if (!ev) return;
+  meet.evT+=dt;
+  const lx=rig.position.x;
+  if (meet.phase==='marks'){
+    meet.t-=dt;
+    if (lx>SPRINT_X0+0.2){ falseStart(); return; }
+    if (meet.t<=0){ meet.phase='set'; meet.t=0.8+Math.random()*1.1; showMsg('SET'); pop(500); }
+  } else if (meet.phase==='set'){
+    meet.t-=dt;
+    if (lx>SPRINT_X0+0.2){ falseStart(); return; }
+    if (meet.t<=0){
+      meet.phase='play'; gun(); showMsg('GO!');
+      fRun.active=true; fRun.kind=ev.kind; fRun.t=0; scrLiveDraw();
+      startRivalRace(ev);
+    }
+  } else if (meet.phase==='done'){
+    meet.t-=dt;
+    if (meet.t<=0) nextMeetEvent();
+  } else if (meet.phase==='play' && meet.evT>95){
+    finalizeEvent();
+  }
+}
+function meetResult(kind, val, foul){
+  const ev=MEET_SEQ[meet.i];
+  if (!ev || ev.kind!==kind || meet.phase!=='play') return;
+  meet.attempt++;
+  if (!foul && (meet.bestVal==null || (ev.run ? val<meet.bestVal : val>meet.bestVal))) meet.bestVal=val;
+  if (ev.run || meet.attempt>=ev.attempts) finalizeEvent();
+  else { showSub('Attempt '+(meet.attempt+1)+' of '+ev.attempts); scrMeetBoard(); }
+}
+function meetPoints(kind, v){
+  if (v==null) return 0;
+  let p=0;
+  if (kind==='sprint') p=(16-v)*80;
+  else if (kind==='hurdles') p=(18-v)*75;
+  else if (kind==='long') p=v*130;
+  else if (kind==='high') p=v*600;
+  else if (kind==='shot') p=v*70;
+  else if (kind==='discus') p=v*38;
+  else p=v*28;
+  return Math.max(0, Math.round(p));
+}
+function finalizeEvent(){
+  const ev=MEET_SEQ[meet.i];
+  const p=meetPoints(ev.kind, meet.bestVal);
+  meet.pts[ev.kind]=p; meet.total+=p;
+  for (const r of rivals){
+    const mark = ev.run ? (r.raceDur || rivalMark(ev.kind, r.skill)) : rivalMark(ev.kind, r.skill);
+    const rp=meetPoints(ev.kind, mark);
+    r.pts[ev.kind]=rp; r.total+=rp;
+  }
+  showMsg('+'+p+' pts');
+  showSub(ev.name+': '+(meet.bestVal!=null?fmtVal(ev.kind,meet.bestVal):'no mark'));
+  bell();
+  scrMeetBoard();
+  meet.phase='done'; meet.t=2.6;
+}
+function finishMeet(){
+  const total=meet.total;
+  const place = 1 + rivals.filter(r=>r.total>total).length;
+  const medal = place===1?'GOLD':place===2?'SILVER':place===3?'BRONZE':null;
+  const rows=[{n:'YOU',v:total,me:1}].concat(rivals.map(r=>({n:r.cfg.name,v:r.total})));
+  rows.sort((a,b)=>b.v-a.v);
+  startFade(()=>{
+    rig.position.set(-30, game.vr?HEIGHT_OFF:0, FZ-28); setFacing(Math.PI); vel.set(0,0,0);
+    rivals.forEach(r=>r.m.visible=false);
+    showMsg(medal ? medal+' MEDAL!' : place+'th PLACE');
+    showSub('You finished '+place+' of 7 with '+total+' points'+(medal==='GOLD'?' — Gold Medal unlocked in the gym!':''));
+    bell(); cheer(medal!=null); if (medal) confettiBurst();
+    if (medal==='GOLD' && !unlocks.medal){
+      unlocks.medal=true; saveAll();
+      pedestals.forEach(p=>{ if (p.c.id==='medal') p.lockBar.visible=false; });
+    }
+    if (pbs.meet==null || total>pbs.meet){ pbs.meet=total; savePbs(); }
+    const L=[{t:'FINAL STANDINGS',size:38,y:52,color:'#ffcf4d',w:900}];
+    rows.forEach((r,i)=>{
+      L.push({t:(i+1)+'.   '+r.n+'   '+r.v+' pts',size:24,y:94+i*32,color:r.me?'#59ff8a':'#e8ddf2',w:r.me?900:700});
+    });
+    if (medal) L.push({t:medal+' MEDAL',size:30,y:326,color:medal==='GOLD'?'#f5c542':medal==='SILVER'?'#cfd6e0':'#c98a4d',w:900});
+    scrDraw(L);
+    scrMode='result'; scrT=-16;
+    meet=null;
+  });
+}
+function cancelMeet(silent){
+  meet=null; fRun.active=false;
+  rivals.forEach(r=>r.m.visible=false);
+  if (!silent){ showSub('Meet ended'); scrIdle(); }
+}
+/* --- stadium console + gym portal --- */
+{
+  const cg=new THREE.Group(); cg.position.set(-25.6,0,FZ-28); cg.rotation.y=-Math.PI/2; fieldGrp.add(cg);
+  const back=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.8,0.14), new THREE.MeshStandardMaterial({ color:0x1c2836, roughness:0.7 }));
+  back.position.y=1.1; cg.add(back);
+  const ttl=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.32),
+    new THREE.MeshBasicMaterial({ map:textTexture([{t:'MONKE FIELD',color:'#ffcf4d',size:80}],512,96,{bg:'#1c2836'}) }));
+  ttl.position.set(0,1.76,0.09); cg.add(ttl);
+  const bMeet=makePokeButton('TRACK MEET',0.95,0.26,0x2c6b3a,()=>{ if (meet){ showSub('Meet already running'); return; } startMeet(); },{gentle:true,fontSize:56});
+  bMeet.group.position.set(0,1.34,0.13); cg.add(bMeet.group);
+  const bEnd=makePokeButton('END MEET',0.72,0.2,0x6b2430,()=>{ if (meet) cancelMeet(); },{gentle:true,fontSize:52});
+  bEnd.group.position.set(0,1.02,0.13); cg.add(bEnd.group);
+  const bGym=makePokeButton('BACK TO GYM',0.95,0.22,0x3d2f52,()=>travelTo('gym'),{gentle:true,fontSize:50});
+  bGym.group.position.set(0,0.7,0.13); cg.add(bGym.group);
+  addBoxCollider(-25.6,0,FZ-28,0.4,1.9,2.5,collidersField);
+}
+{
+  const pg=new THREE.Group(); pg.position.set(2.1,0,4.4); pg.rotation.y=-0.5; scene.add(pg);
+  const pilMat=new THREE.MeshStandardMaterial({ color:0x2f2440, roughness:0.6 });
+  const p1=new THREE.Mesh(new THREE.BoxGeometry(0.22,2.5,0.22), pilMat); p1.position.set(-1.05,1.25,0); pg.add(p1);
+  const p2=p1.clone(); p2.position.x=1.05; pg.add(p2);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(2.35,0.24,0.24), pilMat); top.position.set(0,2.55,0); pg.add(top);
+  const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.85,2.3),
+    new THREE.MeshBasicMaterial({ map:textTexture([{t:'TRACK',color:'#bfe3ff',size:96},{t:'& FIELD',color:'#bfe3ff',size:96},{t:'',size:30},{t:'sprint · jumps · throws',color:'#7fb8e8',size:34}],512,640,{bg:'#0d2033',border:'#3a7ab8'}) }));
+  glow.position.set(0,1.4,0.02); pg.add(glow);
+  const bGo=makePokeButton('GO',0.5,0.3,0x2c6b3a,()=>travelTo('field'),{gentle:true,fontSize:88});
+  bGo.group.position.set(0,0.72,0.16); pg.add(bGo.group);
+}
+/* --- Gold Medal cosmetic (worn on your monke) --- */
+function buildMedal(){
+  const g=new THREE.Group();
+  const ribMat=new THREE.MeshStandardMaterial({ color:0xc23a3a, roughness:0.7 });
+  const rib=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.18,0.012), ribMat);
+  rib.position.set(-0.05,-0.19,0.1); rib.rotation.z=0.5; g.add(rib);
+  const rib2=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.18,0.012), ribMat);
+  rib2.position.set(0.05,-0.19,0.1); rib2.rotation.z=-0.5; g.add(rib2);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.014,16),
+    new THREE.MeshStandardMaterial({ color:0xf5c542, metalness:0.85, roughness:0.25 }));
+  disc.rotation.x=Math.PI/2; disc.position.set(0,-0.28,0.11); g.add(disc);
+  return g;
+}
+HEAD_ACC.medal=buildMedal;
+hjApply();
+scrIdle();
+
+/* --- facing helper: PC view/movement use the mouse-look yaw, so never rotate the rig on PC --- */
+function setFacing(a){
+  if (pcMode){ rig.rotation.y=0; yaw=a; pitch=0; }
+  else rig.rotation.y=a;
+}
+/* --- 6 rival monkes who contest the track meet --- */
+const rivals=[];
+{
+  ROSTER.slice(0,6).forEach(cfg=>{
+    const m=makeMonke({ color:cfg.color, belly:cfg.belly, gloveColor:cfg.glove, acc:cfg.acc, angry:cfg.angry });
+    m.scale.setScalar(0.57);
+    const tag=labelSprite(); tag.position.y=2.3; tag.scale.set(1.7,0.64,1);
+    tag.userData.set(cfg.name); m.add(tag);
+    m.visible=false; fieldGrp.add(m);
+    rivals.push({ cfg, m, skill:(cfg.tier===0?0.86:0.98)+Math.random()*0.1,
+      state:'idle', raceT:0, raceDur:0, total:0, pts:{}, bob:Math.random()*6 });
+  });
+}
+function rivalMark(kind, skill){
+  const s=skill*(0.9+Math.random()*0.2);
+  if (kind==='sprint')  return Math.round(9.2/s*100)/100;
+  if (kind==='hurdles') return Math.round(11.2/s*100)/100;
+  if (kind==='long')    return Math.round(3.1*s*100)/100;
+  if (kind==='high')    return Math.max(0.8, Math.round(1.3*s/0.05)*0.05);
+  if (kind==='shot')    return Math.round(6.2*s*100)/100;
+  if (kind==='discus')  return Math.round(10.5*s*100)/100;
+  return Math.round(13.5*s*100)/100;
+}
+function rivalsStage(ev){
+  if (ev.run){
+    const lanes=[-16.7,-18.1,-19.5,-20.9,-22.3,-23.7].filter(l=>Math.abs(l-ev.pos[1])>0.7);
+    rivals.forEach((r,i)=>{
+      const lz=lanes[i%lanes.length]+(i>=lanes.length?0.55:0);
+      r.state='ready'; r.raceT=0; r.raceDur=0;
+      r.m.visible=true; r.m.rotation.set(0,Math.PI/2,0);
+      r.m.position.set(-25.8,0,FZ+lz);
+    });
+  } else {
+    const spot={ long:{x:-2.4,z:-15,yaw:0,ax:'x'},
+                 high:{x:15.6,z:-7.6,yaw:Math.PI/2,ax:'z'},
+                 shot:{x:-35.6,z:-1.6,yaw:Math.PI,ax:'x'},
+                 discus:{x:-35.6,z:1.4,yaw:0,ax:'x'},
+                 javelin:{x:-24.5,z:-3.6,yaw:0,ax:'x'} }[ev.kind];
+    rivals.forEach((r,i)=>{
+      r.state='idle'; r.m.visible=true; r.m.rotation.set(0,spot.yaw,0);
+      const off=i*0.95;
+      r.m.position.set(spot.ax==='x'?spot.x+off:spot.x, 0, FZ+(spot.ax==='z'?spot.z+off:spot.z));
+    });
+  }
+}
+function startRivalRace(ev){
+  rivals.forEach(r=>{ r.state='race'; r.raceT=0; r.raceDur=rivalMark(ev.kind, r.skill); });
+}
+function updateRivals(dt, tNow){
+  for (const r of rivals){
+    if (!r.m.visible) continue;
+    if (r.state==='race'){
+      r.raceT+=dt;
+      const p=Math.min(1, r.raceT/r.raceDur);
+      r.m.position.x=-25.8+p*52.3;
+      r.m.position.y=Math.abs(Math.sin(r.raceT*9+r.bob))*0.07;
+      r.m.rotation.z=Math.sin(r.raceT*9+r.bob)*0.08;
+      if (meet && MEET_SEQ[meet.i] && MEET_SEQ[meet.i].kind==='hurdles'){
+        for (const hx of [-13,-5,3,11,19]){
+          const d=r.m.position.x-hx;
+          if (d>-1.2 && d<0.6) r.m.position.y=Math.max(r.m.position.y, 0.5*(1-Math.abs(d+0.3)/0.9));
+        }
+      }
+      if (p>=1){ r.state='done'; r.m.rotation.z=0; r.m.position.y=0; }
+    } else {
+      r.m.position.y=Math.abs(Math.sin(tNow*2+r.bob))*0.02;
+    }
+  }
+}
+/* --- teleport board: hop straight to any training station --- */
+const STATION_LABEL=['SPRINT','HURDLES','LONG JUMP','HIGH JUMP','SHOT PUT','DISCUS','JAVELIN'];
+function fieldTeleport(i){
+  if (meet){ showSub('Not during the meet!'); rattle(); return; }
+  if (fade.phase) return;
+  const ev=MEET_SEQ[i];
+  click();
+  startFade(()=>{
+    vel.set(0,0,0);
+    rig.position.set(ev.pos[0], game.vr?HEIGHT_OFF:0, FZ+ev.pos[1]);
+    setFacing(ev.yaw);
+    showMsg(ev.name); showSub(ev.hint);
+  });
+}
+{
+  const tp=new THREE.Group(); tp.position.set(-25.6,0,FZ-25.2); tp.rotation.y=-Math.PI/2; fieldGrp.add(tp);
+  const back=new THREE.Mesh(new THREE.BoxGeometry(2.3,1.8,0.14), new THREE.MeshStandardMaterial({ color:0x18262e, roughness:0.7 }));
+  back.position.y=1.1; tp.add(back);
+  const ttl=new THREE.Mesh(new THREE.PlaneGeometry(1.8,0.3),
+    new THREE.MeshBasicMaterial({ map:textTexture([{t:'TELEPORT',color:'#7fe0ff',size:80}],512,96,{bg:'#18262e'}) }));
+  ttl.position.set(0,1.82,0.09); tp.add(ttl);
+  STATION_LABEL.forEach((nm,i)=>{
+    const col=i%2, row=(i/2)|0;
+    const b=makePokeButton(nm,0.95,0.2,0x2a4a6b,()=>fieldTeleport(i),{gentle:true,fontSize:44});
+    b.group.position.set(col===0?-0.55:0.55,1.56-row*0.3,0.13);
+    if (i===6) b.group.position.x=0;
+    tp.add(b.group);
+  });
+  addBoxCollider(-25.6,0,FZ-25.2,0.4,1.9,2.4,collidersField);
+}
+
 /* ============================================================
    VR SETTINGS MENU (Y / menu button)
 ============================================================ */
@@ -2041,12 +2977,18 @@ renderer.setAnimationLoop(function(time){
     if (game.downed) updateDowned(dt);
   }
   updatePokeButtons(dt);
-  updateDummies(dt);
-  updatePedestals(dt, t);
-  updateCrowd(dt, t);
+  if (game.world==='gym'){
+    updateDummies(dt);
+    updatePedestals(dt, t);
+    updateCrowd(dt, t);
+    previewMonke.rotation.y += dt*0.4;
+  } else {
+    updateField(dt, t);
+  }
+  updateThrowables(dt);
+  updateFade(dt);
   updateTrails(dt);
   updateConfetti(dt);
-  previewMonke.rotation.y += dt*0.4;
 
   if (game.msgT>0){ game.msgT-=dt; if (game.msgT<=0) bigMsg.classList.remove('show'); }
   if (game.subT>0){ game.subT-=dt; if (game.subT<=0) subMsg.classList.remove('show'); }
@@ -2069,7 +3011,7 @@ function startCommon(){
   applyCosmeticsToPlayer();
   applyAudioSettings();
   updateHud();
-  showSub('Punch the console to pick a fight');
+  showSub(game.world==='field' ? 'Everything is live — cross a line, grab a throw, clear the bar' : 'Punch the console to pick a fight');
 }
 document.getElementById('btnPC').addEventListener('click', ()=>{
   audio();
@@ -2077,7 +3019,7 @@ document.getElementById('btnPC').addEventListener('click', ()=>{
   rig.scale.setScalar(1); pScale=1;
   pcGloves.forEach(g=>g.visible=true);
   hands.forEach(h=>{ h.glove.visible=false; });
-  rig.position.set(0,0,6.8);
+  placeRigAtSpawn();
   document.getElementById('pcTips').style.display='block';
   startCommon();
   const el=document.documentElement;
@@ -2105,7 +3047,7 @@ btnVRel.addEventListener('click', ()=>{
     pcMode=false; game.vr=true;
     pcGloves.forEach(g=>g.visible=false);
     hands.forEach(h=>{ h.glove.visible=true; h.inited=false; });
-    rig.position.set(0,0,6.8); rig.rotation.y=0; vel.set(0,0,0);
+    placeRigAtSpawn();
     startCommon();
     startCalibration();
     session.addEventListener('end', ()=>{
