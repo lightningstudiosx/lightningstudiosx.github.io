@@ -496,7 +496,7 @@ KAI.toast = function (html, stamp) {
 
 /* ================= shared nav ================= */
 KAI.PAGES = [
-  { id:'hub', href:'index.html', label:'Hub' },
+  { id:'hub', href:'kaiism.html', label:'Hub' },
   { id:'kai', href:'kai.html', label:'KAI' },
   { id:'lang', href:'lang.html', label:'Kaihana' },
   { id:'script', href:'script.html', label:'Kaiscript' },
@@ -512,10 +512,10 @@ KAI.mountNav = function (active) {
   if (!host) { host = document.createElement('header'); host.id = 'kai-nav'; document.body.prepend(host); }
   host.className = 'k-nav';
   host.innerHTML = `<nav class="k-nav-in" aria-label="KAIISM">
-    <a class="k-home" href="../index.html" aria-label="Back to Kai.fun">← Kai.fun</a><span class="k-sep"></span>
-    <a class="k-brand${active === 'hub' ? ' on' : ''}" href="index.html">${KAI.flagSVG(26)}<span>KAIISM</span></a>
+    <a class="k-home" href="index.html" aria-label="Back to Kai.fun">← Kai.fun</a><span class="k-sep"></span>
+    <a class="k-brand${active === 'hub' ? ' on' : ''}" href="kaiism.html">${KAI.flagSVG(26)}<span>KAIISM</span></a>
     ${KAI.PAGES.filter(p => p.id !== 'hub').map(p => `<a href="${p.href}"${p.id === active ? ' class="on" aria-current="page"' : ''}>${p.label}</a>`).join('')}
-    <a class="k-pass" href="index.html#passport" title="Your passport stamps">Passport <b id="k-pass-count"></b></a>
+    <a class="k-pass" href="kaiism.html#passport" title="Your passport stamps">Passport <b id="k-pass-count"></b></a>
   </nav>`;
   updateNavCount();
 };
