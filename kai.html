@@ -1,0 +1,1481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KAI · KAIISM</title>
+<meta name="description" content="KAI, the national board game of Kaiya: step, hop, sandwich, and get your Kai to the Spot.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kai.css">
+<style>
+:root{
+  --wood:#d9b77e; --wood-d:#b98f52; --sqA:#f5e6c3; --sqB:#ead4a4; --grid:#5a4630;
+  --navh:52px; --tray:42px;
+  --bw:min(calc(100vh - var(--navh) - 2*var(--tray) - 56px), 660px);
+}
+@supports (height:100svh){:root{--bw:min(calc(100svh - var(--navh) - 2*var(--tray) - 56px), 660px)}}
+body{background:var(--paper)}
+.kai-page{padding-top:14px;padding-bottom:40px}
+.play{display:grid;grid-template-columns:var(--bw) minmax(0,1fr);gap:24px;align-items:start}
+.bcol{min-width:0;width:var(--bw);min-width:300px}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0;height:calc(var(--bw) + 2*var(--tray) + 12px);min-height:560px}
+
+/* trays / player bars */
+.pbar{height:var(--tray);display:flex;align-items:center;gap:10px;min-width:0}
+.pbar .who{display:flex;align-items:center;gap:8px;font:800 15px/1 var(--display);white-space:nowrap;min-width:0}
+.pbar .who .dot{width:22px;height:22px;flex:none}
+.pbar .who small{font:700 12px/1 var(--body);color:var(--muted)}
+.pbar.turn .who{color:var(--ink)}
+.pbar.turn .who::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--sun);border:2px solid var(--ink);animation:blink 1.1s infinite}
+@keyframes blink{50%{opacity:.25}}
+.tray{margin-left:auto;display:flex;align-items:center;gap:0;min-height:28px;padding:3px 8px;border:2px dashed var(--line);border-radius:999px;min-width:60px;justify-content:flex-end}
+.tray svg{width:24px;height:24px;margin-left:-6px;flex:none}
+.tray:empty::before{content:"captured";font:700 11px/1 var(--display);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+
+/* the board: a crafted wooden object */
+.frame{position:relative;background:
+   repeating-linear-gradient(88deg,rgba(90,60,20,.07) 0 2px,transparent 2px 9px),
+   repeating-linear-gradient(92deg,rgba(255,240,200,.14) 0 1px,transparent 1px 13px),var(--wood);
+  border:3px solid var(--ink);border-radius:18px;box-shadow:7px 7px 0 var(--ink);padding:24px 10px 10px 24px;touch-action:none;user-select:none;-webkit-user-select:none}
+.coords{position:absolute;font:800 12px/1 var(--display);color:#4b3418;pointer-events:none}
+.coords.files{left:24px;right:10px;top:5px;display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.coords.ranks{top:24px;bottom:10px;left:4px;width:16px;display:grid;grid-template-rows:repeat(7,1fr);align-items:center;text-align:center}
+.board{position:relative;aspect-ratio:1;width:100%;border:3px solid var(--ink);border-radius:6px;overflow:hidden;background:var(--sqA)}
+.sq{position:absolute;width:calc(100%/7);height:calc(100%/7);box-shadow:inset 0 0 0 .5px rgba(60,40,20,.45)}
+.sq.dk{background:var(--sqB)}
+.sq.lm{background:rgba(242,182,50,.48)}
+.sq.lm.dk{background:rgba(226,166,40,.55)}
+.sq.spot{background:var(--sun);box-shadow:inset 0 0 0 3px var(--ink),inset 0 0 0 6px var(--sun),inset 0 0 0 7.5px var(--ink)}
+.sq.spot .glyph{position:absolute;inset:0;display:grid;place-items:center;opacity:.9}
+.sq.spot .glyph svg{width:46%;height:auto}
+.sq.spot .hold{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);white-space:nowrap;font:800 10px/1 var(--display);background:var(--ink);color:var(--sun);border-radius:999px;padding:3px 6px;z-index:1}
+.sq.spot.shut .glyph{opacity:.45}
+.sq.sel{box-shadow:inset 0 0 0 4px var(--sky)}
+.sq.goal::after{content:"";position:absolute;inset:12%;border:4px dashed var(--plum);border-radius:50%;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mk{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:3}
+.mk.step::before{content:"";width:26%;height:26%;border-radius:50%;background:rgba(25,21,18,.5)}
+.mk.hop::before{content:"";width:58%;height:58%;border-radius:50%;border:4px solid var(--plum);background:rgba(107,63,160,.12)}
+.mk.cap::before{background:var(--red);box-shadow:0 0 0 3px var(--card)}
+.mk.hop.cap::before{border-color:var(--red);background:rgba(229,67,45,.16)}
+.mk b{position:absolute;font:800 12px/1 var(--display);color:#fff;background:var(--plum);border-radius:999px;padding:3px 6px;top:7%;right:7%}
+.mk.cap b{background:var(--red)}
+.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.pcs{position:absolute;inset:0;pointer-events:none;z-index:4}
+.pc{position:absolute;left:0;top:0;width:calc(100%/7);height:calc(100%/7);will-change:transform}
+.pc svg{width:100%;height:100%;display:block;transition:transform .12s}
+.pc.lift svg{transform:scale(1.1) translateY(-4%)}
+.pc.drag{z-index:9}
+.pc.drag svg{transform:scale(1.18)}
+.pc.danger svg{animation:danger 0.9s ease-in-out infinite}
+@keyframes danger{50%{filter:drop-shadow(0 0 7px #e5432d) drop-shadow(0 0 2px #e5432d)}}
+.board.flipping .pc,.board.flipping .sq{transition:transform .35s,left .35s,top .35s}
+.boardmsg{position:absolute;inset:0;display:grid;place-items:center;z-index:10;background:rgba(246,239,224,.55);backdrop-filter:blur(1px)}
+.boardmsg .k-card{text-align:center;max-width:84%;padding:20px 22px}
+.boardmsg h2{font-size:clamp(34px,6vw,56px)}
+.boardmsg p{margin:8px 0 14px;color:var(--ink2)}
+.boardmsg .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+/* hop chain bar */
+.chainbar{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:11;display:flex;gap:8px;align-items:center;background:var(--ink);color:var(--paper);border-radius:999px;padding:6px 6px 6px 14px;box-shadow:3px 3px 0 var(--plum);white-space:nowrap;max-width:96%}
+.chainbar .k-mono{font-size:13px;overflow:hidden;text-overflow:ellipsis}
+
+/* side panel */
+.head{display:flex;align-items:flex-end;gap:14px;justify-content:space-between}
+.head h1{font-size:clamp(48px,6vw,70px);font-weight:800;line-height:.86}
+.head .k-kicker{margin-bottom:6px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs .k-btn{min-height:40px}
+.tabs .k-btn[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.setup{display:flex;flex-direction:column;gap:8px}
+.setrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.setrow > .lab{font:800 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);width:56px;flex:none}
+.chipbtn{cursor:pointer;min-height:40px;border:2px solid var(--ink);border-radius:999px;background:var(--card);padding:6px 11px;font:800 14px/1 var(--display);display:inline-flex;align-items:center;gap:6px}
+.chipbtn small{font:700 11px/1 var(--body);color:var(--muted)}
+.chipbtn[aria-pressed="true"]{background:var(--sun);box-shadow:2px 2px 0 var(--ink)}
+.chipbtn .n{font:800 11px/1 var(--display);background:var(--ink);color:var(--paper);border-radius:999px;padding:3px 6px}
+.lvlinfo{font-size:14px;color:var(--ink2);min-height:21px}
+.status{border:2px solid var(--ink);border-radius:12px;background:var(--card);padding:10px 12px;display:flex;gap:10px;align-items:center;min-height:52px;font-weight:700}
+.status .dot{width:26px;height:26px;flex:none}
+.status.warn{background:#ffe3dc;border-color:var(--red-d);color:var(--red-d);animation:shake .4s 1}
+.status.spot{background:#fff1cc}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.status .think{display:inline-flex;gap:3px;margin-left:4px}
+.status .think i{width:6px;height:6px;border-radius:50%;background:var(--ink);animation:blink .9s infinite}
+.status .think i:nth-child(2){animation-delay:.2s}.status .think i:nth-child(3){animation-delay:.4s}
+.moves{flex:1;min-height:90px;overflow:auto;border:2px solid var(--ink);border-radius:12px;background:#fff;padding:8px 10px;font:400 14px/1.6 var(--mono);display:grid;grid-template-columns:2.6em 1fr 1fr;align-content:start;column-gap:6px}
+.moves .no{color:var(--muted)}
+.moves .mv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.moves .mv.s{color:var(--red-d)}.moves .mv.e{color:var(--teal-d)}
+.moves .last{background:var(--sun);border-radius:4px;padding:0 3px;margin:0 -3px}
+.moves .empty{grid-column:1/-1;font-family:var(--body);color:var(--muted)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns .k-btn{min-height:42px}
+.stats{font-size:13px;color:var(--muted)}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:14px;min-height:40px}
+.toggle input{width:20px;height:20px;accent-color:var(--teal)}
+
+/* tutorial panel */
+.tut{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.tut .k-card{padding:14px 16px;box-shadow:4px 4px 0 var(--ink)}
+.tut h3{font-size:24px}
+.tut .steps{display:flex;gap:6px}
+.tut .steps span{width:26px;height:8px;border-radius:99px;background:var(--line)}
+.tut .steps span.on{background:var(--plum)}.tut .steps span.done{background:var(--good)}
+.tut .fb{min-height:46px;border-radius:10px;padding:8px 10px;font-weight:700}
+.tut .fb.ok{background:#d9f2e2;color:#14532d}.tut .fb.no{background:#ffe3dc;color:var(--red-d)}
+.tut p{margin:6px 0 0}
+
+/* rules */
+.rules{margin-top:46px}
+.rules .k-title{font-size:clamp(40px,6vw,68px)}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-top:20px}
+.rule h3{font-size:24px;margin-bottom:6px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.rule h3 .k-kai{font-size:17px}
+.rule p{margin:8px 0 0;font-size:16px;color:var(--ink2)}
+.rule .dia{display:flex;gap:10px;align-items:center;justify-content:center;background:var(--paper2);border-radius:10px;padding:12px;margin-top:10px;min-height:120px}
+.rule .dia > svg{max-width:100%;height:auto}
+.rule .dia .arr{font:800 22px/1 var(--display)}
+.wins{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px}
+.wins .w{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:12px}
+.wins .w b{font-family:var(--display);font-size:18px}
+.wins .w .dia{min-height:96px}
+.wins .w p{margin:6px 0 0;font-size:15px;color:var(--ink2)}
+.tweak{border-left:5px solid var(--plum);background:#f1e9fb;padding:12px 14px;border-radius:0 10px 10px 0;margin-top:16px;font-size:15px}
+.words{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+@media (max-width:899px){
+  :root{--bw:100%}
+  .play{grid-template-columns:minmax(0,1fr)}
+  .bcol{width:100%;min-width:0}
+  .side{height:auto;min-height:0}
+  .moves{max-height:180px;min-height:70px}
+  .side .status,.side .tut{order:-3}
+  .side .btns#gameBtns{order:-2}
+  .side .head{order:-1;margin-top:8px}
+  .head h1{font-size:54px}
+}
+@media (max-width:640px){
+  .frame{padding:20px 6px 6px 20px;border-radius:14px;box-shadow:5px 5px 0 var(--ink)}
+  .coords.files{left:20px;right:6px;top:4px;font-size:11px}
+  .coords.ranks{top:20px;bottom:6px;left:3px;width:14px;font-size:11px}
+  .mk b{font-size:10px;padding:2px 4px}
+  .setrow > .lab{width:100%}
+  .chainbar{bottom:4px}
+  .sq.spot .hold{font-size:9px;padding:2px 4px}
+  .sq.spot .hold .lng{display:none}
+}
+</style>
+</head>
+<body>
+<header id="kai-nav"></header>
+<main class="k-page kai-page">
+  <section class="play" aria-label="KAI game">
+    <div class="bcol">
+      <div class="pbar" id="barTop"><div class="who" id="whoTop"></div><div class="tray" id="trayTop" aria-label="captured pieces"></div></div>
+      <div class="frame" id="frame">
+        <div class="coords files" id="files"></div>
+        <div class="coords ranks" id="ranks"></div>
+        <div class="board" id="board" role="grid" aria-label="KAI board, 7 by 7">
+          <div id="sqs"></div>
+          <svg class="ov" id="ov" viewBox="0 0 7 7" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="pcs" id="pcs"></div>
+          <div class="chainbar" id="chainbar" hidden><span class="k-mono" id="chainTxt"></span><button class="k-btn sun sm" id="chainStop" type="button"></button><button class="k-btn sm" id="chainCancel" type="button">Cancel</button></div>
+          <div class="boardmsg" id="boardmsg" hidden><div class="k-card"><h2 id="msgTitle"></h2><p id="msgText"></p><div class="row" id="msgBtns"></div></div></div>
+        </div>
+      </div>
+      <div class="pbar" id="barBot"><div class="who" id="whoBot"></div><div class="tray" id="trayBot" aria-label="captured pieces"></div></div>
+    </div>
+
+    <aside class="side" id="side">
+      <div class="head">
+        <div><div class="k-kicker" id="kicker"></div><h1>KAI</h1></div>
+        <button class="k-btn sm" id="toRules" type="button">Rules ↓</button>
+      </div>
+      <div class="tabs" role="group" aria-label="Mode">
+        <button class="k-btn sm" data-mode="bot" type="button">vs Bot</button>
+        <button class="k-btn sm" data-mode="2p" type="button">2 Players</button>
+        <button class="k-btn sm" data-mode="tut" type="button">Tutorial</button>
+      </div>
+
+      <div id="gamePanel" class="setup">
+        <div id="botSetup" class="setup">
+          <div class="setrow" id="lvlRow"><span class="lab">Bot</span></div>
+          <div class="lvlinfo" id="lvlInfo"></div>
+          <div class="setrow" id="colRow"><span class="lab">You</span></div>
+        </div>
+        <div id="ppSetup" class="setrow" hidden>
+          <label class="toggle"><input type="checkbox" id="flipEach"> Flip the board after every move</label>
+        </div>
+      </div>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="moves" id="moves" aria-label="Move list"></div>
+      <div class="btns" id="gameBtns">
+        <button class="k-btn sm" id="undoBtn" type="button">↶ Undo</button>
+        <button class="k-btn sm teal" id="newBtn" type="button">New game</button>
+        <button class="k-btn sm" id="resignBtn" type="button">Resign</button>
+        <button class="k-btn sm" id="flipBtn" type="button" aria-label="Flip the board">⇅ Flip</button>
+      </div>
+      <div class="stats" id="stats"></div>
+
+      <div class="tut" id="tutPanel" hidden></div>
+    </aside>
+  </section>
+
+  <section class="rules" id="rules" aria-labelledby="rulesTitle">
+    <div class="k-kicker" id="rulesKicker"></div>
+    <h2 class="k-title" id="rulesTitle">How to play KAI</h2>
+    <p class="k-lede" id="rulesLede"></p>
+    <div class="rgrid" id="rgrid"></div>
+    <div class="k-card" style="margin-top:22px">
+      <h3 style="font-size:30px" id="winsTitle"></h3>
+      <div class="wins" id="wins"></div>
+      <p id="drawText" style="margin:14px 0 0"></p>
+      <div class="tweak" id="tweak"></div>
+    </div>
+    <div class="words" id="words"></div>
+  </section>
+</main>
+<script src="kai-core.js"></script>
+<script id="kai-engine">/*ENGINE-START*/
+/* KAI engine: rules, move generation and bots. Pure JS, no DOM, so the very same
+   code runs on the page (rules, highlights) and inside the bot's Web Worker. */
+function KAIENGINE() {
+'use strict';
+const SQ = 49, SPOT = 24, WIN = 100000, INF = 1000000, MAXPLY = 96;
+const NOCAP_LIMIT = 60;           // moves in a row without a capture -> draw
+const NB = new Int8Array(SQ * 8).fill(-1), JP = new Int8Array(SQ * 8).fill(-1);
+// direction d and 7-d are opposite
+const DR = [-1, -1, -1, 0, 0, 1, 1, 1], DC = [-1, 0, 1, -1, 1, -1, 0, 1];
+const DIST = new Int8Array(SQ);
+for (let s = 0; s < SQ; s++) {
+  const r = (s / 7) | 0, c = s % 7;
+  DIST[s] = Math.max(Math.abs(r - 3), Math.abs(c - 3));
+  for (let d = 0; d < 8; d++) {
+    const r1 = r + DR[d], c1 = c + DC[d], r2 = r1 + DR[d], c2 = c1 + DC[d];
+    if (r1 >= 0 && r1 < 7 && c1 >= 0 && c1 < 7) NB[s * 8 + d] = r1 * 7 + c1;
+    if (r2 >= 0 && r2 < 7 && c2 >= 0 && c2 < 7) JP[s * 8 + d] = r2 * 7 + c2;
+  }
+}
+const sqName = s => 'abcdefg'[s % 7] + (((s / 7) | 0) + 1);
+const parseSq = n => { const m = /^([a-g])([1-7])$/.exec(String(n).trim()); return m ? (+m[2] - 1) * 7 + 'abcdefg'.indexOf(m[1]) : -1; };
+
+/* ---------- hashing (deterministic, so page and worker agree) ---------- */
+let seed = 0x2545F491;
+function rnd32() { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return (t ^ (t >>> 14)) | 0; }
+const Z1 = new Int32Array(4 * SQ), Z2 = new Int32Array(4 * SQ);
+for (let i = 0; i < 4 * SQ; i++) { Z1[i] = rnd32(); Z2[i] = rnd32(); }
+const ZS1 = rnd32(), ZS2 = rnd32();
+const ZA1 = [rnd32(), rnd32()], ZA2 = [rnd32(), rnd32()]; // 'Kai has already held the Spot for one turn'
+const PI = v => v === 1 ? 0 : v === 2 ? SQ : v === -1 ? 2 * SQ : 3 * SQ; // piece -> zobrist offset
+
+/* ---------- rules (the balance tweak lives here) ---------- */
+// spotFrom: no Kai may step onto the Spot until this many moves (both sides) have been played.
+// Both are balance tweaks found by bot self-play (see the Rules note on the page).
+// spotHold: how many of your own turns must START with your Kai on the Spot (1 = the original rule; 2 = the balance tweak, see the Rules note).
+const RULES = { spotFrom: 6, spotHold: 2 };
+const spotWin = (p, i) => p.kai[i] === SPOT && (RULES.spotHold < 2 || p.armed[i] === 1);
+
+/* ---------- position ---------- */
+// cells: 1 Sun Kin, 2 Sun Kai, -1 Sea Kin, -2 Sea Kai, 0 empty. side 1 = Sun, -1 = Sea.
+function Pos() {
+  this.b = new Int8Array(SQ); this.side = 1; this.noCap = 0; this.ply = 0; this.h1 = 0; this.h2 = 0;
+  this.kai = new Int8Array([-1, -1]); this.kins = new Int8Array([0, 0]); this.armed = new Int8Array(2);
+  this.sp = 0;
+  this.uFrom = new Int8Array(MAXPLY); this.uTo = new Int8Array(MAXPLY); this.uNc = new Int8Array(MAXPLY);
+  this.uNoCap = new Int16Array(MAXPLY); this.uH1 = new Int32Array(MAXPLY); this.uH2 = new Int32Array(MAXPLY);
+  this.uKai = new Int8Array(MAXPLY * 2); this.uArm = new Int8Array(MAXPLY * 2);
+  this.uCap = new Int8Array(MAXPLY * 8); this.uCapV = new Int8Array(MAXPLY * 8);
+}
+function refresh(p) {
+  let h1 = 0, h2 = 0; p.kai[0] = p.kai[1] = -1; p.kins[0] = p.kins[1] = 0;
+  for (let s = 0; s < SQ; s++) {
+    const v = p.b[s]; if (!v) continue;
+    h1 ^= Z1[PI(v) + s]; h2 ^= Z2[PI(v) + s];
+    const i = v > 0 ? 0 : 1;
+    if (v === 2 || v === -2) p.kai[i] = s; else p.kins[i]++;
+  }
+  if (p.side < 0) { h1 ^= ZS1; h2 ^= ZS2; }
+  for (let i = 0; i < 2; i++) if (p.armed[i]) { h1 ^= ZA1[i]; h2 ^= ZA2[i]; }
+  p.h1 = h1; p.h2 = h2; p.sp = 0;
+  return p;
+}
+function fromBoard(cells, side, noCap, ply, armed) {
+  const p = new Pos(); for (let i = 0; i < SQ; i++) p.b[i] = cells[i] | 0;
+  if (armed) { p.armed[0] = armed[0] ? 1 : 0; p.armed[1] = armed[1] ? 1 : 0; }
+  p.side = side < 0 ? -1 : 1; p.noCap = noCap | 0; p.ply = ply | 0; return refresh(p);
+}
+function newGame() {
+  const cells = new Array(SQ).fill(0);
+  for (let c = 0; c < 7; c++) { cells[c] = c === 3 ? 2 : 1; cells[42 + c] = c === 3 ? -2 : -1; }
+  return fromBoard(cells, 1, 0, 0);
+}
+function clone(p) { return fromBoard(p.b, p.side, p.noCap, p.ply, p.armed); }
+const keyOf = p => p.h1 + ':' + p.h2;
+
+// make a move from -> to (path does not matter: captures only depend on where the piece lands)
+function make(p, from, to) {
+  const b = p.b, v = b[from], s = v > 0 ? 1 : -1, k = p.sp++;
+  p.uFrom[k] = from; p.uTo[k] = to; p.uNoCap[k] = p.noCap; p.uH1[k] = p.h1; p.uH2[k] = p.h2;
+  p.uKai[k * 2] = p.kai[0]; p.uKai[k * 2 + 1] = p.kai[1];
+  p.uArm[k * 2] = p.armed[0]; p.uArm[k * 2 + 1] = p.armed[1];
+  b[from] = 0; b[to] = v;
+  const pv = PI(v), mi = s > 0 ? 0 : 1;
+  let h1 = p.h1 ^ Z1[pv + from] ^ Z1[pv + to], h2 = p.h2 ^ Z2[pv + from] ^ Z2[pv + to];
+  // our Kai started this turn on the Spot and stays there -> it has held the Spot for one turn
+  const arm = p.kai[mi] === SPOT && from !== SPOT ? 1 : 0;
+  if (arm !== p.armed[mi]) { p.armed[mi] = arm; h1 ^= ZA1[mi]; h2 ^= ZA2[mi]; }
+  if (v === 2 || v === -2) p.kai[s > 0 ? 0 : 1] = to;
+  let nc = 0; const base = k * 8, ei = s > 0 ? 1 : 0;
+  for (let d = 0; d < 8; d++) {
+    const n = NB[to * 8 + d]; if (n < 0) continue;
+    const w = b[n]; if (w * s >= 0) continue;            // must be an enemy piece
+    const j = JP[to * 8 + d]; if (j < 0 || b[j] * s <= 0) continue; // with one of ours beyond it
+    b[n] = 0; p.uCap[base + nc] = n; p.uCapV[base + nc] = w; nc++;
+    h1 ^= Z1[PI(w) + n]; h2 ^= Z2[PI(w) + n];
+    if (w === 2 || w === -2) p.kai[ei] = -1; else p.kins[ei]--;
+  }
+  p.uNc[k] = nc;
+  p.noCap = nc ? 0 : p.noCap + 1;
+  p.side = -s; p.h1 = h1 ^ ZS1; p.h2 = h2 ^ ZS2; p.ply++;
+  return nc;
+}
+function unmake(p) {
+  const k = --p.sp, b = p.b, from = p.uFrom[k], to = p.uTo[k], v = b[to], s = v > 0 ? 1 : -1, ei = s > 0 ? 1 : 0;
+  b[from] = v; b[to] = 0;
+  for (let i = 0, nc = p.uNc[k]; i < nc; i++) { const w = p.uCapV[k * 8 + i]; b[p.uCap[k * 8 + i]] = w; if (w !== 2 && w !== -2) p.kins[ei]++; }
+  p.kai[0] = p.uKai[k * 2]; p.kai[1] = p.uKai[k * 2 + 1]; p.armed[0] = p.uArm[k * 2]; p.armed[1] = p.uArm[k * 2 + 1];
+  p.noCap = p.uNoCap[k]; p.h1 = p.uH1[k]; p.h2 = p.uH2[k]; p.side = s; p.ply--;
+}
+// which enemy squares would be captured if the piece on `from` lands on `to`
+function capturesOf(b, from, to) {
+  const v = b[from], s = v > 0 ? 1 : -1, out = [];
+  b[from] = 0;
+  for (let d = 0; d < 8; d++) {
+    const n = NB[to * 8 + d]; if (n < 0 || b[n] * s >= 0) continue;
+    const j = JP[to * 8 + d]; if (j >= 0 && b[j] * s > 0) out.push(n);
+  }
+  b[from] = v; return out;
+}
+
+/* ---------- move generation ---------- */
+// Moves are ints: from*64 + to. Different hop chains that end on the same square are
+// the same move (same result), so each (from,to) appears once.
+const seen = new Int32Array(SQ); let stamp = 1;
+const Q = new Int8Array(SQ);
+function kaiMayEnter(p) { return p.ply >= RULES.spotFrom; }
+function gen(p, out, o) {
+  const b = p.b, s = p.side; let n = o | 0;
+  const spotOK = kaiMayEnter(p);
+  for (let sq = 0; sq < SQ; sq++) {
+    const v = b[sq]; if (v * s <= 0) continue;
+    const st = ++stamp, isKai = v === 2 || v === -2;
+    for (let d = 0; d < 8; d++) {
+      const t = NB[sq * 8 + d];
+      if (t >= 0 && b[t] === 0 && !(isKai && t === SPOT && !spotOK)) { out[n++] = sq * 64 + t; seen[t] = st; }
+    }
+    if (isKai) continue;
+    b[sq] = 0; seen[sq] = st;                  // the hopping Kin has left its square
+    let qh = 0, qt = 0; Q[qt++] = sq;
+    while (qh < qt) {
+      const c = Q[qh++];
+      for (let d = 0; d < 8; d++) {
+        const m = NB[c * 8 + d]; if (m < 0 || b[m] === 0) continue;
+        const j = JP[c * 8 + d]; if (j < 0 || b[j] !== 0 || seen[j] === st) continue;
+        seen[j] = st; Q[qt++] = j; out[n++] = sq * 64 + j;
+      }
+    }
+    b[sq] = v;
+  }
+  return n - (o | 0);
+}
+function legalMoves(p) { const buf = new Int32Array(400), n = gen(p, buf, 0); return Array.from(buf.subarray(0, n)); }
+// The next hop landings for a Kin that started on `origin`, is now on `cur`, and has visited `visited` (array of squares).
+function nextHops(p, origin, cur, visited) {
+  const b = p.b, v = b[origin], out = [];
+  if (v !== 1 && v !== -1) return out;
+  b[origin] = 0;
+  for (let d = 0; d < 8; d++) {
+    const m = NB[cur * 8 + d]; if (m < 0 || b[m] === 0) continue;
+    const j = JP[cur * 8 + d]; if (j < 0 || b[j] !== 0 || visited.indexOf(j) >= 0) continue;
+    out.push(j);
+  }
+  b[origin] = v; return out;
+}
+function stepTargets(p, sq) {
+  const b = p.b, v = b[sq], out = [], isKai = v === 2 || v === -2;
+  for (let d = 0; d < 8; d++) { const t = NB[sq * 8 + d]; if (t >= 0 && b[t] === 0 && !(isKai && t === SPOT && !kaiMayEnter(p))) out.push(t); }
+  return out;
+}
+// a shortest legal path (list of landing squares) from -> to, or null
+function findPath(p, from, to) {
+  if (stepTargets(p, from).indexOf(to) >= 0) return [to];
+  const b = p.b, v = b[from]; if (v !== 1 && v !== -1) return null;
+  b[from] = 0; const prev = new Map([[from, -1]]), q = [from]; let found = false;
+  while (q.length && !found) {
+    const c = q.shift();
+    for (let d = 0; d < 8 && !found; d++) {
+      const m = NB[c * 8 + d]; if (m < 0 || b[m] === 0) continue;
+      const j = JP[c * 8 + d]; if (j < 0 || b[j] !== 0 || prev.has(j)) continue;
+      prev.set(j, c); q.push(j); if (j === to) found = true;
+    }
+  }
+  b[from] = v; if (!found) return null;
+  const path = []; for (let x = to; x !== from; x = prev.get(x)) path.unshift(x);
+  return path;
+}
+// is this path a legal hop chain for the piece on `from`?
+function validChain(p, from, path) {
+  if (!path.length) return false;
+  if (path.length === 1 && stepTargets(p, from).indexOf(path[0]) >= 0) return true;
+  const visited = [from]; let cur = from;
+  for (const j of path) { if (nextHops(p, from, cur, visited).indexOf(j) < 0) return false; visited.push(j); cur = j; }
+  return true;
+}
+
+/* ---------- threats ---------- */
+const RA = new Int8Array(SQ), RB = new Int8Array(SQ);
+function hopReach(p, s) { // RA/RB: up to two different Kins that can land on each square by hopping
+  RA.fill(-1); RB.fill(-1); const b = p.b;
+  for (let sq = 0; sq < SQ; sq++) {
+    if (b[sq] !== s) continue;               // Kins only (value 1 or -1 equals the side)
+    const st = ++stamp; b[sq] = 0; seen[sq] = st; let qh = 0, qt = 0; Q[qt++] = sq;
+    while (qh < qt) {
+      const c = Q[qh++];
+      for (let d = 0; d < 8; d++) {
+        const m = NB[c * 8 + d]; if (m < 0 || b[m] === 0) continue;
+        const j = JP[c * 8 + d]; if (j < 0 || b[j] !== 0 || seen[j] === st) continue;
+        seen[j] = st; Q[qt++] = j;
+        if (RA[j] < 0) RA[j] = sq; else if (RA[j] !== sq && RB[j] < 0) RB[j] = sq;
+      }
+    }
+    b[sq] = s;
+  }
+}
+// can side s, moving now, capture the enemy Kai? (exact)
+function kaiAttack(p, s) {
+  const K = p.kai[s > 0 ? 1 : 0]; if (K < 0) return false;
+  const b = p.b; let reach = false;
+  for (let d = 0; d < 8; d++) {
+    const A = NB[K * 8 + d], B = NB[K * 8 + 7 - d];
+    if (A < 0 || B < 0 || b[A] !== 0 || b[B] * s <= 0) continue;
+    for (let e = 0; e < 8; e++) {
+      const x = NB[A * 8 + e];
+      if (x >= 0 && x !== B && b[x] * s > 0 && !((b[x] === 2 || b[x] === -2) && A === SPOT && !kaiMayEnter(p))) return true;
+    }
+    if (!reach) { hopReach(p, s); reach = true; }
+    if ((RA[A] >= 0 && RA[A] !== B) || RB[A] >= 0) return true;
+  }
+  return false;
+}
+// all moves by side s that would capture the enemy Kai (for hints / tutorial)
+function kaiCaptureMoves(p, s) {
+  const q = clone(p); q.side = s; const out = [];
+  for (const m of legalMoves(q)) { const from = m >> 6, to = m & 63; if (capturesOf(q.b, from, to).indexOf(q.kai[s > 0 ? 1 : 0]) >= 0) out.push(m); }
+  return out;
+}
+
+/* ---------- game status ---------- */
+// Called with the side to move. Returns null, or {winner: 1|-1|0, reason}
+function status(p, history) {
+  const t = p.side, m = -t, ti = t > 0 ? 0 : 1;
+  if (p.kai[ti] < 0) return { winner: m, reason: 'kai' };
+  if (p.kins[ti] === 0) return { winner: m, reason: 'kins' };
+  if (spotWin(p, ti)) return { winner: t, reason: 'spot' };
+  if (!legalMoves(p).length) return { winner: m, reason: 'stuck' };
+  if (p.noCap >= NOCAP_LIMIT) return { winner: 0, reason: 'quiet' };
+  if (history) { const k = keyOf(p); let c = 0; for (const h of history) if (h === k) c++; if (c >= 3) return { winner: 0, reason: 'repeat' }; }
+  return null;
+}
+
+/* ---------- evaluation (from Sun's point of view) ---------- */
+const KDW = [160, 46, 16, 0];          // Kai distance to the Spot
+const CENT = [10, 8, 4, 0];            // Kins like the middle
+function evaluate(p) {
+  const b = p.b; let e = (p.kins[0] - p.kins[1]) * 100;
+  for (let sq = 0; sq < SQ; sq++) {
+    const v = b[sq]; if (!v) continue;
+    const g = v > 0 ? 1 : -1, kai = v === 2 || v === -2;
+    let sc = 0, free = 0;
+    for (let d = 0; d < 8; d++) { const t = NB[sq * 8 + d]; if (t >= 0 && b[t] === 0) free++; }
+    let half = 0, open = 0, guard = 0;
+    for (let d = 0; d < 4; d++) {
+      const x = NB[sq * 8 + d], y = NB[sq * 8 + 7 - d]; if (x < 0 || y < 0) continue;
+      const vx = b[x] * g, vy = b[y] * g;
+      if ((vx < 0 && vy === 0) || (vy < 0 && vx === 0)) half++;
+      else if (vx === 0 && vy === 0) open++;
+      if (vx > 0) guard++; if (vy > 0) guard++;
+    }
+    if (kai) {
+      sc += KDW[DIST[sq]] - half * 34 - open * 7 + guard * 4 + free;
+      if (sq === SPOT && p.armed[g > 0 ? 0 : 1]) sc += 140;
+    } else {
+      sc += CENT[DIST[sq]] - half * 11 + free * 2;
+      if (DIST[sq] === 1) sc += 5;
+    }
+    e += g * sc;
+  }
+  return e;
+}
+
+/* ---------- search ---------- */
+const TTBITS = 18, TTN = 1 << TTBITS, TTM = TTN - 1;
+const ttK = new Int32Array(TTN), ttS = new Int32Array(TTN), ttM = new Int16Array(TTN), ttD = new Int8Array(TTN), ttF = new Int8Array(TTN);
+const MOVES = new Int32Array(MAXPLY * 256), SCORES = new Int32Array(MAXPLY * 256);
+const HIST = new Int32Array(2 * 4096), KILL = new Int32Array(MAXPLY * 2);
+const SEQ1 = new Int32Array(4096), SEQ2 = new Int32Array(4096);
+let LMR = true;
+let P = null, nodes = 0, deadline = 0, stopped = false, blind = false, seqBase = 0;
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+function isRep(ply) {
+  const i = seqBase + ply, lim = Math.max(0, i - P.noCap);
+  for (let k = i - 2; k >= lim; k -= 2) if (SEQ1[k] === P.h1 && SEQ2[k] === P.h2) return true;
+  return false;
+}
+function qeval(ply) {
+  const s = P.side, oi = s > 0 ? 1 : 0;
+  if (!blind) {
+    if (kaiAttack(P, s)) return WIN - ply - 1;
+    if (spotWin(P, oi)) return -(WIN - ply - 2);
+  }
+  const e = evaluate(P);
+  return (s > 0 ? e : -e) + 12;
+}
+function orderMoves(base, n, ply, ttMove) {
+  const b = P.b, s = P.side, hs = s > 0 ? 0 : 4096, ek = P.kai[s > 0 ? 1 : 0];
+  for (let i = 0; i < n; i++) {
+    const m = MOVES[base + i], from = m >> 6, to = m & 63, v = b[from];
+    let sc = 0;
+    if (m === ttMove) sc = 1 << 29;
+    else {
+      b[from] = 0;
+      for (let d = 0; d < 8; d++) {
+        const x = NB[to * 8 + d]; if (x < 0 || b[x] * s >= 0) continue;
+        const j = JP[to * 8 + d]; if (j >= 0 && b[j] * s > 0) sc += x === ek ? 1 << 27 : 1 << 22;
+      }
+      b[from] = v;
+      if ((v === 2 || v === -2) && to === SPOT) sc += 1 << 24;
+      if (m === KILL[ply * 2]) sc += 1 << 21; else if (m === KILL[ply * 2 + 1]) sc += 1 << 20;
+      sc += Math.min(HIST[hs + m], (1 << 20) - 1);
+    }
+    SCORES[base + i] = sc;
+  }
+}
+function pickNext(base, i, n) {
+  let bi = i, bs = SCORES[base + i];
+  for (let k = i + 1; k < n; k++) if (SCORES[base + k] > bs) { bs = SCORES[base + k]; bi = k; }
+  if (bi !== i) {
+    const tm = MOVES[base + i]; MOVES[base + i] = MOVES[base + bi]; MOVES[base + bi] = tm;
+    const ts = SCORES[base + i]; SCORES[base + i] = SCORES[base + bi]; SCORES[base + bi] = ts;
+  }
+  return MOVES[base + i];
+}
+function negamax(depth, alpha, beta, ply) {
+  if ((++nodes & 1023) === 0 && now() > deadline) stopped = true;
+  if (stopped) return 0;
+  const s = P.side, si = s > 0 ? 0 : 1;
+  if (P.kai[si] < 0 || P.kins[si] === 0) return -(WIN - ply);
+  if (spotWin(P, si)) return WIN - ply;
+  SEQ1[seqBase + ply] = P.h1; SEQ2[seqBase + ply] = P.h2;
+  if (ply > 0 && (P.noCap >= NOCAP_LIMIT || isRep(ply))) return 0;
+  if (depth <= 0 || ply >= MAXPLY - 2) return qeval(ply);
+  const ti = P.h1 & TTM; let ttMove = -1;
+  if (ttK[ti] === P.h2) {
+    ttMove = ttM[ti];
+    if (ttD[ti] >= depth && ply > 0) {
+      let sc = ttS[ti]; if (sc > WIN - 1000) sc -= ply; else if (sc < -WIN + 1000) sc += ply;
+      const f = ttF[ti];
+      if (f === 0 || (f === 1 && sc >= beta) || (f === 2 && sc <= alpha)) return sc;
+    }
+  }
+  const base = ply * 256, n = gen(P, MOVES, base);
+  if (!n) return -(WIN - ply);
+  orderMoves(base, n, ply, ttMove);
+  const a0 = alpha; let best = -INF, bestM = -1;
+  for (let i = 0; i < n; i++) {
+    const m = pickNext(base, i, n);
+    make(P, m >> 6, m & 63);
+    let sc;
+    if (i === 0) sc = -negamax(depth - 1, -beta, -alpha, ply + 1);
+    else {
+      // late quiet moves get a reduced look first (re-searched if they surprise us)
+      const red = LMR && depth >= 3 && i >= 4 && SCORES[base + i] < (1 << 20) && P.uNc[P.sp - 1] === 0 ? 1 + (i >= 12 && depth >= 5 ? 1 : 0) : 0;
+      sc = -negamax(depth - 1 - red, -alpha - 1, -alpha, ply + 1);
+      if (red && sc > alpha && !stopped) sc = -negamax(depth - 1, -alpha - 1, -alpha, ply + 1);
+      if (sc > alpha && sc < beta && !stopped) sc = -negamax(depth - 1, -beta, -alpha, ply + 1);
+    }
+    unmake(P);
+    if (stopped) return 0;
+    if (sc > best) { best = sc; bestM = m; }
+    if (sc > alpha) alpha = sc;
+    if (alpha >= beta) {
+      const v = P.b[m >> 6];
+      if (!SCORES[base + i] || SCORES[base + i] < (1 << 22)) {
+        if (KILL[ply * 2] !== m) { KILL[ply * 2 + 1] = KILL[ply * 2]; KILL[ply * 2] = m; }
+        HIST[(s > 0 ? 0 : 4096) + m] += depth * depth;
+      }
+      void v; break;
+    }
+  }
+  let st = best; if (st > WIN - 1000) st += ply; else if (st < -WIN + 1000) st -= ply;
+  ttK[ti] = P.h2; ttS[ti] = st; ttM[ti] = bestM; ttD[ti] = depth; ttF[ti] = best <= a0 ? 2 : best >= beta ? 1 : 0;
+  return best;
+}
+
+const LEVELS = [
+  null,
+  { kai: 'nunu', name: 'Nunu', depth: 1, time: 300, noise: 260, rand: 0.30, blind: true },
+  { kai: 'miwa', name: 'Miwa', depth: 2, time: 400, noise: 110, rand: 0.10, blind: true },
+  { kai: 'kero', name: 'Kero', depth: 3, time: 500, noise: 30, rand: 0.02, blind: false },
+  { kai: 'humo', name: 'Humo', depth: 4, time: 500, noise: 6, rand: 0, blind: false },
+  { kai: 'tisa', name: 'Tisa', depth: 7, time: 900, noise: 0, rand: 0, blind: false },
+  { kai: 'rasu', name: 'Rasu', depth: 30, time: 1300, noise: 0, rand: 0, blind: false }
+];
+
+// think({cells, side, noCap, ply, history:[key...], level, time?, depth?, rng?}) -> {from,to,path,score,depth,nodes,ms}
+function think(req) {
+  const t0 = now(), L = Object.assign({}, LEVELS[req.level || 3]);
+  if (req.time != null) L.time = req.time;
+  if (req.depth != null) L.depth = req.depth;
+  const rng = req.rng || Math.random;
+  LMR = req.lmr !== false;
+  P = fromBoard(req.cells, req.side, req.noCap, req.ply, req.armed);
+  // game history (oldest first) for repetition checks inside the search
+  const hist = (req.history || []).slice(-(P.noCap + 1));
+  seqBase = 0;
+  for (const k of hist) { const [a, c] = k.split(':'); SEQ1[seqBase] = +a | 0; SEQ2[seqBase] = +c | 0; seqBase++; }
+  if (seqBase > 0) seqBase--;   // last history entry is the current position (ply 0)
+  nodes = 0; stopped = false; blind = !!L.blind; deadline = t0 + L.time;
+  HIST.fill(0); KILL.fill(0);
+  const rootMoves = legalMoves(P);
+  if (!rootMoves.length) return null;
+  const done = (m, sc, d) => {
+    const from = m >> 6, to = m & 63;
+    return { from, to, path: findPath(P, from, to), score: sc, depth: d, nodes, ms: Math.round(now() - t0) };
+  };
+  if (rootMoves.length === 1) return done(rootMoves[0], 0, 0);
+  if (L.rand && rng() < L.rand) return done(rootMoves[(rng() * rootMoves.length) | 0], 0, 0);
+  // shuffle so equal moves vary from game to game
+  for (let i = rootMoves.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; const t = rootMoves[i]; rootMoves[i] = rootMoves[j]; rootMoves[j] = t; }
+  if (L.noise) {
+    // weak bots: score every move exactly at a shallow depth, add noise, pick the best
+    let best = rootMoves[0], bs = -INF;
+    deadline = Infinity;
+    for (const m of rootMoves) {
+      make(P, m >> 6, m & 63);
+      let sc = -negamax(L.depth - 1, -INF, INF, 1);
+      unmake(P);
+      if (Math.abs(sc) < WIN - 1000) sc += (rng() * 2 - 1) * L.noise;
+      else if (sc > 0 && L.blind && rng() < 0.25) sc = 0; // babies sometimes miss a win
+      if (sc > bs) { bs = sc; best = m; }
+    }
+    return done(best, Math.round(bs), L.depth);
+  }
+  let bestM = rootMoves[0], bestS = 0, bestD = 0;
+  for (let depth = 1; depth <= L.depth; depth++) {
+    let alpha = -INF, curBest = -1, curS = -INF;
+    // previous best first
+    const k = rootMoves.indexOf(bestM); if (k > 0) { rootMoves.splice(k, 1); rootMoves.unshift(bestM); }
+    for (let i = 0; i < rootMoves.length; i++) {
+      const m = rootMoves[i];
+      make(P, m >> 6, m & 63);
+      let sc;
+      if (i === 0) sc = -negamax(depth - 1, -INF, -alpha, 1);
+      else { sc = -negamax(depth - 1, -alpha - 1, -alpha, 1); if (sc > alpha && !stopped) sc = -negamax(depth - 1, -INF, -alpha, 1); }
+      unmake(P);
+      if (stopped) break;
+      if (sc > curS) { curS = sc; curBest = m; }
+      if (sc > alpha) alpha = sc;
+    }
+    if (stopped) { if (curBest >= 0 && curS > bestS && curBest !== bestM) { bestM = curBest; bestS = curS; } break; }
+    bestM = curBest; bestS = curS; bestD = depth;
+    if (Math.abs(bestS) > WIN - 1000) break;      // found a forced win or loss
+    if (now() - t0 > L.time * 0.55) break;          // the next depth would not finish
+  }
+  return done(bestM, bestS, bestD);
+}
+
+/* ---------- notation ---------- */
+// Kai: Kd2 · Kin step: c1-c2 · hop chain: b1^d3^f5 · captures: x + square(s), e.g. c1-c2xd3
+function notation(p, from, path) {
+  const v = p.b[from], to = path[path.length - 1];
+  const caps = capturesOf(p.b, from, to);
+  let s;
+  if (v === 2 || v === -2) s = 'K' + sqName(to);
+  else if (path.length === 1 && NB.slice(from * 8, from * 8 + 8).indexOf(to) >= 0) s = sqName(from) + '-' + sqName(to);
+  else s = [from].concat(path).map(sqName).join('^');
+  for (const c of caps) s += 'x' + sqName(c);
+  return s;
+}
+
+return { SQ, SPOT, spotWin, WIN, NOCAP_LIMIT, NB, JP, DIST, RULES, LEVELS, sqName, parseSq, Pos, newGame, fromBoard, clone, keyOf,
+  make, unmake, capturesOf, gen, legalMoves, nextHops, stepTargets, findPath, validChain, kaiAttack, kaiCaptureMoves,
+  status, evaluate, think, notation };
+}
+/*ENGINE-END*/</script>
+<script>window.KAI_BALANCE = {"games":200,"sun":99,"sea":101,"draw":0,"rushDepth":5,"noWinDepth":10,"holdOnlySun":70,"eq":{"games":140,"sun":86,"sea":54,"draw":0}};</script>
+<script>
+(function () {
+'use strict';
+const E = KAIENGINE();
+const $ = id => document.getElementById(id);
+KAI.mountNav('kai');
+const store = KAI.store('kai');
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Self-play numbers measured for the balance tweak (see the _tests/kai report). */
+const BALANCE = window.KAI_BALANCE || { games: 0, sun: 0, sea: 0, draw: 0, rushDepth: 5, noWinDepth: 10, holdOnlySun: 0, eq: { games: 0, sun: 0, sea: 0, draw: 0 } };
+
+/* ---------- Kaihana words, always pulled from KAI.DICT ---------- */
+const USED = new Set();
+function gloss(k) { const d = KAI.lookupKai(k); return d ? d.en.replace(/\(.*?\)/g, '').split(',')[0].replace(/^to /, '').trim() : k; }
+function W(k) { const d = KAI.lookupKai(k); if (!d) { console.warn('KAI: missing word', k); return k; } USED.add(d.kai); return `<span class="k-kai" title="${d.en.replace(/"/g, '&quot;')}">${d.kai}</span>`; }
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const SIDES = { '1': { name: 'Sun', kai: 'hemi', cls: 's' }, '-1': { name: 'Sea', kai: 'awana', cls: 'e' } };
+const sideName = s => SIDES[s > 0 ? '1' : '-1'].name;
+const LVL_ABOUT = [null,
+  'Moves almost at random. A perfect first opponent.',
+  'Grabs captures, but forgets to guard its Kai.',
+  'Looks a couple of moves ahead.',
+  'Plans 4 moves ahead. Beat it for the master stamp.',
+  'Thinks deeply and punishes loose Kais.',
+  'The strongest bot in Kaiya.'];
+const lvlName = n => { const L = E.LEVELS[n]; return `${cap(L.kai)} the ${cap(gloss(L.kai))}`; };
+
+/* ---------- pieces ---------- */
+function pieceSVG(v, attrs) {
+  const sun = v > 0, kai = v === 2 || v === -2, R = kai ? 40 : 36;
+  const fill = sun ? '#e5432d' : '#127a73', rim = sun ? '#ffd27a' : '#7fd3c9';
+  let s = `<svg viewBox="0 0 100 100" ${attrs || ''} aria-hidden="true" focusable="false">`;
+  s += `<circle cx="54" cy="56" r="${R}" fill="#191512"/>`;
+  s += `<circle cx="49" cy="51" r="${R}" fill="${fill}" stroke="#191512" stroke-width="5"/>`;
+  s += `<circle cx="49" cy="51" r="${R - 9}" fill="none" stroke="${rim}" stroke-opacity=".55" stroke-width="2.5"/>`;
+  if (kai) {
+    s += `<path d="M27 64 L29 37 L40 49 L49 30 L58 49 L69 37 L71 64 Z" fill="#f2b632" stroke="#191512" stroke-width="4.5" stroke-linejoin="round"/>`;
+    s += `<rect x="27" y="62" width="44" height="8" rx="3" fill="#f2b632" stroke="#191512" stroke-width="4"/>`;
+    s += `<circle cx="49" cy="52" r="4" fill="${fill}" stroke="#191512" stroke-width="2.5"/>`;
+  } else if (sun) {
+    let rays = '';
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, c = Math.cos(a), n = Math.sin(a); rays += `<line x1="${(49 + c * 15).toFixed(1)}" y1="${(51 + n * 15).toFixed(1)}" x2="${(49 + c * 22).toFixed(1)}" y2="${(51 + n * 22).toFixed(1)}"/>`; }
+    s += `<g stroke="#f2b632" stroke-width="5.5" stroke-linecap="round">${rays}</g><circle cx="49" cy="51" r="10" fill="#f2b632" stroke="#191512" stroke-width="3"/>`;
+  } else {
+    s += `<g fill="none" stroke="#f6efe0" stroke-width="5.5" stroke-linecap="round"><path d="M27 45 q5.5 -7 11 0 t11 0 t11 0 t11 0"/><path d="M27 58 q5.5 -7 11 0 t11 0 t11 0 t11 0"/></g>`;
+  }
+  return s + '</svg>';
+}
+
+/* ---------- game state ---------- */
+const G = {
+  mode: store.get('mode', 'bot') === '2p' ? '2p' : 'bot',
+  level: Math.min(6, Math.max(1, store.get('level', 1) | 0)),
+  pick: store.get('color', 'sun'),
+  flipEach: !!store.get('flipEach', false),
+  human: 1, pos: null, hist: [], moves: [], snaps: [], over: null,
+  ids: new Int16Array(49), nextId: 1, trays: { '1': [], '-1': [] }, last: null,
+  busy: false, thinking: false, botJob: 0, flipped: false, pending: false
+};
+let sel = null;         // {from, path:[], targets: Map}
+let tut = null;         // tutorial state
+let savedGame = null;
+
+const boardEl = $('board'), pcsEl = $('pcs'), sqsEl = $('sqs'), ovEl = $('ov');
+const pcEls = new Map();
+const sqEls = [];
+
+function disp(sq) { const r = (sq / 7) | 0, c = sq % 7; return G.flipped ? { x: 6 - c, y: r } : { x: c, y: 6 - r }; }
+function sqAtPoint(cx, cy) {
+  const R = boardEl.getBoundingClientRect();
+  const x = Math.floor((cx - R.left) / R.width * 7), y = Math.floor((cy - R.top) / R.height * 7);
+  if (x < 0 || x > 6 || y < 0 || y > 6) return -1;
+  return G.flipped ? y * 7 + (6 - x) : (6 - y) * 7 + x;
+}
+
+/* ---------- build the board ---------- */
+for (let sq = 0; sq < 49; sq++) {
+  const d = document.createElement('div');
+  const r = (sq / 7) | 0, c = sq % 7;
+  d.className = 'sq' + ((r + c) % 2 ? ' dk' : '') + (sq === E.SPOT ? ' spot' : '');
+  d.setAttribute('role', 'gridcell');
+  if (sq === E.SPOT) d.innerHTML = `<div class="glyph">${KAI.scriptSVG('k', { size: 40, color: '#191512', weight: 4.2 })}</div>`;
+  const mk = document.createElement('div'); mk.className = 'mk'; d.appendChild(mk);
+  sqsEl.appendChild(d); sqEls.push(d);
+}
+function layoutSquares() {
+  for (let sq = 0; sq < 49; sq++) {
+    const d = disp(sq), el = sqEls[sq];
+    el.style.left = (d.x * 100 / 7) + '%'; el.style.top = (d.y * 100 / 7) + '%';
+    el.setAttribute('aria-label', E.sqName(sq) + (sq === E.SPOT ? ' (the Spot)' : ''));
+  }
+  const files = G.flipped ? 'gfedcba' : 'abcdefg';
+  $('files').innerHTML = [...files].map(f => `<span>${f}</span>`).join('');
+  $('ranks').innerHTML = [1, 2, 3, 4, 5, 6, 7].map(i => `<span>${G.flipped ? i : 8 - i}</span>`).join('');
+}
+
+function place(el, sq) { const d = disp(sq); el.style.transform = `translate(${d.x * 100}%,${d.y * 100}%)`; }
+function syncPieces() {
+  const live = new Set(), b = G.pos.b;
+  for (let sq = 0; sq < 49; sq++) {
+    const v = b[sq]; if (!v) continue;
+    const id = G.ids[sq]; live.add(id);
+    let el = pcEls.get(id);
+    if (!el || +el.dataset.v !== v) {
+      if (el) el.remove();
+      el = document.createElement('div'); el.className = 'pc'; el.dataset.v = v; el.innerHTML = pieceSVG(v);
+      pcEls.set(id, el); pcsEl.appendChild(el);
+    }
+    el.dataset.sq = sq;
+    const at = sel && sel.from === sq && sel.path.length ? sel.path[sel.path.length - 1] : sq;
+    place(el, at);
+    el.classList.toggle('lift', !!sel && sel.from === sq);
+  }
+  for (const [id, el] of pcEls) if (!live.has(id)) { el.remove(); pcEls.delete(id); }
+}
+function assignIds() { G.ids.fill(0); for (let sq = 0; sq < 49; sq++) if (G.pos.b[sq]) G.ids[sq] = G.nextId++; }
+
+/* ---------- highlights ---------- */
+function renderMarks() {
+  const b = G.pos.b;
+  const lm = new Set(); if (G.last) { lm.add(G.last.from); for (const s of G.last.path) lm.add(s); }
+  const goal = tut && TUT[tut.i].goal ? TUT[tut.i].goal.map(E.parseSq) : [];
+  for (let sq = 0; sq < 49; sq++) {
+    const el = sqEls[sq], mk = el.lastChild;
+    el.classList.toggle('lm', lm.has(sq) && sq !== E.SPOT);
+    el.classList.toggle('sel', !!sel && sel.from === sq);
+    el.classList.toggle('goal', goal.indexOf(sq) >= 0);
+    const t = sel && sel.targets.get(sq);
+    mk.className = 'mk' + (t ? ' ' + t.type + (t.caps ? ' cap' : '') : '');
+    mk.innerHTML = t && t.type === 'hop' ? `<b>${t.caps ? 'x' : ''}${t.depth > 1 || sel.path.length ? '^' + t.depth : '^'}</b>` : (t && t.caps ? '<b>x</b>' : '');
+  }
+  // spot badge
+  const spot = sqEls[E.SPOT]; let badge = spot.querySelector('.hold');
+  spot.classList.toggle('shut', G.pos.ply < E.RULES.spotFrom && G.mode !== 'tut');
+  const v = b[E.SPOT], info = spotInfo();
+  if (info) {
+    if (!badge) { badge = document.createElement('span'); badge.className = 'hold'; spot.appendChild(badge); }
+    badge.innerHTML = info.left + '<span class="lng"> left</span>'; badge.style.color = v > 0 ? '#f2b632' : '#7fd3c9';
+    badge.title = `${sideName(info.owner)} Kai on the Spot: ${info.left} ${sideName(-info.owner)} move${info.left > 1 ? 's' : ''} left to capture it`;
+  } else if (G.pos.ply < E.RULES.spotFrom && G.mode !== 'tut') {
+    if (!badge) { badge = document.createElement('span'); badge.className = 'hold'; spot.appendChild(badge); }
+    const n = E.RULES.spotFrom - G.pos.ply;
+    badge.innerHTML = '<span class="lng">opens in </span>' + n; badge.style.color = '#f6efe0';
+    badge.title = `No Kai may step onto the Spot for the first ${E.RULES.spotFrom} moves. ${n} to go.`;
+  } else if (badge) badge.remove();
+  // overlay: last move path and current chain
+  let svg = '';
+  const pt = sq => { const d = disp(sq); return (d.x + .5).toFixed(2) + ',' + (d.y + .5).toFixed(2); };
+  if (G.last && G.last.path.length) svg += `<polyline points="${[G.last.from].concat(G.last.path).map(pt).join(' ')}" fill="none" stroke="#c48a12" stroke-width=".09" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>`;
+  if (sel && sel.path.length) svg += `<polyline points="${[sel.from].concat(sel.path).map(pt).join(' ')}" fill="none" stroke="#6b3fa0" stroke-width=".1" stroke-dasharray=".22 .14" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ovEl.innerHTML = svg;
+  // Kai in danger glow
+  for (const el of pcEls.values()) el.classList.remove('danger');
+  if (!G.over && G.pos) {
+    const t = G.pos.side, K = G.pos.kai[t > 0 ? 0 : 1];
+    if (K >= 0 && kaiInDanger(t)) { const el = pcEls.get(G.ids[K]); if (el) el.classList.add('danger'); }
+  }
+}
+function kaiInDanger(t) { return E.kaiAttack(G.pos, -t); }
+// a Kai on the Spot: how many enemy moves are left to capture it
+function spotInfo() {
+  const p = G.pos; if (!p) return null; const v = p.b[E.SPOT]; if (v !== 2 && v !== -2) return null;
+  const owner = v > 0 ? 1 : -1, armed = p.armed[owner > 0 ? 0 : 1];
+  const hold = E.RULES.spotHold;
+  let left;
+  if (p.side === owner) left = hold - 1 - (armed ? 1 : 0);
+  else left = hold - (armed ? 1 : 0);
+  return { owner, left: Math.max(left, 0) };
+}
+
+/* ---------- player bars / trays ---------- */
+function sideAt(top) { return (top ? !G.flipped : G.flipped) ? -1 : 1; }
+function whoLabel(s) {
+  const dot = pieceSVG(s > 0 ? 2 : -2, 'class="dot"');
+  if (G.mode === 'bot') {
+    if (s === G.human) return `${dot}<span>You · ${sideName(s)}</span>`;
+    return `${dot}<span>${lvlName(G.level)} <small>bot ${G.level} · ${sideName(s)}</small></span>`;
+  }
+  if (G.mode === 'tut') return `${dot}<span>${sideName(s)}${s > 0 ? ' · you' : ''}</span>`;
+  return `${dot}<span>${sideName(s)} <small>${W(SIDES[s > 0 ? '1' : '-1'].kai)}</small></span>`;
+}
+function renderBars() {
+  for (const top of [true, false]) {
+    const s = sideAt(top), bar = $(top ? 'barTop' : 'barBot');
+    $(top ? 'whoTop' : 'whoBot').innerHTML = whoLabel(s);
+    bar.classList.toggle('turn', !G.over && G.pos.side === s);
+    $(top ? 'trayTop' : 'trayBot').innerHTML = G.trays[s > 0 ? '1' : '-1'].map(v => pieceSVG(v)).join('');
+  }
+}
+
+/* ---------- status, moves, stats ---------- */
+function setStatus(html, cls, side) {
+  const st = $('status');
+  st.className = 'status' + (cls ? ' ' + cls : '');
+  st.innerHTML = (side ? pieceSVG(side > 0 ? 2 : -2, 'class="dot"') : '') + `<span>${html}</span>`;
+}
+function renderStatus() {
+  if (G.mode === 'tut') return;
+  const p = G.pos, t = p.side;
+  if (G.over) { setStatus(overText(G.over).title + ' ' + overText(G.over).why, '', G.over.winner || 0); return; }
+  if (G.thinking) { setStatus(`${cap(E.LEVELS[G.level].kai)} ${W('toma')}… <span class="k-muted">(thinking)</span><span class="think"><i></i><i></i><i></i></span>`, '', t); return; }
+  const you = G.mode === 'bot' ? 'Your turn' : `${sideName(t)} to move`;
+  const info = spotInfo();
+  if (info && info.owner === -t) {
+    setStatus(`${sideName(-t)}'s Kai is on the Spot! ${info.left === 1 ? 'Capture it <b>now</b> or ' + sideName(-t) + ' wins.' : 'You have ' + info.left + ' moves to capture it.'}`, 'warn', t); return;
+  }
+  if (kaiInDanger(t)) { setStatus(`<b>Kai in danger!</b> ${sideName(-t)} can sandwich your Kai next move. ${you}.`, 'warn', t); return; }
+  if (info && info.owner === t) { setStatus(`${you}. Your Kai holds the Spot: survive ${info.left} more ${sideName(-t)} move${info.left > 1 ? 's' : ''} to ${W('yusa')}!`, 'spot', t); return; }
+  setStatus(`${you}${G.mode === 'bot' ? ' · ' + sideName(t) : ''}. ${sel ? 'Tap a dot to step or a ring to hop.' : 'Tap a piece to see its moves.'}`, '', t);
+}
+function renderMoves() {
+  const el = $('moves'), m = G.moves;
+  if (!m.length) { el.innerHTML = `<div class="empty">Moves appear here. Sun (${W('hemi')}) moves first.</div>`; return; }
+  let h = '', startSea = m[0].side < 0;
+  const rows = [];
+  let i = 0;
+  if (startSea) { rows.push([null, m[0]]); i = 1; }
+  for (; i < m.length; i += 2) rows.push([m[i], m[i + 1] || null]);
+  rows.forEach((r, k) => {
+    h += `<span class="no">${k + 1}.</span>`;
+    for (const x of r) h += x ? `<span class="mv ${x.side > 0 ? 's' : 'e'}"><span${x === m[m.length - 1] ? ' class="last"' : ''}>${x.note}</span></span>` : '<span class="mv">…</span>';
+  });
+  el.innerHTML = h; el.scrollTop = el.scrollHeight;
+}
+function stats() { return store.get('stats', {}); }
+function renderStats() {
+  const s = stats(), L = s[G.level] || { w: 0, l: 0, d: 0 };
+  if (G.mode === 'bot') $('stats').innerHTML = `vs ${lvlName(G.level)}: <b>${L.w}</b> ${W('yusa')} · <b>${L.l}</b> ${W('losi')} · <b>${L.d}</b> draw${L.d === 1 ? '' : 's'}`;
+  else $('stats').innerHTML = `2-player games finished on this device: <b>${s.pp || 0}</b>`;
+}
+function renderButtons() {
+  const tutMode = G.mode === 'tut';
+  $('undoBtn').disabled = tutMode || !G.snaps.length || (G.busy && !G.thinking);
+  $('resignBtn').disabled = tutMode || !!G.over || !G.moves.length;
+  $('newBtn').classList.toggle('sun', G.pending); $('newBtn').classList.toggle('teal', !G.pending);
+}
+function renderSetup() {
+  document.querySelectorAll('.tabs [data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === G.mode)));
+  $('gamePanel').hidden = G.mode === 'tut';
+  $('botSetup').hidden = G.mode !== 'bot'; $('ppSetup').hidden = G.mode !== '2p';
+  for (const id of ['status', 'moves', 'gameBtns', 'stats']) $(id).hidden = G.mode === 'tut';
+  $('tutPanel').hidden = G.mode !== 'tut';
+  $('lvlRow').querySelectorAll('[data-lvl]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.lvl === G.level)));
+  $('colRow').querySelectorAll('[data-col]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.col === G.pick)));
+  $('lvlInfo').textContent = `${lvlName(G.level)}: ${LVL_ABOUT[G.level]}`;
+  $('flipEach').checked = G.flipEach;
+}
+function render() {
+  syncPieces(); renderMarks(); renderBars(); renderStatus(); renderMoves(); renderStats(); renderButtons(); renderSetup();
+  const cb = $('chainbar');
+  if (sel && sel.path.length) {
+    cb.hidden = false;
+    $('chainTxt').textContent = [sel.from].concat(sel.path).map(E.sqName).join('^');
+  } else cb.hidden = true;
+}
+
+/* ---------- selecting & moving ---------- */
+const isKin = v => v === 1 || v === -1;
+function humanSide() { return G.mode === 'bot' ? G.human : G.mode === 'tut' ? 1 : G.pos.side; }
+function canInput() { return !G.busy && !G.over && G.pos.side === humanSide() && !(tut && tut.lock); }
+function ownPiece(sq) { return sq >= 0 && G.pos.b[sq] * G.pos.side > 0; }
+function targetsFor(from, path) {
+  const map = new Map(), visited = [from].concat(path), cur = path.length ? path[path.length - 1] : from, p = G.pos;
+  if (!path.length) for (const t of E.stepTargets(p, from)) map.set(t, { type: 'step', path: [t], depth: 0 });
+  if (isKin(p.b[from])) {
+    const seen = new Set(visited), q = [{ sq: cur, p: [] }];
+    while (q.length) {
+      const n = q.shift();
+      for (const j of E.nextHops(p, from, n.sq, visited.concat(n.p))) {
+        if (seen.has(j)) continue; seen.add(j);
+        const pp = n.p.concat(j); map.set(j, { type: 'hop', path: pp, depth: pp.length }); q.push({ sq: j, p: pp });
+      }
+    }
+  }
+  for (const [sq, t] of map) t.caps = E.capturesOf(p.b, from, sq).length;
+  return map;
+}
+function select(sq) {
+  sel = { from: sq, path: [], targets: targetsFor(sq, []) };
+  render();
+  if (!sel.targets.size) setStatus('That piece is boxed in. Pick another one.', '', G.pos.side);
+  else if (Math.abs(G.pos.b[sq]) === 2 && E.DIST[sq] === 1 && !G.pos.b[E.SPOT] && G.pos.ply < E.RULES.spotFrom) setStatus(`The Spot is still closed: no Kai may step onto it until move ${E.RULES.spotFrom + 1}.`, 'spot', G.pos.side);
+}
+function clearSel() { sel = null; }
+function cancelChain() {
+  if (!sel) return;
+  const from = sel.from; sel = null;
+  const el = pcEls.get(G.ids[from]); if (el) place(el, from);
+  render();
+}
+async function handleTarget(sq, dropped) {
+  const t = sel.targets.get(sq); if (!t) return;
+  const from = sel.from;
+  if (t.type === 'step') { const path = [sq]; sel = null; return commit(from, path, { noAnim: dropped }); }
+  const startSq = sel.path.length ? sel.path[sel.path.length - 1] : from;
+  const path = sel.path.concat(t.path);
+  const further = targetsFor(from, path);
+  if (!further.size) { sel = null; return commit(from, path, { startSq, seg: t.path, noAnim: dropped }); }
+  // keep hopping or stop here
+  const el = pcEls.get(G.ids[from]);
+  G.busy = true;
+  if (!dropped) await animPath(el, startSq, t.path);
+  G.busy = false;
+  sel = { from, path, targets: further };
+  render();
+  setStatus(`Hop chain! Hop again (rings) or tap <b>Stop here</b>. Tapping the piece also stops.`, '', G.pos.side);
+}
+function stopChain() { if (!sel || !sel.path.length) return; const from = sel.from, path = sel.path; sel = null; commit(from, path, { noAnim: true }); }
+
+function T(sq, extra) { const d = disp(sq); return `translate(${d.x * 100}%,${d.y * 100}%)${extra || ''}`; }
+function animPath(el, startSq, landings) {
+  if (!el || !landings.length || REDUCED) return Promise.resolve();
+  const frames = [{ transform: T(startSq), offset: 0 }];
+  const n = landings.length; let prev = startSq;
+  landings.forEach((sq, i) => {
+    const a = disp(prev), b = disp(sq), hop = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) > 1;
+    if (hop) frames.push({ transform: `translate(${(a.x + b.x) * 50}%,${(a.y + b.y) * 50}%) scale(1.28)`, offset: (i + .5) / n });
+    frames.push({ transform: T(sq), offset: (i + 1) / n });
+    prev = sq;
+  });
+  el.style.zIndex = 8;
+  const anim = el.animate(frames, { duration: 210 * n + 40, easing: 'ease-in-out' });
+  place(el, landings[n - 1]);
+  return anim.finished.catch(() => {}).then(() => { el.style.zIndex = ''; });
+}
+function flyToTray(caps, mover) {
+  if (!caps.length) return Promise.resolve();
+  const tray = $(sideAt(true) === mover ? 'trayTop' : 'trayBot');
+  const tr = tray.getBoundingClientRect(), br = pcsEl.getBoundingClientRect(), cell = br.width / 7;
+  const ps = caps.map((c, i) => {
+    const el = pcEls.get(c.id); if (!el) return Promise.resolve();
+    pcEls.delete(c.id);
+    if (REDUCED) { el.remove(); return Promise.resolve(); }
+    const d = disp(c.sq), x0 = d.x * cell, y0 = d.y * cell;
+    const x1 = tr.right - br.left - cell * .7 - i * cell * .3, y1 = tr.top + tr.height / 2 - br.top - cell / 2;
+    el.style.zIndex = 9;
+    const a = el.animate([
+      { transform: `translate(${x0}px,${y0}px) scale(1)`, opacity: 1 },
+      { transform: `translate(${x0}px,${y0 - cell * .35}px) scale(1.25) rotate(-12deg)`, opacity: 1, offset: .25 },
+      { transform: `translate(${x1}px,${y1}px) scale(.45) rotate(25deg)`, opacity: .9 }
+    ], { duration: 520, delay: i * 90, easing: 'cubic-bezier(.5,0,.4,1)', fill: 'forwards' });
+    return a.finished.catch(() => {}).then(() => el.remove());
+  });
+  return Promise.all(ps);
+}
+
+function snapshot() {
+  return { cells: Array.from(G.pos.b), side: G.pos.side, noCap: G.pos.noCap, ply: G.pos.ply, armed: Array.from(G.pos.armed),
+    histLen: G.hist.length, movesLen: G.moves.length, trays: { '1': G.trays['1'].slice(), '-1': G.trays['-1'].slice() }, ids: Array.from(G.ids), last: G.last };
+}
+function restore(s) {
+  G.pos = E.fromBoard(s.cells, s.side, s.noCap, s.ply, s.armed);
+  G.hist.length = s.histLen; G.moves.length = s.movesLen; G.trays = s.trays; G.ids = Int16Array.from(s.ids); G.last = s.last;
+}
+
+async function commit(from, path, opt) {
+  opt = opt || {};
+  const p = G.pos, to = path[path.length - 1], mover = p.side;
+  const capSq = E.capturesOf(p.b, from, to);
+  const caps = capSq.map(sq => ({ sq, id: G.ids[sq], v: p.b[sq] }));
+  const note = E.notation(p, from, path);
+  const before = G.mode === 'tut' ? E.clone(p) : null;
+  G.snaps.push(snapshot());
+  G.busy = true; sel = null;
+  const id = G.ids[from], el = pcEls.get(id);
+  renderMarks();
+  if (!opt.noAnim) await animPath(el, opt.startSq != null ? opt.startSq : from, opt.seg || path);
+  else if (el) place(el, to);
+  E.make(p, from, to); p.sp = 0;
+  G.ids[to] = id; G.ids[from] = 0; for (const c of caps) G.ids[c.sq] = 0;
+  G.hist.push(E.keyOf(p));
+  const mv = { side: mover, from, path, caps: capSq, note };
+  G.moves.push(mv); G.last = { from, path };
+  renderMarks(); renderMoves();
+  await flyToTray(caps, mover);
+  for (const c of caps) G.trays[mover > 0 ? '1' : '-1'].push(c.v);
+  G.busy = false;
+  if (G.mode === 'tut') { render(); tutAfterMove(mv, before); return; }
+  const st = E.status(p, G.hist);
+  if (st) { endGame(st); return; }
+  if (G.mode === '2p' && G.flipEach) setFlip(p.side < 0);
+  render();
+  maybeBot();
+}
+
+/* ---------- bot (Web Worker built from a Blob, so the page never freezes) ---------- */
+let worker = null, wid = 0;
+const wjobs = new Map();
+function makeWorker() {
+  try {
+    const src = KAIENGINE.toString() + '\nconst E = KAIENGINE();\nself.onmessage = function (e) { const d = e.data; Object.assign(E.RULES, d.rules); const r = E.think(d.req); self.postMessage({ id: d.id, r: r }); };';
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    worker = new Worker(url);
+    worker.onmessage = e => { const j = wjobs.get(e.data.id); if (j) { wjobs.delete(e.data.id); j(e.data.r); } };
+    worker.onerror = ev => { console.warn('KAI worker failed, thinking on the page instead', ev.message); worker = null; const js = [...wjobs.values()]; wjobs.clear(); js.forEach(j => j(null)); };
+  } catch (err) { worker = null; }
+}
+function askBot(req) {
+  return new Promise(res => {
+    if (!worker) makeWorker();
+    if (worker) { const id = ++wid; wjobs.set(id, r => res(r || E.think(req))); worker.postMessage({ id, req, rules: Object.assign({}, E.RULES) }); }
+    else setTimeout(() => res(E.think(req)), 20);
+  });
+}
+function cancelBot() {
+  G.botJob++; G.thinking = false;
+  if (worker && wjobs.size) { worker.terminate(); worker = null; wjobs.clear(); }
+}
+function maybeBot() {
+  if (G.mode !== 'bot' || G.over || G.pos.side === G.human) return;
+  const job = ++G.botJob, p = G.pos, t0 = performance.now();
+  G.thinking = true; G.busy = true; render();
+  const req = { cells: Array.from(p.b), side: p.side, noCap: p.noCap, ply: p.ply, armed: Array.from(p.armed), history: G.hist.slice(-(p.noCap + 1)), level: G.level };
+  askBot(req).then(r => {
+    if (job !== G.botJob) return;
+    window.__kaiLastThink = r;
+    const wait = Math.max(0, 480 - (performance.now() - t0));
+    setTimeout(() => {
+      if (job !== G.botJob) return;
+      G.thinking = false; G.busy = false;
+      if (!r) return;
+      commit(r.from, r.path);
+    }, wait);
+  });
+}
+
+/* ---------- game flow ---------- */
+function setFlip(f, instant) {
+  if (G.flipped === f) return;
+  G.flipped = f;
+  if (!instant && !REDUCED) { boardEl.classList.add('flipping'); setTimeout(() => boardEl.classList.remove('flipping'), 420); }
+  layoutSquares(); render();
+}
+function newGame() {
+  cancelBot(); sel = null; tut = null;
+  G.pos = E.newGame(); G.hist = [E.keyOf(G.pos)]; G.moves = []; G.snaps = []; G.over = null; G.last = null; G.pending = false;
+  G.trays = { '1': [], '-1': [] }; assignIds();
+  G.human = G.pick === 'sea' ? -1 : G.pick === 'random' ? (Math.random() < .5 ? 1 : -1) : 1;
+  $('boardmsg').hidden = true;
+  setFlip(G.mode === 'bot' ? G.human < 0 : false, true);
+  layoutSquares(); render(); maybeBot();
+}
+function overText(st) {
+  const w = st.winner, wn = w ? sideName(w) : '', ln = w ? sideName(-w) : '';
+  const why = {
+    kai: `${wn} captured the ${ln} Kai.`,
+    spot: `${wn}'s Kai held the Spot for ${E.RULES.spotHold} ${ln} turn${E.RULES.spotHold > 1 ? 's' : ''}.`,
+    kins: `${ln} has no Kins left.`,
+    stuck: `${ln} had no legal move.`,
+    quiet: `${E.NOCAP_LIMIT} moves in a row without a capture.`,
+    repeat: 'The same position came up 3 times.',
+    resign: `${ln} resigned.`
+  }[st.reason] || '';
+  let title, sub = '';
+  if (!w) { title = 'Draw!'; sub = 'Nobody wins this one.'; }
+  else if (G.mode === 'bot') { if (w === G.human) { title = `tu yusa!`; sub = 'You win!'; } else { title = `tu losi`; sub = `${cap(E.LEVELS[G.level].kai)} wins.`; } }
+  else { title = `${cap(SIDES[w > 0 ? '1' : '-1'].kai)} yusa!`; sub = `${wn} wins!`; }
+  return { title, sub, why };
+}
+function endGame(st) {
+  cancelBot(); sel = null;
+  G.over = st; G.busy = false;
+  const ot = overText(st);
+  const stamps = ['kai-first'];
+  const S = stats();
+  if (G.mode === 'bot') {
+    const L = S[G.level] || { w: 0, l: 0, d: 0 };
+    if (!st.winner) L.d++; else if (st.winner === G.human) { L.w++; stamps.push('kai-win'); if (G.level >= 4) stamps.push('kai-master'); } else L.l++;
+    S[G.level] = L;
+  } else S.pp = (S.pp || 0) + 1;
+  store.set('stats', S);
+  stamps.filter(s => !KAI.passport.has(s)).forEach((s, i) => setTimeout(() => KAI.passport.give(s), 500 + i * 2600));
+  $('msgTitle').innerHTML = ot.title.replace(/(yusa|losi)/, m => W(m)).replace(/^(tu|Hemi|Awana)/i, m => W(m.toLowerCase()));
+  $('msgText').innerHTML = `<b>${ot.sub}</b> ${ot.why}`;
+  $('msgBtns').innerHTML = `<button class="k-btn red" type="button" id="againBtn">Play again</button><button class="k-btn" type="button" id="reviewBtn">Look at the board</button>`;
+  $('boardmsg').hidden = false;
+  $('againBtn').onclick = newGame;
+  $('reviewBtn').onclick = () => { $('boardmsg').hidden = true; };
+  render();
+}
+function undo() {
+  if (G.mode === 'tut' || !G.snaps.length || (G.busy && !G.thinking)) return;
+  cancelBot(); sel = null;
+  while (G.snaps.length) {
+    restore(G.snaps.pop());
+    if (G.mode !== 'bot' || G.pos.side === G.human) break;
+  }
+  G.over = null; G.busy = false; $('boardmsg').hidden = true;
+  if (G.mode === '2p' && G.flipEach) setFlip(G.pos.side < 0, true);
+  render(); maybeBot();
+}
+function resign() {
+  if (G.mode === 'tut' || G.over || !G.moves.length) return;
+  endGame({ winner: G.mode === 'bot' ? -G.human : -G.pos.side, reason: 'resign' });
+}
+function setMode(m) {
+  if (m === G.mode) return;
+  if (m === 'tut') { cancelBot(); savedGame = { mode: G.mode, snap: snapshot(), hist: G.hist.slice(), moves: G.moves.slice(), snaps: G.snaps.slice(), over: G.over, human: G.human, flipped: G.flipped }; G.mode = 'tut'; startTut(0); return; }
+  if (G.mode === 'tut' && savedGame && savedGame.mode === m) {
+    tut = null; G.mode = m; const s = savedGame; savedGame = null;
+    G.hist = s.hist; G.moves = s.moves; restore(s.snap); G.snaps = s.snaps; G.over = s.over; G.human = s.human; sel = null;
+    $('boardmsg').hidden = !G.over; setFlip(s.flipped, true); layoutSquares(); render(); maybeBot(); return;
+  }
+  savedGame = null; G.mode = m; store.set('mode', m); newGame();
+}
+
+/* ---------- pointer input: tap or drag ---------- */
+let drag = null;
+boardEl.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
+  const sq = sqAtPoint(e.clientX, e.clientY); if (sq < 0 || !canInput()) { drag = null; return; }
+  const chainEnd = sel && sel.path.length ? sel.path[sel.path.length - 1] : -1;
+  let just = false, dragSq = -1;
+  if (chainEnd >= 0) { if (sq === chainEnd) dragSq = sq; }
+  else if (ownPiece(sq)) { if (!sel || sel.from !== sq) { select(sq); just = true; } dragSq = sq; }
+  const el = dragSq >= 0 ? pcEls.get(G.ids[sel.from]) : null;
+  drag = { sq, just, el, x0: e.clientX, y0: e.clientY, moved: false };
+  try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+});
+boardEl.addEventListener('pointermove', e => {
+  if (!drag || !drag.el) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 7) return;
+  drag.moved = true;
+  const R = pcsEl.getBoundingClientRect(), cell = R.width / 7;
+  drag.el.classList.add('drag');
+  drag.el.style.transform = `translate(${e.clientX - R.left - cell / 2}px,${e.clientY - R.top - cell / 2}px)`;
+});
+function endDrag() { if (drag && drag.el) { drag.el.classList.remove('drag'); } }
+boardEl.addEventListener('pointerup', e => {
+  const d = drag; drag = null; if (!d) return;
+  endDrag();
+  const sq = sqAtPoint(e.clientX, e.clientY);
+  if (d.moved) {
+    if (sel && sel.targets.has(sq)) handleTarget(sq, true);
+    else { syncPieces(); }
+    return;
+  }
+  tap(sq, d.just);
+});
+boardEl.addEventListener('pointercancel', () => { endDrag(); drag = null; if (G.pos) syncPieces(); });
+function tap(sq, just) {
+  if (sq < 0 || !canInput()) return;
+  if (sel && sel.path.length) {
+    const end = sel.path[sel.path.length - 1];
+    if (sel.targets.has(sq)) return handleTarget(sq);
+    if (sq === end) return stopChain();
+    cancelChain(); if (ownPiece(sq)) select(sq); return;
+  }
+  if (sel) {
+    if (sel.targets.has(sq)) return handleTarget(sq);
+    if (sq === sel.from) { if (!just) { sel = null; render(); } return; }
+    if (ownPiece(sq)) return select(sq);
+    sel = null; render(); return;
+  }
+  if (ownPiece(sq)) select(sq);
+}
+$('chainStop').innerHTML = `Stop here · ${W('tome')}`;
+$('chainStop').onclick = stopChain;
+$('chainCancel').onclick = cancelChain;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sel) { if (sel.path.length) cancelChain(); else { sel = null; render(); } } });
+
+/* ---------- controls ---------- */
+$('kicker').innerHTML = `${W('kaimo')} ni ${W('Kaiya')}`;
+document.querySelectorAll('.tabs [data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+$('lvlRow').insertAdjacentHTML('beforeend', [1, 2, 3, 4, 5, 6].map(n => `<button class="chipbtn" type="button" data-lvl="${n}" title="${lvlName(n)}"><span class="n">${n}</span>${cap(E.LEVELS[n].kai)}</button>`).join(''));
+$('colRow').insertAdjacentHTML('beforeend', `<button class="chipbtn" type="button" data-col="sun">${pieceSVG(2, 'width="20" height="20"')}Sun <small>moves first</small></button><button class="chipbtn" type="button" data-col="sea">${pieceSVG(-2, 'width="20" height="20"')}Sea</button><button class="chipbtn" type="button" data-col="random">Random</button>`);
+function settingChanged() {
+  if (G.mode === 'bot' && (G.moves.length < 2 || G.over)) newGame();
+  else { G.pending = true; render(); KAI.toast('Press <b>New game</b> to start with the new settings.'); }
+}
+$('lvlRow').addEventListener('click', e => { const b = e.target.closest('[data-lvl]'); if (!b) return; G.level = +b.dataset.lvl; store.set('level', G.level); settingChanged(); });
+$('colRow').addEventListener('click', e => { const b = e.target.closest('[data-col]'); if (!b) return; G.pick = b.dataset.col; store.set('color', G.pick); settingChanged(); });
+$('flipEach').onchange = e => { G.flipEach = e.target.checked; store.set('flipEach', G.flipEach); if (G.mode === '2p') setFlip(G.flipEach && G.pos.side < 0); };
+$('undoBtn').onclick = undo;
+$('newBtn').onclick = () => { if (G.mode === 'tut') startTut(0); else newGame(); };
+$('resignBtn').onclick = resign;
+$('flipBtn').onclick = () => setFlip(!G.flipped);
+$('toRules').onclick = () => $('rules').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+window.addEventListener('resize', () => { if (G.pos) syncPieces(); });
+
+/* ================= tutorial ================= */
+// Each step: a preset position, a goal, and a check of the player's move.
+const TUT = [
+  { word: 'pomo', title: 'Step', goal: null,
+    setup: { sun: { K: 'd1', k: ['c3'] }, sea: { K: 'd7', k: ['g7'] } },
+    text: () => `Tap your Kin on <b>c3</b>, then tap one of the dots. Any piece can step 1 square in any of the 8 directions.`,
+    check: m => m.path.length === 1 && E.NB.slice(m.from * 8, m.from * 8 + 8).indexOf(m.path[0]) >= 0 ? { ok: true, msg: `${W('pomo')}! A step goes one square, straight or diagonal, onto an empty square. The Kai steps the same way.` } : { ok: false, msg: 'Try a single step onto a dot.' } },
+  { word: 'hopu', title: 'Hop', goal: ['c4'],
+    setup: { sun: { K: 'g1', k: ['c2'] }, sea: { K: 'a7', k: ['c3', 'g6'] } },
+    text: () => `A Kin can <b>hop</b> over a piece next to it, onto the empty square just beyond. Hop your Kin on <b>c2</b> over the Sea Kin to the ring on <b>c4</b>.`,
+    check: m => m.from === E.parseSq('c2') && m.path[m.path.length - 1] === E.parseSq('c4') ? { ok: true, msg: `${W('hopu')}! Notice the Sea Kin is still there: a hop never captures. Only Kins can hop, never the Kai.` } : { ok: false, msg: 'Hop the c2 Kin over c3 to land on c4.' } },
+  { word: 'hopu', title: 'Hop chain', goal: ['e7'],
+    setup: { sun: { K: 'g1', k: ['a1', 'a2'] }, sea: { K: 'g4', k: ['b4', 'd6'] } },
+    text: () => `Hops can keep going with the same Kin: a <b>chain</b>. Take the Kin on <b>a1</b> all the way to <b>e7</b>, over your own Kin and two Sea Kins. Tap each ring as you go.`,
+    check: m => m.from === E.parseSq('a1') && m.path[m.path.length - 1] === E.parseSq('e7') ? { ok: true, msg: `Three hops in one move: <span class="k-mono">${m.note}</span>. A chain can hop over any colour, can stop after any hop, but can't land on the same square twice.` } : { ok: false, msg: 'Not quite there. Keep hopping the a1 Kin until it reaches e7.' } },
+  { word: null, title: 'Sandwich!', goal: ['c3'],
+    setup: { sun: { K: 'g1', k: ['b2', 'c5'] }, sea: { K: 'g7', k: ['c4', 'a7'] } },
+    text: () => `To capture, trap an enemy piece in a straight line between the piece you move and another of yours. The Sea Kin on <b>c4</b> has your Kin on c5 behind it. Move a Kin to <b>c3</b>.`,
+    check: m => m.caps.length ? { ok: true, msg: `Captured! The Sea Kin flew to your tray. Sandwiches work up, down, sideways and diagonally. Only the player who moves captures, so moving <i>into</i> a sandwich is safe.` } : { ok: false, msg: 'No capture yet. Land on c3 so c4 is trapped between c3 and c5.' } },
+  { word: null, title: 'Double sandwich', goal: ['d3'],
+    setup: { sun: { K: 'g1', k: ['d2', 'b5', 'f5'] }, sea: { K: 'g7', k: ['c4', 'e4', 'a7'] } },
+    text: () => `One move can capture in several lines at once. Find the square that sandwiches <b>both</b> Sea Kins, using diagonals.`,
+    check: m => m.caps.length >= 2 ? { ok: true, msg: `Two at once: <span class="k-mono">${m.note}</span>. The little <b>x</b> on a dot or ring tells you a move will capture.` } : m.caps.length ? { ok: false, msg: 'Only one! Find the square that traps both of them.' } : { ok: false, msg: 'No capture. Look for the square between both diagonals.' } },
+  { word: 'rasu', title: 'Capture the Kai', goal: ['e4'],
+    setup: { sun: { K: 'b1', k: ['c2', 'g4'] }, sea: { K: 'f4', k: ['d3', 'a7', 'b7'] } },
+    text: () => `The Kai (${W('rasu')}) can be sandwiched too, and capturing it wins at once. Your Kin on g4 is behind the Sea Kai. Get a Kin to the other side, a hop will help.`,
+    check: m => G.pos.kai[1] < 0 ? { ok: true, msg: `The Sea Kai is captured. ${W('yusa')}! That is win number one.` } : { ok: false, msg: 'The Sea Kai is still there. Sandwich it between e4 and g4.' } },
+  { word: 'yusa', title: 'Hold the Spot', goal: ['d4'],
+    setup: { sun: { K: 'd3', k: ['c3', 'e3', 'b1'] }, sea: { K: 'd7', k: ['a7', 'g7', 'b7'] } },
+    text: () => tut && tut.stage ? `Sea moved. Your Kai must stay on the Spot, so move any <b>other</b> piece.` : `The yellow square with the Kaiscript letter k is <b>the Spot</b>. Step your Kai onto it, then keep it there while Sea takes ${E.RULES.spotHold} turns.`,
+    reply: ['a7-a6', 'g7-g6', 'b7-b6'] }
+];
+function tutPos(setup) {
+  const cells = new Array(49).fill(0);
+  for (const [side, val] of [['sun', 1], ['sea', -1]]) { cells[E.parseSq(setup[side].K)] = 2 * val; for (const k of setup[side].k) cells[E.parseSq(k)] = val; }
+  return E.fromBoard(cells, 1, 0, 10, [0, 0]);
+}
+function startTut(i) {
+  cancelBot(); sel = null;
+  const S = TUT[i];
+  tut = { i, stage: 0, solved: false, lock: false, fb: null };
+  G.pos = tutPos(S.setup); G.hist = [E.keyOf(G.pos)]; G.moves = []; G.snaps = []; G.over = null; G.last = null; G.human = 1;
+  G.trays = { '1': [], '-1': [] }; assignIds();
+  $('boardmsg').hidden = true; setFlip(false, true); layoutSquares(); render(); renderTut();
+}
+function renderTut() {
+  if (!tut) return;
+  const S = TUT[tut.i], last = tut.i === TUT.length - 1;
+  const done = store.get('tutDone', []);
+  $('tutPanel').innerHTML = `
+    <div class="steps" aria-label="Tutorial progress">${TUT.map((x, k) => `<span class="${k === tut.i ? 'on' : done.indexOf(k) >= 0 ? 'done' : ''}"></span>`).join('')}</div>
+    <div class="k-card">
+      <div class="k-kicker">Lesson ${tut.i + 1} of ${TUT.length}${S.word ? ' · ' + W(S.word) : ''}</div>
+      <h3 style="margin-top:6px">${S.title}</h3>
+      <p>${S.text()}</p>
+    </div>
+    <div class="fb ${tut.fb ? (tut.fb.ok ? 'ok' : 'no') : ''}" role="status" aria-live="polite">${tut.fb ? tut.fb.msg : ''}</div>
+    <div class="btns">
+      <button class="k-btn sm" type="button" id="tBack" ${tut.i ? '' : 'disabled'}>← Back</button>
+      <button class="k-btn sm" type="button" id="tReset">Reset</button>
+      ${last && tut.solved ? `<button class="k-btn sm red" type="button" id="tPlay">Play ${lvlName(1)} →</button>` : `<button class="k-btn sm ${tut.solved ? 'red' : ''}" type="button" id="tNext" ${tut.solved ? '' : 'disabled'}>Next →</button>`}
+    </div>
+    <p class="stats">Lessons are practice: they don't count for stats or stamps.</p>`;
+  $('tBack').onclick = () => startTut(tut.i - 1);
+  $('tReset').onclick = () => startTut(tut.i);
+  if ($('tNext')) $('tNext').onclick = () => startTut(tut.i + 1);
+  if ($('tPlay')) $('tPlay').onclick = () => { G.level = 1; store.set('level', 1); G.pick = 'sun'; store.set('color', 'sun'); savedGame = null; G.mode = 'bot'; store.set('mode', 'bot'); newGame(); };
+}
+function tutSolved(msg) {
+  tut.solved = true; tut.lock = true; tut.fb = { ok: true, msg };
+  const done = store.get('tutDone', []); if (done.indexOf(tut.i) < 0) { done.push(tut.i); store.set('tutDone', done); }
+  render(); renderTut();
+}
+function tutFail(msg) {
+  tut.fb = { ok: false, msg }; tut.lock = true; renderTut(); render();
+  const i = tut.i; setTimeout(() => { if (tut && tut.i === i && !tut.solved) { const fb = tut.fb; startTut(i); tut.fb = fb; renderTut(); } }, 1500);
+}
+function tutAfterMove(mv) {
+  const S = TUT[tut.i];
+  if (S.check) { const r = S.check(mv); return r.ok ? tutSolved(r.msg) : tutFail(r.msg); }
+  // Hold the Spot: scripted Sea replies
+  const K = G.pos.kai[0];
+  if (K !== E.SPOT) return tutFail(tut.stage ? 'Your Kai left the Spot! It has to stay there.' : 'Step your Kai (the crown) onto the yellow Spot.');
+  tut.lock = true; tut.fb = { ok: true, msg: tut.stage ? 'Still holding…' : 'On the Spot! Now Sea gets a turn to try to capture it…' }; renderTut();
+  setTimeout(() => {
+    if (!tut || TUT[tut.i] !== S) return;
+    const rm = S.reply[tut.stage], from = E.parseSq(rm.slice(0, 2)), to = E.parseSq(rm.slice(3));
+    commitReply(from, to).then(() => {
+      const st = E.status(G.pos, G.hist);
+      if (st && st.reason === 'spot') return tutSolved(`Your Kai started your turn on the Spot after surviving ${E.RULES.spotHold} Sea turns. ${W('yusa')}! In a real game Sea will attack it, so bring Kins to guard the lines around the Spot.`);
+      tut.stage++; tut.lock = false; tut.fb = { ok: true, msg: `Sea played <span class="k-mono">${rm}</span> and couldn't reach your Kai. The Spot badge shows how many Sea moves are left.` };
+      render(); renderTut();
+    });
+  }, 700);
+}
+function commitReply(from, to) {
+  const p = G.pos; G.snaps.push(snapshot());
+  const id = G.ids[from], el = pcEls.get(id);
+  const note = E.notation(p, from, [to]);
+  return animPath(el, from, [to]).then(() => {
+    E.make(p, from, to); p.sp = 0; G.ids[to] = id; G.ids[from] = 0; G.hist.push(E.keyOf(p));
+    G.moves.push({ side: -1, from, path: [to], caps: [], note }); G.last = { from, path: [to] }; render();
+  });
+}
+
+/* ================= rules section ================= */
+function mini(cols, rows, items, opts) {
+  opts = opts || {};
+  const C = 44, w = cols * C, h = rows * C;
+  let s = `<svg viewBox="-3 -3 ${w + 6} ${h + 6}" width="${w + 6}" height="${h + 6}" role="img" aria-label="${opts.label || 'diagram'}">`;
+  s += `<rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="#f5e6c3" stroke="#191512" stroke-width="3"/>`;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const spot = opts.spot && opts.spot[0] === c && opts.spot[1] === r;
+    s += `<rect x="${c * C}" y="${r * C}" width="${C}" height="${C}" fill="${spot ? '#f2b632' : (r + c) % 2 ? '#ead4a4' : 'none'}" stroke="rgba(60,40,20,.4)" stroke-width="1"/>`;
+    if (spot) s += `<g transform="translate(${c * C + 12},${r * C + 11})">${KAI.scriptSVG('k', { size: 22, color: '#191512', weight: 3 })}</g>`;
+  }
+  for (const a of (opts.arrows || [])) {
+    const [c1, r1, c2, r2, col, arc] = a, x1 = c1 * C + C / 2, y1 = r1 * C + C / 2, x2 = c2 * C + C / 2, y2 = r2 * C + C / 2;
+    const color = col || '#191512';
+    if (arc) { const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - 26; s += `<path d="M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="3.5" stroke-dasharray="6 4" stroke-linecap="round"/>`; s += `<circle cx="${x2}" cy="${y2}" r="9" fill="none" stroke="${color}" stroke-width="3.5"/>`; }
+    else { const ang = Math.atan2(y2 - y1, x2 - x1), sx = x1 + Math.cos(ang) * 17, sy = y1 + Math.sin(ang) * 17, ex = x2 - Math.cos(ang) * 9, ey = y2 - Math.sin(ang) * 9;
+      s += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="3.5" stroke-linecap="round"/>`;
+      s += `<path d="M${ex} ${ey} l${(-Math.cos(ang - .5) * 9).toFixed(1)} ${(-Math.sin(ang - .5) * 9).toFixed(1)} M${ex} ${ey} l${(-Math.cos(ang + .5) * 9).toFixed(1)} ${(-Math.sin(ang + .5) * 9).toFixed(1)}" stroke="${color}" stroke-width="3.5" stroke-linecap="round" fill="none"/>`; }
+  }
+  for (const it of items) {
+    const [c, r, v, mark] = it;
+    if (v) s += pieceSVG(v, `x="${c * C + 2}" y="${r * C + 2}" width="${C - 4}" height="${C - 4}"${mark === 'ghost' ? ' opacity=".35"' : ''}`);
+    if (mark === 'x') s += `<g stroke="#e5432d" stroke-width="6" stroke-linecap="round"><line x1="${c * C + 9}" y1="${r * C + 9}" x2="${c * C + C - 9}" y2="${r * C + C - 9}"/><line x1="${c * C + C - 9}" y1="${r * C + 9}" x2="${c * C + 9}" y2="${r * C + C - 9}"/></g>`;
+    if (mark === 'dot') s += `<circle cx="${c * C + C / 2}" cy="${r * C + C / 2}" r="6" fill="rgba(25,21,18,.5)"/>`;
+  }
+  return s + '</svg>';
+}
+function renderRules() {
+  $('rulesKicker').innerHTML = `${W('kaimo')} ni ${W('Kaiya')} · the national game`;
+  $('rulesLede').innerHTML = `KAI is Kaiya's national ${W('kaimo')} (game). Two teams, Sun (${W('hemi')}) and Sea (${W('awana')}), each with one Kai and six Kins. Step, hop, sandwich, and get your Kai to the Spot. Sun always moves first.`;
+  const stepArrows = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (dr || dc) stepArrows.push([1, 1, 1 + dc, 1 + dr]);
+  const cards = [
+    { h: `The pieces`, w: 'kaina', body: `Each side has one <b>Kai</b>, the leader (${W('rasu')}) with the crown, and six <b>Kins</b>, its family (${W('kaina')}). Sun starts on row 1 and Sea on row 7, each Kai in the middle of its row.`,
+      dia: mini(4, 1, [[0, 0, 2], [1, 0, 1], [2, 0, -2], [3, 0, -1]], { label: 'Sun Kai, Sun Kin, Sea Kai, Sea Kin' }) },
+    { h: `Step`, w: 'pomo', body: `On your turn move <b>one</b> piece. Any piece, Kai or Kin, can step one square in any of the 8 directions onto an empty square.`,
+      dia: mini(3, 3, [[1, 1, 1]], { arrows: stepArrows, label: 'A Kin can step in 8 directions' }) },
+    { h: `Hop`, w: 'hopu', body: `A <b>Kin</b> (not the Kai) can hop over a piece of either colour next to it, in a straight line, onto the empty square beyond. It can keep hopping in a chain and stop after any hop. Hops never capture by themselves, and a chain can't land on the same square twice.`,
+      dia: mini(5, 3, [[0, 2, 1], [1, 2, -1], [2, 2, 0, 'none'], [3, 1, 1], [4, 0, 1, 'ghost']], { arrows: [[0, 2, 2, 2, '#6b3fa0', 1], [2, 2, 4, 0, '#6b3fa0', 1]], label: 'A Kin hops over a Sea Kin, then over a Sun Kin' }) },
+    { h: `Sandwich capture`, w: null, body: `After your move, an enemy piece trapped in a straight line (sideways, up and down, or <b>diagonal</b>) between the piece you just moved and another of your pieces is removed. One move can catch several. Only the mover captures, so stepping <i>into</i> a sandwich is safe.`,
+      dia: mini(3, 1, [[0, 0, 1], [1, 0, -1, 'x'], [2, 0, 1]], { label: 'Sea Kin sandwiched between two Sun Kins' }) + mini(3, 3, [[0, 0, 1], [1, 1, -1, 'x'], [2, 2, 1]], { label: 'Diagonal sandwich' }) },
+    { h: `The Spot`, w: null, body: `The middle square, d4, is <b>the Spot</b>, marked with the Kaiscript letter k. A Kai that <b>holds</b> it wins (see below), but it can still be sandwiched there.${E.RULES.spotFrom ? ` The Spot is <b>closed</b> for the first ${E.RULES.spotFrom} moves of the game (${E.RULES.spotFrom / 2} each): no Kai may step onto it yet. Kins may stand on it any time.` : ' Any piece may stand on it.'}`,
+      dia: mini(3, 3, [[1, 1, 2], [0, 1, 1], [1, 2, 1]], { spot: [1, 1], label: 'Sun Kai on the Spot with two guards' }) },
+    { h: `Kai in danger!`, w: 'moka', body: `If the other side could sandwich your Kai on its next move, the game warns you and your Kai glows red. Guard it: a friendly piece on one side of a line blocks that sandwich.`,
+      dia: mini(3, 1, [[0, 0, -1], [1, 0, 2], [2, 0, 0, 'dot']], { label: 'Sun Kai with a Sea Kin on one side and an empty square on the other' }) }
+  ];
+  $('rgrid').innerHTML = cards.map(c => `<div class="k-card rule"><h3>${c.h}${c.w ? ' ' + W(c.w) : ''}</h3><div class="dia">${c.dia}</div><p>${c.body}</p></div>`).join('');
+  $('winsTitle').innerHTML = `4 ways to ${W('yusa')} (win)`;
+  const hold = E.RULES.spotHold;
+  const wins = [
+    { b: '1. Capture the Kai', p: 'Sandwich the enemy Kai. You win at once.', d: mini(3, 1, [[0, 0, 1], [1, 0, -2, 'x'], [2, 0, 1]], { label: 'Sea Kai sandwiched' }) },
+    { b: '2. Hold the Spot', p: `Your Kai stands on the Spot at the start of your turn after surviving ${hold === 1 ? 'a full enemy turn' : hold + ' enemy turns in a row'} there.`, d: mini(3, 3, [[1, 1, 2], [1, 2, 1], [2, 1, 1]], { spot: [1, 1], label: 'Kai holding the Spot' }) },
+    { b: '3. No Kins left', p: 'Capture all six enemy Kins. A Kai alone has lost.', d: mini(3, 1, [[1, 0, -2]], { label: 'A Sea Kai with no Kins' }) },
+    { b: '4. No moves', p: 'If it is your turn and none of your pieces can move, you lose.', d: mini(3, 3, [[0, 0, -2], [1, 0, 1], [0, 1, 1], [1, 1, 1], [2, 0, 1], [0, 2, 1], [2, 2, 1]], { label: 'A boxed-in Sea Kai' }) }
+  ];
+  $('wins').innerHTML = wins.map(w => `<div class="w"><b>${w.b}</b><div class="dia">${w.d}</div><p>${w.p}</p></div>`).join('');
+  $('drawText').innerHTML = `<b>Draws:</b> ${E.NOCAP_LIMIT} moves in a row (counting both players) with no capture, or the same position with the same player to move coming up 3 times.`;
+  const pct = (x, n) => n ? +(100 * x / n).toFixed(1) : 0;
+  const B = BALANCE, eq = B.eq || { games: 0 };
+  $('tweak').innerHTML = (hold > 1 || E.RULES.spotFrom)
+    ? `<b>Kaiya rule note: two small fixes, found by test bots.</b> In the first version of KAI a Kai only had to survive <i>one</i> enemy turn on the Spot. A bot search showed that Sun could then just march its Kai d1-d2-d3-d4 and win by force (a ${B.rushDepth}-move search finds it every time), because Sea has no time to build a sandwich. So now: <b>(1)</b> the Kai must survive <b>${hold} enemy turns</b> on the Spot, and <b>(2)</b> the Spot stays <b>closed for the first ${E.RULES.spotFrom} moves</b>. Fix (1) alone stopped the forced win, but strong bots still won ${B.holdOnlySun}% of games as Sun; with both fixes no forced win shows up in a ${B.noWinDepth}-move search, ${eq.games} games between equal strong bots (levels 4-6) ended Sun ${pct(eq.sun, eq.games)}% · Sea ${pct(eq.sea, eq.games)}%${eq.draw ? ' · draws ' + pct(eq.draw, eq.games) + '%' : ''}, and ${B.games} games between bots of all levels ended Sun ${pct(B.sun, B.games)}% · Sea ${pct(B.sea, B.games)}% · draws ${pct(B.draw, B.games)}%. Moving first is still a small edge, like White in chess.`
+    : '';
+  $('words').innerHTML = [...USED].sort().map(k => { const d = KAI.lookupKai(k); return `<span class="k-chip"><span class="k-kai">${d.kai}</span> ${gloss(k)}</span>`; }).join('');
+}
+
+/* ---------- go ---------- */
+layoutSquares();
+renderRules();
+if (location.hash === '#tutorial') { G.pos = E.newGame(); assignIds(); savedGame = null; G.mode = 'tut'; startTut(0); }
+else newGame();
+renderRules(); // again so the word list includes words used by the UI
+// small hook used by the automated tests to set up a position
+function load(cells, side) { cancelBot(); sel = null; G.pos = E.fromBoard(cells, side, 0, 20, [0, 0]); G.hist = [E.keyOf(G.pos)]; G.moves = []; G.snaps = []; G.over = null; G.last = null; assignIds(); $('boardmsg').hidden = true; render(); maybeBot(); }
+window.KAIGAME = { E, G, newGame, setMode, startTut, undo, resign, load, get sel() { return sel; }, get tut() { return tut; } };
+})();
+</script>
+</body>
+</html>
