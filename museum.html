@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Museum of Everything</title>
+<meta name="description" content="A museum that holds every possible painting up to 100×100 pixels. Wander room after room. Please do not touch.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 fill=%22%23b48a3c%22/%3E%3Crect x=%224%22 y=%224%22 width=%228%22 height=%228%22 fill=%22%23ccc%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+:root{
+  --ink:#2a2118;
+  --ink-soft:#5a4a39;
+  --paper:#f3ecdc;
+  --paper-2:#e8dec7;
+  --brass:#b48a3c;
+  --brass-hi:#e9c979;
+  --brass-lo:#6e5120;
+  --night:#1b1612;
+  --night-2:#2a221b;
+  --serif:"Cormorant Garamond","EB Garamond",Garamond,"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--night);color:var(--paper);font-family:var(--serif);overflow-x:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit}
+
+/* ---------- top bar ---------- */
+.top{position:relative;z-index:20;display:flex;align-items:center;gap:16px;padding:10px 16px 10px 122px;min-height:58px;background:linear-gradient(#231c16,#1b1612);border-bottom:1px solid #3d3227}
+.where{flex:1;min-width:0}
+.wing{font-size:21px;font-weight:600;line-height:1.1;letter-spacing:.01em;color:#f1e3c2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roomline{font-size:14px;font-style:italic;color:#bfae8e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats{display:flex;gap:14px;font-variant:small-caps;letter-spacing:.06em;font-size:14px;color:#cdb78f;white-space:nowrap}
+.stats b{font-variant:normal;font-size:18px;color:#f1e3c2;font-weight:600;margin-right:3px}
+
+/* ---------- scene ---------- */
+.stage{position:relative;height:calc(100vh - 58px - 74px);height:calc(100dvh - 58px - 74px);min-height:340px;overflow:hidden;background:#000;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.view{position:absolute;inset:0;will-change:transform,opacity}
+.wall{position:absolute;left:0;right:0;top:0}
+.wall::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+   radial-gradient(120% 70% at 50% 0%,rgba(255,240,210,.20),transparent 60%),
+   linear-gradient(90deg,rgba(0,0,0,.38),transparent 9%,transparent 91%,rgba(0,0,0,.38)),
+   linear-gradient(rgba(0,0,0,.28),transparent 14%)}
+.cornice{position:absolute;left:0;right:0;top:0;height:16px;background:linear-gradient(#f2ead8,#cfc3a8 45%,#9d907a 55%,#e6dcc5 75%,#8b7f6a);box-shadow:0 3px 6px rgba(0,0,0,.25);z-index:1}
+.rail{position:absolute;left:0;right:0;height:9px;background:linear-gradient(#e9dfc9,#b5a88f 50%,#7d725f);box-shadow:0 2px 4px rgba(0,0,0,.25);z-index:1}
+.dado{position:absolute;left:0;right:0;bottom:0}
+.base{position:absolute;left:0;right:0;height:14px;background:linear-gradient(#3b2f25,#1d1611);z-index:2}
+.floor{position:absolute;left:0;right:0;bottom:0;overflow:hidden}
+.floor::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.45),transparent 40%,rgba(0,0,0,.3));pointer-events:none}
+
+/* paintings */
+.art{position:absolute;padding:0;border:0;background:none;cursor:zoom-in;transform:translate(-50%,-50%);z-index:3;display:block}
+.art:focus-visible{outline:3px solid #ffe7a3;outline-offset:6px}
+.art .frame{display:block;position:relative;box-shadow:0 14px 22px -6px rgba(0,0,0,.55),0 3px 6px rgba(0,0,0,.35)}
+.frame,.mat{display:block}
+.frame{position:relative}
+canvas.px{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.art .glow{position:absolute;left:50%;top:-60%;width:180%;height:220%;transform:translateX(-50%);pointer-events:none;background:radial-gradient(closest-side,rgba(255,236,190,.22),transparent);z-index:-1}
+.art.hl .frame{animation:hl 1.4s ease-in-out 3}
+@keyframes hl{50%{box-shadow:0 0 0 6px rgba(255,225,140,.9),0 0 40px 10px rgba(255,220,130,.6)}}
+
+/* frame styles */
+.f-gilt{background:
+  radial-gradient(circle,#fff3c4 0 1.2px,transparent 1.6px) 0 0/7px 7px,
+  linear-gradient(135deg,#6c4c14,#e8c56a 22%,#9b7426 45%,#f6dc8e 62%,#a17a2b 80%,#5e420f)}
+.f-gilt .mat{box-shadow:inset 0 0 0 2px #4a330b,inset 0 0 0 4px #f0d48a;padding:4px}
+.f-walnut{background:repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 2px,transparent 2px 7px),linear-gradient(135deg,#3a2414,#6b4426 40%,#4a2e19 70%,#2b190d)}
+.f-walnut .mat{background:#efe7d6;box-shadow:inset 0 0 0 1px #b9ac93}
+.f-black{background:#141210}
+.f-black .mat{background:#f6f2ea;box-shadow:inset 0 1px 3px rgba(0,0,0,.35)}
+.f-silver{background:
+  radial-gradient(circle,#fff 0 1.1px,transparent 1.5px) 0 0/6px 6px,
+  linear-gradient(135deg,#6d7076,#e6e8ec 25%,#8d9097 50%,#f4f5f7 70%,#696c72)}
+.f-silver .mat{box-shadow:inset 0 0 0 2px #3c3f44;padding:3px;background:#2a2b2e}
+.f-baroque{background:
+  conic-gradient(from 45deg,#f8e29b,#7a5716,#f8e29b,#7a5716,#f8e29b) 0 0/12px 12px,
+  linear-gradient(#b48a3c,#b48a3c)}
+.f-baroque .mat{background:linear-gradient(135deg,#5a1e1e,#3b1212);box-shadow:inset 0 0 0 3px #e9c979}
+.f-oak{background:linear-gradient(135deg,#b88e5c,#d9b582 40%,#a97f4e)}
+.f-oak .mat{background:#fbf8f1}
+.f-none{background:transparent;box-shadow:none!important}
+.f-none canvas{box-shadow:6px 8px 12px rgba(0,0,0,.45)}
+
+/* labels next to paintings */
+.lbl{position:absolute;transform:translateX(-50%);z-index:3;background:linear-gradient(#f6f0e2,#e6dcc6);color:var(--ink);padding:4px 8px 5px;font-size:12.5px;line-height:1.15;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.35);max-width:180px;pointer-events:none}
+.lbl i{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbl span{color:var(--ink-soft);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.lbl .rar{display:block;font-variant:small-caps;letter-spacing:.06em;font-size:10.5px;color:#8a2b1c}
+
+/* doorway */
+.door{position:absolute;bottom:0;transform:translateX(-50%);border:0;padding:0;cursor:pointer;z-index:2;background:none}
+.door .arch{position:absolute;inset:0;border-radius:999px 999px 0 0;overflow:hidden;box-shadow:inset 0 0 0 7px #e6dcc5,inset 0 0 0 9px #8b7f6a,inset 0 18px 30px rgba(0,0,0,.6)}
+.door .beyond{position:absolute;inset:0}
+.door .beyond .bfloor{position:absolute;left:0;right:0;bottom:0;height:22%}
+.door .beyond .bart{position:absolute;background:linear-gradient(135deg,#7a5a1c,#e9c66b,#80601f);box-shadow:0 2px 3px rgba(0,0,0,.4)}
+.door .beyond::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,transparent 30%,rgba(0,0,0,.45))}
+.door:hover .arch,.door:focus-visible .arch{box-shadow:inset 0 0 0 7px #fff2cc,inset 0 0 0 9px #b48a3c,inset 0 18px 30px rgba(0,0,0,.4)}
+.door:focus-visible{outline:none}
+.doorsign{position:absolute;transform:translateX(-50%);z-index:3;background:#1f1a15;color:#ead9b5;font-size:12px;letter-spacing:.08em;font-variant:small-caps;padding:3px 9px;white-space:nowrap;border:1px solid #6e5120;box-shadow:0 2px 4px rgba(0,0,0,.4);max-width:92%;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.exit{position:absolute;transform:translateX(-50%);z-index:3;background:#1f6b3a;color:#e9ffef;font:700 10px/1 system-ui,sans-serif;letter-spacing:.12em;padding:4px 7px;border-radius:2px;box-shadow:0 0 10px rgba(80,255,140,.35);pointer-events:none}
+
+/* decor */
+.decor{position:absolute;z-index:4;pointer-events:none}
+.decor svg{display:block;width:100%;height:100%}
+.guard{pointer-events:auto;cursor:pointer;border:0;background:none;padding:0}
+.bubble{position:absolute;z-index:8;background:#fffaf0;color:var(--ink);font-size:15px;font-style:italic;padding:7px 11px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.35);max-width:210px;line-height:1.2;transform:translateX(-50%);pointer-events:none}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-7px;border:7px solid transparent;border-bottom:0;border-top-color:#fffaf0;transform:translateX(-50%)}
+.wallplaque{position:absolute;transform:translateX(-50%);z-index:3;background:linear-gradient(#e8c977,#a57c2e);color:#2b1d07;padding:6px 12px;font-size:13px;text-align:center;box-shadow:0 2px 5px rgba(0,0,0,.45);border:1px solid #6e5120;pointer-events:none;line-height:1.15;max-width:240px}
+.wallplaque b{display:block;font-variant:small-caps;letter-spacing:.1em;font-size:11px}
+
+/* hud on stage */
+.compass{position:absolute;right:14px;top:12px;z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.mm{width:132px;height:132px;background:rgba(27,22,18,.82);border:1px solid #6e5120;box-shadow:0 4px 14px rgba(0,0,0,.4);border-radius:4px;pointer-events:auto}
+.facing{background:rgba(27,22,18,.82);border:1px solid #6e5120;color:#ead9b5;font-size:13px;padding:3px 9px;letter-spacing:.08em;font-variant:small-caps;border-radius:3px}
+.toast{position:absolute;left:50%;bottom:24%;transform:translateX(-50%);z-index:12;background:rgba(27,22,18,.92);color:#f1e3c2;border:1px solid #6e5120;padding:9px 16px;font-size:16px;font-style:italic;border-radius:4px;max-width:min(560px,90%);text-align:center;pointer-events:none;transition:opacity .5s;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.toast.hide{opacity:0}
+
+/* controls */
+.controls{height:74px;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(#1b1612,#140f0b);border-top:1px solid #3d3227}
+.btn{appearance:none;border:1px solid #6e5120;background:linear-gradient(#2e251c,#211a14);color:#f1e3c2;font-size:16px;font-weight:600;padding:9px 14px;border-radius:3px;cursor:pointer;white-space:nowrap;letter-spacing:.02em}
+.btn:hover{background:linear-gradient(#3a2f23,#2a2119);border-color:#b48a3c}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.gold{background:linear-gradient(#e7c873,#a8802f);color:#24180a;border-color:#5e420f}
+.btn.gold:hover{background:linear-gradient(#f2d687,#b88f3a)}
+.nav{display:flex;gap:6px}
+.spacer{flex:1}
+.search{display:flex;gap:0;align-items:stretch}
+.search input{width:190px;font:inherit;font-size:16px;background:#f3ecdc;color:var(--ink);border:1px solid #6e5120;border-right:0;padding:7px 10px;border-radius:3px 0 0 3px;min-width:0}
+.search input::placeholder{color:#8f7e63;font-style:italic}
+.search .btn{border-radius:0 3px 3px 0}
+
+/* detail modal */
+.modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(14,11,8,.86);padding:16px;backdrop-filter:blur(3px)}
+.modal.open{display:flex}
+.card{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:center;max-width:1080px;width:100%;max-height:100%;overflow:auto;padding:28px;background:
+   radial-gradient(90% 80% at 30% 40%,rgba(255,240,210,.12),transparent 70%),var(--wallc,#5d4b3a);border:1px solid #6e5120;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.bigwrap{display:flex;align-items:center;justify-content:center;min-height:200px}
+.bigwrap .frame{display:block;box-shadow:0 20px 40px -10px rgba(0,0,0,.7)}
+.plaque{background:linear-gradient(#f7f1e3,#e9dfc9);color:var(--ink);padding:22px 24px 20px;box-shadow:0 8px 24px rgba(0,0,0,.4);border:1px solid #c9b993}
+.plaque .cat{font-variant:small-caps;letter-spacing:.12em;font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.plaque h2{font-size:30px;line-height:1.05;margin:8px 0 6px;font-style:italic;font-weight:600}
+.plaque .artist{font-size:18px;font-weight:600}
+.plaque .artist small{font-weight:400;color:var(--ink-soft);font-size:16px}
+.plaque dl{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:12px 0;font-size:15.5px}
+.plaque dt{font-variant:small-caps;letter-spacing:.06em;color:var(--ink-soft)}
+.plaque dd{margin:0}
+.plaque .desc{font-size:17px;line-height:1.35;margin:12px 0;border-top:1px solid #cdbf9f;padding-top:12px}
+.rarity{display:inline-block;font-variant:small-caps;letter-spacing:.08em;font-size:13px;padding:1px 8px;border:1px solid currentColor;border-radius:999px}
+.r-common{color:#6d6253}.r-uncommon{color:#2f6b45}.r-rare{color:#1f4f8a}.r-very{color:#6b2d8a}.r-legend{color:#a2321c;background:#fbe9c8}
+.odds{background:#2a2118;color:#f1e3c2;padding:12px 14px;margin-top:12px;font-size:15px;line-height:1.3}
+.odds .big{font-size:26px;font-weight:600;display:block;word-break:break-all;line-height:1.1;margin:2px 0 4px}
+.odds sup{font-size:.62em}
+.modal .row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.modal .btn{font-size:15px;padding:7px 12px}
+.close{position:absolute;right:10px;top:8px;background:none;border:0;color:#f1e3c2;font-size:30px;cursor:pointer;line-height:1;padding:4px 8px;z-index:2}
+
+
+/* gallery directory */
+.gmodal{position:fixed;inset:0;z-index:110;display:none;align-items:center;justify-content:center;background:rgba(14,11,8,.86);padding:16px;backdrop-filter:blur(3px)}
+.gmodal.open{display:flex}
+.gbox{position:relative;width:100%;max-width:1080px;max-height:100%;overflow:auto;background:linear-gradient(#f7f1e3,#e9dfc9);color:var(--ink);border:1px solid #6e5120;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:24px 26px 26px}
+.gbox .close{color:var(--ink)}
+.gbox h2{font-size:34px;font-weight:600;font-variant:small-caps;letter-spacing:.06em;margin:0;text-wrap:balance}
+.gsub{font-style:italic;font-size:17px;margin:4px 0 16px;color:var(--ink-soft)}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.gcard{display:grid;grid-template-columns:86px minmax(0,1fr);gap:12px;align-items:center;text-align:left;font:inherit;color:inherit;background:#fbf7ec;border:1px solid #cdbf9f;padding:10px;cursor:pointer;min-width:0}
+.gcard:hover,.gcard:focus-visible{border-color:#6e5120;box-shadow:0 4px 14px rgba(42,33,24,.18);outline:none}
+.gthumb{display:grid;place-items:center;width:86px;height:72px;border:4px solid #b48a3c;box-shadow:inset 0 0 0 1px #5d4718}
+.gthumb canvas{image-rendering:pixelated;max-width:64px;max-height:52px;width:auto;height:auto;min-width:20px;box-shadow:0 3px 8px rgba(0,0,0,.45)}
+.gtx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gtx b{font-size:19px;font-weight:600;line-height:1.1}
+.gtx i{font-size:14.5px;line-height:1.25;color:#4a3d2c}
+.gtx small{font-variant:small-caps;letter-spacing:.06em;font-size:12.5px;color:#8f7e63;margin-top:3px}
+.gcard.found small{color:#2f6b45}
+.gcard.here{border-color:#b48a3c;background:#fff6dc}
+.gcard:not(.found) .gthumb canvas{filter:grayscale(1) brightness(.55)}
+@media (max-width:720px){.ph-hide{display:none}.gbox{padding:18px 14px}.gbox h2{font-size:26px}.ggrid{grid-template-columns:1fr}}
+
+/* ---------- phone ---------- */
+@media (max-width:720px){
+  .top{padding:8px 12px 8px 112px;min-height:54px;gap:8px}
+  .wing{font-size:16.5px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .roomline{font-size:12.5px}
+  .stats{flex-direction:column;gap:0;font-size:11.5px;text-align:right;line-height:1.15}
+  .stats b{font-size:14px}
+  .stage{height:calc(100vh - 64px - 112px);height:calc(100dvh - 64px - 112px)}
+  .controls{height:112px;flex-wrap:wrap;align-content:center;gap:8px;padding:8px 12px}
+  .nav{flex:1 1 100%;display:grid;grid-template-columns:1fr 1.3fr 1fr}
+  .spacer{display:none}
+  .search{flex:1}
+  .search input{width:100%}
+  .btn{font-size:15px;padding:8px 10px}
+  .mm{width:80px;height:80px;opacity:.9}
+  .compass{right:8px;top:8px;gap:5px}
+  .facing{display:none}
+  .wallplaque{max-width:190px;font-size:11.5px;padding:4px 8px}
+  .lbl{font-size:10px;padding:2px 5px 3px;max-width:110px}
+  .lbl span{display:none}
+  .lbl .rar{font-size:9px}
+  .card{grid-template-columns:1fr;gap:16px;padding:18px 14px}
+  .plaque{padding:16px}
+  .plaque h2{font-size:24px}
+  .doorsign{font-size:10px}
+}
+@media (prefers-reduced-motion:reduce){.art.hl .frame{animation:none;box-shadow:0 0 0 6px rgba(255,225,140,.9)}}
+</style>
+</head>
+<body>
+<a class="kf-home" href="index.html" aria-label="Back to Kai.fun">← Kai.fun</a>
+<style>.kf-home{position:fixed;top:12px;left:12px;z-index:9999;font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;background:#fff;border:1.5px solid #111;border-radius:999px;padding:7px 12px;text-decoration:none;box-shadow:2px 2px 0 #111}.kf-home:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #111}</style>
+
+<header class="top">
+  <div class="where">
+    <div class="wing" id="wingName">Museum of Everything</div>
+    <div class="roomline" id="roomLine">Holdings: every possible painting</div>
+  </div>
+  <div class="stats" aria-live="polite">
+    <span><b id="statRooms">0</b>rooms</span>
+    <span><b id="statSeen">0</b>paintings seen</span>
+  </div>
+</header>
+
+<main class="stage" id="stage" aria-label="Museum room">
+  <div class="compass">
+    <canvas class="mm" id="minimap" width="132" height="132" aria-label="Map of rooms visited"></canvas>
+    <div class="facing" id="facing">North wall</div>
+  </div>
+  <div class="toast" id="toast">This museum holds every possible painting. Please do not touch.</div>
+</main>
+
+<nav class="controls" aria-label="Museum controls">
+  <div class="nav">
+    <button class="btn" id="btnLeft" title="Turn left (←)">◀ Turn</button>
+    <button class="btn gold" id="btnWalk" title="Walk through doorway (↑)">▲ Walk through</button>
+    <button class="btn" id="btnRight" title="Turn right (→)">Turn ▶</button>
+  </div>
+  <div class="spacer"></div>
+  <form class="search" id="searchForm" autocomplete="off">
+    <input id="searchIn" placeholder="Catalogue no., e.g. 12.-4.E2" aria-label="Catalogue number" enterkeyhint="go">
+    <button class="btn" type="submit">Find</button>
+  </form>
+  <button class="btn" id="btnGal" title="Directory of themed galleries (G)">Galleries</button>
+  <button class="btn" id="btnRandom" title="Teleport to a random room">Random<span class="ph-hide"> room</span></button>
+</nav>
+
+<div class="gmodal" id="galModal" role="dialog" aria-modal="true" aria-labelledby="galH">
+  <div class="gbox">
+    <button class="close" id="galClose" aria-label="Close">×</button>
+    <h2 id="galH">Gallery Directory</h2>
+    <p class="gsub"><span id="galCount"></span>. Pick one and a guard will escort you to the nearest.</p>
+    <div class="ggrid" id="galGrid"></div>
+  </div>
+</div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="card" id="card">
+    <button class="close" id="mClose" aria-label="Close">×</button>
+    <div class="bigwrap" id="bigWrap"></div>
+    <div class="plaque">
+      <div class="cat"><span id="mCat">MoE</span><span id="mRarity"></span></div>
+      <h2 id="mTitle"></h2>
+      <div class="artist" id="mArtist"></div>
+      <dl>
+        <dt>Date</dt><dd id="mYear"></dd>
+        <dt>Medium</dt><dd id="mMedium"></dd>
+        <dt>Dimensions</dt><dd id="mDims"></dd>
+        <dt>Est. value</dt><dd id="mValue"></dd>
+      </dl>
+      <div class="desc" id="mDesc"></div>
+      <div class="odds" id="mOdds"></div>
+      <div class="row">
+        <button class="btn" id="mPrev">◀ Previous</button>
+        <button class="btn" id="mNext">Next ▶</button>
+        <button class="btn" id="mCopy">Copy catalogue no.</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ================= seeded randomness ================= */
+function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
+function sfc32(a,b,c,d){return function(){a>>>=0;b>>>=0;c>>>=0;d>>>=0;let t=(a+b)|0;a=b^b>>>9;b=c+(c<<3)|0;c=(c<<21|c>>>11);d=d+1|0;t=t+d|0;c=c+t|0;return (t>>>0)/4294967296;};}
+function rng(seed){const h=xmur3(seed);const r=sfc32(h(),h(),h(),h());for(let i=0;i<8;i++)r();return r;}
+function hash01(seed){return rng(seed)();}
+const ri=(r,a,b)=>a+Math.floor(r()*(b-a+1));
+const pick=(r,a)=>a[Math.floor(r()*a.length)];
+const mod=(a,n)=>((a%n)+n)%n;
+const DIRS=['N','E','S','W'];
+const DIRNAME=['North','East','South','West'];
+const DX=[0,1,0,-1],DY=[-1,0,1,0];
+
+/* ================= words ================= */
+const COLORS={Beige:'#c6b393',Taupe:'#8e7f6e',Mauve:'#957584',Eggshell:'#ddd2bb',Greige:'#a59d8e','Off-White':'#d8d0c0',Teal:'#3f6869',Mustard:'#b28d3c',Ecru:'#c7b896',Puce:'#86575f',Sage:'#8a9a80',Oxblood:'#6a2b2d',Slate:'#5d6b79',Aubergine:'#4d3a50',Ochre:'#ad8340',Prussian:'#2f4858',Forest:'#3d5546',Terracotta:'#a65f45'};
+const COLOR_NAMES=Object.keys(COLORS);
+const W_DIR=['North','East','South','West','Upper East','Lower Northwest','Inner','Outer','Sub-Basement','Mezzanine','Far East','Slightly West'];
+const W_ADV=['Slightly','Aggressively','Mostly','Allegedly','Formerly','Quietly','Somewhat','Unapologetically','Tentatively','Mildly'];
+
+const THEME_COLORS={Midnight:'#232a45',Navy:'#22385a',Blueprint:'#2b4c7a',Arcade:'#1d1a2c',Paper:'#e6dcc6',Sea:'#2c5c6c',Rose:'#8c4a5a',Moss:'#56683f',Ash:'#7d7a74',Charcoal:'#33302d',Plaster:'#cfc6b4'};
+const THEMES=[
+ {k:'cats',title:'Almost Cats',names:['The Hall of Things That Are Almost Cats','The Very Nearly Cat Wing','The Gallery of Cats (Approximately)'],color:'Mustard',boost:{cat:26},cats:true,blurb:'Every painting here is almost a cat. Not one of them is.',show:'cat'},
+ {k:'portrait',title:'Portraits',names:['The Hall of Portraits of People Who Asked Not to Be Painted','The Long Gallery of Stern Ancestors','The Portrait Wing (Faces, Mostly)'],color:'Oxblood',boost:{portrait:60},blurb:'Faces. Thousands of them. None of them were asked.',show:'portrait'},
+ {k:'sea',title:'Maritime',names:['The Maritime Gallery','The Wing of Boats That Never Left Harbour','The Hall of Damp Seascapes'],color:'Sea',boost:{seascape:55,fish:5},blurb:'Seascapes, small boats and a persistent smell of brine.',show:'seascape',floor:2},
+ {k:'night',title:'The Observatory',names:['The Observatory','The Night Wing (Lights Kept Low)','The Hall of Skies After Bedtime'],color:'Midnight',boost:{night:60},blurb:'Every possible night sky, give or take a star.',show:'night',pattern:2},
+ {k:'mondrian',title:'Primary Colours',names:['The Primary Colours Only Wing','The De Stijl Room (Unlicensed)','The Hall of Rectangles With Opinions'],color:'Plaster',boost:{mondrian:60},blurb:'Red, yellow, blue and an alarming amount of black line.',show:'mondrian',pattern:0,floor:1},
+ {k:'rothko',title:'Colour Fields',names:['The Colour Field Chapel','The Hall of Big Feelings in Rectangles','The Quiet Wing of Two Colours'],color:'Charcoal',boost:{rothko:55,solid:6},blurb:'Stand close. Feel something. Leave quietly.',show:'rothko',pattern:0},
+ {k:'dots',title:'Pointillism',names:['The Pointillist Annexe','The Hall of a Million Dots','The Wing of Seurat\'s Cousin'],color:'Paper',boost:{dots:60},blurb:'Step back and it is a park. Step closer and it is dots.',show:'dots'},
+ {k:'fruit',title:'Still Life',names:['The Still Life Pantry','The Gallery of Fruit Left Out Too Long','The Hall of Bowls'],color:'Ochre',boost:{fruit:60},blurb:'Fruit, bowls, tables. Nobody has eaten anything in 400 years.',show:'fruit'},
+ {k:'house',title:'Real Estate',names:['The Wing of Houses You Cannot Afford','The Estate Agent\'s Gallery','The Hall of Detached Properties'],color:'Sage',boost:{house:60},blurb:'Every house that could ever be drawn. None are on the market.',show:'house'},
+ {k:'alpine',title:'Alpine',names:['The Alpine Gallery','The Hall of Mountains (Some Snow)','The Wing of Peaks and Mild Vertigo'],color:'Slate',boost:{mountain:55,landscape:6},blurb:'Mountains in every arrangement. Bring a jumper.',show:'mountain'},
+ {k:'arcade',title:'8-Bit',names:['The 8-Bit Wing','The Arcade Hall (Insert Coin)','The Gallery of Small Invaders'],color:'Arcade',boost:{invader:60},blurb:'Every possible space invader. Please do not shoot the art.',show:'invader',pattern:4,floor:1},
+ {k:'glitch',title:'Corrupted Files',names:['The Corrupted Files Wing','The Hall of Paintings That Did Not Load','The Gallery of Bad Downloads'],color:'Ash',boost:{glitch:60,noise:20},blurb:'These were landscapes once. Then someone pulled the cable out.',show:'glitch'},
+ {k:'maps',title:'Map Room',names:['The Map Room','The Atlas of Places That Do Not Exist','The Hall of Islands Nobody Owns'],color:'Prussian',boost:{map:60},blurb:'Maps of every island that could exist. Most do not.',show:'map',floor:2},
+ {k:'blueprint',title:'Blueprints',names:['The Blueprint Archive','The Hall of Plans Never Built','The Architect\'s Wing'],color:'Blueprint',boost:{blueprint:60},blurb:'Plans for every machine and building nobody got round to.',show:'blueprint',pattern:4},
+ {k:'opart',title:'Op Art',names:['The Op Art Gallery','The Hall That Moves When You Do Not','The Wing of Optical Complaints'],color:'Eggshell',boost:{opart:60},blurb:'None of these are moving. Probably.',show:'opart',floor:1},
+ {k:'flags',title:'Flags',names:['The Hall of Flags of Nations Not Yet Founded','The Flag Wing (Pending Recognition)','The Gallery of Very Patriotic Stripes'],color:'Navy',boost:{flag:55,stripes:6},blurb:'Flags for every country that might one day exist.',show:'flag'},
+ {k:'aquarium',title:'Aquarium',names:['The Aquarium Wing','The Hall of Fish in Frames','The Gallery Under the Sea (Dry)'],color:'Sea',boost:{fish:60},blurb:'Please do not tap on the frames.',show:'fish',pattern:2},
+ {k:'botanical',title:'Botanical',names:['The Botanical Gallery','The Hall of Flowers Pressed Into Pixels','The Wing of Petals'],color:'Moss',boost:{flower:60},blurb:'Flowers that never wilt, because they were never alive.',show:'flower'},
+ {k:'romance',title:'Romance',names:['The Romance Wing','The Hall of Valentines (Lossy)','The Gallery of Long Walks on the Beach'],color:'Rose',boost:{heart:40,sunset:16},blurb:'Hearts and sunsets, arranged for maximum sighing.',show:'heart'},
+ {k:'tiny',title:'Tiny Things',names:['The Hall of Very Small Masterpieces','The Gallery of Tiny Things (Mind Your Step)','The Wing of Paintings You Need a Magnifying Glass For'],color:'Greige',size:'tiny',blurb:'Nothing in here is bigger than 6 pixels. Squint respectfully.',show:'noise'},
+ {k:'giant',title:'Giants',names:['The Hall of Giants','The Wing of Maximum Canvas','The Gallery of Things 100 Pixels Wide'],color:'Terracotta',size:'giant',blurb:'Only the biggest paintings allowed: 88 to 100 pixels a side.',show:'landscape'},
+ {k:'mono',title:'Monochrome',names:['The Monochrome Gallery','The Hall Before Colour Was Invented','The Grey Wing'],color:'Ash',gray:true,blurb:'Every painting, with the colour taken out for cleaning.',show:'landscape'},
+ {k:'museum',title:'Museum of the Museum',names:['The Museum of the Museum','The Hall of Paintings of This Hall','The Recursive Wing'],color:'Oxblood',boost:{roomception:60},blurb:'Paintings of galleries containing paintings of galleries containing…',show:'roomception',floor:3}
+];
+const THEME_BY=Object.fromEntries(THEMES.map(t=>[t.k,t]));
+const wingCache=new Map();
+const W_ALMOST=['Horses','Horses','Faces','Sandwiches','Boats','Ducks','the Mona Lisa','Words','Your Childhood Home','Trees','a Sunset'];
+const W_ABSTRACT=['Mild Disappointment','Static','Unfinished Thoughts','Things Nobody Asked For','Wednesdays','Beige Feelings','Lost Pixels','Very Small Masterpieces','Accidental Genius','Visual White Noise','Reasonable Doubt'];
+const W_NAME=['Gerald','Dorothy P. Vandermeer','The Anonymous Donor','Mrs. Pemberton','A Raccoon Named Steve','Unknown Benefactors','The Night Janitor'];
+function wingOf(x,y){
+  const wx=Math.floor(x/4),wy=Math.floor(y/4),wk=wx+','+wy;
+  if(wingCache.has(wk))return wingCache.get(wk);
+  const r=rng(`wing|${wx},${wy}`);
+  let name,colorName=pick(r,COLOR_NAMES),cats=false,theme=null;
+  if(wx===0&&wy===0){name='The Grand Foyer of Absolutely Everything';colorName='Oxblood';}
+  else if(r()<.45){theme=THEMES[Math.floor(r()*THEMES.length)];name=pick(r,theme.names);cats=!!theme.cats;}
+  else{
+    const t=r();
+    if(t<.30)name=`The ${pick(r,W_DIR)} Wing of ${pick(r,W_ADV)} ${colorName}`;
+    else if(t<.50){const a=pick(r,W_ALMOST);name=`The Hall of Things That Are Almost ${a}`;}
+    else if(t<.66)name=`The Gallery of ${pick(r,W_ABSTRACT)}`;
+    else if(t<.78)name=`The ${pick(r,W_NAME)} Memorial Corridor`;
+    else if(t<.90)name=`The ${pick(r,['Temporary','Permanent','Accidental','Overflow','Unlit','Forgotten','Very Long'])} Collection of ${pick(r,W_ABSTRACT)}`;
+    else name=`The ${pick(r,W_DIR)} Annex (${pick(r,['Closed Tuesdays','Under Renovation Since 1974','Staff Only, Probably','Recently Mopped','Ask at Desk'])})`;
+  }
+  const pattern=ri(r,0,4),floor=ri(r,0,3);
+  const w={wx,wy,name,color:theme?(THEME_COLORS[theme.color]||COLORS[theme.color]):COLORS[colorName],pattern:theme&&theme.pattern!=null?theme.pattern:pattern,floor:theme&&theme.floor!=null?theme.floor:floor,cats,theme};
+  if(wingCache.size>4000)wingCache.clear();wingCache.set(wk,w);return w;
+}
+const ROOM_NICK=['The Overflow Room','The Room Where Someone Sneezed in 1974','The Quiet Room','The Echoing Room','The Room With the Good Bench','Formerly a Cloakroom','The Draughty Room','The Room That Smells of Varnish','Room of Second Opinions','The Room Everyone Skips','The Slightly Warmer Room','The Room of Uncertain Lighting'];
+function hasDoorEW(x,y){ /* between (x,y) and (x+1,y) */ return mod(y,3)===0||hash01(`dEW|${x},${y}`)<.42; }
+function hasDoorNS(x,y){ /* between (x,y) and (x,y+1) */ return mod(x,3)===0||hash01(`dNS|${x},${y}`)<.42; }
+function doorsOf(x,y){return [hasDoorNS(x,y-1),hasDoorEW(x,y),hasDoorNS(x,y),hasDoorEW(x-1,y)];}
+function roomOf(x,y){
+  const wing=wingOf(x,y);const r=rng(`room|${x},${y}`);
+  const nick=(x===0&&y===0)?'The Entrance Hall':(r()<.3?pick(r,ROOM_NICK):'');
+  const tint=(r()-.5)*.12;
+  return {x,y,wing,nick,doors:doorsOf(x,y),color:shade(wing.color,tint)};
+}
+function slotsOf(x,y,d){const room=roomOf(x,y);if(room.doors[d])return 2;return ri(rng(`slots|${x},${y},${d}`),1,3);}
+
+/* ================= colour helpers ================= */
+function hexToRgb(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function rgbToHex(c){return '#'+c.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function shade(h,amt){const c=hexToRgb(h);return rgbToHex(c.map(v=>amt>=0?v+(255-v)*amt:v*(1+amt)));}
+function hsl(h,s,l){h=mod(h,360)/360;let r,g,b;if(s===0){r=g=b=l;}else{const f=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;r=f(p,q,h+1/3);g=f(p,q,h);b=f(p,q,h-1/3);}return [r*255,g*255,b*255];}
+const lerp=(a,b,t)=>a+(b-a)*t;
+const lerpC=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+
+/* ================= painting generators ================= */
+function makePx(w,h){return new Uint8ClampedArray(w*h*4);}
+function fill(px,w,h,fn){for(let y=0;y<h;y++)for(let x=0;x<w;x++){const c=fn(x,y),i=(y*w+x)*4;px[i]=c[0];px[i+1]=c[1];px[i+2]=c[2];px[i+3]=255;}}
+function niceColor(r){return hsl(r()*360,.35+r()*.5,.25+r()*.5);}
+const GEN={
+  noise(r,w,h,px){for(let i=0;i<w*h;i++){px[i*4]=r()*256;px[i*4+1]=r()*256;px[i*4+2]=r()*256;px[i*4+3]=255;}},
+  palette(r,w,h,px){const n=ri(r,2,4),pal=[];for(let i=0;i<n;i++)pal.push(niceColor(r));fill(px,w,h,()=>pal[Math.floor(r()*n)]);},
+  gradient(r,w,h,px){const a=niceColor(r),b=niceColor(r),ang=r()*Math.PI*2,cx=Math.cos(ang),cy=Math.sin(ang);let mn=1e9,mx=-1e9;for(const [x,y] of [[0,0],[w,0],[0,h],[w,h]]){const v=x*cx+y*cy;mn=Math.min(mn,v);mx=Math.max(mx,v);}fill(px,w,h,(x,y)=>lerpC(a,b,((x+.5)*cx+(y+.5)*cy-mn)/((mx-mn)||1)));},
+  stripes(r,w,h,px){const n=ri(r,2,7),pal=[];for(let i=0;i<n;i++)pal.push(niceColor(r));const vert=r()<.5;fill(px,w,h,(x,y)=>pal[Math.min(n-1,Math.floor((vert?x/w:y/h)*n))]);},
+  checker(r,w,h,px){const a=niceColor(r),b=niceColor(r),s=ri(r,1,Math.max(1,Math.floor(Math.min(w,h)/4)));fill(px,w,h,(x,y)=>((Math.floor(x/s)+Math.floor(y/s))%2)?a:b);},
+  solid(r,w,h,px,meta){const c=niceColor(r);meta.hex=rgbToHex(c).toUpperCase();fill(px,w,h,()=>c);},
+  white(r,w,h,px){fill(px,w,h,()=>[255,255,255]);},
+  black(r,w,h,px){fill(px,w,h,()=>[0,0,0]);},
+  pixel(r,w,h,px){const X=ri(r,0,w-1),Y=ri(r,0,h-1);fill(px,w,h,(x,y)=>(x===X&&y===Y)?[0,0,0]:[255,255,255]);},
+  landscape(r,w,h,px){
+    const hor=h*(.42+r()*.2),s1=hsl(200+r()*30,.6,.55+r()*.15),s2=hsl(190+r()*40,.4,.85),g1=hsl(90+r()*40,.45,.42),g2=hsl(100+r()*30,.5,.22),m=hsl(220,.12,.5+r()*.15);
+    const sunx=w*(.15+r()*.7),suny=hor*(.25+r()*.4),sunr=Math.max(.8,Math.min(w,h)*.08);
+    const f1=.08+r()*.15,p1=r()*9,f2=.03+r()*.06,p2=r()*9;
+    fill(px,w,h,(x,y)=>{
+      const mtn=hor-(Math.abs(Math.sin(x*f2+p2))*h*.18);
+      const hill=hor+Math.sin(x*f1+p1)*h*.05;
+      if(y>=hill)return lerpC(g1,g2,(y-hill)/(h-hill+1));
+      if(y>=mtn)return lerpC(m,g1,(y-mtn)/(hill-mtn+1)*.5);
+      if(Math.hypot(x-sunx,y-suny)<=sunr)return [255,236,150];
+      return lerpC(s1,s2,y/hor);});
+    if(w>12&&r()<.7){const tx=ri(r,1,w-2),ty=Math.floor(hor+Math.sin(tx*f1+p1)*h*.05);for(let k=1;k<=3;k++){const yy=ty-k;if(yy>=0){const i=(yy*w+tx)*4;px[i]=40;px[i+1]=70;px[i+2]=30;}}}
+  },
+  sunset(r,w,h,px){
+    const hor=Math.floor(h*(.55+r()*.15)),top=hsl(260+r()*30,.5,.25),mid=hsl(340+r()*20,.65,.5),low=hsl(25+r()*15,.95,.6),sea=hsl(230,.45,.22);
+    const sunx=w*(.3+r()*.4),sunr=Math.max(1,Math.min(w,h)*(.12+r()*.08));
+    fill(px,w,h,(x,y)=>{
+      if(y<hor){if(Math.hypot(x-sunx,y-hor)<=sunr)return [255,214,110];const t=y/hor;return t<.5?lerpC(top,mid,t*2):lerpC(mid,low,(t-.5)*2);}
+      const d=Math.abs(x-sunx),refl=d<sunr*(1-(y-hor)/(h-hor+1))&&((y-hor)%2===0);
+      return refl?[250,170,90]:lerpC(sea,[20,20,45],(y-hor)/(h-hor+1));});
+  },
+  smiley(r,w,h,px){
+    const bg=niceColor(r),cx=(w-1)/2,cy=(h-1)/2,R=Math.min(w,h)*.44;
+    fill(px,w,h,(x,y)=>{const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy);if(d>R)return bg;
+      const ex=R*.36,ey=R*.3,er=Math.max(.6,R*.13);
+      if(Math.hypot(Math.abs(dx)-ex,dy+ey)<=er)return [30,20,10];
+      if(dy>R*.08&&d>R*.5&&d<R*.5+Math.max(1,R*.14))return [30,20,10];
+      if(d>R-1)return [190,140,10];return [255,212,40];});
+  },
+  heart(r,w,h,px){const bg=hsl(340+r()*20,.5,.86),fg=hsl(350,.75,.48);fill(px,w,h,(x,y)=>{const X=((x+.5)/w-.5)*2.6,Y=-(((y+.5)/h-.45)*2.6);const v=Math.pow(X*X+Y*Y-1,3)-X*X*Y*Y*Y;return v<=0?fg:bg;});},
+  cat(r,w,h,px){
+    const bg=niceColor(r),fur=hsl(r()*40,.3,.2+r()*.5),eye=[200,220,60],cx=w/2,cy=h*.58,R=Math.min(w,h)*.32,noise=.12+r()*.2;
+    fill(px,w,h,(x,y)=>{
+      if(r()<noise)return [r()*256,r()*256,r()*256];
+      const dx=x+.5-cx,dy=y+.5-cy;
+      const ear=(sx)=>{const ex=cx+sx*R*.6,ey=cy-R*1.45;const t=(y+.5-ey)/(R*.75);if(t<0||t>1)return false;return Math.abs(x+.5-ex)<t*R*.45;};
+      const head=Math.hypot(dx,dy*1.1)<=R;
+      if(head&&Math.hypot(Math.abs(dx)-R*.42,dy+R*.15)<=Math.max(.7,R*.16))return eye;
+      if(head&&Math.abs(dx)<Math.max(.6,R*.08)&&Math.abs(dy-R*.15)<Math.max(.6,R*.08))return [230,140,150];
+      if(head||ear(-1)||ear(1))return fur;return bg;});
+  },
+  mona(r,w,h,px){
+    const bg1=[96,104,64],bg2=[52,58,40],skin=[214,170,112],hair=[44,30,18],robe=[38,30,22];
+    const cx=w/2,fy=h*.36,fr=w*.2;
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      const face=Math.hypot((X-cx)/fr,(Y-fy)/(fr*1.3))<=1;
+      const hairE=Math.hypot((X-cx)/(fr*1.35),(Y-fy+fr*.15)/(fr*1.75))<=1;
+      const body=Y>fy+fr*1.05&&Math.abs(X-cx)<(Y-fy)*0.72;
+      const hands=Math.abs(Y-h*.86)<h*.04&&Math.abs(X-cx)<w*.18;
+      if(face){if(Math.abs(Y-(fy+fr*.62))<.6&&Math.abs(X-cx)<fr*.35)return [150,90,70];if(Math.abs(Y-(fy-fr*.15))<.7&&Math.abs(Math.abs(X-cx)-fr*.4)<.8)return [60,40,30];return skin;}
+      if(hands)return skin;if(body)return robe;if(hairE)return hair;return lerpC(bg1,bg2,Y/h);});
+  },
+  portrait(r,w,h,px){
+    const bg=hsl(r()*360,.25+r()*.3,.12+r()*.22),skin=hsl(16+r()*24,.3+r()*.35,.36+r()*.44),hair=hsl(r()<.75?18+r()*25:r()*360,.3+r()*.4,.07+r()*.45),robe=niceColor(r);
+    const cx=w/2+(r()-.5)*w*.08,fy=h*.38,rx=Math.max(.8,w*.22),ry=Math.max(.8,h*.2),style=Math.floor(r()*3),smile=r()<.4,eye=[28,20,16];
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5,dx=(X-cx)/rx,dy=(Y-fy)/ry,d=dx*dx+dy*dy;
+      if(d<=1){
+        if(Math.abs(dy+.12)<.14&&Math.abs(Math.abs(dx)-.42)<.17)return eye;
+        if(smile?(Math.abs(dy-.5+dx*dx*.4)<.09&&Math.abs(dx)<.42):(Math.abs(dy-.52)<.08&&Math.abs(dx)<.3))return [140,58,52];
+        if(style!==2&&dy<-.6)return hair;
+        return skin;}
+      if(Y>fy+ry*.7&&Y<=fy+ry*1.45&&Math.abs(X-cx)<rx*.38)return lerpC(skin,[0,0,0],.15);
+      if(Y>fy+ry*1.3&&Math.abs(X-cx)<rx*1.1+(Y-fy-ry*1.3)*1.4)return robe;
+      if(style===0&&((X-cx)/(rx*1.22))**2+((Y-fy+ry*.25)/(ry*1.2))**2<=1)return hair;
+      if(style===1&&Math.abs(X-cx)<rx*1.3&&Y>fy-ry*1.2&&Y<fy+ry*1.9)return hair;
+      return lerpC(bg,[0,0,0],Y/h*.35);});
+  },
+  seascape(r,w,h,px){
+    const hor=h*(.4+r()*.2),s1=hsl(195+r()*25,.55,.55+r()*.15),s2=hsl(30+r()*30,.6,.85),sea1=hsl(195+r()*20,.55,.42),sea2=hsl(215,.6,.18),foam=[235,240,245];
+    const f=.25+r()*.5,ph=r()*9,boat=w>=10&&r()<.75,bx=w*(.2+r()*.55),bs=Math.max(2,Math.min(w,h)*(.12+r()*.12)),sail=r()<.5?[245,240,225]:niceColor(r);
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(boat){const by=hor+bs*.12;
+        if(Y>=by-bs*.28&&Y<=by+bs*.08&&Math.abs(X-bx-bs*.3)<bs*(.75-(Y-(by-bs*.28))*.6/bs))return [82,46,26];
+        const top=by-bs*1.35;if(Y<by-bs*.28&&Y>top&&X>=bx&&X<=bx+(Y-top)*.75)return sail;}
+      if(Y<hor)return lerpC(s1,s2,Y/hor);
+      const t=(Y-hor)/(h-hor+1),wv=Math.sin(X*f+ph+Y*.9)*.5+.5;
+      if(wv>.9-t*.08&&(Math.floor(Y-hor)%2===0))return foam;
+      return lerpC(sea1,sea2,t);});
+  },
+  night(r,w,h,px){
+    const top=hsl(230+r()*20,.5,.05),bot=hsl(240+r()*30,.45,.2+r()*.1),dens=.02+r()*.05;
+    const mx=w*(.15+r()*.7),my=h*(.12+r()*.3),mr=Math.max(.8,Math.min(w,h)*(.07+r()*.08)),cres=r()<.6,off=mr*(.45+r()*.3);
+    const hills=r()<.7,hf=.05+r()*.1,hp=r()*9,hh=h*(.76+r()*.12);
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(hills&&Y>hh+Math.sin(X*hf+hp)*h*.05)return [8,10,14];
+      if(Math.hypot(X-mx,Y-my)<=mr&&!(cres&&Math.hypot(X-mx-off,Y-my+off*.3)<=mr))return [245,238,205];
+      if(r()<dens)return r()<.8?[255,255,255]:[255,226,150];
+      return lerpC(top,bot,Y/h);});
+  },
+  mondrian(r,w,h,px){
+    const lw=Math.max(1,Math.round(Math.min(w,h)/28)),nv=ri(r,1,4),nh=ri(r,1,4),vx=[],hy=[];
+    for(let i=0;i<nv;i++)vx.push(ri(r,1,Math.max(1,w-2)));for(let i=0;i<nh;i++)hy.push(ri(r,1,Math.max(1,h-2)));
+    const cols=[[240,236,224],[240,236,224],[240,236,224],[240,236,224],[205,38,33],[28,58,150],[245,200,30],[22,22,22]],cell={};
+    fill(px,w,h,(x,y)=>{if(vx.some(v=>x>=v&&x<v+lw)||hy.some(v=>y>=v&&y<v+lw))return [18,18,18];
+      const k=vx.filter(v=>x>=v).length+','+hy.filter(v=>y>=v).length;if(!(k in cell))cell[k]=cols[Math.floor(r()*cols.length)];return cell[k];});
+  },
+  rothko(r,w,h,px){
+    const bg=hsl(r()*360,.45,.2+r()*.25),n=ri(r,2,3),gap=h*.05,bh=(h*.86-gap*(n-1))/n,B=[];let y0=h*.07;
+    for(let i=0;i<n;i++){B.push([y0,y0+bh*(.75+r()*.5),hsl(r()*360,.4+r()*.4,.25+r()*.42)]);y0+=bh+gap;}
+    const mx=w*.09;
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;for(const [a,b,c] of B){const e=Math.min(X-mx,w-mx-X,Y-a,b-Y);if(e>(r()-.6)*1.4)return lerpC(c,bg,e<1.6?.35:0);}return bg;});
+  },
+  dots(r,w,h,px){
+    const hor=h*(.42+r()*.2),sky=hsl(195+r()*35,.5,.72),grass=hsl(80+r()*40,.5,.45),water=r()<.5,pal=[hsl(r()*360,.7,.6),hsl(r()*360,.7,.6),[255,255,255]],paper=[245,240,228],dens=.55+r()*.3;
+    fill(px,w,h,(x,y)=>{if(r()>dens)return paper;const base=y<hor?sky:(water&&y<hor+h*.15?hsl(210,.5,.45):grass);const p=pal[Math.floor(r()*3)];return r()<.25?p:lerpC(base,p,r()*.3);});
+  },
+  fruit(r,w,h,px){
+    const wall=hsl(30+r()*30,.25,.22+r()*.25),table=hsl(20+r()*15,.45,.22+r()*.1),tY=h*.7,bowl=hsl(r()*360,.3,.55),cx=w/2,bR=Math.max(1,w*.3),F=[];
+    const FC=[[200,30,35],[240,140,20],[240,210,50],[90,160,50],[120,40,110]],k=ri(r,3,5);
+    for(let i=0;i<k;i++)F.push([cx+(i-(k-1)/2)*bR*.5+(r()-.5)*bR*.2,tY-bR*(.15+r()*.35),Math.max(.8,bR*(.26+r()*.12)),FC[Math.floor(r()*FC.length)]]);
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5,b0=tY-bR*.1;
+      if(Y>=b0&&((X-cx)/bR)**2+((Y-b0)/(bR*.45))**2<=1)return lerpC(bowl,[0,0,0],(Y-b0)/(bR*.5)*.4);
+      for(const [fx,fy,fr,c] of F)if(Math.hypot(X-fx,Y-fy)<=fr)return Math.hypot(X-fx+fr*.35,Y-fy+fr*.35)<fr*.3?lerpC(c,[255,255,255],.45):c;
+      if(Y>=tY)return lerpC(table,[0,0,0],(Y-tY)/(h-tY+1)*.4);
+      return lerpC(wall,[0,0,0],Y/h*.3);});
+  },
+  house(r,w,h,px){
+    const sky=hsl(200+r()*20,.5,.62+r()*.15),grass=hsl(95+r()*25,.45,.4),gY=h*(.72+r()*.08),wall=niceColor(r),roof=hsl(r()<.6?5+r()*20:r()*360,.5,.3);
+    const hw=w*(.36+r()*.2),hx=w/2+(r()-.5)*w*.2,wh=h*(.22+r()*.1),rh=h*(.15+r()*.08),sun=r()<.6,top=gY-wh,x0=hx-hw/2,x1=hx+hw/2;
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(X>=x0&&X<=x1&&Y>=top&&Y<=gY){
+        if(Math.abs(X-hx)<hw*.1&&Y>gY-wh*.55)return [70,40,25];
+        const wy=top+wh*.22,wyh=wh*.3;if(Y>=wy&&Y<=wy+wyh&&(Math.abs(X-(x0+hw*.22))<hw*.1||Math.abs(X-(x1-hw*.22))<hw*.1))return [250,228,140];
+        return wall;}
+      if(Y<top&&Y>=top-rh&&Math.abs(X-hx)<=(hw/2+hw*.08)*(1-(top-Y)/rh))return roof;
+      if(Y>gY)return grass;
+      if(sun&&Math.hypot(X-w*.82,Y-h*.18)<Math.max(.8,Math.min(w,h)*.08))return [255,220,90];
+      return lerpC(sky,[255,255,255],Y/gY*.4);});
+  },
+  mountain(r,w,h,px){
+    const s1=hsl(205+r()*20,.45,.55),s2=hsl(25+r()*35,.55,.85),n=ri(r,2,3),L=[];
+    for(let i=0;i<n;i++)L.push({b:h*(.5+i*.15+r()*.05),a:h*(.32-i*.07),f1:.04+r()*.08,f2:.12+r()*.15,p1:r()*9,p2:r()*9,c:hsl(215+r()*25,.12+i*.06,.55-i*.15)});
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      for(let i=n-1;i>=0;i--){const l=L[i],tp=l.b-l.a*(Math.abs(Math.sin(X*l.f1+l.p1))*.7+Math.abs(Math.sin(X*l.f2+l.p2))*.3);
+        if(Y>=tp){if(i===0&&Y<tp+l.a*.2)return [240,244,248];return lerpC(l.c,[0,0,0],(Y-tp)/h*.5);}}
+      return lerpC(s1,s2,Y/h);});
+  },
+  invader(r,w,h,px){
+    const g=ri(r,5,8),cols=Math.ceil(g/2),mask=[];for(let j=0;j<g;j++){const row=[];for(let i=0;i<cols;i++)row.push(r()<.5);mask.push(row);}
+    const fg=hsl(r()*360,.85,.6),bg=[12,10,22],cell=Math.max(1,Math.floor(Math.min(w,h)/(g+2))),ox=Math.floor((w-cell*g)/2),oy=Math.floor((h-cell*g)/2);
+    fill(px,w,h,(x,y)=>{const i=Math.floor((x-ox)/cell),j=Math.floor((y-oy)/cell);if(i<0||j<0||i>=g||j>=g)return (y%3===0)?[20,18,34]:bg;return mask[j][i<cols?i:g-1-i]?fg:bg;});
+  },
+  glitch(r,w,h,px,meta){
+    (r()<.5?GEN.landscape:GEN.sunset)(r,w,h,px,meta);
+    const rows=ri(r,1,Math.max(1,Math.floor(h/4)));
+    for(let k=0;k<rows;k++){const y0=ri(r,0,h-1),hh=ri(r,1,Math.max(1,Math.floor(h/8))),sh=ri(r,-Math.floor(w/3),Math.floor(w/3));
+      for(let yy=y0;yy<Math.min(h,y0+hh);yy++){const row=px.slice(yy*w*4,(yy+1)*w*4);for(let x=0;x<w;x++){const sx=mod(x-sh,w);for(let c=0;c<3;c++)px[(yy*w+x)*4+c]=row[sx*4+c];}}}
+    const cs=ri(r,1,Math.max(1,Math.floor(w/12))),cp=px.slice();for(let y=0;y<h;y++)for(let x=0;x<w;x++)px[(y*w+x)*4]=cp[(y*w+mod(x-cs,w))*4];
+    const nb=ri(r,0,4);for(let k=0;k<nb;k++){const bx=ri(r,0,w-1),by=ri(r,0,h-1),bw=ri(r,1,Math.max(1,Math.floor(w/4))),bh=ri(r,1,Math.max(1,Math.floor(h/6))),c=[r()*255,r()*255,r()*255];
+      for(let y=by;y<Math.min(h,by+bh);y++)for(let x=bx;x<Math.min(w,bx+bw);x++){const i=(y*w+x)*4;px[i]=c[0];px[i+1]=c[1];px[i+2]=c[2];}}
+  },
+  map(r,w,h,px){
+    const ph=[r()*9,r()*9,r()*9,r()*9],fr=[.08+r()*.25,.08+r()*.25,.08+r()*.25],cx=w*(.4+r()*.2),cy=h*(.4+r()*.2),R=Math.max(1,Math.min(w,h)*(.32+r()*.12)),parch=r()<.5,gs=Math.max(4,Math.floor(Math.min(w,h)/6));
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5,d=Math.hypot((X-cx)/R,(Y-cy)/R);
+      const e=1-d+.18*Math.sin(X*fr[0]+ph[0])*Math.cos(Y*fr[0]+ph[1])+.12*Math.sin(X*fr[1]+ph[2]+Y*fr[1]*.7)+.08*Math.cos(Y*fr[2]+ph[3]-X*fr[2]);
+      let c=e<-.15?[35,70,120]:e<0?[60,110,160]:e<.06?[220,200,140]:e<.3?[110,160,80]:e<.48?[55,105,55]:e<.62?[140,130,120]:[245,245,245];
+      if(parch)c=lerpC(c,[222,200,150],.45);if((x%gs===0||y%gs===0)&&e<0)c=lerpC(c,[255,255,255],.18);return c;});
+  },
+  blueprint(r,w,h,px){
+    const bg=[28,72,138],grid=[46,94,163],line=[232,242,255],g=Math.max(3,Math.floor(Math.min(w,h)/10)),kind=Math.floor(r()*3),cx=w/2,cy=h/2,R=Math.min(w,h)*.34,teeth=ri(r,6,12);
+    const x0=Math.floor(w*.16),y0=Math.floor(h*.18),x1=Math.ceil(w*.84)-1,y1=Math.ceil(h*.82)-1,ix=ri(r,x0+1,Math.max(x0+1,x1-1)),iy=ri(r,y0+1,Math.max(y0+1,y1-1));
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(kind===0){const a=Math.atan2(Y-cy,X-cx),rr=R*(Math.cos(a*teeth)>0?1:.82),d=Math.hypot(X-cx,Y-cy);if(Math.abs(d-rr)<.7||Math.abs(d-R*.3)<.7)return line;}
+      else if(kind===1){if(((x===x0||x===x1)&&y>=y0&&y<=y1)||((y===y0||y===y1)&&x>=x0&&x<=x1))return line;if(x===ix&&y>=y0&&y<=y1&&Math.abs(Y-cy)>2)return line;if(y===iy&&x>=x0&&x<=ix&&Math.abs(X-(x0+ix)/2)>2)return line;}
+      else{const d=Math.hypot(X-cx,Y-cy);if(Math.abs(d-R)<.7||(Math.abs(X-cx)<.6&&(y%3))||(Math.abs(Y-cy)<.6&&(x%3)))return line;if(y===Math.floor(h*.92)&&x>=Math.floor(cx-R)&&x<=Math.ceil(cx+R))return line;}
+      if(x%g===0||y%g===0)return grid;return bg;});
+  },
+  opart(r,w,h,px){
+    const a=r()<.55?[12,12,12]:hsl(r()*360,.7,.35),b=r()<.6?[245,245,238]:hsl(r()*360,.7,.78),kind=Math.floor(r()*3),f=.6+r()*1.4,cx=w*(.3+r()*.4),cy=h*(.3+r()*.4),k=ri(r,3,9);
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;let v;if(kind===0)v=Math.sin(Math.hypot(X-cx,Y-cy)*f);else if(kind===1)v=Math.sin(X*f+Math.sin(Y*f*.35)*3);else v=Math.sin(Math.atan2(Y-cy,X-cx)*k)*Math.sin(Math.hypot(X-cx,Y-cy)*f*.6);return v>0?a:b;});
+  },
+  flag(r,w,h,px){
+    const n=ri(r,2,4),vert=r()<.45,cols=[];for(let i=0;i<n;i++)cols.push(hsl(pick(r,[0,8,45,120,140,210,225,280])+r()*10,.72,i%2?.45:.55));if(n>2&&r()<.35)cols[1]=[245,245,245];
+    const em=Math.floor(r()*4),ec=r()<.5?[250,215,60]:[245,245,245],cx=vert?w/2:w*.3,cy=h/2,er=Math.min(w,h)*.22;
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(em===3&&X<w*.42&&Y<h*.5)return ((Math.floor(X/Math.max(1,w/16))+Math.floor(Y/Math.max(1,h/10)))%2)?[30,50,120]:[245,245,245];
+      const d=Math.hypot(X-cx,Y-cy),an=Math.atan2(Y-cy,X-cx);
+      if(em===1&&d<=er)return ec;
+      if(em===2&&d<=er*(.45+.55*Math.abs(Math.cos(2.5*(an+Math.PI/2)))))return ec;
+      const t=vert?X/w:Y/h;return cols[Math.min(n-1,Math.floor(t*n))];});
+  },
+  fish(r,w,h,px){
+    const top=hsl(185+r()*20,.55,.55),bot=hsl(210,.6,.18),n=ri(r,1,4),F=[];
+    for(let i=0;i<n;i++)F.push({x:w*(.18+r()*.64),y:h*(.2+r()*.55),L:Math.max(1.2,Math.min(w,h)*(.12+r()*.14)),c:hsl(r()*360,.8,.55),dir:r()<.5?1:-1});
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      for(const f of F){const dx=(X-f.x)*f.dir,dy=Y-f.y;
+        if((dx/f.L)**2+(dy/(f.L*.5))**2<=1){if(Math.hypot(dx-f.L*.5,dy+f.L*.1)<Math.max(.5,f.L*.12))return [10,10,10];return f.c;}
+        if(dx<-f.L*.8&&dx>-f.L*1.5&&Math.abs(dy)<(-f.L*.8-dx)*.8)return lerpC(f.c,[0,0,0],.25);}
+      if(Y>h*.93)return [194,178,128];
+      if(Y>h*.8&&Math.sin(X*1.3)>.45&&Y>h*.8+Math.sin(X*.7)*h*.04)return [50,120,60];
+      if(r()<.004)return [220,240,255];
+      return lerpC(top,bot,Y/h);});
+  },
+  flower(r,w,h,px){
+    const bg=hsl(r()*360,.35,.82),n=ri(r,1,3),F=[],vase=r()<.5;
+    for(let i=0;i<n;i++)F.push({x:w*((i+.5)/n)+(r()-.5)*w*.08,y:h*(.22+r()*.22),R:Math.max(1,Math.min(w/n,h)*(.24+r()*.12)),k:ri(r,4,8),c:hsl(r()*360,.75,.6)});
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      for(const f of F){const dx=X-f.x,dy=Y-f.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx);
+        if(d<=f.R*.28)return [245,200,40];if(d<=f.R*(.45+.55*Math.abs(Math.cos(a*f.k/2))))return f.c;}
+      if(vase&&Y>h*.7&&Math.abs(X-w/2)<w*.22*(1-(Y-h*.7)/h*.8))return [120,80,160];
+      for(const f of F)if(Y>f.y&&Math.abs(X-f.x-Math.sin((Y-f.y)*.15))<Math.max(.5,f.R*.08))return [60,130,60];
+      return bg;});
+  },
+  roomception(r,w,h,px){
+    const wall=hsl(r()*360,.3,.32+r()*.2),fY=h*.78,rail=h*.62,n=ri(r,1,3),P=[];
+    for(let i=0;i<n;i++)P.push([w*(i+.5)/n,h*.34,w/n*(.35+r()*.25),h*(.2+r()*.18)]);
+    fill(px,w,h,(x,y)=>{const X=x+.5,Y=y+.5;
+      if(Y>=fY)return lerpC([110,30,35],[0,0,0],(Y-fY)/(h-fY+1)*.4);
+      for(const [cx,cy,cw,ch] of P)if(Math.abs(X-cx)<=cw/2&&Math.abs(Y-cy)<=ch/2){if(Math.abs(X-cx)>cw/2-1||Math.abs(Y-cy)>ch/2-1)return [200,160,60];return [r()*255,r()*255,r()*255];}
+      if(Math.abs(Y-rail)<.6)return [230,220,200];
+      return Y>rail?lerpC(wall,[0,0,0],.25):wall;});
+  }
+
+};
+const TYPES=[ // [type, weight, rarity]
+  ['noise',72,'Common'],['palette',8,'Common'],['gradient',4,'Uncommon'],['stripes',3,'Uncommon'],['checker',2,'Uncommon'],['solid',2.2,'Uncommon'],
+  ['landscape',2.2,'Rare'],['sunset',1.6,'Rare'],['heart',.9,'Rare'],['cat',.8,'Rare'],['smiley',.9,'Very Rare'],['pixel',.8,'Very Rare'],
+  ['mona',.25,'Legendary'],['white',.3,'Legendary'],['black',.25,'Legendary'],
+  ['portrait',.5,'Rare'],['seascape',.45,'Rare'],['night',.45,'Rare'],['mondrian',.35,'Rare'],['rothko',.35,'Rare'],['dots',.35,'Rare'],['fruit',.35,'Rare'],['house',.35,'Rare'],
+  ['mountain',.4,'Rare'],['invader',.3,'Very Rare'],['glitch',.4,'Uncommon'],['map',.3,'Very Rare'],['blueprint',.3,'Very Rare'],['opart',.35,'Rare'],['flag',.35,'Rare'],
+  ['fish',.3,'Very Rare'],['flower',.35,'Rare'],['roomception',.12,'Legendary']];
+const RCLASS={'Common':'r-common','Uncommon':'r-uncommon','Rare':'r-rare','Very Rare':'r-very','Legendary':'r-legend','Common Here':'r-uncommon'};
+
+/* metadata words */
+const FIRST=['Pieter','Gustave','Brenda','Ingrid','Lorenzo','Margarethe','Derek','Hieronymus','Agnès','Klaus','Fernanda','Tobias','Yolanda','Bartholomew','Doris','Wilhelmina','Sven','Ottoline','Gary','Ignatius','Clementine','Rutger','Philippa','Anselm','Bev','Cornelius','Dagmar','Esperanza','Fyodor','Gwendolyn','Horace','Imelda','Jasper','Kerstin','Lionel','Marisol','Norbert','Olaf','Prudence','Quentin','Rosalind','Stanislav','Trudy','Ulrich','Vera','Wendell'];
+const PRE=['van ','de ','von ','','','','','Mc','O\'','della ','St. ','ten '];
+const SYL1=['Smudge','Pixel','Hoogen','Brush','Daub','Noise','Gloop','Splotch','Thimble','Varnish','Crumb','Static','Blot','Easel','Turp','Smear','Dither','Gesso','Ochre','Fleck','Grain','Squint','Muddle','Dabble'];
+const SYL2=['worth','meer','ini','ovski','berg','ington','ley','ström','eau','ez','hausen','sson','ton','elli','wick','ard','enko','ford','idge','stein'];
+const ODD_ARTISTS=['Anonymous (Probably Gerald)','School of Someone','A Very Determined Raccoon','Attributed to a Printer Malfunction','The Algorithm, Age 4','Workshop of a Man Called Dennis','Follower of Nobody in Particular','Unknown Artist (Known to Police)','Circle of Pieter Smudgeworth','A Committee'];
+const MEDIUM=['oil on regret','acrylic on a parking ticket','pixels on more pixels','tempera on drywall','watercolour on a damp sock','digital oil on analogue canvas','gouache on a receipt from 1987','ink on the back of a menu','RGB on a napkin','pastel on a tax return','spray paint on the museum\'s patience','oil on oil','bits on bytes','charcoal on burnt toast','enamel on a forgotten password','mixed feelings on canvas','egg tempera (free range)','oil on canvas, allegedly','fresco, relocated against its will','light on a monitor that was then switched off','ketchup and resolve on linen','crayon on an apology','emulsion on a rental deposit','JPEG artefacts on hessian','marker on a whiteboard (do not erase)','gold leaf on cardboard','oil on a very small canvas','varnish on nothing in particular'];
+const ADJ=['restless','unflinching','luminous','deeply confused','fearless','tender','combative','lonely','overconfident','quietly furious','ambitious','damp','unbothered','haunting','slightly sticky','monumental','apologetic','feral'];
+const NOUN=['silence','geometry','futility','grandeur','fragility','beigeness','inevitability','loneliness','Tuesday','ambition','static','memory','entropy','longing','the colour green','lunch','the void','moisture','tax law','nostalgia'];
+const THINGS=['the artist\'s mother','a distant lighthouse','a crumb','the fall of Rome','a regrettable haircut','God','a pigeon, mid-thought','the concept of Thursdays','the artist\'s landlord','a lost sock','late capitalism','a very small horse','nothing at all','his first car','an ex-wife','the Moon (inaccurately)'];
+const QUOTES=['Pixels, and then some','I have seen it, and I would like to unsee it','A triumph of placement','Exactly as random as it needs to be','Brave','Noisy, in the good way','I thought it was a wall','Bold, but in a quiet way','It is certainly a painting','The best thing on this wall, give or take','Finally, a painting','My son could have done this, eventually, statistically'];
+const FEEL=['seen','hungry','vaguely guilty','dizzy','inexplicably sad','24-bit','uplifted, then let down','like calling their mother','the urge to blink','nothing, profoundly'];
+const PLACES=['Delft','a Car Park','Lake Mildew','Lower Slough','the Ring Road','Grandma\'s','Bognor','the Dutch Interior','Ohio','an Unnamed Fjord','Platform 4','the Coast (Probably)'];
+const T_ADJ=['Composition','Study','Portrait','Variation','Interior','Allegory','Landscape','Nocturne','Still Life','Impression','Fragment','Meditation','Sketch'];
+const T_NOUN=['Static','Gravel','Toast','Everything at Once','a Horse (Missing)','the Void, Lightly Toasted','Lukewarm Soup','a Very Busy Signal','Confetti','the Television Upstairs','Ants','Noise','a Memory of Gravel','a Dream About Taxes','Rice','a Crowded Beach From Space','Your Aunt\'s Carpet'];
+function genArtist(r){
+  if(r()<.12)return {name:pick(r,ODD_ARTISTS),years:pick(r,['(dates unknown)','(active c. 1450–yesterday)','(c. 2019–2020)','(fl. Tuesdays)'])};
+  const n=`${pick(r,FIRST)} ${pick(r,PRE)}${pick(r,SYL1)}${pick(r,SYL2)}`;
+  const b=ri(r,1390,2001),k=r();let years;
+  if(k<.55){const d=b+ri(r,19,96);years=`(${b}–${d})`;}
+  else if(k<.68)years=`(b. ${ri(r,1960,2004)})`;
+  else if(k<.76)years=`(c. ${b}–c. lunchtime)`;
+  else if(k<.84)years=`(${b}–${b+1}, briefly)`;
+  else if(k<.92)years=`(${b}–present, somehow)`;
+  else years=`(dates disputed by ${pick(r,['his mother','her mother','the artist','a cat','historians, loudly'])})`;
+  return {name:n,years,last:n.split(' ').slice(1).join(' ')};
+}
+function genYear(r){const k=r();if(k<.55)return String(ri(r,1420,2026));if(k<.8)return `c. ${ri(r,142,202)*10}`;return pick(r,['Tuesday','Forthcoming','∞ BC','The Long Summer of 1976','Undated (Monday?)','Before lunch','Every year, technically','1999 (twice)']);}
+function genValue(r,rar){
+  const tier={'Common':0,'Common Here':1,'Uncommon':1,'Rare':2,'Very Rare':3,'Legendary':4}[rar];
+  if(r()<.22)return pick(r,['About 3 sandwiches','One used bicycle','£7 and a voucher','Worthless (priceless)','$0.04','A firm handshake','Priceless — we tried, it broke the calculator','Two goats and a dispute','Whatever you have in your pocket']);
+  const base=[[3,9000],[400,90000],[0.2,40],[2,180],[40,950]][tier];
+  const v=base[0]+r()*(base[1]-base[0]);
+  return tier>=2?`$${v.toFixed(v<10?1:0)} million`:`$${Math.round(v).toLocaleString('en-US')}`;
+}
+function genTitle(r,type,meta,wing){
+  switch(type){
+    case 'white':return 'Untitled (Snow at Night, No Snow)';
+    case 'black':return 'Black Cat in a Coal Cellar, Lights Off';
+    case 'pixel':return pick(r,['Self-Portrait at a Great Distance','Study of a Single Fly','The Loneliest Pixel','Full Stop','Ant, Seen From a Helicopter','Dead Pixel (Living)']);
+    case 'smiley':return pick(r,['Have a Nice Day (Probably)','Portrait of Someone Who Is Fine','The Mild Grin','Statistically Unlikely Joy']);
+    case 'mona':return pick(r,['Mona Lisa (Compressed)','Lisa, Mostly','La Gioconda, Lossy','The Mona Lisa, Seen Through a Keyhole']);
+    case 'cat':return pick(r,['Almost a Cat','Cat (Allegedly)','Possibly a Cat, Possibly Toast','Cat, Lightly Corrupted','Feline, Approximately']);
+    case 'heart':return pick(r,['Love, in Low Resolution','Valentine (Lossy)','Heart, Uncompressed','Romance, 8 Bit-ish']);
+    case 'sunset':return `Sunset Over ${pick(r,PLACES)}`;
+    case 'landscape':return pick(r,[`View of ${pick(r,PLACES)} From Memory`,`Landscape With ${pick(r,['a Tree','a Smaller Tree','Distant Hills','No Cows','One Brave Shrub'])}`,`Morning in ${pick(r,PLACES)}`]);
+    case 'solid':return `Study in ${meta.hex}`;
+    case 'gradient':return pick(r,['Indecision','A Transition','Fade Out','Between Two Colours','Dawn, Probably']);
+    case 'stripes':return pick(r,['Flag of a Country That Does Not Exist Yet','Deckchair','Barcode for a Feeling','Lines (Several)','Pyjamas No. '+ri(r,2,40)]);
+    case 'checker':return pick(r,['Board Game Without Rules','Picnic Blanket, Abandoned','Bathroom Floor of the Gods','Chess (Losing)']);
+    case 'portrait':return pick(r,[`Portrait of ${pick(r,FIRST)}, Unimpressed`,`${pick(r,['Lady','Gentleman','Child','Duke','Accountant','Stranger'])} With ${pick(r,['a Secret','No Eyebrows','Somewhere to Be','a Grudge','Nothing to Declare'])}`,`Self-Portrait as ${pick(r,['a Younger Man','Someone Else','a Disappointment','Royalty'])}`,`The ${pick(r,['Third','Second-Best','Forgotten','Unpaid'])} Duchess`]);
+    case 'seascape':return pick(r,[`Boat Off ${pick(r,PLACES)}`,'A Small Boat, Doing Its Best','The Sea, Again',`Harbour at ${pick(r,['Dawn','Low Tide','Tea Time'])}`,'Seascape With Nobody Waving']);
+    case 'night':return pick(r,['Starry Night (Unauthorised)','A Sky Full of Pixels','Moon Over Nothing in Particular',`Nocturne in ${pick(r,COLOR_NAMES)}`,'The Last Bus Home, From Above']);
+    case 'mondrian':return pick(r,[`Composition No. ${ri(r,2,400)} With Red, Yellow and Regret`,'Grid, Mid-Argument','Broadway Boogie (Slow)','Rectangles, Holding Hands']);
+    case 'rothko':return pick(r,[`Untitled (${pick(r,COLOR_NAMES)} on ${pick(r,COLOR_NAMES)})`,'Two Feelings, Stacked','No. '+ri(r,1,99)+' (Sad)','Big Quiet Rectangle']);
+    case 'dots':return pick(r,['A Sunday Afternoon, Dotted',`The Park at ${pick(r,PLACES)}, in Dots`,'Ten Thousand Dots and a Feeling','Bathers (Pointillist, Wet)']);
+    case 'fruit':return pick(r,['Still Life With Fruit, Stiller','Bowl of Fruit Nobody Ate','Apples, Assembled',`Fruit Arranged by ${pick(r,FIRST)}`]);
+    case 'house':return pick(r,['Detached House, Very Detached','Home (Not Yours)',`The House on ${pick(r,['Elm','Gravel','Mildew','Nowhere'])} Street`,'Chimney Optional']);
+    case 'mountain':return pick(r,['The Mountains, Some of Them','Peak District, Pixelated',`Range Above ${pick(r,PLACES)}`,'Snow on the Tops, Again']);
+    case 'invader':return pick(r,['Invader No. '+ri(r,1,9999),'Small Visitor From Space','Insert Coin','Alien, Seen Symmetrically']);
+    case 'glitch':return pick(r,['Landscape (File Damaged)','Sunset_FINAL_final2.jpg','Error 404: View Not Found','Corrupted Memory of a Hill']);
+    case 'map':return pick(r,[`Isle of ${pick(r,SYL1)}${pick(r,SYL2)}`,'Here Be Pixels','Island, Uncharted, Uninsured','Map of Somewhere Nice']);
+    case 'blueprint':return pick(r,['Plan for a Machine That Does Nothing','Gear, Unemployed','Floor Plan (Rooms Optional)','Patent Pending Since 1902']);
+    case 'opart':return pick(r,['Please Stop Moving','Vertigo, Politely','Ripples in a Static Pond','Eye Test (Failed)']);
+    case 'flag':return pick(r,[`Flag of the Republic of ${pick(r,SYL1)}${pick(r,SYL2)}`,'Flag of a Country That Lost the Vote','Banner for a Very Small Kingdom','National Colours (Disputed)']);
+    case 'fish':return pick(r,['Fish, Framed','Aquarium at Feeding Time','Fish Looking Back','A School of One']);
+    case 'flower':return pick(r,['Flowers for Nobody','Bouquet, Pixelated','Sunflower (Distant Cousin)','Petals, Counted']);
+    case 'roomception':return pick(r,['This Room','The Gallery You Are Standing In','A Painting of a Painting of a Room','Interior With Itself']);
+  }
+  const k=r();
+  if(k<.28)return `${pick(r,T_ADJ)} of ${pick(r,T_NOUN)}`;
+  if(k<.46)return `${pick(r,T_ADJ)} No. ${ri(r,2,9999).toLocaleString('en-US')}`;
+  if(k<.6)return `Composition in ${pick(r,COLOR_NAMES)} and ${pick(r,COLOR_NAMES)} (Neither Present)`;
+  if(k<.72)return `Untitled #${(ri(r,1,99999)*ri(r,1,9999)).toLocaleString('en-US')}`;
+  if(k<.84)return `${pick(r,T_NOUN)} at ${pick(r,['Dusk','Noon','3 a.m.','Closing Time','the Office Party','the Dentist'])}`;
+  if(k<.92)return `Portrait of the Artist's ${pick(r,['Uncle','Neighbour','Accountant','Ex','Cat','Cousin Once Removed'])}, ${pick(r,['Blurred','Shredded','Pixelated','From Memory','Mid-Sneeze'])}`;
+  return wing.cats?pick(r,['Not a Cat','Definitely Not a Cat','Cat (No)']):pick(r,['Static Before the Storm','The Television Upstairs','Gravel, Wet','The Crowd Goes Mild','Sand, Individually']);
+}
+function sizeJudge(w,h){const a=w*h;if(a===1)return 'the smallest work in the collection, and somehow also the loudest';if(a<40)return 'small enough to fit in a locket, and too intense to wear';if(w/h>4||h/w>4)return 'unusually narrow, as though painted through a letterbox';if(a>8000)return 'among the more generous works the museum holds';return 'modest in size, immodest in ambition';}
+const TYPE_LINES={
+  noise:['To the untrained eye it is random noise. To the trained eye, it is also random noise.','Some see chaos. Others see more chaos.','Every pixel was chosen with care, by nobody.','The composition rewards close looking, and then punishes it.'],
+  palette:['A restrained palette of only a few colours, flung about without remorse.','The artist limited themselves to a handful of colours and no plan whatsoever.'],
+  gradient:['A bold refusal to commit to either colour.','The eye slides gently from one end to the other and asks for a refund.'],
+  stripes:['Widely assumed to be the flag of a nation that has yet to be founded.','Several stripes, each confident it is the main one.'],
+  checker:['Scholars still argue about whose move it is.'],
+  solid:['A single colour, presented without excuses.','Conservators have found no evidence of a second colour. The search continues.'],
+  white:['The artist\'s most minimal work, and arguably the most honest.','Snow is implied. Night is implied. Neither has turned up.'],
+  black:['The museum assures visitors that there is a cat.','Restorers turned the lights on once. It did not help.'],
+  pixel:['Every other pixel was painstakingly left white.','A meditation on standing out, and on how little it takes.'],
+  landscape:['Painted en plein air, indoors.','Somewhere in this valley, a pixel is having a picnic.'],
+  sunset:['The sun has been setting in this painting for several centuries, and shows no sign of finishing.','A sunset so convincing that guards have been known to go home early.'],
+  smiley:['Statistically, this face should not exist. It knows.','The expression is unmistakable, which in this museum is a scandal.'],
+  heart:['A love letter, compressed until only the shape survives.'],
+  cat:['It is almost a cat in the way that Tuesday is almost the weekend.','Visitors leave arguing about whether it is a cat. That argument is the art.'],
+  mona:['The smile is enigmatic, mostly because it is two pixels wide.','Leonardo spent years on his. This one took zero seconds and has always existed.'],
+  portrait:['The sitter was told it would only take a moment. It took forever, technically.','The eyes follow you around the room, roughly.','A face that has never existed, painted with total confidence.'],
+  seascape:['The boat has been about to leave for several centuries.','Painted from the shore by someone who could not swim.'],
+  night:['Each star is one pixel. The astronomers have checked.','Somewhere out there, a pixel is wishing on us.'],
+  mondrian:['Every line is perfectly straight, as nature never intended.','The rectangles were placed by nobody, with great conviction.'],
+  rothko:['Visitors are advised to stand close and feel something.','Two colours, having a long, quiet conversation.'],
+  dots:['From across the room it is a park. Up close it is a lot of dots having a lovely time.'],
+  fruit:['The fruit has not been eaten, which the museum considers a triumph.','Every apple that could be painted, one at a time.'],
+  house:['A house that has never existed, and is somehow still overpriced.','The estate agent describes it as having character.'],
+  mountain:['Nobody has climbed these mountains. They are about forty pixels tall.'],
+  invader:['A perfectly symmetrical alien, as all the best aliens are.','It came in peace. It stayed for the art.'],
+  glitch:['This was a landscape once. Then the cable was pulled out.','Conservators are unsure whether to restore it or reboot it.'],
+  map:['An island that could exist, and therefore, in here, does.','No ship has visited. It is surrounded by frame.'],
+  blueprint:['Plans for something that was never built, drawn with total seriousness.'],
+  opart:['It is not moving. Please stop saying it is moving.','Staring for too long is discouraged by the museum\'s insurers.'],
+  flag:['The flag of a nation that has yet to be founded, or invaded.','Proudly flown by nobody.'],
+  fish:['Please do not tap on the frame.','The fish has been swimming in place for some time.'],
+  flower:['Never watered, never wilted.','Picked from an infinite garden, on a Tuesday.'],
+  roomception:['A painting of a room in this museum, which contains a painting of a room in this museum, which…','Look closely. You may be in it.']
+};
+function genDesc(r,type,w,h,artist,wing){
+  const last=artist.last||'the artist';const out=[];
+  out.push(pick(r,TYPE_LINES[type]));
+  const pool=[
+    ()=>`In this ${pick(r,ADJ)} work, ${last} interrogates the ${pick(r,NOUN)} of ${pick(r,NOUN)}.`,
+    ()=>`Note the ${pick(r,['reddish','unusually blue','smug','lonely','off-centre','slightly greener'])} pixel near the ${pick(r,['upper left','lower right','exact centre','left edge','bottom'])}, which scholars believe represents ${pick(r,THINGS)}.`,
+    ()=>`At ${w} × ${h} pixels, the piece is ${sizeJudge(w,h)}.`,
+    ()=>`Critics have called it “${pick(r,QUOTES)}.”`,
+    ()=>`${last.charAt(0).toUpperCase()+last.slice(1)} finished it in a single afternoon, then spent ${ri(r,2,40)} years apologising.`,
+    ()=>`The work was rediscovered in ${ri(r,1890,2025)} behind a ${pick(r,['vending machine','radiator','larger painting','sofa in Leeds','false wall'])}.`,
+    ()=>`Visitors often report feeling ${pick(r,FEEL)} after looking at it for ${ri(r,2,45)} minutes.`,
+    ()=>`Like everything in the collection, it was not so much painted as inevitable.`,
+    ()=>wing.cats?`Curators placed it in this hall because it is, at a glance, almost a cat. It is not.`:`It once hung in ${pick(r,['a dentist\'s waiting room','the Louvre, briefly, by mistake','a Belgian lighthouse','the artist\'s downstairs loo'])}.`
+  ];
+  const n=ri(r,0,2);for(let i=0;i<n;i++){const f=pool.splice(Math.floor(r()*pool.length),1)[0];out.push(f());}
+  return out.join(' ');
+}
+const FRAMES=['f-gilt','f-gilt','f-walnut','f-black','f-silver','f-baroque','f-oak','f-gilt','f-none'];
+const pCache=new Map();
+function painting(x,y,d,s){
+  const key=`${x},${y},${d},${s}`;
+  if(pCache.has(key)){const v=pCache.get(key);pCache.delete(key);pCache.set(key,v);return v;}
+  const wing=wingOf(x,y);
+  const r=rng(`moe|${wing.wx},${wing.wy}|${x},${y}|${DIRS[d]}|${s}`);
+  // type
+  const th=wing.theme,bo=th&&th.boost;
+  let tot=0;const tbl=TYPES.map(t=>{let w=t[1],rar=t[2];if(t[0]==='cat'&&wing.cats){w=26;rar='Common Here';}if(bo){if(bo[t[0]]){w=bo[t[0]];if(t[0]!=='noise')rar='Common Here';}else w*=.12;}return [t[0],w,rar];});
+  for(const t of tbl)tot+=t[1];
+  let roll=r()*tot,type=tbl[0];for(const t of tbl){if((roll-=t[1])<0){type=t;break;}}
+  if(x===0&&y===0&&d===0&&s===1)type=['white',0,'Legendary']; // the foyer's centrepiece
+  const [tname,,rarity]=type;
+  let w,h;
+  if(tname==='smiley'||tname==='heart'){w=h=ri(r,9,40);}
+  else if(tname==='cat'){w=ri(r,12,60);h=Math.round(w*(.9+r()*.3));}
+  else if(tname==='mona'){w=ri(r,14,52);h=Math.min(100,Math.round(w*1.45));}
+  else if(tname==='landscape'||tname==='sunset'||tname==='seascape'||tname==='night'||tname==='house'||tname==='mountain'||tname==='glitch'||tname==='map'||tname==='dots'||tname==='fruit'){w=ri(r,14,100);h=ri(r,Math.max(10,Math.floor(w*.45)),Math.min(100,Math.ceil(w*1.05)));}
+  else if(tname==='portrait'){w=ri(r,12,66);h=Math.min(100,Math.round(w*(1.2+r()*.2)));}
+  else if(tname==='rothko'){w=ri(r,14,70);h=Math.min(100,Math.round(w*(1.2+r()*.3)));}
+  else if(tname==='flag'){w=ri(r,15,90);h=Math.max(8,Math.round(w*(.55+r()*.15)));}
+  else if(tname==='invader'){w=h=ri(r,8,48);}
+  else if(tname==='flower'||tname==='fish'){w=ri(r,14,72);h=Math.min(100,Math.round(w*(.75+r()*.5)));}
+  else if(tname==='mondrian'||tname==='opart'||tname==='blueprint'||tname==='roomception'){w=ri(r,16,96);h=ri(r,Math.max(12,Math.floor(w*.55)),Math.min(100,Math.ceil(w*1.2)));}
+  else{w=ri(r,1,100);h=ri(r,1,100);}
+  if(th&&th.size==='tiny'){w=ri(r,1,6);h=ri(r,1,6);}
+  else if(th&&th.size==='giant'){w=ri(r,88,100);h=ri(r,88,100);}
+  const px=makePx(w,h),meta={};
+  GEN[tname](r,w,h,px,meta);
+  if(th&&th.gray){for(let i=0;i<px.length;i+=4){const l=px[i]*.3+px[i+1]*.59+px[i+2]*.11;px[i]=px[i+1]=px[i+2]=l;}}
+  const artist=genArtist(r);
+  const p={x,y,d,s,w,h,px,type:tname,rarity,wing,
+    cat:`${x}.${y}.${DIRS[d]}${s}`,
+    title:genTitle(r,tname,meta,wing),artist,year:genYear(r),medium:pick(r,MEDIUM),
+    value:genValue(r,rarity),frame:pick(r,FRAMES)};
+  p.desc=genDesc(r,tname,w,h,artist,wing);
+  pCache.set(key,p);if(pCache.size>240)pCache.delete(pCache.keys().next().value);
+  return p;
+}
+function pixelHash(p){let h=2166136261;for(let i=0;i<p.px.length;i++){h^=p.px[i];h=Math.imul(h,16777619);}return (h>>>0).toString(16);}
+function toCanvas(p){const c=document.createElement('canvas');c.className='px';c.width=p.w;c.height=p.h;c.getContext('2d').putImageData(new ImageData(p.px,p.w,p.h),0,0);return c;}
+
+/* ================= odds ================= */
+const LOG2_24=24*Math.log10(2);
+function oddsHTML(w,h){
+  const n=w*h,N=n*LOG2_24;let big;
+  if(N<16){big='1 in '+(16777216n**BigInt(n)).toLocaleString('en-US');}
+  else{const ip=Math.floor(N),mant=Math.pow(10,N-ip);big=`1 in ${mant.toFixed(2)} × 10<sup>${ip.toLocaleString('en-US')}</sup>`;}
+  let quip;
+  if(N<8)quip='Honestly, you could have guessed it.';
+  else if(N<20)quip='Roughly the odds of finding one particular grain of sand on every beach on Earth.';
+  else if(N<80)quip='There are about 10<sup>80</sup> atoms in the observable universe. We are getting close.';
+  else if(N<1000)quip='More paintings of this size than atoms in the universe. Each one is on a wall here somewhere.';
+  else quip=`Writing this number out would take ${Math.ceil(N).toLocaleString('en-US')} digits. The museum has a painting for each.`;
+  return `That is the chance of getting exactly this ${w} × ${h} painting at random, in 24-bit colour:<span class="big">${big}</span>${quip}`;
+}
+
+/* ================= state & storage ================= */
+const S={x:0,y:0,d:0,rooms:0,seen:0,visited:new Set(),walls:new Set(),themes:new Set()};
+const LS='moe.v1';
+function load(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j){S.x=j.x|0;S.y=j.y|0;S.d=mod(j.d|0,4);S.rooms=j.rooms|0;S.seen=j.seen|0;(j.v||[]).forEach(k=>S.visited.add(k));(j.w||[]).forEach(k=>S.walls.add(k));(j.t||[]).forEach(k=>S.themes.add(k));}}catch(e){}}
+function save(){try{const v=[...S.visited].slice(-3000),w=[...S.walls].slice(-6000);localStorage.setItem(LS,JSON.stringify({x:S.x,y:S.y,d:S.d,rooms:S.rooms,seen:S.seen,v,w,t:[...S.themes]}));}catch(e){}}
+function markSeen(){
+  const rk=`${S.x},${S.y}`;if(!S.visited.has(rk)){S.visited.add(rk);S.rooms++;}
+  const th=roomOf(S.x,S.y).wing.theme;if(th&&!S.themes.has(th.k)){S.themes.add(th.k);setTimeout(()=>toast(`New gallery found: ${th.title} (${S.themes.size} of ${THEMES.length}). See them all under Galleries.`),3000);}
+  const wk=`${S.x},${S.y},${S.d}`;if(!S.walls.has(wk)){S.walls.add(wk);S.seen+=slotsOf(S.x,S.y,S.d);}
+  $('statRooms').textContent=S.rooms.toLocaleString('en-US');$('statSeen').textContent=S.seen.toLocaleString('en-US');save();
+}
+
+/* ================= DOM ================= */
+const $=id=>document.getElementById(id);
+const stage=$('stage');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let current=null,busy=false;
+
+function wallBg(color,pattern){
+  const d1=shade(color,-.07),d2=shade(color,-.14),l1=shade(color,.06);
+  switch(pattern){
+    case 1:return `repeating-linear-gradient(90deg,${color} 0 26px,${d1} 26px 30px,${color} 30px 56px,${l1} 56px 58px)`;
+    case 2:return `radial-gradient(circle at 50% 50%,${d2} 0 3px,transparent 3.5px) 0 0/34px 34px,radial-gradient(circle at 50% 50%,${d1} 0 2px,transparent 2.5px) 17px 17px/34px 34px,${color}`;
+    case 3:return `repeating-linear-gradient(45deg,transparent 0 22px,${d1} 22px 23px),repeating-linear-gradient(-45deg,transparent 0 22px,${d1} 22px 23px),${color}`;
+    case 4:return `linear-gradient(90deg,${d1} 1px,transparent 1px) 0 0/80px 100%,${color}`;
+    default:return color;
+  }
+}
+function floorBg(f){
+  switch(f){
+    case 1:return 'conic-gradient(#e9e3d6 25%,#2b2723 0 50%,#e9e3d6 0 75%,#2b2723 0) 0 0/46px 46px';
+    case 2:return 'repeating-linear-gradient(90deg,#4a2f1d 0 54px,#3d2616 54px 56px,#55361f 56px 118px,#3d2616 118px 120px)';
+    case 3:return 'radial-gradient(circle,rgba(255,220,150,.12) 1px,transparent 1.5px) 0 0/10px 10px,linear-gradient(#6d1f22,#5a1719)';
+    default:return 'repeating-linear-gradient(45deg,#8a5f37 0 14px,#76502d 14px 28px),#8a5f37';
+  }
+}
+const GUARD_QUIPS=['Please step back from the noise.','No flash photography. Or flash anything.','I\'ve worked here 31 years. I\'ve seen 4 of them.','That one\'s my favourite. They all are. They\'re all the same.','Gift shop\'s closed. It has every possible postcard though.','If you find a picture of me in here, don\'t tell me.','The exit is that way. Also that way. Every way, really.','Do not touch. Do not lick. Do not ask why we say that.','Some lad found the Mona Lisa in the West Annex. Took him 4 seconds. Never happened again.'];
+function guardSVG(asleep){return `<svg viewBox="0 0 60 150" aria-hidden="true"><ellipse cx="30" cy="146" rx="22" ry="4" fill="rgba(0,0,0,.35)"/><rect x="18" y="98" width="10" height="46" fill="#1d2230"/><rect x="32" y="98" width="10" height="46" fill="#1d2230"/><rect x="15" y="141" width="14" height="6" rx="2" fill="#0d0d0d"/><rect x="31" y="141" width="14" height="6" rx="2" fill="#0d0d0d"/><path d="M12 50 Q30 42 48 50 L50 104 L10 104 Z" fill="#26304a"/><rect x="27" y="52" width="6" height="40" fill="#e9e3d6"/><path d="M30 54 l3 6 -3 22 -3 -22z" fill="#7a1d1d"/><circle cx="40" cy="62" r="2.4" fill="#e9c979"/><rect x="7" y="52" width="8" height="40" rx="4" fill="#26304a"/><rect x="45" y="52" width="8" height="40" rx="4" fill="#26304a"/><circle cx="30" cy="30" r="13" fill="#d9a77c"/>${asleep?'<path d="M23 31 q3 2 6 0 M31 31 q3 2 6 0" stroke="#3a2a1e" stroke-width="1.4" fill="none"/>':'<circle cx="25" cy="30" r="1.6" fill="#2a1e14"/><circle cx="35" cy="30" r="1.6" fill="#2a1e14"/>'}<path d="M26 37 q4 ${asleep?1:2} 8 0" stroke="#7a3c2c" stroke-width="1.4" fill="none"/><path d="M15 22 Q30 6 45 22 L47 25 L13 25 Z" fill="#1b2133"/><rect x="11" y="23" width="38" height="4" rx="2" fill="#11151f"/><circle cx="30" cy="17" r="2.5" fill="#e9c979"/>${asleep?'<text x="44" y="12" font-size="11" font-style="italic" fill="#fffaf0" font-family="Georgia,serif">z z</text>':''}</svg>`;}
+const BENCH_SVG=`<svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="150" cy="64" rx="146" ry="6" fill="rgba(0,0,0,.35)"/><rect x="20" y="30" width="12" height="34" fill="#2b1d12"/><rect x="268" y="30" width="12" height="34" fill="#2b1d12"/><rect x="6" y="14" width="288" height="20" rx="5" fill="#5a1f22"/><rect x="6" y="14" width="288" height="7" rx="4" fill="#7a2a2e"/><g fill="#3e1416">${Array.from({length:9},(_,i)=>`<circle cx="${30+i*30}" cy="24" r="1.8"/>`).join('')}</g><rect x="0" y="30" width="300" height="6" rx="2" fill="#3a2516"/></svg>`;
+function ropeSVG(){return `<svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="10" cy="57" rx="9" ry="3" fill="rgba(0,0,0,.35)"/><ellipse cx="190" cy="57" rx="9" ry="3" fill="rgba(0,0,0,.35)"/><path d="M10 10 Q100 46 190 10" stroke="#8d1420" stroke-width="5" fill="none"/><path d="M10 9 Q100 44 190 9" stroke="#c43a46" stroke-width="1.5" fill="none" opacity=".7"/><rect x="7" y="8" width="6" height="48" fill="#b48a3c"/><rect x="187" y="8" width="6" height="48" fill="#b48a3c"/><circle cx="10" cy="7" r="5" fill="#e9c979"/><circle cx="190" cy="7" r="5" fill="#e9c979"/><rect x="3" y="53" width="14" height="4" rx="2" fill="#8a6522"/><rect x="183" y="53" width="14" height="4" rx="2" fill="#8a6522"/></svg>`;}
+const SIGN_SVG=`<svg viewBox="0 0 60 120" aria-hidden="true"><ellipse cx="30" cy="117" rx="16" ry="3" fill="rgba(0,0,0,.35)"/><rect x="28" y="40" width="4" height="76" fill="#b48a3c"/><rect x="18" y="112" width="24" height="5" rx="2" fill="#8a6522"/><rect x="4" y="6" width="52" height="38" rx="2" fill="#f6f0e2" stroke="#6e5120" stroke-width="2"/><text x="30" y="20" text-anchor="middle" font-family="Georgia,serif" font-size="8.5" fill="#2a2118" font-style="italic">Please</text><text x="30" y="31" text-anchor="middle" font-family="Georgia,serif" font-size="9" font-weight="bold" fill="#8a2b1c">DO NOT</text><text x="30" y="40" text-anchor="middle" font-family="Georgia,serif" font-size="8.5" fill="#2a2118" font-style="italic">touch</text></svg>`;
+const WET_SVG=`<svg viewBox="0 0 60 90" aria-hidden="true"><ellipse cx="30" cy="87" rx="22" ry="3" fill="rgba(0,0,0,.35)"/><path d="M14 86 L26 6 L34 6 L46 86 Z" fill="#f2c318" stroke="#8a6d00" stroke-width="2"/><path d="M30 28 l-7 14 h14z" fill="#1b1612"/><text x="30" y="40" text-anchor="middle" font-size="9" font-weight="bold" fill="#f2c318">!</text><text x="30" y="58" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6" font-weight="bold" fill="#1b1612">WET</text><text x="30" y="66" text-anchor="middle" font-family="system-ui,sans-serif" font-size="6" font-weight="bold" fill="#1b1612">PAINT?</text></svg>`;
+const PLANT_SVG=`<svg viewBox="0 0 60 120" aria-hidden="true"><ellipse cx="30" cy="117" rx="18" ry="3" fill="rgba(0,0,0,.35)"/><path d="M15 80 h30 l-4 36 h-22z" fill="#8a4b2e"/><rect x="13" y="76" width="34" height="7" rx="2" fill="#a65f45"/><g fill="#3d6b3a"><path d="M30 78 C20 50 6 44 4 30 C16 38 26 50 30 78"/><path d="M30 78 C40 46 54 40 57 22 C44 32 34 48 30 78"/><path d="M30 78 C28 50 30 24 32 6 C38 26 34 52 30 78" fill="#4f8a49"/><path d="M30 78 C18 62 10 66 2 58 C14 56 24 64 30 78" fill="#2f5a2e"/></g></svg>`;
+
+function buildView(x,y,d){
+  const room=roomOf(x,y),wing=room.wing;
+  const W=stage.clientWidth,H=stage.clientHeight;
+  const phone=W<720;
+  const wallH=Math.round(H*(phone?.82:.8)),floorH=H-wallH;
+  const v=document.createElement('div');v.className='view';
+  const wall=document.createElement('div');wall.className='wall';wall.style.height=wallH+'px';
+  wall.style.background=wallBg(room.color,wing.pattern);
+  const railY=Math.round(wallH*.78);
+  wall.innerHTML=`<div class="cornice"></div><div class="dado" style="height:${wallH-railY}px;background:linear-gradient(${shade(room.color,-.2)},${shade(room.color,-.28)})"></div><div class="rail" style="top:${railY-4}px"></div>`;
+  v.appendChild(wall);
+  const fl=document.createElement('div');fl.className='floor';fl.style.height=floorH+'px';fl.style.background=floorBg(wing.floor);v.appendChild(fl);
+  const base=document.createElement('div');base.className='base';base.style.top=(wallH-14)+'px';v.appendChild(base);
+
+  const door=room.doors[d];const n=slotsOf(x,y,d);
+  const units=door?n+1.25:n;const unitW=W/units;
+  const positions=[];
+  if(door){positions.push(unitW*.5+W*.02,null,W-unitW*.5-W*.02);}else for(let i=0;i<n;i++)positions.push(unitW*(i+.5));
+  const paintCY=wallH*.42;
+  const maxH=wallH*(phone?.46:.5),maxW=unitW*(phone?.78:.68);
+  let slot=0;const decorR=rng(`decor|${x},${y},${d}`);
+  const arts=[];
+  positions.forEach((cx,i)=>{
+    if(cx===null){ // doorway
+      const dw=Math.min(W/units*1.25*.78,wallH*.46),dh=wallH*.74,dcx=W/2;
+      const nx=x+DX[d],ny=y+DY[d],nroom=roomOf(nx,ny);
+      const b=document.createElement('button');b.className='door';b.style.left=dcx+'px';b.style.width=dw+'px';b.style.height=dh+'px';b.style.bottom=(floorH)+'px';
+      b.setAttribute('aria-label',`Walk ${DIRNAME[d].toLowerCase()} into gallery ${nx}, ${ny}`);
+      b.innerHTML=`<div class="arch"><div class="beyond" style="background:${shade(nroom.color,-.25)}"><div class="bart" style="left:22%;top:34%;width:16%;height:18%"></div><div class="bart" style="left:58%;top:30%;width:20%;height:24%"></div><div class="bfloor" style="background:${floorBg(nroom.wing.floor)};filter:brightness(.6)"></div></div></div>`;
+      b.addEventListener('click',e=>{e.stopPropagation();if(!suppressClick)walk();});
+      // door doesn't sit on dado – raise so bottom meets floor: set bottom relative to view
+      b.style.bottom=floorH+'px';
+      v.appendChild(b);
+      const sign=document.createElement('div');sign.className='doorsign';sign.style.left=dcx+'px';sign.style.top=(wallH-dh-30)+'px';
+      sign.textContent=nroom.wing.name!==wing.name?`→ ${nroom.wing.name}`:`Gallery ${fmtXY(nx,ny)}`;
+      v.appendChild(sign);
+      if(decorR()<.3){const ex=document.createElement('div');ex.className='exit';ex.textContent='EXIT?';ex.style.left=dcx+'px';ex.style.top=(wallH-dh-56)+'px';v.appendChild(ex);}
+      return;
+    }
+    slot++;
+    const p=painting(x,y,d,slot);
+    const base=Math.min(maxW/p.w,maxH/p.h);
+    const sc=wing.theme&&wing.theme.size==='tiny'?Math.min(base,phone?5:8):base*(.58+.42*Math.max(p.w,p.h)/100);
+    const cw=Math.max(2,Math.round(p.w*sc)),ch=Math.max(2,Math.round(p.h*sc));
+    const pad=p.frame==='f-none'?0:Math.round(Math.max(6,Math.min(22,Math.max(cw,ch)*.075)));
+    const matPad=(p.frame==='f-walnut'||p.frame==='f-black'||p.frame==='f-oak')?Math.round(Math.max(4,Math.min(18,Math.max(cw,ch)*.08))):(p.frame==='f-baroque'?6:p.frame==='f-none'?0:4);
+    const btn=document.createElement('button');btn.className='art';btn.style.left=cx+'px';btn.style.top=paintCY+'px';
+    btn.setAttribute('aria-label',`${p.title} by ${p.artist.name}. Open details.`);btn.dataset.slot=slot;
+    const fr=document.createElement('span');fr.className='frame '+p.frame;fr.style.padding=pad+'px';
+    const mat=document.createElement('span');mat.className='mat';mat.style.padding=matPad+'px';
+    const c=toCanvas(p);c.style.width=cw+'px';c.style.height=ch+'px';
+    mat.appendChild(c);fr.appendChild(mat);
+    const glow=document.createElement('span');glow.className='glow';btn.appendChild(glow);
+    btn.appendChild(fr);
+    btn.addEventListener('click',e=>{e.stopPropagation();if(!suppressClick)openDetail(p);});
+    v.appendChild(btn);arts.push(btn);
+    const fh=ch+2*(pad+matPad);
+    const lbl=document.createElement('div');lbl.className='lbl';lbl.style.left=cx+'px';lbl.style.top=(paintCY+fh/2+12)+'px';
+    lbl.innerHTML=`<i></i><span></span>${p.rarity!=='Common'?`<b class="rar">${p.rarity==='Common Here'?'common here':p.rarity}</b>`:''}`;
+    lbl.querySelector('i').textContent=p.title;lbl.querySelector('span').textContent=`${p.artist.name}, ${p.year}`;
+    v.appendChild(lbl);
+    if(['Rare','Very Rare','Legendary'].includes(p.rarity)){
+      const rw=Math.min(unitW*.85,Math.max(cw+2*pad+60,120)),rh=Math.min(floorH*.9+wallH*.12,90);
+      const rope=document.createElement('div');rope.className='decor';rope.style.left=(cx-rw/2)+'px';rope.style.width=rw+'px';rope.style.height=rh+'px';rope.style.top=(wallH-rh*.62)+'px';
+      rope.innerHTML=ropeSVG();v.appendChild(rope);
+    }
+  });
+  // decor
+  const fy=wallH; // floor line
+  const sideFree=door?[]:['left','right'];
+  if(!door&&decorR()<.38){
+    const bw=Math.min(W*.42,340),bh=bw*.23;
+    const b=document.createElement('div');b.className='decor';b.style.width=bw+'px';b.style.height=bh+'px';b.style.left=(W/2-bw/2)+'px';b.style.top=(fy+floorH*.45-bh*.5)+'px';b.style.zIndex=6;b.innerHTML=BENCH_SVG;v.appendChild(b);
+  }
+  const extras=[];
+  if(decorR()<.16)extras.push('guard');
+  if(decorR()<.15)extras.push('sign');
+  if(decorR()<.08)extras.push('plant');
+  if(decorR()<.05)extras.push('wet');
+  if(x===0&&y===0&&d===0&&!extras.includes('guard'))extras.push('guard');
+  let side=decorR()<.5?0:1;
+  extras.slice(0,2).forEach(kind=>{
+    const sx=side?W-Math.max(26,W*.045):Math.max(26,W*.045);side=1-side;
+    const hgt=kind==='guard'?Math.min(H*.5,240):kind==='wet'?Math.min(H*.2,90):Math.min(H*.28,130);
+    const wid=hgt*(kind==='guard'?60/150:kind==='wet'?60/90:60/120);
+    const el=document.createElement(kind==='guard'?'button':'div');el.className='decor'+(kind==='guard'?' guard':'');
+    el.style.width=wid+'px';el.style.height=hgt+'px';el.style.left=(sx-wid/2)+'px';el.style.top=(fy+floorH*.7-hgt)+'px';el.style.zIndex=7;
+    if(kind==='guard'){const asleep=decorR()<.35;el.innerHTML=guardSVG(asleep);el.setAttribute('aria-label','Museum guard');
+      el.addEventListener('click',e=>{e.stopPropagation();if(suppressClick)return;sayGuard(v,sx,fy+floorH*.7-hgt-8,asleep);});}
+    else el.innerHTML=kind==='sign'?SIGN_SVG:kind==='plant'?PLANT_SVG:WET_SVG;
+    v.appendChild(el);
+  });
+  if(x===0&&y===0&&d===0){
+    const pl=document.createElement('div');pl.className='wallplaque';pl.style.left=(W/2)+'px';pl.style.top=(wallH*.08+18)+'px';
+    pl.innerHTML='<b>Museum of Everything</b>Holdings: every possible painting up to 100 × 100 pixels (approx. 10<sup>72,248</sup>). Gift shop closed.';
+    pl.style.top='auto';pl.style.bottom=(H-(wallH-wallH*.74)+8)+'px';v.querySelectorAll('.doorsign,.exit').forEach(e=>e.remove());v.appendChild(pl);
+  }else if(!door&&wing.theme&&decorR()<.3){
+    const pl=document.createElement('div');pl.className='wallplaque';pl.style.left=(W/2)+'px';pl.style.top=(18+wallH*.04)+'px';
+    pl.innerHTML='<b></b>';pl.querySelector('b').textContent=wing.name;pl.append(wing.theme.blurb);
+    v.appendChild(pl);
+  }else if(!door&&decorR()<.12){
+    const pl=document.createElement('div');pl.className='wallplaque';pl.style.left=(W/2)+'px';pl.style.top=(18+wallH*.04)+'px';
+    pl.innerHTML=`<b>${pick(decorR,['A Note From the Curator','Gallery Notice','In Memoriam','Did You Know?'])}</b>${pick(decorR,['Every painting in this room is also in every other room, just not on this wall.','Paintings are hung in strict order of nobody choosing them.','This room was sponsored by the letter Q.','Mona Lisa sightings should be reported to the front desk.','The museum is infinite. Please pace yourself.','Light levels kept low to protect the noise.'])}`;
+    v.appendChild(pl);
+  }
+  v._arts=arts;
+  return v;
+}
+function fmtXY(x,y){return `${x}, ${y}`.replace(/-/g,'−');}
+function sayGuard(v,x,y,asleep){
+  v.querySelectorAll('.bubble').forEach(b=>b.remove());
+  const b=document.createElement('div');b.className='bubble';
+  b.textContent=asleep?pick(Math.random,['Zzz… do not… touch… zzz','*snores in a refined manner*','Mmh? Yes, very nice, very random. Zzz']):pick(Math.random,GUARD_QUIPS);
+  b.style.left=Math.min(Math.max(x,120),stage.clientWidth-120)+'px';b.style.top=Math.max(8,y-60)+'px';v.appendChild(b);
+  setTimeout(()=>b.remove(),3600);
+}
+function updateHud(){
+  const room=roomOf(S.x,S.y);
+  $('wingName').textContent=room.wing.name;
+  $('roomLine').textContent=`Gallery ${fmtXY(S.x,S.y)}${innerWidth<720?' · '+DIRNAME[S.d]+' wall':''}${room.nick?' · '+room.nick:''}`;
+  $('facing').textContent=`${DIRNAME[S.d]} wall${room.doors[S.d]?' · doorway':''}`;
+  $('btnWalk').disabled=!room.doors[S.d];
+  document.title='Museum of Everything';
+  drawMap();
+}
+function render(anim){
+  const nv=buildView(S.x,S.y,S.d);const old=current;current=nv;
+  stage.insertBefore(nv,stage.firstChild);
+  updateHud();markSeen();
+  if(!old)return Promise.resolve();
+  if(reduce||!anim){old.remove();return Promise.resolve();}
+  busy=true;
+  const W=stage.clientWidth;
+  let k1,k2;
+  if(anim==='left'||anim==='right'){const s=anim==='left'?1:-1;k1=[{transform:`translateX(${-s*W*.35}px)`,opacity:.0},{transform:'none',opacity:1}];k2=[{transform:'none',opacity:1},{transform:`translateX(${s*W*.35}px)`,opacity:0}];}
+  else if(anim==='walk'){k1=[{transform:'scale(.82)',opacity:0},{transform:'none',opacity:1}];k2=[{transform:'none',opacity:1},{transform:'scale(1.5)',opacity:0}];}
+  else{k1=[{opacity:0},{opacity:1}];k2=[{opacity:1},{opacity:0}];}
+  stage.appendChild(old); // old on top while it leaves
+  const a=nv.animate(k1,{duration:anim==='walk'?520:340,easing:'cubic-bezier(.2,.7,.2,1)'});
+  const b=old.animate(k2,{duration:anim==='walk'?420:300,easing:'ease-in',fill:'forwards'});
+  return Promise.all([a.finished,b.finished]).catch(()=>{}).then(()=>{old.remove();busy=false;});
+}
+function turn(dir){if(busy||modalOpen())return;S.d=mod(S.d+(dir==='left'?-1:1),4);render(dir);}
+function walk(){if(busy||modalOpen())return;const room=roomOf(S.x,S.y);if(!room.doors[S.d]){toast('That is a wall. A very nice wall, but a wall.');return;}
+  const prevWing=room.wing.name;S.x+=DX[S.d];S.y+=DY[S.d];render('walk');
+  const nwg=roomOf(S.x,S.y).wing,nw=nwg.name;if(nw!==prevWing)toast(`You enter ${nw}.`+(nwg.theme?' '+nwg.theme.blurb:''));}
+function teleport(x,y,d,msg){S.x=x;S.y=y;S.d=mod(d,4);const p=render('fade');if(msg)toast(msg);return p;}
+
+/* ================= minimap ================= */
+function drawMap(){
+  const cv=$('minimap');const dpr=Math.min(2,window.devicePixelRatio||1);const sz=cv.clientWidth||132;
+  if(cv.width!==Math.round(sz*dpr)){cv.width=Math.round(sz*dpr);cv.height=Math.round(sz*dpr);}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,sz,sz);
+  const R=4,cell=sz/(2*R+1);
+  for(let j=-R;j<=R;j++)for(let i=-R;i<=R;i++){
+    const x=S.x+i,y=S.y+j,px=(i+R)*cell,py=(j+R)*cell;
+    const vis=S.visited.has(`${x},${y}`);
+    if(!vis){g.fillStyle='rgba(233,201,121,.06)';g.fillRect(px+1,py+1,cell-2,cell-2);continue;}
+    const room=roomOf(x,y);
+    g.fillStyle=room.color;g.fillRect(px+1,py+1,cell-2,cell-2);
+    g.strokeStyle='#e9c979';g.lineWidth=1.2;g.beginPath();
+    const dr=room.doors,gap=cell*.32;
+    // N
+    if(dr[0]){g.moveTo(px+1,py+1);g.lineTo(px+cell/2-gap/2,py+1);g.moveTo(px+cell/2+gap/2,py+1);g.lineTo(px+cell-1,py+1);}else{g.moveTo(px+1,py+1);g.lineTo(px+cell-1,py+1);}
+    if(dr[2]){g.moveTo(px+1,py+cell-1);g.lineTo(px+cell/2-gap/2,py+cell-1);g.moveTo(px+cell/2+gap/2,py+cell-1);g.lineTo(px+cell-1,py+cell-1);}else{g.moveTo(px+1,py+cell-1);g.lineTo(px+cell-1,py+cell-1);}
+    if(dr[3]){g.moveTo(px+1,py+1);g.lineTo(px+1,py+cell/2-gap/2);g.moveTo(px+1,py+cell/2+gap/2);g.lineTo(px+1,py+cell-1);}else{g.moveTo(px+1,py+1);g.lineTo(px+1,py+cell-1);}
+    if(dr[1]){g.moveTo(px+cell-1,py+1);g.lineTo(px+cell-1,py+cell/2-gap/2);g.moveTo(px+cell-1,py+cell/2+gap/2);g.lineTo(px+cell-1,py+cell-1);}else{g.moveTo(px+cell-1,py+1);g.lineTo(px+cell-1,py+cell-1);}
+    g.stroke();
+  }
+  // you
+  const cx=R*cell+cell/2,cy=R*cell+cell/2;g.save();g.translate(cx,cy);g.rotate(S.d*Math.PI/2);
+  g.fillStyle='#fff3c4';g.strokeStyle='#1b1612';g.lineWidth=1.2;g.beginPath();g.moveTo(0,-cell*.36);g.lineTo(cell*.26,cell*.26);g.lineTo(0,cell*.12);g.lineTo(-cell*.26,cell*.26);g.closePath();g.fill();g.stroke();g.restore();
+  g.fillStyle='#cdb78f';g.font='italic 10px Georgia,serif';g.textAlign='center';g.fillText('N',sz/2,9);
+}
+
+/* ================= detail modal ================= */
+const modal=$('modal');let mP=null;
+function modalOpen(){return modal.classList.contains('open')||$('galModal').classList.contains('open');}
+function openDetail(p){
+  mP=p;
+  const wrap=$('bigWrap');wrap.innerHTML='';
+  const phone=innerWidth<720;
+  const maxW=phone?Math.min(innerWidth-80,360):Math.min(innerWidth*.42,480),maxH=phone?Math.min(innerHeight*.36,320):Math.min(innerHeight*.62,520);
+  const sc=Math.min(maxW/p.w,maxH/p.h);const cw=Math.max(3,Math.round(p.w*sc)),ch=Math.max(3,Math.round(p.h*sc));
+  const pad=p.frame==='f-none'?0:Math.round(Math.max(10,Math.min(30,Math.max(cw,ch)*.07)));
+  const matPad=(p.frame==='f-walnut'||p.frame==='f-black'||p.frame==='f-oak')?Math.round(Math.max(8,Math.max(cw,ch)*.07)):(p.frame==='f-baroque'?8:p.frame==='f-none'?0:5);
+  const fr=document.createElement('span');fr.className='frame '+p.frame;fr.style.padding=pad+'px';
+  const mat=document.createElement('span');mat.className='mat';mat.style.padding=matPad+'px';
+  const c=toCanvas(p);c.style.width=cw+'px';c.style.height=ch+'px';c.id='bigCanvas';mat.appendChild(c);fr.appendChild(mat);wrap.appendChild(fr);
+  $('card').style.setProperty('--wallc',shade(roomOf(p.x,p.y).color,-.35));
+  $('mCat').textContent=`Cat. № MoE ${p.cat}`;
+  $('mRarity').innerHTML=`<span class="rarity ${RCLASS[p.rarity]}">${p.rarity}${p.type!=='noise'&&p.type!=='palette'?' · suspiciously meaningful':''}</span>`;
+  $('mTitle').textContent=p.title;
+  $('mArtist').innerHTML='';$('mArtist').append(p.artist.name+' ');const sm=document.createElement('small');sm.textContent=p.artist.years;$('mArtist').append(sm);
+  $('mYear').textContent=p.year;$('mMedium').textContent=p.medium.charAt(0).toUpperCase()+p.medium.slice(1);
+  $('mDims').textContent=`${p.w} × ${p.h} pixels (${(p.w*p.h).toLocaleString('en-US')} px)`;
+  $('mValue').textContent=p.value;$('mDesc').textContent=p.desc;$('mOdds').innerHTML=oddsHTML(p.w,p.h);
+  const n=slotsOf(p.x,p.y,p.d);$('mPrev').disabled=p.s<=1;$('mNext').disabled=p.s>=n;
+  modal.classList.add('open');$('card').scrollTop=0;$('mClose').focus({preventScroll:true});
+}
+function closeDetail(){modal.classList.remove('open');const a=current&&current._arts&&mP?current._arts[mP.s-1]:null;if(a)a.focus({preventScroll:true});}
+$('mClose').onclick=closeDetail;
+modal.addEventListener('click',e=>{if(e.target===modal)closeDetail();});
+$('mPrev').onclick=()=>{if(mP&&mP.s>1)openDetail(painting(mP.x,mP.y,mP.d,mP.s-1));};
+$('mNext').onclick=()=>{if(mP&&mP.s<slotsOf(mP.x,mP.y,mP.d))openDetail(painting(mP.x,mP.y,mP.d,mP.s+1));};
+$('mCopy').onclick=()=>{const t=`MoE ${mP.cat}`;try{navigator.clipboard.writeText(t).then(()=>flashBtn('Copied!'),()=>flashBtn(t));}catch(e){flashBtn(t);}};
+function flashBtn(t){const b=$('mCopy');const o='Copy catalogue no.';b.textContent=t;setTimeout(()=>b.textContent=o,1600);}
+
+/* ================= toast ================= */
+let toastT=0;function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hide');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.add('hide'),2800);}
+
+/* ================= search ================= */
+function parseCat(str){
+  const s=str.trim().replace(/[−–—]/g,'-');
+  let m=s.match(/^(?:moe)?\s*[#№.:]*\s*(-?\d+)\s*[.,/\s]\s*(-?\d+)\s*(?:[.,/\s-]\s*)?([nesw])?\s*(\d+)?\s*$/i);
+  if(m)return {x:+m[1],y:+m[2],d:m[3]?DIRS.indexOf(m[3].toUpperCase()):null,s:m[4]?+m[4]:null};
+  return null;
+}
+function search(str){
+  if(!str.trim()){toast('The catalogue requires a number. Or at least a word.');return;}
+  const q=parseCat(str);
+  if(!q){ // file anything under some room
+    const r=rng('search|'+str.toLowerCase());const x=ri(r,-5000,5000),y=ri(r,-5000,5000),d=ri(r,0,3);
+    teleport(x,y,d,`No such number. The archivist filed “${str.slice(0,40)}” in Gallery ${fmtXY(x,y)}.`);return;
+  }
+  if(Math.abs(q.x)>1e9||Math.abs(q.y)>1e9){toast('That gallery is past the fire exit. Try a smaller number.');return;}
+  const d=q.d==null?S.d:q.d;
+  teleport(q.x,q.y,d).then(()=>{
+    if(q.s==null){toast(`Gallery ${fmtXY(q.x,q.y)}, ${DIRNAME[d]} wall.`);return;}
+    const n=slotsOf(q.x,q.y,d);
+    if(q.s<1||q.s>n){toast(`That wall only holds ${n} painting${n>1?'s':''}. No. ${q.s} was stolen in 1911.`);return;}
+    const a=current._arts[q.s-1];if(a){a.classList.add('hl');setTimeout(()=>openDetail(painting(q.x,q.y,d,q.s)),reduce?50:700);}
+  });
+}
+$('searchForm').addEventListener('submit',e=>{e.preventDefault();search($('searchIn').value);$('searchIn').blur();});
+$('btnRandom').onclick=()=>{const x=Math.floor(Math.random()*20001)-10000,y=Math.floor(Math.random()*20001)-10000;teleport(x,y,Math.floor(Math.random()*4),`Whisked away to ${roomOf(x,y).wing.name}.`);};
+$('btnLeft').onclick=()=>turn('left');$('btnRight').onclick=()=>turn('right');$('btnWalk').onclick=()=>walk();
+
+
+/* ================= gallery directory ================= */
+function nearestTheme(k){
+  const wx0=Math.floor(S.x/4),wy0=Math.floor(S.y/4);
+  for(let R=0;R<=80;R++){let best=null;
+    for(let j=-R;j<=R;j++)for(let i=-R;i<=R;i++){if(Math.max(Math.abs(i),Math.abs(j))!==R)continue;
+      const w=wingOf((wx0+i)*4,(wy0+j)*4);if(w.theme&&w.theme.k===k){const dd=i*i+j*j;if(!best||dd<best[2])best=[wx0+i,wy0+j,dd];}}
+    if(best)return best;}
+  return null;
+}
+const sampleCache=new Map();
+function sampleCanvas(t){
+  if(sampleCache.has(t.k))return sampleCache.get(t.k);
+  const r=rng('sample|'+t.k),type=t.show||'noise';let w,h;
+  if(t.size==='tiny'){w=5;h=4;}else if(type==='portrait'||type==='rothko'){w=34;h=44;}else if(type==='invader'){w=h=24;}else if(type==='heart'||type==='cat'){w=h=30;}else{w=56;h=40;}
+  const px=makePx(w,h);GEN[type](r,w,h,px,{});
+  if(t.gray)for(let i=0;i<px.length;i+=4){const l=px[i]*.3+px[i+1]*.59+px[i+2]*.11;px[i]=px[i+1]=px[i+2]=l;}
+  const c=toCanvas({w,h,px});sampleCache.set(t.k,c);return c;
+}
+function openGalleries(){
+  const g=$('galGrid');g.innerHTML='';
+  $('galCount').textContent=`You have found ${S.themes.size} of ${THEMES.length}`;
+  const here=roomOf(S.x,S.y).wing.theme;
+  THEMES.forEach(t=>{
+    const b=document.createElement('button');b.type='button';b.className='gcard'+(S.themes.has(t.k)?' found':'')+(here&&here.k===t.k?' here':'');
+    const fr=document.createElement('span');fr.className='gthumb';fr.style.background=THEME_COLORS[t.color]||COLORS[t.color];
+    const c=sampleCanvas(t).cloneNode();c.getContext('2d').drawImage(sampleCanvas(t),0,0);fr.appendChild(c);b.appendChild(fr);
+    const tx=document.createElement('span');tx.className='gtx';
+    tx.innerHTML='<b></b><i></i><small></small>';tx.querySelector('b').textContent=t.title;tx.querySelector('i').textContent=t.blurb;
+    tx.querySelector('small').textContent=here&&here.k===t.k?'you are here':S.themes.has(t.k)?'✓ found · take me to the nearest':'not found yet · take me there';
+    b.appendChild(tx);
+    b.addEventListener('click',()=>{const n=nearestTheme(t.k);closeGalleries();
+      if(!n){toast('That gallery is closed for cleaning. Try again later.');return;}
+      teleport(n[0]*4+1,n[1]*4+1,0,`Whisked away to ${wingOf(n[0]*4,n[1]*4).name}.`);});
+    g.appendChild(b);
+  });
+  $('galModal').classList.add('open');$('galClose').focus({preventScroll:true});
+}
+function closeGalleries(){$('galModal').classList.remove('open');}
+$('btnGal').onclick=openGalleries;$('galClose').onclick=closeGalleries;
+$('galModal').addEventListener('click',e=>{if(e.target===$('galModal'))closeGalleries();});
+
+/* ================= input ================= */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if($('galModal').classList.contains('open')){if(e.key==='Escape')closeGalleries();return;}
+  if(modalOpen()){if(e.key==='Escape')closeDetail();else if(e.key==='ArrowLeft')$('mPrev').click();else if(e.key==='ArrowRight')$('mNext').click();return;}
+  const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A'){e.preventDefault();turn('left');}
+  else if(k==='ArrowRight'||k==='d'||k==='D'){e.preventDefault();turn('right');}
+  else if(k==='ArrowUp'||k==='w'||k==='W'){e.preventDefault();walk();}
+  else if(k==='ArrowDown'||k==='s'||k==='S'){e.preventDefault();turn('right');setTimeout(()=>turn('right'),reduce?0:360);}
+  else if(k==='r'||k==='R'){$('btnRandom').click();}
+  else if(k==='g'||k==='G'){openGalleries();}
+});
+let sx0=0,sy0=0,sdown=false,suppressClick=false;
+stage.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;sdown=true;sx0=e.clientX;sy0=e.clientY;suppressClick=false;});
+stage.addEventListener('pointermove',e=>{if(!sdown)return;if(Math.hypot(e.clientX-sx0,e.clientY-sy0)>12)suppressClick=true;});
+stage.addEventListener('pointerup',e=>{if(!sdown)return;sdown=false;const dx=e.clientX-sx0,dy=e.clientY-sy0;
+  if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.2)turn(dx>0?'left':'right');
+  else if(dy<-55&&Math.abs(dy)>Math.abs(dx)*1.2)walk();
+  setTimeout(()=>{suppressClick=false;},0);});
+stage.addEventListener('pointercancel',()=>{sdown=false;});
+let rt=0;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(current){const nv=buildView(S.x,S.y,S.d);current.replaceWith(nv);current=nv;drawMap();}},120);});
+
+/* ================= boot ================= */
+load();render(null);
+setTimeout(()=>$('toast').classList.add('hide'),4200);
+if(innerWidth<720)$('toast').textContent='Swipe to turn · swipe up or tap a doorway to walk · tap a painting';
+else $('toast').textContent='← → to turn · ↑ to walk through doorways · click a painting. Please do not touch.';
+window.__moe={THEMES,wingOf,nearestTheme,openGalleries,state:S,painting,pixelHash,roomOf,slotsOf,teleport,turn,walk,openDetail,closeDetail,oddsHTML,parseCat};
+})();
+</script>
+</body>
+</html>

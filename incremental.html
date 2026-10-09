@@ -1,0 +1,1471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>IncreMental</title>
+<meta name="description" content="IncreMental: draw anything in white on an infinite black canvas, then turn it into a random fractal.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+:root{--ink:#fff;--dim:rgba(255,255,255,.42);--faint:rgba(255,255,255,.18);--serif:"Instrument Serif","Iowan Old Style","Palatino Linotype",Georgia,serif;--mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--ink)}
+body{font-family:var(--mono);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;display:block;touch-action:none;cursor:crosshair;background:#000}
+#cv.pan{cursor:grab}#cv.panning{cursor:grabbing}
+.ui{transition:opacity .45s ease}
+body.drawing .ui{opacity:.05;pointer-events:none}
+.mark{position:fixed;top:14px;right:18px;font:italic 400 26px/1 var(--serif);letter-spacing:.01em;color:rgba(255,255,255,.75);pointer-events:none;user-select:none;text-shadow:0 0 14px rgba(255,255,255,.35)}
+.mark span{font-style:normal}
+.bar{z-index:20;position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--faint);border-radius:999px;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center}
+.bar button{font:400 13px/1 var(--mono);color:var(--ink);background:transparent;border:1px solid transparent;border-radius:999px;padding:9px 13px;cursor:pointer;letter-spacing:.02em;white-space:nowrap}
+.bar button:hover,.bar button:focus-visible{border-color:var(--faint);text-shadow:0 0 10px rgba(255,255,255,.8);outline:none}
+.bar button.main{border-color:rgba(255,255,255,.7);box-shadow:0 0 14px rgba(255,255,255,.18),inset 0 0 10px rgba(255,255,255,.08)}
+.bar button.main:hover{box-shadow:0 0 22px rgba(255,255,255,.35),inset 0 0 12px rgba(255,255,255,.12)}
+.bar button[disabled]{opacity:.3;cursor:default;text-shadow:none}
+.bar kbd{font:inherit;color:var(--dim);margin-left:6px;font-size:11px}
+.brush{display:flex;align-items:center;gap:8px;padding:0 10px 0 6px}
+.brush .dot{width:16px;height:16px;display:grid;place-items:center}
+.brush .dot i{display:block;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff}
+input[type=range]{-webkit-appearance:none;appearance:none;width:84px;height:18px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:1px;background:rgba(255,255,255,.45)}
+input[type=range]::-moz-range-track{height:1px;background:rgba(255,255,255,.45)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;margin-top:-5.5px;box-shadow:0 0 8px #fff}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:0;box-shadow:0 0 8px #fff}
+.info{position:fixed;left:16px;bottom:max(18px,env(safe-area-inset-bottom));font:300 11px/1.4 var(--mono);color:rgba(255,255,255,.38);pointer-events:none;user-select:none;max-width:40vw;letter-spacing:.03em}
+.hint{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;user-select:none;transition:opacity .8s ease;width:min(90vw,560px)}
+.hint p{margin:0;font:italic 400 clamp(26px,5vw,44px)/1.1 var(--serif);color:rgba(255,255,255,.86);text-shadow:0 0 22px rgba(255,255,255,.35)}
+.hint small{display:block;margin-top:14px;font:300 12px/1.6 var(--mono);color:rgba(255,255,255,.4);letter-spacing:.04em}
+.hint.hide{opacity:0}
+.toast{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%);font:italic 400 22px/1.2 var(--serif);color:rgba(255,255,255,.85);pointer-events:none;opacity:0;transition:opacity .4s ease;text-align:center;text-shadow:0 0 16px rgba(255,255,255,.4)}
+.toast.on{opacity:1}
+@media (max-width:640px){
+  .mark{font-size:21px;top:16px;right:14px}
+  .bar{bottom:max(12px,env(safe-area-inset-bottom));gap:0;padding:4px;border-radius:20px;flex-wrap:wrap;width:calc(100vw - 24px)}
+  .bar button{padding:9px 7px;font-size:12px}
+  .bar kbd{display:none}
+  .brush{padding:0 6px 0 2px;gap:4px}
+  input[type=range]{width:52px}
+  .info{left:12px;right:12px;max-width:none;bottom:auto;top:56px;font-size:10px}
+}
+
+.panel{position:fixed;z-index:40;background:rgba(5,5,5,.93);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;font:400 12px/1.5 var(--mono);display:flex;flex-direction:column;min-height:0}
+.panel>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 8px;flex:none}
+.panel h2{margin:0;font:italic 400 30px/1 var(--serif);text-shadow:0 0 14px rgba(255,255,255,.35)}
+.panel h2 small{font:300 11px var(--mono);color:var(--dim);font-style:normal;margin-left:10px;letter-spacing:.04em}
+.pbtn{font:400 12px/1 var(--mono);color:#fff;background:transparent;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.pbtn:hover,.pbtn:focus-visible{border-color:#fff;text-shadow:0 0 8px #fff;outline:none}
+.pbtn.on{background:#fff;color:#000;text-shadow:none}
+.pbtn.sm{padding:5px 9px;font-size:11px}
+.pbtn[disabled]{opacity:.3;cursor:default}
+.pinput{min-width:0;background:#000;border:1px solid rgba(255,255,255,.3);border-radius:999px;color:#fff;font:inherit;padding:9px 14px}
+.pinput:focus{outline:none;border-color:#fff}
+#catBg{position:fixed;inset:0;z-index:39;background:rgba(0,0,0,.55)}
+#cat{left:16px;right:16px;top:16px;bottom:16px;margin:0 auto;max-width:1060px;border-radius:18px}
+.catTools{padding:0 16px 10px;display:flex;flex-direction:column;gap:10px;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.cgrid{overflow:auto;padding:4px 16px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;min-height:0;flex:1;align-content:start;grid-auto-rows:max-content}
+.card{position:relative;text-align:left;background:#000;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:0;cursor:pointer;color:#fff;font:inherit;overflow:hidden;display:block;min-width:0}
+.card:hover,.card:focus-visible{border-color:#fff;box-shadow:0 0 18px rgba(255,255,255,.2);outline:none}
+.card canvas{display:block;width:100%;aspect-ratio:4/3;background:#000}
+.card .cn{display:block;padding:8px 10px 1px;font:italic 400 18px/1.1 var(--serif)}
+.card .cf{display:block;padding:0 10px 9px;color:var(--dim);font-size:10.5px;line-height:1.35}
+.card.now{border-color:#fff}
+.card .ops{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.card .ops span{font-size:10.5px;padding:3px 8px;border:1px solid rgba(255,255,255,.5);border-radius:999px;background:rgba(0,0,0,.75)}
+.card .ops span:hover{background:#fff;color:#000}
+.card.surprise{display:grid;place-items:center;aspect-ratio:auto;min-height:150px;font:italic 400 24px/1.1 var(--serif);text-align:center}
+.card.surprise small{display:block;font:300 11px var(--mono);color:var(--dim);margin-top:6px}
+.empty{color:var(--dim);padding:20px 4px}
+#cu{right:16px;top:58px;bottom:100px;width:360px;border-radius:16px}
+.cubody{overflow:auto;min-height:0;flex:1;padding:0 0 16px}
+.lede{margin:0 16px 10px;color:rgba(255,255,255,.62);line-height:1.5}
+.crow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 16px 12px}
+.crow .lbl{color:var(--dim);margin-right:2px}
+.rule{border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:8px 12px 10px;margin:0 16px 10px}
+.rh{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.rh b{font:italic 400 18px/1 var(--serif);flex:1}
+.ck{display:flex;align-items:center;gap:5px;cursor:pointer;color:rgba(255,255,255,.75)}
+.ck input{accent-color:#fff}
+.sl{display:grid;grid-template-columns:64px minmax(0,1fr) 50px;align-items:center;gap:8px;min-height:26px}
+.sl span{color:rgba(255,255,255,.62)}
+.sl output{text-align:right;font-variant-numeric:tabular-nums;color:#fff}
+.panel input[type=range]{width:100%}
+.glob{border-top:1px solid rgba(255,255,255,.14);margin:6px 16px 12px;padding-top:10px}
+.cunote{margin:0 16px 10px;color:var(--dim);min-height:1.5em}
+@media (max-width:640px){
+  #cat{left:0;right:0;top:0;bottom:0;border-radius:0;border:0}
+  .cgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  #cu{left:0;right:0;top:auto;bottom:0;width:auto;height:min(56vh,520px);height:min(56dvh,520px);border-radius:18px 18px 0 0;border-bottom:0}
+  body.cu-open .bar,body.cu-open .info{display:none}
+  .panel h2{font-size:25px}
+}
+@media (prefers-reduced-motion:reduce){.ui,.hint,.toast{transition:none}}
+</style>
+</head>
+<body>
+<a class="kf-home" href="index.html" aria-label="Back to Kai.fun">← Kai.fun</a>
+<style>.kf-home{position:fixed;top:12px;left:12px;z-index:9999;font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;color:#f4f4f4;background:#000;border:1.5px solid #f4f4f4;border-radius:999px;padding:7px 12px;text-decoration:none;box-shadow:2px 2px 0 #f4f4f4}.kf-home:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #f4f4f4}</style>
+
+<canvas id="cv" aria-label="Infinite drawing canvas. Draw with the mouse or one finger."></canvas>
+
+<div class="mark ui" aria-hidden="true">Incre<span>M</span>ental</div>
+<div class="hint" id="hint"><p id="hintText">draw something, then press Fractalize</p><small id="hintSmall">left mouse or one finger draws · right/middle drag, space+drag or two fingers pan · wheel or pinch zooms<br>Catalog has 71 kinds of fractal · Custom lets you design your own</small></div>
+<div class="toast" id="toast"></div>
+<div class="info ui" id="info"></div>
+
+<div class="bar ui" id="bar" role="toolbar" aria-label="IncreMental tools">
+  <button class="main" id="bFr" type="button" title="Random fractal (F)">Fractalize<kbd>F</kbd></button>
+  <button id="bRe" type="button" title="Same kind of fractal, new random roll (R)">Re-roll<kbd>R</kbd></button>
+  <button id="bCat" type="button" title="Browse every fractal type (K)">Catalog<kbd>K</kbd></button>
+  <button id="bCu" type="button" title="Make your own fractal (M)">Custom<kbd>M</kbd></button>
+  <button id="bUn" type="button" title="Undo (Z / Ctrl+Z)">Undo<kbd>Z</kbd></button>
+  <button id="bCl" type="button" title="Clear (C)">Clear<kbd>C</kbd></button>
+  <label class="brush" title="Brush size ([ and ])"><span class="dot"><i id="dot"></i></span><input id="size" type="range" min="1" max="16" step="1" value="3" aria-label="Brush size"></label>
+</div>
+
+
+<div id="catBg" hidden></div>
+<section class="panel" id="cat" hidden role="dialog" aria-modal="true" aria-labelledby="catH">
+  <header><h2 id="catH">Catalog<small id="catCount"></small></h2><button class="pbtn" id="catX" type="button">Done</button></header>
+  <div class="catTools">
+    <input class="pinput" id="catQ" type="search" placeholder="search fractals…" aria-label="Search fractals" autocomplete="off">
+    <div class="chips" id="chips" role="group" aria-label="Families"></div>
+  </div>
+  <div class="cgrid" id="catGrid"></div>
+</section>
+
+<section class="panel" id="cu" hidden role="dialog" aria-labelledby="cuH">
+  <header><h2 id="cuH">Make your own</h2><button class="pbtn" id="cuX" type="button">Done</button></header>
+  <div class="cubody">
+    <p class="lede">Each copy rule places a smaller version of your drawing. Every copy gets the same rules, forever. It updates live as you slide.</p>
+    <div class="crow" id="presets"><span class="lbl">start from</span></div>
+    <div id="rules"></div>
+    <div class="crow"><button class="pbtn" id="addRule" type="button">+ add a copy rule</button><button class="pbtn" id="cuRand" type="button">random design</button></div>
+    <div class="glob">
+      <label class="sl"><span>symmetry</span><input type="range" id="cuSym" min="1" max="12" step="1"><output id="cuSymV"></output></label>
+      <label class="sl"><span>detail</span><input type="range" id="cuDet" min="0.15" max="1" step="0.05"><output id="cuDetV"></output></label>
+      <div class="crow" style="margin:8px 0 0"><span class="lbl">style</span><button class="pbtn sm" id="stGrow" type="button">grow outward</button><button class="pbtn sm" id="stLeaf" type="button">replace with copies</button></div>
+    </div>
+    <p class="cunote" id="cuNote"></p>
+    <div class="crow"><input class="pinput" id="cuName" maxlength="40" placeholder="name your fractal" aria-label="Name your fractal" style="flex:1 1 140px"><button class="pbtn" id="cuSave" type="button">save to catalog</button></div>
+  </div>
+</section>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const reduceMotion = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ============ canvases ============ */
+let W = 0, H = 0, DPR = 1;
+const sharp = document.createElement('canvas'), sctx = sharp.getContext('2d');
+const comp = document.createElement('canvas'), cctx = comp.getContext('2d');
+const g1 = document.createElement('canvas'), g1x = g1.getContext('2d');
+const g2 = document.createElement('canvas'), g2x = g2.getContext('2d');
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  for (const c of [cv, sharp, comp]) { c.width = Math.round(W * DPR); c.height = Math.round(H * DPR); }
+  g1.width = Math.max(1, Math.round(W * DPR / 4)); g1.height = Math.max(1, Math.round(H * DPR / 4));
+  g2.width = Math.max(1, Math.round(W * DPR / 12)); g2.height = Math.max(1, Math.round(H * DPR / 12));
+  sceneDirty = true;
+}
+
+/* ============ camera ============ */
+const cam = { x: 0, y: 0, z: 1 }, camT = { x: 0, y: 0, z: 1 };
+const ZMIN = 1e-4, ZMAX = 4000;
+const s2w = (sx, sy, c = cam) => ({ x: (sx - W / 2) / c.z + c.x, y: (sy - H / 2) / c.z + c.y });
+function camMatrix() { const z = cam.z * DPR; return [z, 0, 0, z, (W / 2 - cam.x * cam.z) * DPR, (H / 2 - cam.y * cam.z) * DPR]; }
+function zoomAt(sx, sy, f, instant) {
+  const base = camT;
+  const w = s2w(sx, sy, base);
+  const nz = Math.min(ZMAX, Math.max(ZMIN, base.z * f));
+  camT.z = nz; camT.x = w.x - (sx - W / 2) / nz; camT.y = w.y - (sy - H / 2) / nz;
+  if (instant || reduceMotion) { cam.x = camT.x; cam.y = camT.y; cam.z = camT.z; }
+  sceneDirty = true;
+}
+function panBy(dx, dy) { cam.x -= dx / cam.z; cam.y -= dy / cam.z; camT.x = cam.x; camT.y = cam.y; camT.z = cam.z; sceneDirty = true; }
+
+/* ============ matrices [a,b,c,d,e,f] : x' = a x + c y + e ; y' = b x + d y + f ============ */
+const I = [1, 0, 0, 1, 0, 0];
+const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+const T = (x, y) => [1, 0, 0, 1, x, y];
+const Rt = a => { const c = Math.cos(a), s = Math.sin(a); return [c, s, -s, c, 0, 0]; };
+const Sc = (sx, sy = sx) => [sx, 0, 0, sy, 0, 0];
+const Ref = phi => { const c = Math.cos(2 * phi), s = Math.sin(2 * phi); return [c, s, s, -c, 0, 0]; };
+const chain = (...ms) => ms.reduce((a, b) => mul(a, b));
+const about = (cx, cy, m) => chain(T(cx, cy), m, T(-cx, -cy));
+const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+const detS = m => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]));
+
+/* ============ seeded rng ============ */
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ============ strokes ============ */
+let strokes = [];           // committed {pts:number[], w, path, bbox}
+let cur = null;             // in-progress
+let history = [];           // undo stack
+let fractal = null;         // {name, seed, cat, copies:[{m,s,d}], maxD}
+let motif = null;           // cached stats + sprites
+let brush = 3;
+
+function buildPath(pts, w) {
+  const p = new Path2D();
+  const n = pts.length / 2;
+  if (n === 1) { p.moveTo(pts[0], pts[1]); p.lineTo(pts[0] + w * 0.01, pts[1]); return p; }
+  p.moveTo(pts[0], pts[1]);
+  if (n === 2) { p.lineTo(pts[2], pts[3]); return p; }
+  for (let i = 1; i < n - 1; i++) {
+    const x = pts[i * 2], y = pts[i * 2 + 1], nx = pts[i * 2 + 2], ny = pts[i * 2 + 3];
+    p.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
+  }
+  p.lineTo(pts[pts.length - 2], pts[pts.length - 1]);
+  return p;
+}
+function finishStroke(s) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < s.pts.length; i += 2) { const x = s.pts[i], y = s.pts[i + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const h = s.w / 2;
+  s.bbox = { x0: x0 - h, y0: y0 - h, x1: x1 + h, y1: y1 + h };
+  s.path = buildPath(s.pts, s.w);
+  return s;
+}
+
+/* ============ motif (all committed strokes) + bitmap mip levels ============ */
+function computeMotif(noSprites) {
+  if (!strokes.length) { motif = null; return; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, sx = 0, sy = 0, n = 0, segs = 0, maxW = 0;
+  const ends = [];
+  for (const s of strokes) {
+    x0 = Math.min(x0, s.bbox.x0); y0 = Math.min(y0, s.bbox.y0); x1 = Math.max(x1, s.bbox.x1); y1 = Math.max(y1, s.bbox.y1);
+    for (let i = 0; i < s.pts.length; i += 2) { sx += s.pts[i]; sy += s.pts[i + 1]; n++; }
+    segs += s.pts.length / 2; maxW = Math.max(maxW, s.w);
+    ends.push([s.pts[0], s.pts[1]], [s.pts[s.pts.length - 2], s.pts[s.pts.length - 1]]);
+  }
+  const cx = sx / n, cy = sy / n;
+  let rad = 0;
+  for (const s of strokes) for (let i = 0; i < s.pts.length; i += 2) rad = Math.max(rad, Math.hypot(s.pts[i] - cx, s.pts[i + 1] - cy));
+  rad = Math.max(rad, (x1 - x0 + y1 - y0) * 0.15, maxW * 2, 1e-6);
+  motif = { x0, y0, x1, y1, cx, cy, rad, ends, segs, w: x1 - x0, h: y1 - y0, maxW, levels: [], R0: 0 };
+  if (!noSprites) buildSprites();
+}
+function buildSprites() {
+  if (!motif) return;
+  const ext = Math.max(motif.w, motif.h);
+  const R0 = Math.min(2048 / ext, cam.z * DPR * 1.0);
+  motif.R0 = R0; motif.levels = []; motif.builtZ = cam.z;
+  const pad = 4;
+  for (let i = 0; i < 12; i++) {
+    const res = R0 / Math.pow(2, i);
+    const w = Math.ceil(motif.w * res) + pad * 2, h = Math.ceil(motif.h * res) + pad * 2;
+    if (i > 0 && Math.max(w, h) < 10) break;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.setTransform(res, 0, 0, res, pad - motif.x0 * res, pad - motif.y0 * res);
+    x.strokeStyle = '#fff'; x.lineCap = 'round'; x.lineJoin = 'round';
+    for (const s of strokes) { x.lineWidth = Math.max(s.w, 1.15 / res); x.stroke(s.path); }
+    motif.levels.push({ c, res, pad, inv: [1 / res, 0, 0, 1 / res, motif.x0 - pad / res, motif.y0 - pad / res] });
+  }
+}
+
+/* ============ fractal methods ============ */
+const CATS = ['ifs', 'droste', 'tree', 'kaleido', 'mirror'];
+function heapPush(h, it) { h.push(it); let i = h.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (h[p].s >= h[i].s) break; [h[p], h[i]] = [h[i], h[p]]; i = p; } }
+function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < h.length && h[l].s > h[m].s) m = l; if (r < h.length && h[r].s > h[m].s) m = r; if (m === i) break; [h[m], h[i]] = [h[i], h[m]]; i = m; } } return top; }
+function copyCap() { if (capOverride) return capOverride; return Math.max(150, Math.round(capScale * Math.max(500, Math.min(6000, Math.round(2.2e6 / (motif.segs + 400)))))); }
+function iterate(maps, cap, minS, noRepeat) {
+  const out = [{ m: I, s: 1, d: 0, last: -1 }], heap = [{ m: I, s: 1, d: 0, last: -1 }];
+  while (heap.length && out.length < cap) {
+    const node = heapPop(heap);
+    for (let i = 0; i < maps.length; i++) {
+      if (noRepeat && i === node.last) continue;
+      const m = mul(node.m, maps[i]), s = detS(m);
+      if (s < minS || s > 4) continue;
+      const it = { m, s, d: node.d + 1, last: i };
+      out.push(it); heapPush(heap, it);
+      if (out.length >= cap) break;
+    }
+  }
+  return out;
+}
+const METHODS = {
+  ifs(r) {
+    const { cx, cy, rad } = motif;
+    const variant = r() < 0.4 ? 'sier' : r() < 0.55 ? 'fern' : 'swarm';
+    let maps = [], name;
+    if (variant === 'sier') {
+      const k = [3, 3, 3, 4, 5, 6][Math.floor(r() * 6)];
+      const s = k === 3 ? 0.44 + r() * 0.1 : k === 4 ? 0.36 + r() * 0.08 : 0.3 + r() * 0.07;
+      const spin = r() < 0.5 ? 0 : (r() - 0.5) * 1.2, ph = r() * Math.PI * 2, dist = rad * (1.05 + r() * 0.6);
+      const flip = r() < 0.25;
+      for (let i = 0; i < k; i++) {
+        const a = ph + i * Math.PI * 2 / k;
+        maps.push(chain(T(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist), Rt(spin + (flip ? a : 0)), Sc(s), T(-cx, -cy)));
+      }
+      name = 'Sierpinski echo';
+    } else if (variant === 'fern') {
+      const up = -Math.PI / 2 + (r() - 0.5) * 0.8, ux = Math.cos(up), uy = Math.sin(up), px = -uy, py = ux;
+      const bend = (0.06 + r() * 0.14) * (r() < 0.5 ? -1 : 1), stemS = 0.78 + r() * 0.1;
+      maps.push(chain(T(cx + ux * rad * 1.05, cy + uy * rad * 1.05), Rt(bend), Sc(stemS), T(-cx, -cy)));
+      const leafS = 0.32 + r() * 0.14, ang = 0.6 + r() * 0.5, off = 0.45 + r() * 0.35;
+      maps.push(chain(T(cx + (ux * 0.4 + px * off) * rad * 1.4, cy + (uy * 0.4 + py * off) * rad * 1.4), Rt(ang), Sc(leafS), T(-cx, -cy)));
+      maps.push(chain(T(cx + (ux * 0.4 - px * off) * rad * 1.4, cy + (uy * 0.4 - py * off) * rad * 1.4), Rt(-ang), Sc(-leafS, leafS), T(-cx, -cy)));
+      name = 'Barnsley drift';
+    } else {
+      const k = 2 + Math.floor(r() * 3);
+      for (let i = 0; i < k; i++) {
+        const s = 0.34 + r() * 0.3, an = 0.8 + r() * 0.4, a = r() * Math.PI * 2, rot = r() * Math.PI * 2, d = rad * (0.7 + r() * 0.9);
+        maps.push(chain(T(cx + Math.cos(a) * d, cy + Math.sin(a) * d), Rt(rot), Sc(s * an * (r() < 0.3 ? -1 : 1), s / an), T(-cx, -cy)));
+      }
+      name = 'Affine swarm';
+    }
+    return { name, copies: iterate(maps, copyCap(), 0.0015) };
+  },
+  droste(r) {
+    const { cx, cy, rad, ends } = motif;
+    let ox, oy;
+    if (r() < 0.45 && ends.length) { const e = ends[Math.floor(r() * ends.length)]; ox = e[0]; oy = e[1]; }
+    else { const a = r() * Math.PI * 2, d = rad * (0.35 + r() * 1.0); ox = cx + Math.cos(a) * d; oy = cy + Math.sin(a) * d; }
+    const s = 0.72 + r() * 0.17, th = (0.18 + r() * 0.55) * (r() < 0.5 ? -1 : 1);
+    const arms = [1, 1, 2, 2, 3, 4][Math.floor(r() * 6)];
+    const step = about(ox, oy, mul(Rt(th), Sc(s)));
+    const back = about(ox, oy, mul(Sc(1 / s), Rt(-th)));
+    const nIn = Math.min(160, Math.ceil(Math.log(0.0004) / Math.log(s))), nOut = Math.min(6, Math.ceil(Math.log(2.6) / -Math.log(s)));
+    const copies = [];
+    for (let k = 0; k < arms; k++) {
+      const armM = about(ox, oy, Rt(k * Math.PI * 2 / arms));
+      let m = armM;
+      copies.push({ m, s: 1, d: k ? 1 : 0 });
+      for (let n = 1; n <= nIn; n++) { m = mul(step, m); copies.push({ m, s: detS(m), d: n + (k ? 1 : 0) }); }
+      m = armM;
+      for (let n = 1; n <= nOut; n++) { m = mul(back, m); copies.push({ m, s: detS(m), d: n + 1 }); }
+    }
+    return { name: arms > 1 ? 'Droste spiral, ' + arms + ' arms' : 'Droste spiral', copies, center: [ox, oy] };
+  },
+  tree(r) {
+    const { cx, cy, rad, ends } = motif;
+    const upA = -Math.PI / 2 + (r() - 0.5) * 0.5;
+    const ux = Math.cos(upA), uy = Math.sin(upA);
+    // root = the point furthest "down"
+    let root = null, best = Infinity;
+    const all = [];
+    for (const s of strokes) for (let i = 0; i < s.pts.length; i += 2) all.push([s.pts[i], s.pts[i + 1]]);
+    for (const p of all) { const v = (p[0] - cx) * ux + (p[1] - cy) * uy; if (v < best) { best = v; root = p; } }
+    // tips: stroke ends + extreme points, far from root, spread in angle
+    const cand = ends.concat(extremes(all, cx, cy, 10));
+    cand.sort((a, b) => Math.hypot(b[0] - root[0], b[1] - root[1]) - Math.hypot(a[0] - root[0], a[1] - root[1]));
+    const tips = [];
+    const minSep = rad * 0.35;
+    for (const p of cand) {
+      if (Math.hypot(p[0] - root[0], p[1] - root[1]) < rad * 0.5) continue;
+      if (tips.every(t => Math.hypot(t[0] - p[0], t[1] - p[1]) > minSep)) tips.push(p);
+      if (tips.length >= 2 + (r() < 0.45 ? 1 : 0)) break;
+    }
+    if (tips.length < 2) { tips.length = 0; const a0 = upA; for (const da of [-0.6, 0.6]) tips.push([cx + Math.cos(a0 + da) * rad, cy + Math.sin(a0 + da) * rad]); }
+    const baseA = Math.atan2(cy - root[1], cx - root[0]);
+    const s = tips.length > 2 ? 0.42 + r() * 0.1 : 0.5 + r() * 0.12;
+    const jitter = (r() - 0.5) * 0.5, spread = 0.75 + r() * 0.6;
+    const maps = tips.map(t => {
+      let outA = Math.atan2(t[1] - cy, t[0] - cx);
+      let d = outA - baseA; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      return chain(T(t[0], t[1]), Rt(d * spread + jitter), Sc(s), T(-root[0], -root[1]));
+    });
+    return { name: 'Branching tree', copies: iterate(maps, copyCap(), 0.002) };
+  },
+  kaleido(r) {
+    const { cx, cy, rad } = motif;
+    const mirror = r() < 0.6;
+    let n = 5 + Math.floor(r() * 8); if (mirror && n % 2) n++;
+    const a = r() * Math.PI * 2, dist = rad * Math.max(1, n * 0.17) * (0.9 + r() * 0.4);
+    const ox = cx + Math.cos(a) * dist, oy = cy + Math.sin(a) * dist;
+    const phi0 = Math.atan2(cy - oy, cx - ox);
+    const s = 0.46 + r() * 0.22, tw = (r() < 0.5 ? 0.5 : r()) * Math.PI / n;
+    const D = Math.max(3, Math.min(7, Math.ceil(Math.log(0.05) / Math.log(s))));
+    const copies = [];
+    for (let d = 0; d < D; d++) for (let k = 0; k < n; k++) {
+      let inner = mirror && k % 2 ? Ref(phi0 + Math.PI / n) : null;
+      let m = chain(Rt((mirror ? (k - (k % 2)) : k) * Math.PI * 2 / n + d * tw), Sc(Math.pow(s, d)));
+      if (inner) m = mul(m, mul(inner, I));
+      const full = about(ox, oy, m);
+      copies.push({ m: full, s: Math.pow(s, d), d: d * 2 + (k ? 1 : 0) });
+    }
+    return { name: 'Kaleidoscope rings (' + n + '-fold' + (mirror ? ', mirrored' : '') + ')', copies, center: [ox, oy] };
+  },
+  mirror(r) {
+    const { x0, y0, x1, y1, cx, cy, rad } = motif;
+    const variant = r() < 0.65 ? 'box' : 'oblique';
+    const maps = [];
+    if (variant === 'box') {
+      const g = rad * 0.04;
+      const edges = [
+        { mx: x0 - g, my: cy, ref: Sc(-1, 1) }, { mx: x1 + g, my: cy, ref: Sc(-1, 1) },
+        { mx: cx, my: y0 - g, ref: Sc(1, -1) }, { mx: cx, my: y1 + g, ref: Sc(1, -1) }
+      ];
+      const sets = [[0, 1], [2, 3], [0, 1, 2, 3], [0, 2], [1, 3, 2], [0, 1, 3]];
+      const pickSet = sets[Math.floor(r() * sets.length)];
+      const s = (pickSet.length === 2 ? 0.74 : 0.9 / Math.sqrt(pickSet.length)) * (0.78 + r() * 0.22);
+      const tilt = r() < 0.5 ? 0 : (r() - 0.5) * 0.6;
+      for (const i of pickSet) { const e = edges[i]; maps.push(about(e.mx, e.my, chain(Rt(tilt * (i % 2 ? 1 : -1)), Sc(s), e.ref))); }
+    } else {
+      const k = 2 + Math.floor(r() * 3), ph = r() * Math.PI * 2;
+      const s = (k === 2 ? 0.7 : 0.88 / Math.sqrt(k)) * (0.8 + r() * 0.2);
+      for (let i = 0; i < k; i++) {
+        const a = ph + i * Math.PI * 2 / k + (r() - 0.5) * 0.4, d = rad * (0.7 + r() * 0.4);
+        const px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
+        maps.push(about(px, py, mul(Sc(s), Ref(a + Math.PI / 2))));
+      }
+    }
+    return { name: variant === 'box' ? 'Mirror recursion' : 'Mirror recursion, oblique', copies: iterate(maps, copyCap(), 0.002, true) };
+  }
+};
+function extremes(pts, cx, cy, k) {
+  const out = [];
+  for (let i = 0; i < k; i++) {
+    const a = i * Math.PI * 2 / k, ux = Math.cos(a), uy = Math.sin(a);
+    let b = -Infinity, bp = null;
+    for (const p of pts) { const v = (p[0] - cx) * ux + (p[1] - cy) * uy; if (v > b) { b = v; bp = p; } }
+    if (bp) out.push(bp);
+  }
+  return out;
+}
+
+/* ============ fractal library: u-space helpers ============
+   u-space = unit coords centred on the drawing, y up, 1 = drawing radius. */
+const DEG = Math.PI / 180;
+const rv = (r, a, b) => a + r() * (b - a);
+const pick = (r, arr) => arr[Math.floor(r() * arr.length)];
+let capOverride = 0, capScale = 1;
+function U2W(g) { const { cx, cy, rad } = motif; return chain([rad, 0, 0, -rad, cx, cy], g, [1 / rad, 0, 0, -1 / rad, -cx / rad, cy / rad]); }
+function um(s, rot, bx, by, flip, sy) { return chain(T(bx || 0, by || 0), Rt((rot || 0) * DEG), Sc(flip ? -s : s, sy == null ? s : sy)); }
+const pw = (s, rot, x, y, flip, sy) => U2W(um(s, rot, x, y, flip, sy));
+const oc = (m, d, extra) => Object.assign({ m, s: detS(m), d }, extra || {});
+const ROOT = () => ({ m: I, s: 1, d: 0 });
+// complex numbers as [re, im]
+const C = (re, im = 0) => [re, im];
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]], csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cs = (a, k) => [a[0] * k, a[1] * k], cexp = (deg, r = 1) => [r * Math.cos(deg * DEG), r * Math.sin(deg * DEG)];
+// complex affine z -> a z + b (or a conj(z) + b) as a matrix
+const cm = (a, b, conj) => conj ? [a[0], a[1], a[1], -a[0], b[0], b[1]] : [a[0], a[1], -a[1], a[0], b[0], b[1]];
+const Kz = [0.5, 0, 0, 0.5, 0.5, 0], Kzi = [2, 0, 0, 2, -1, 0];   // u in [-1,1]  <->  z in [0,1]
+function curveMaps(pts, flags) {
+  const maps = [];
+  for (let k = 0; k < pts.length - 1; k++) {
+    const f = (flags && flags[k]) || '';
+    let a = csub(pts[k + 1], pts[k]), b = pts[k];
+    if (f.includes('r')) { a = csub(pts[k], pts[k + 1]); b = pts[k + 1]; }
+    maps.push(chain(Kzi, cm(a, b, f.includes('m')), Kz));
+  }
+  return maps;
+}
+function polyPlaces(n, R, outward, rotDeg) {
+  const dir = outward ? -1 : 1, vs = [];
+  for (let j = 0; j < n; j++) vs.push(cexp(90 + (rotDeg || 0) + dir * j * 360 / n, R));
+  return vs.map((v, j) => { const w = vs[(j + 1) % n]; return cm(cs(csub(w, v), 0.5), cs(cadd(v, w), 0.5)); });
+}
+const conjU = (maps, g, gi) => maps.map(m => chain(g, m, gi));
+const spinMaps = (maps, deg) => deg ? conjU(maps, Rt(deg * DEG), Rt(-deg * DEG)) : maps;
+
+/* "replace" style: expand every copy bigger than a threshold, keep only the smallest ones */
+function leafGrow(maps, cap) {
+  const k = maps.length;
+  const run = t => {
+    const root = { m: I, s: 1, d: 0 }, out = [root], st = [root];
+    while (st.length) {
+      const n = st.pop();
+      if (n.s < t || n.d >= 40) continue;
+      if (out.length + k > cap) return null;
+      n.i = 1;
+      for (let i = 0; i < k; i++) {
+        const m = mul(n.m, maps[i]), s = detS(m);
+        if (!(s > 1e-6) || s > 4) continue;
+        const c = { m, s, d: n.d + 1 }; out.push(c); st.push(c);
+      }
+    }
+    return out;
+  };
+  let lo = Math.log(0.02), hi = 0, best = run(1);
+  if (!best) best = [{ m: I, s: 1, d: 0 }];
+  const first = run(Math.exp(lo)); if (first) return first;
+  for (let it = 0; it < 16; it++) {
+    const mid = (lo + hi) / 2, res = run(Math.exp(mid));
+    if (res) { best = res; hi = mid; } else lo = mid;
+  }
+  return best;
+}
+function leafRes(mapsU, places) {
+  const maps = mapsU.map(U2W);
+  if (!places) return { copies: leafGrow(maps, copyCap()), mode: 'leaf' };
+  const P = places.map(U2W), cap = Math.max(60, Math.floor(copyCap() / P.length));
+  const base = leafGrow(maps, cap), out = [{ m: I, s: 1, d: 0, i: 1 }];
+  for (const p of P) for (const c of base) { const m = mul(p, c.m); out.push({ m, s: detS(m), d: c.d + 1, i: c.i }); }
+  return { copies: out, mode: 'leaf' };
+}
+const growRes = (mapsU, minS, noRepeat) => ({ copies: iterate(mapsU.map(U2W), copyCap(), minS || 0.002, noRepeat) });
+const ringPts = (k, r0, start) => Array.from({ length: k }, (_, j) => cexp((start || 0) + j * 360 / k, r0));
+
+/* ============ the catalog ============ */
+const FAMS = ['Original', 'Flakes', 'Curves', 'Trees', 'Spirals', 'Rings', 'Tilings', 'Paths', 'Yours'];
+const TYPES = [];
+const def = (id, name, fam, desc, gen) => TYPES.push({ id, name, fam, desc, gen });
+
+// --- Original five
+def('ifs', 'Echo swarm', 'Original', 'Sierpinski echoes, drifting ferns or affine swarms', r => METHODS.ifs(r));
+def('droste', 'Droste spiral', 'Original', 'a picture inside itself, spun', r => METHODS.droste(r));
+def('tree', 'Branching tree', 'Original', 'your drawing’s own tips become branches', r => METHODS.tree(r));
+def('kaleido', 'Kaleidoscope', 'Original', 'rings of rings, sometimes mirrored', r => METHODS.kaleido(r));
+def('mirror', 'Mirror recursion', 'Original', 'reflections of reflections', r => METHODS.mirror(r));
+
+// --- Flakes (replace style)
+const flakeSpin = r => (r() < 0.6 ? 0 : rv(r, -30, 30));
+def('sierpinski', 'Sierpinski triangle', 'Flakes', '3 half-size copies, forever', r => {
+  const sp = flakeSpin(r);
+  return leafRes(spinMaps(ringPts(3, 0.5, 90).map(v => um(0.5, sp, v[0], v[1])), r() < 0.25 ? 180 : 0));
+});
+def('carpet', 'Sierpinski carpet', 'Flakes', '8 third-size copies around a hole', r => {
+  const m = [], sp = flakeSpin(r);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if (i || j) m.push(um(1 / 3, sp, i * 2 / 3, j * 2 / 3));
+  return leafRes(m);
+});
+def('vicsek', 'Vicsek cross', 'Flakes', 'a plus sign made of plus signs', r => {
+  const sp = flakeSpin(r), m = [um(1 / 3, sp, 0, 0)];
+  for (const v of ringPts(4, 2 / 3, 0)) m.push(um(1 / 3, sp, v[0], v[1]));
+  return leafRes(m);
+});
+def('saltire', 'Saltire', 'Flakes', 'the Vicsek cross, turned into an X', r => {
+  const sp = flakeSpin(r), m = [um(1 / 3, sp, 0, 0)];
+  for (const v of ringPts(4, 0.943, 45)) m.push(um(1 / 3, sp, v[0], v[1]));
+  return leafRes(m);
+});
+def('cantor', 'Cantor dust', 'Flakes', 'four corners, then corners of corners', r => {
+  const s = rv(r, 0.3, 0.4), sp = flakeSpin(r);
+  return leafRes(ringPts(4, (1 - s) * Math.SQRT2, 45).map(v => um(s, sp, v[0], v[1])));
+});
+def('pentaflake', 'Pentaflake', 'Flakes', 'Dürer’s pentagons around a centre', r => {
+  const s = 0.382, sp = flakeSpin(r), m = [um(s, 180 + sp, 0, 0)];
+  for (const v of ringPts(5, 1 - s, 90)) m.push(um(s, sp, v[0], v[1]));
+  return leafRes(m);
+});
+def('hexaflake', 'Hexaflake', 'Flakes', 'seven copies in a honeycomb', r => {
+  const sp = flakeSpin(r), m = [um(1 / 3, sp, 0, 0)];
+  for (const v of ringPts(6, 2 / 3, 90)) m.push(um(1 / 3, sp, v[0], v[1]));
+  return leafRes(m);
+});
+def('sierpentagon', 'Sierpinski pentagon', 'Flakes', 'five copies, no centre', r => {
+  const s = 0.382, sp = flakeSpin(r);
+  return leafRes(ringPts(5, 1 - s, 90).map(v => um(s, sp, v[0], v[1])));
+});
+def('sierhexagon', 'Sierpinski hexagon', 'Flakes', 'six copies that almost touch', r => {
+  const sp = flakeSpin(r);
+  return leafRes(ringPts(6, 2 / 3, 90).map(v => um(1 / 3, sp, v[0], v[1])));
+});
+def('fern', 'Barnsley fern', 'Flakes', 'the famous fern, grown from your drawing', r => {
+  const S = [0.2, 0, 0, 0.2, 0, 1], Si = [5, 0, 0, 5, 0, -5];   // u = (v - (0,5)) / 5
+  let maps = [[0.85, -0.04, 0.04, 0.85, 0, 1.6], [0.2, 0.23, -0.26, 0.22, 0, 1.6], [-0.15, 0.26, 0.28, 0.24, 0, 0.44]].map(f => chain(S, f, Si));
+  if (r() < 0.5) maps = conjU(maps, Sc(-1, 1), Sc(-1, 1));
+  return leafRes(maps);
+});
+
+// --- Curves (replace style), placed on a segment or around a polygon
+function curveRes(r, pts, flags, opts = {}) {
+  let places = opts.places;
+  if (!places) {
+    const roll = r();
+    if (roll < 0.45) places = [um(1, 0, 0, 0)];
+    else { const n = pick(r, [3, 3, 4, 5, 6]); places = polyPlaces(n, 1.15, r() < 0.75, rv(r, 0, 360 / n)); }
+  }
+  return leafRes(curveMaps(pts, flags), places);
+}
+const KOCH = [C(0), C(1 / 3), C(0.5, Math.sqrt(3) / 6), C(2 / 3), C(1)];
+def('koch', 'Koch curve', 'Curves', 'every straight line grows a tooth', r => curveRes(r, KOCH, null));
+def('snowflake', 'Koch snowflake', 'Curves', 'three Koch curves in a triangle', r => curveRes(r, KOCH, null, { places: polyPlaces(3, 1.2, true, 0) }));
+def('antisnowflake', 'Koch anti-snowflake', 'Curves', 'the snowflake, teeth pointing inward', r => curveRes(r, KOCH, null, { places: polyPlaces(pick(r, [3, 4]), 1.3, false, 0) }));
+def('levy', 'Lévy C curve', 'Curves', 'two copies at right angles, repeated', r => curveRes(r, [C(0), C(0.5, 0.5), C(1)], null));
+def('dragon', 'Heighway dragon', 'Curves', 'fold a strip of paper in half 12 times', r => curveRes(r, [C(0), C(0.5, 0.5), C(1)], ['', 'r'], { places: [um(1, rv(r, -20, 20), 0, 0)] }));
+def('twindragon', 'Twin dragon', 'Curves', 'two dragons back to back', r => curveRes(r, [C(0), C(0.5, 0.5), C(1)], ['', 'r'], { places: [um(1, 0, 0, 0), um(1, 180, 0, 0)] }));
+def('terdragon', 'Terdragon', 'Curves', 'the three-fold cousin of the dragon', r => {
+  const h = 1 / (2 * Math.sqrt(3));
+  return curveRes(r, [C(0), C(0.5, -h), C(0.5, h), C(1)], null, r() < 0.5 ? { places: [um(1, 0, 0, 0)] } : {});
+});
+def('cesaro', 'Cesàro curve', 'Curves', 'a Koch curve with a sharper 85° tooth', r => {
+  const th = rv(r, 78, 86), L = 1 / (2 * (1 + Math.cos(th * DEG)));
+  return curveRes(r, [C(0), C(L), cadd(C(L), cexp(th, L)), C(1 - L), C(1)], null);
+});
+def('minkowski', 'Minkowski sausage', 'Curves', 'eight quarter-length steps, up and down', r => curveRes(r, [C(0), C(0.25), C(0.25, 0.25), C(0.5, 0.25), C(0.5), C(0.5, -0.25), C(0.75, -0.25), C(0.75), C(1)], null));
+def('quadkoch', 'Square Koch', 'Curves', 'a Koch curve with a square tooth', r => curveRes(r, [C(0), C(1 / 3), C(1 / 3, 1 / 3), C(2 / 3, 1 / 3), C(2 / 3), C(1)], null));
+def('peano', 'Peano curve', 'Curves', 'nine steps that fold back over themselves', r => curveRes(r, [C(0), C(1 / 3), C(1 / 3, 1 / 3), C(2 / 3, 1 / 3), C(2 / 3), C(1 / 3), C(1 / 3, -1 / 3), C(2 / 3, -1 / 3), C(2 / 3), C(1)], null, { places: [um(1, 0, 0, 0)] }));
+def('arrowhead', 'Sierpinski arrowhead', 'Curves', 'a single line that draws the triangle', r => curveRes(r, [C(0), C(0.25, Math.sqrt(3) / 4), C(0.75, Math.sqrt(3) / 4), C(1)], ['m', '', 'm'], { places: [um(1, 0, 0, 0)] }));
+def('lightning', 'Lightning', 'Curves', 'a zig-zag that keeps zig-zagging', r => curveRes(r, [C(0), C(rv(r, 0.3, 0.45), rv(r, -0.28, -0.08)), C(rv(r, 0.55, 0.7), rv(r, 0.08, 0.28)), C(1)], [r() < 0.5 ? 'm' : '', '', r() < 0.5 ? 'm' : ''], { places: [um(1, rv(r, -70, -110), 0, 0)] }));
+def('mystery', 'Mystery curve', 'Curves', 'a brand-new curve every roll', r => {
+  const n = 2 + Math.floor(r() * 3), pts = [C(0)], flags = [];
+  for (let i = 1; i <= n; i++) pts.push(C(i / (n + 1) + rv(r, -0.08, 0.08), rv(r, -0.35, 0.35)));
+  pts.push(C(1));
+  for (let i = 0; i <= n; i++) flags.push(pick(r, ['', '', 'm', 'r', 'rm']));
+  return curveRes(r, pts, flags);
+});
+
+// --- Trees (grow style: your drawing is the trunk)
+function canopy(s, th) { const sn = Math.sin(th * DEG), c = Math.cos(th * DEG); return um(s, th, -s * sn, 1 + s * c); }
+def('pythagoras', 'Pythagoras tree', 'Trees', 'two copies on top at right angles', r => {
+  const a = r() < 0.5 ? 45 : rv(r, 30, 60), ca = Math.cos(a * DEG), sa = Math.sin(a * DEG);
+  const A = C(-1, 1), B = C(1, 1), P = cadd(A, cexp(a, 2 * ca)), b = a - 90;
+  const lc = cadd(cs(cadd(A, P), 0.5), cexp(a + 90, ca)), rc = cadd(cs(cadd(P, B), 0.5), cexp(b + 90, sa));
+  return growRes([um(ca, a, lc[0], lc[1]), um(sa, b, rc[0], rc[1])]);
+});
+def('canopy', 'Fractal canopy', 'Trees', 'every branch splits in two', r => { const s = rv(r, 0.56, 0.7), th = rv(r, 20, 42); return growRes([canopy(s, th), canopy(s, -th)]); });
+def('windswept', 'Windswept tree', 'Trees', 'a lopsided canopy leaning into the wind', r => {
+  const f = r() < 0.5 ? 1 : -1;
+  return growRes([canopy(rv(r, 0.62, 0.72), f * rv(r, 12, 30)), canopy(rv(r, 0.42, 0.52), -f * rv(r, 40, 70))]);
+});
+def('htree', 'H-tree', 'Trees', 'branches at right angles, like a chip layout', () => growRes([canopy(Math.SQRT1_2, 90), canopy(Math.SQRT1_2, -90)]));
+def('trident', 'Trident', 'Trees', 'three branches from every tip', r => { const th = rv(r, 30, 55), s = rv(r, 0.45, 0.52); return growRes([canopy(s, th), canopy(s, 0), canopy(s, -th)]); });
+def('coral', 'Coral', 'Trees', 'random branching, different every time', r => {
+  const k = 2 + Math.floor(r() * 3), m = [];
+  for (let i = 0; i < k; i++) m.push(canopy(rv(r, 0.4, 0.62), rv(r, -75, 75)));
+  return growRes(m);
+});
+def('curl', 'Curl', 'Trees', 'a spiral that sprouts smaller spirals', r => {
+  const f = r() < 0.5 ? 1 : -1, p = C(0.5 * f, 1.1), th = f * rv(r, 18, 30);
+  return growRes([chain(T(p[0], p[1]), Rt(th * DEG), Sc(rv(r, 0.84, 0.9)), T(-p[0], -p[1])), um(rv(r, 0.28, 0.38), -f * rv(r, 30, 60), -0.5 * f, 1.5)], 0.003);
+});
+def('crystal', 'Crystal', 'Trees', 'copies pointing outward on every side', r => {
+  const k = pick(r, [4, 5, 6, 6, 8]), d = rv(r, 1.5, 1.9), s = rv(r, 0.34, 0.44);
+  return growRes(ringPts(k, d, 90).map((v, j) => um(s, j * 360 / k, v[0], v[1])));
+});
+def('broccoli', 'Broccoli', 'Trees', 'a fan of florets on florets', r => {
+  const k = pick(r, [5, 6, 7]), m = [];
+  for (let j = 0; j < k; j++) { const a = 20 + j * 140 / (k - 1), v = cexp(a, 1.45); m.push(um(0.4, a - 90, v[0], v[1])); }
+  return growRes(m, 0.003);
+});
+
+// --- Spirals (direct copies)
+def('sunflower', 'Sunflower', 'Spirals', 'seeds placed at the golden angle', r => {
+  const n = Math.min(520, Math.max(120, copyCap() >> 1)), D = rv(r, 0.32, 0.4), up = r() < 0.5, out = [];
+  for (let k = 1; k <= n; k++) { const a = k * 137.50776, v = cexp(a, D * Math.sqrt(k)); out.push(oc(pw(0.78 * D, up ? 0 : a - 90, v[0], v[1]), Math.floor(k * 14 / n))); }
+  return { copies: out };
+});
+def('seedhead', 'Seed head', 'Spirals', 'golden-angle seeds that grow toward the rim', r => {
+  const n = Math.min(400, Math.max(120, copyCap() >> 1)), D = rv(r, 0.42, 0.5), out = [ROOT()];
+  for (let k = 6; k <= n; k++) { const a = k * 137.50776, v = cexp(a, D * Math.sqrt(k)); out.push(oc(pw(D * (0.25 + 0.75 * Math.sqrt(k / n)), a - 90, v[0], v[1]), 1 + Math.floor(k * 14 / n))); }
+  return { copies: out };
+});
+def('nautilus', 'Nautilus', 'Spirals', 'one smooth logarithmic shell', r => {
+  const p = cexp(rv(r, 0, 360), rv(r, 1.8, 2.6)), th = (r() < 0.5 ? 1 : -1) * rv(r, 12, 20), q = rv(r, 0.93, 0.96), out = [];
+  for (let k = -8; ; k++) { const s = Math.pow(q, k); if (s < 0.006) break; out.push(oc(U2W(chain(T(p[0], p[1]), Rt(k * th * DEG), Sc(s), T(-p[0], -p[1]))), Math.abs(k))); }
+  return { copies: out };
+});
+def('galaxy', 'Galaxy', 'Spirals', 'spiral arms growing out of your drawing', r => {
+  const arms = pick(r, [2, 2, 3, 4]), b = rv(r, 0.15, 0.21), per = 64, out = [ROOT()], f = r() < 0.5 ? 1 : -1;
+  for (let j = 0; j < arms; j++) for (let i = 0; i < per; i++) {
+    const t = i / per * 3 * Math.PI, rho = 1.35 * Math.exp(b * t), a = f * t / DEG + j * 360 / arms, v = cexp(a, rho);
+    out.push(oc(pw(Math.min(1.1, 0.2 * rho), a + f * 90, v[0], v[1]), 1 + (i >> 3)));
+  }
+  return { copies: out };
+});
+def('vortex', 'Vortex', 'Spirals', 'copies swirling down a drain', r => {
+  const arms = pick(r, [2, 3, 3, 4]), q = rv(r, 0.94, 0.96), dl = rv(r, 14, 22), f = r() < 0.5 ? 1 : -1, out = [];
+  for (let j = 0; j < arms; j++) for (let k = 0; ; k++) {
+    const rho = 3.4 * Math.pow(q, k); if (rho < 0.05) break;
+    const a = f * k * dl + j * 360 / arms, v = cexp(a, rho);
+    out.push(oc(pw(rho * 0.3, a + f * 90, v[0], v[1]), k >> 2));
+  }
+  return { copies: out };
+});
+def('tunnel', 'Tunnel', 'Spirals', 'rings of copies falling toward the centre', r => {
+  const n = pick(r, [8, 10, 12, 16]), q = rv(r, 0.74, 0.82), out = [];
+  for (let j = 0; ; j++) {
+    const rho = 3.2 * Math.pow(q, j); if (rho < 0.05) break;
+    const sg = rho * Math.sin(Math.PI / n) * 0.9;
+    for (let k = 0; k < n; k++) { const a = 90 + (k + (j & 1) * 0.5) * 360 / n, v = cexp(a, rho); out.push(oc(pw(sg, a - 90, v[0], v[1]), j)); }
+  }
+  return { copies: out };
+});
+def('circlelimit', 'Circle limit', 'Spirals', 'Escher-style: smaller and smaller toward the rim', r => {
+  const R = 4, n0 = pick(r, [6, 7, 8]), out = [ROOT()];
+  for (let j = 0; j < 7; j++) {
+    const rho = R * (1 - Math.pow(0.5, j + 1)), n = n0 << j, sg = (R - rho) * 0.42;
+    for (let k = 0; k < n; k++) { const a = 90 + (k + (j & 1) * 0.5) * 360 / n, v = cexp(a, rho); out.push(oc(pw(sg, a - 90, v[0], v[1], (k + j) & 1), j + 1)); }
+  }
+  return { copies: out };
+});
+def('squarelimit', 'Square limit', 'Spirals', 'a square that crowds into its own edges', r => {
+  const H = 4, out = [ROOT()], flip = r() < 0.5;
+  for (let j = 1; j <= 5; j++) {
+    const h = H * (1 - Math.pow(0.5, j)), w = H * Math.pow(0.5, j + 1), mid = h + w / 2, cnt = Math.max(1, Math.round(2 * mid / w));
+    for (let side = 0; side < 4; side++) for (let k = 0; k < cnt; k++) {
+      const t = -mid + (k + 0.5) * (2 * mid / cnt), p = [[t, mid], [mid, -t], [-t, -mid], [-mid, t]][side];
+      out.push(oc(pw(w * 0.45, -side * 90, p[0], p[1], flip && (k & 1)), j));
+    }
+  }
+  return { copies: out };
+});
+
+// --- Rings
+def('rosette', 'Rosette', 'Rings', 'copies swung around a nearby point', r => {
+  const n = 6 + Math.floor(r() * 11), c = cexp(rv(r, 0, 360), rv(r, 1.15, 1.9)), out = [];
+  for (let k = 0; k < n; k++) out.push(oc(U2W(chain(T(c[0], c[1]), Rt(k * 360 / n * DEG), T(-c[0], -c[1]))), Math.min(k, n - k)));
+  return { copies: out };
+});
+def('mandala', 'Mandala', 'Rings', 'concentric rings, mirrored every other ring', r => {
+  const base = pick(r, [5, 6, 8]), out = [ROOT()];
+  for (let j = 1; j <= 4; j++) {
+    const rho = 1.75 * j, n = base * j, sg = Math.min(0.9, rho * Math.sin(Math.PI / n) * 0.85);
+    for (let k = 0; k < n; k++) { const a = 90 + (k + (j & 1) * 0.5) * 360 / n, v = cexp(a, rho); out.push(oc(pw(sg, a - 90, v[0], v[1], (j & 1) && (k & 1)), j)); }
+  }
+  return { copies: out };
+});
+def('carousel', 'Carousel', 'Rings', 'upright copies riding round the middle', r => {
+  const n = 8 + Math.floor(r() * 5), out = [ROOT()];
+  for (let k = 0; k < n; k++) { const v = cexp(90 + k * 360 / n, 2.4); out.push(oc(pw(0.55, 0, v[0], v[1]), 1)); }
+  if (r() < 0.6) for (let k = 0; k < n * 2; k++) { const v = cexp(90 + (k + 0.5) * 180 / n, 3.7); out.push(oc(pw(0.36, 0, v[0], v[1]), 2)); }
+  return { copies: out };
+});
+def('ripple', 'Ripple', 'Rings', 'evenly spaced rings, like a stone in a pond', r => {
+  const sg = 0.38, tang = r() < 0.5, out = [ROOT()];
+  for (let j = 1; j <= 6; j++) {
+    const rho = 1.15 + 0.85 * j, n = Math.floor(2 * Math.PI * rho / (2 * sg * 1.15));
+    for (let k = 0; k < n; k++) { const a = 90 + k * 360 / n, v = cexp(a, rho); out.push(oc(pw(sg, tang ? a : a - 90, v[0], v[1]), j)); }
+  }
+  return { copies: out };
+});
+def('starburst', 'Starburst', 'Rings', 'rays of copies that grow as they fly out', r => {
+  const n = 8 + Math.floor(r() * 9), g = rv(r, 1.18, 1.26), out = [ROOT()];
+  for (let k = 0; k < n; k++) for (let i = 0; i < 10; i++) {
+    const a = 90 + k * 360 / n, v = cexp(a, 1.5 * Math.pow(g, i));
+    out.push(oc(pw(Math.min(1, 0.2 * Math.pow(g, i)), a - 90, v[0], v[1]), i + 1));
+  }
+  return { copies: out };
+});
+def('peacock', 'Peacock', 'Rings', 'a fanned tail with an eye on every feather', r => {
+  const m = pick(r, [11, 13, 15]), out = [ROOT()];
+  for (let k = 0; k < m; k++) {
+    const a = 15 + k * 150 / (m - 1);
+    for (let i = 0; i < 7; i++) { const v = cexp(a, 1.6 + 0.62 * i); out.push(oc(pw(0.16 + 0.045 * i, a - 90, v[0], v[1]), i + 1)); }
+    const v = cexp(a, 6.2); out.push(oc(pw(0.55, a - 90, v[0], v[1]), 8));
+  }
+  return { copies: out };
+});
+
+// --- Tilings
+const TL = 2.15;
+function tiles(G, fn) {
+  const out = [];
+  for (let j = -G; j <= G; j++) for (let i = -G; i <= G; i++) { const c = fn(i, j); if (c) out.push(oc(c, Math.max(Math.abs(i), Math.abs(j)))); }
+  return { copies: out };
+}
+const mod = (a, n) => ((a % n) + n) % n;
+def('wallpaper', 'Wallpaper', 'Tilings', 'the plainest repeat there is', () => tiles(6, (i, j) => pw(1, 0, i * TL, j * TL)));
+def('pinwheel', 'Pinwheel', 'Tilings', 'four copies turning around each corner', () => tiles(6, (i, j) => pw(1, [0, 90, 270, 180][mod(i, 2) + 2 * mod(j, 2)], i * TL, j * TL)));
+def('mirrortiles', 'Mirror tiles', 'Tilings', 'every neighbour is a reflection', () => tiles(6, (i, j) => pw(1, 0, i * TL, j * TL, mod(i, 2), mod(j, 2) ? -1 : 1)));
+def('hexweave', 'Hex weave', 'Tilings', 'a honeycomb turning in thirds', r => {
+  const turn = r() < 0.6;
+  return tiles(6, (i, j) => pw(1, turn ? 120 * mod(i - j, 3) : 0, (i + mod(j, 2) / 2) * TL, j * TL * 0.866));
+});
+def('brick', 'Brickwork', 'Tilings', 'offset rows, like a wall', r => { const sx = rv(r, 1.15, 1.4); return tiles(6, (i, j) => pw(sx, 0, (i + mod(j, 2) / 2) * TL * sx, j * TL * 0.8, false, 0.75)); });
+def('herringbone', 'Herringbone', 'Tilings', 'zig-zag pairs at 45 degrees', () => tiles(6, (i, j) => pw(1, mod(i, 2) ? 45 : -45, i * TL * 0.8, j * TL * 1.1 + (mod(i, 2) ? TL * 0.35 : 0))));
+def('fisheye', 'Fisheye', 'Tilings', 'an endless grid squeezed into a bubble', r => {
+  const R = rv(r, 4, 6);
+  return tiles(10, (i, j) => { const x = i * TL, y = j * TL, k = R / (R + Math.hypot(x, y)); return pw(Math.pow(k, 1.5), 0, x * k, y * k); });
+});
+
+// --- Paths
+function pathCopies(fn, n, sz, opt = {}) {
+  const out = opt.root ? [ROOT()] : [];
+  for (let k = 0; k < n; k++) {
+    const t = k / n, p = fn(t), q = fn(t + 1e-3), ang = Math.atan2(q[1] - p[1], q[0] - p[0]) / DEG;
+    const s = typeof sz === 'function' ? sz(t, k) : sz;
+    out.push(oc(pw(s, opt.upright ? 0 : ang + (opt.rot || 0), p[0], p[1], opt.alt && (k & 1)), 1 + Math.floor(t * 14)));
+  }
+  return { copies: out };
+}
+def('spirograph', 'Spirograph', 'Paths', 'copies riding a hypotrochoid', r => {
+  const R = 7, rr = pick(r, [2, 3, 4, 5]), d = rv(r, 1, 3), k = 0.62;
+  return pathCopies(t => { const u = t * 2 * Math.PI * rr; return [k * ((R - rr) * Math.cos(u) + d * Math.cos((R - rr) / rr * u)), k * ((R - rr) * Math.sin(u) - d * Math.sin((R - rr) / rr * u))]; }, 60 * rr, 0.3);
+});
+def('lissajous', 'Lissajous', 'Paths', 'an oscilloscope figure made of copies', r => {
+  const [a, b] = pick(r, [[1, 2], [3, 2], [3, 4], [5, 4], [1, 3], [2, 5]]), dl = rv(r, 0.2, 1.4);
+  return pathCopies(t => [4.6 * Math.sin(a * t * 2 * Math.PI + dl), 4.6 * Math.sin(b * t * 2 * Math.PI)], 150, 0.3);
+});
+def('heart', 'Heart', 'Paths', 'your drawing, in a heart', r => pathCopies(t => { const u = t * 2 * Math.PI, s = Math.sin(u); return [16 * s * s * s / 3.4, (13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u)) / 3.4]; }, 72, 0.4, { upright: r() < 0.5, root: true }));
+def('infinity', 'Infinity', 'Paths', 'a figure eight that never ends', r => pathCopies(t => { const u = t * 2 * Math.PI, d = 1 + Math.sin(u) ** 2; return [5.5 * Math.cos(u) / d, 5.5 * Math.sin(u) * Math.cos(u) / d]; }, 84, 0.36, { upright: r() < 0.3 }));
+def('wave', 'Wave', 'Paths', 'a sine wave with every other copy flipped', r => {
+  const A = rv(r, 1, 2), cyc = pick(r, [2, 2.5, 3]);
+  return pathCopies(t => [-8 + 16 * t, A * Math.sin(2 * Math.PI * cyc * t)], 46, 0.44, { alt: true });
+});
+def('dna', 'Double helix', 'Paths', 'two strands twisting past each other', r => {
+  const out = [], n = 54, tw = rv(r, 2, 3);
+  for (let s = 0; s < 2; s++) for (let k = 0; k < n; k++) {
+    const t = k / n, ph = 2 * Math.PI * tw * t + s * Math.PI, z = Math.sin(ph);
+    out.push(oc(pw(0.3 + 0.12 * z, 0, -8 + 16 * t, 1.7 * Math.cos(ph)), 1 + Math.floor(t * 14), { a: 0.5 + 0.5 * (z + 1) / 2 }));
+  }
+  return { copies: out };
+});
+def('frieze', 'Frieze', 'Paths', 'a border pattern, like on old buildings', r => {
+  const kind = Math.floor(r() * 3), out = [];
+  for (let k = -7; k <= 7; k++) {
+    const odd = mod(k, 2);
+    out.push(oc(kind === 0 ? pw(1, 0, k * 2.1, odd ? -0.35 : 0.35, false, odd ? -1 : 1) : kind === 1 ? pw(1, 0, k * 2.1, 0, odd) : pw(1, odd ? 180 : 0, k * 2.1, 0), Math.abs(k)));
+  }
+  return { copies: out };
+});
+def('staircase', 'Staircase', 'Paths', 'each step a little smaller than the last', r => {
+  const q = rv(r, 0.8, 0.88), tw = rv(r, -10, 10), out = [ROOT()];
+  let p = C(0), s = 1, dir = rv(r, -20, -50) + (r() < 0.5 ? 0 : 180), rot = 0;
+  for (let k = 1; k < 44; k++) {
+    const ns = s * q; p = cadd(p, cexp(dir, (s + ns) * 1.02)); s = ns; dir += tw; rot += tw;
+    if (s < 0.01) break; out.push(oc(pw(s, rot, p[0], p[1]), k));
+  }
+  return { copies: out };
+});
+def('echo', 'Echo', 'Paths', 'a trail of fading afterimages', r => {
+  const a = rv(r, 0, 360), sp = rv(r, 0.28, 0.4), tw = rv(r, -5, 5), out = [];
+  for (let k = 0; k < 18; k++) { const v = cexp(a, k * sp); out.push(oc(pw(1, k * tw, v[0], v[1]), k, { a: Math.pow(0.86, k) })); }
+  return { copies: out };
+});
+def('dolls', 'Nesting dolls', 'Paths', 'smaller copies standing inside each other', r => {
+  const q = rv(r, 0.8, 0.88), tw = r() < 0.5 ? 0 : rv(r, -6, 6), out = [];
+  for (let k = 0; ; k++) { const s = Math.pow(q, k); if (s < 0.01) break; out.push(oc(U2W(chain(T(0, -1), Rt(k * tw * DEG), Sc(s), T(0, 1))), k)); }
+  return { copies: out };
+});
+def('hallmirrors', 'Hall of mirrors', 'Paths', 'two mirrors facing each other', r => {
+  const q = rv(r, 0.84, 0.9), out = [ROOT()];
+  for (const side of [1, -1]) { let x = 0, s = 1; for (let k = 1; k <= 16; k++) { const ns = s * q; x += (s + ns) * 1.05; s = ns; out.push(oc(pw(s, 0, side * x, -(1 - s) * 0.7, k & 1), k)); } }
+  return { copies: out };
+});
+def('vanishing', 'Vanishing point', 'Paths', 'lanes of copies running to the horizon', r => {
+  const lanes = pick(r, [3, 5, 7]), q = rv(r, 0.86, 0.9), V = C(0, 2.4), out = [ROOT()];
+  for (let j = 0; j < lanes; j++) {
+    const p0 = C((j - (lanes - 1) / 2) * 2.3, 0);
+    for (let k = 0; k < 32; k++) { if (!k && p0[0] === 0) continue; const f = Math.pow(q, k), p = cadd(V, cs(csub(p0, V), f)); out.push(oc(pw(f, 0, p[0], p[1]), k)); }
+  }
+  return { copies: out };
+});
+
+/* ============ make-your-own ============ */
+function customRes(spec) {
+  const maps = [], sym = Math.max(1, Math.min(12, spec.sym | 0));
+  for (let j = 0; j < sym; j++) for (const ru of spec.rules) {
+    const a = ru.ang + j * 360 / sym, b = cexp(a, ru.dist);
+    maps.push(um(ru.size * ru.stretch, ru.turn + j * 360 / sym, b[0], b[1], ru.flip, ru.size));
+  }
+  if (!maps.length) return { copies: [ROOT()] };
+  const keep = capScale; capScale = Math.max(0.1, Math.min(1, spec.detail || 1));
+  try { return spec.style === 'leaf' ? leafRes(maps) : growRes(maps, 0.002); } finally { capScale = keep; }
+}
+const PRESETS = {
+  Triangle: { sym: 3, style: 'grow', detail: 1, rules: [{ ang: 90, dist: 1.8, turn: 0, size: 0.5, stretch: 1, flip: false }] },
+  Tree: { sym: 1, style: 'grow', detail: 1, rules: [{ ang: 62, dist: 1.75, turn: -30, size: 0.62, stretch: 1, flip: false }, { ang: 118, dist: 1.75, turn: 30, size: 0.62, stretch: 1, flip: false }] },
+  Spiral: { sym: 1, style: 'grow', detail: 1, rules: [{ ang: 20, dist: 1.5, turn: 28, size: 0.82, stretch: 1, flip: false }, { ang: 160, dist: 1.6, turn: -50, size: 0.32, stretch: 1, flip: false }] },
+  Snowflake: { sym: 6, style: 'grow', detail: 1, rules: [{ ang: 90, dist: 1.75, turn: 0, size: 0.38, stretch: 1, flip: false }] },
+  Carpet: { sym: 4, style: 'leaf', detail: 1, rules: [{ ang: 45, dist: 0.943, turn: 0, size: 1 / 3, stretch: 1, flip: false }, { ang: 90, dist: 0.667, turn: 0, size: 1 / 3, stretch: 1, flip: false }] }
+};
+function randomSpec(r) {
+  const sym = pick(r, [1, 1, 2, 3, 4, 5, 6, 8]), n = 1 + Math.floor(r() * (sym > 3 ? 2 : 3)), rules = [];
+  for (let i = 0; i < n; i++) rules.push({ ang: Math.round(rv(r, 0, 360)), dist: +rv(r, 1.2, 2.4).toFixed(2), turn: Math.round(rv(r, -180, 180)), size: +rv(r, 0.3, sym > 3 ? 0.45 : 0.68).toFixed(2), stretch: +rv(r, 0.8, 1.2).toFixed(2), flip: r() < 0.2 });
+  return { sym, style: r() < 0.75 ? 'grow' : 'leaf', detail: 1, rules };
+}
+
+
+let lastCat = null, pendingType = null;
+function cloneSpec(x) { return JSON.parse(JSON.stringify(x)); }
+let customSpec = cloneSpec(PRESETS.Triangle);
+let customsMem = (() => { const v = store.get('inc.customs', []); return Array.isArray(v) ? v.filter(u => u && u.id && u.spec && Array.isArray(u.spec.rules)) : []; })();
+const loadCustoms = () => customsMem;
+function saveCustoms(list) { customsMem = list; store.set('inc.customs', list); }
+function typeById(id) {
+  if (id === 'custom') return { id, name: 'Your fractal', fam: 'Yours', gen: () => customRes(customSpec), custom: true };
+  if (id && id.indexOf('u:') === 0) { const u = customsMem.find(c => c.id === id); return u ? { id, name: u.name, fam: 'Yours', gen: () => customRes(u.spec), custom: true } : null; }
+  return TYPES.find(t => t.id === id) || null;
+}
+function fractalize(cat, seed, opts = {}) {
+  if (!strokes.length) { if (!opts.live) toast('draw something first'); return false; }
+  if (!motif) computeMotif();
+  if (!cat && pendingType) { cat = pendingType; pendingType = null; }
+  if (!cat) { const pool = TYPES.filter(t => t.id !== lastCat); cat = pool[Math.floor(Math.random() * pool.length)].id; }
+  const type = typeById(cat);
+  if (!type) { toast('that fractal is gone'); return false; }
+  if (seed == null) seed = 10000 + Math.floor(Math.random() * 89999);
+  const r = mulberry(seed * 2654435761 >>> 0);
+  let res;
+  try { res = type.gen(r); } catch (e) { console.error(e); toast('that one broke, rolling another'); return opts.live ? false : fractalize(null); }
+  const copies = res.copies;
+  let maxD = 0; for (const c of copies) if (c.d > maxD) maxD = c.d;
+  copies.sort((a, b) => b.d - a.d || a.s - b.s);
+  if (!(opts.live && fractal && fractal.live)) history.push({ t: 'fractal', prev: fractal });
+  fractal = { name: res.name || type.name, fam: type.fam, seed, cat, copies, maxD, mode: res.mode || 'grow', born: performance.now(), center: res.center, live: !!opts.live, custom: !!type.custom };
+  lastCat = cat;
+  anim = (reduceMotion || opts.live) ? null : { t0: performance.now(), per: Math.max(28, Math.min(240, 2200 / Math.max(1, maxD))), maxD };
+  store.set('inc.done', 1);
+  updateInfo(); updateButtons();
+  if (!opts.noFit) fitTo(fractalBounds());
+  sceneDirty = true;
+  return true;
+}
+function copyAlpha(cp, mode, showD, frac) {
+  if (mode === 'leaf') {
+    if (cp.i) { let a = cp.d === 0 ? 0.13 : 0; if (cp.d === showD) a = Math.max(a, frac); else if (cp.d === showD - 1) a = Math.max(a, 1 - frac); return a; }
+    return cp.d > showD ? 0 : cp.d === showD ? frac : 1;
+  }
+  if (cp.d > showD) return 0;
+  let a = cp.d === 0 ? 1 : Math.max(0.3, 0.94 * Math.pow(0.95, cp.d));
+  if (cp.s > 1.01) a *= Math.max(0.25, 0.75 / cp.s);
+  if (cp.a != null) a *= cp.a;
+  if (cp.d === showD) a *= frac;
+  return a;
+}
+function fractalBounds() {
+  if (!motif) return null;
+  const list = fractal ? fractal.copies : [{ m: I, s: 1, d: 0 }], mode = fractal ? fractal.mode : 'grow';
+  const vis = list.filter(c => c.s <= 1.6 && copyAlpha(c, mode, Infinity, 1) > 0.02);
+  if (!vis.length) vis.push({ m: I, s: 1 });
+  const step = Math.max(1, Math.ceil(vis.length / 2500));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let k = 0; k < vis.length; k += step) {
+    const c = vis[k];
+    for (const [px, py] of [[motif.x0, motif.y0], [motif.x1, motif.y0], [motif.x0, motif.y1], [motif.x1, motif.y1]]) {
+      const [x, y] = apply(c.m, px, py);
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  return isFinite(x0) ? { x0, y0, x1, y1 } : null;
+}
+function __oldBounds() {
+  if (!motif) return null;
+  const list = fractal ? fractal.copies : [{ m: I, s: 1 }];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of list) {
+    if (c.s > 1.25 || c.s < 0.01) continue;
+    for (const [px, py] of [[motif.x0, motif.y0], [motif.x1, motif.y0], [motif.x0, motif.y1], [motif.x1, motif.y1]]) {
+      const [x, y] = apply(c.m, px, py);
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  return isFinite(x0) ? { x0, y0, x1, y1 } : null;
+}
+function viewBox() {
+  let mTop = 70, mBot = 90, mL = 30, mR = 30;
+  const cu = $('cu');
+  if (cu && !cu.hidden) { const r = cu.getBoundingClientRect(); if (r.top > H * 0.3) mBot = H - r.top + 16; else mR = W - r.left + 16; }
+  return { mTop, mBot, mL, mR };
+}
+function fitTo(b, force) {
+  if (!b) return;
+  const { mTop, mBot, mL, mR } = viewBox();
+  const vw = Math.max(80, W - mL - mR), vh = Math.max(80, H - mTop - mBot);
+  const zfit = Math.min(vw / Math.max(1e-9, b.x1 - b.x0), vh / Math.max(1e-9, b.y1 - b.y0));
+  const sx0 = (b.x0 - cam.x) * cam.z + W / 2, sx1 = (b.x1 - cam.x) * cam.z + W / 2;
+  const sy0 = (b.y0 - cam.y) * cam.z + H / 2, sy1 = (b.y1 - cam.y) * cam.z + H / 2;
+  const inside = sx0 >= mL && sx1 <= W - mR && sy0 >= mTop && sy1 <= H - mBot;
+  const tooSmall = zfit > cam.z * 2.2;
+  if (inside && !tooSmall && !force) return;
+  camT.z = Math.max(ZMIN, Math.min(ZMAX, tooSmall ? zfit * 0.82 : Math.min(cam.z, zfit)));
+  camT.x = (b.x0 + b.x1) / 2 + (mR - mL) / 2 / camT.z;
+  camT.y = (b.y0 + b.y1) / 2 - (mTop - mBot) / 2 / camT.z;
+  if (reduceMotion) Object.assign(cam, camT);
+}
+
+/* ============ rendering ============ */
+let sceneDirty = true, overlayDirty = true, anim = null, lastRenderMs = 0, lastDrawn = 0;
+function renderScene(now) {
+  const t0 = performance.now();
+  const Wd = sharp.width, Hd = sharp.height;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.clearRect(0, 0, Wd, Hd);
+  let drawn = 0;
+  if (motif) {
+    // re-rasterise bitmaps if zoom drifted a lot
+    const want = Math.min(2048 / Math.max(motif.w, motif.h), cam.z * DPR);
+    if (Math.abs(Math.log2(want / motif.R0)) > 0.75 && !panning) buildSprites();
+    const C = camMatrix();
+    const list = fractal ? fractal.copies : [{ m: I, s: 1, d: 0 }], fmode = fractal ? fractal.mode : 'grow';
+    let showD = Infinity, frac = 1;
+    if (anim && fractal) {
+      const el = (now - anim.t0) / anim.per;
+      showD = Math.floor(el); frac = el - showD;
+      if (showD > anim.maxD) { anim = null; showD = Infinity; }
+    }
+    sctx.strokeStyle = '#fff'; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
+    const levels = motif.levels, L = levels.length;
+    const bx = [motif.x0, motif.x1, motif.x0, motif.x1], by = [motif.y0, motif.y0, motif.y1, motif.y1];
+    const margin = 4;
+    for (const cp of list) {
+      const a0 = copyAlpha(cp, fmode, showD, frac);
+      if (a0 <= 0.01) continue;
+      const M = mul(C, cp.m);
+      // cull
+      let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+      for (let i = 0; i < 4; i++) {
+        const x = M[0] * bx[i] + M[2] * by[i] + M[4], y = M[1] * bx[i] + M[3] * by[i] + M[5];
+        if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y;
+      }
+      if (mxx < -margin || mny > Hd + margin || mxy < -margin || mnx > Wd + margin) continue;
+      if (mxx - mnx < 0.7 && mxy - mny < 0.7) continue;
+      sctx.globalAlpha = a0;
+      const k = cam.z * DPR * cp.s;
+      if (k > motif.R0 * 1.05 || !L) {
+        sctx.setTransform(M[0], M[1], M[2], M[3], M[4], M[5]);
+        const thin = cp.s > 1 ? Math.pow(cp.s, -0.75) : 1;
+        for (const s of strokes) { sctx.lineWidth = Math.max(s.w * thin, 1.1 / k); sctx.stroke(s.path); }
+      } else {
+        let li = Math.floor(Math.log2(motif.R0 / k));
+        if (li < 0) li = 0; if (li >= L) li = L - 1;
+        const lv = levels[li];
+        const F = mul(M, lv.inv);
+        sctx.setTransform(F[0], F[1], F[2], F[3], F[4], F[5]);
+        sctx.drawImage(lv.c, 0, 0);
+      }
+      drawn++;
+    }
+    sctx.globalAlpha = 1;
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // glow composite
+  g1x.setTransform(1, 0, 0, 1, 0, 0); g1x.clearRect(0, 0, g1.width, g1.height);
+  g1x.imageSmoothingEnabled = true; g1x.drawImage(sharp, 0, 0, g1.width, g1.height);
+  g2x.setTransform(1, 0, 0, 1, 0, 0); g2x.clearRect(0, 0, g2.width, g2.height);
+  g2x.imageSmoothingEnabled = true; g2x.drawImage(g1, 0, 0, g2.width, g2.height);
+  cctx.setTransform(1, 0, 0, 1, 0, 0);
+  cctx.globalCompositeOperation = 'source-over';
+  cctx.fillStyle = '#000'; cctx.fillRect(0, 0, comp.width, comp.height);
+  cctx.globalCompositeOperation = 'lighter';
+  cctx.imageSmoothingEnabled = true;
+  cctx.globalAlpha = 0.85; cctx.drawImage(g2, 0, 0, comp.width, comp.height);
+  cctx.globalAlpha = 0.75; cctx.drawImage(g1, 0, 0, comp.width, comp.height);
+  cctx.globalAlpha = 1; cctx.drawImage(sharp, 0, 0);
+  cctx.globalCompositeOperation = 'source-over';
+  lastRenderMs = performance.now() - t0; lastDrawn = drawn;
+}
+function present() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(comp, 0, 0);
+  if (cur && cur.pts.length) {
+    const C = camMatrix();
+    ctx.setTransform(C[0], C[1], C[2], C[3], C[4], C[5]);
+    ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = cur.w;
+    ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = 10 * DPR;
+    ctx.stroke(buildPath(cur.pts, cur.w));
+    ctx.shadowBlur = 0;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+}
+function loop(now) {
+  // camera easing
+  const dz = Math.abs(Math.log(camT.z / cam.z)), dx = Math.abs(camT.x - cam.x) * cam.z, dy = Math.abs(camT.y - cam.y) * cam.z;
+  if (dz > 1e-4 || dx > 0.05 || dy > 0.05) {
+    const k = 0.22;
+    const lz = Math.log(cam.z) + (Math.log(camT.z) - Math.log(cam.z)) * k;
+    cam.z = Math.exp(lz); cam.x += (camT.x - cam.x) * k; cam.y += (camT.y - cam.y) * k;
+    sceneDirty = true;
+  } else if (dz > 0 || dx > 0 || dy > 0) { cam.x = camT.x; cam.y = camT.y; cam.z = camT.z; sceneDirty = true; }
+  if (anim) sceneDirty = true;
+  if (sceneDirty) { sceneDirty = false; renderScene(now); overlayDirty = true; }
+  if (overlayDirty) { overlayDirty = false; present(); }
+  requestAnimationFrame(loop);
+}
+
+/* ============ input ============ */
+const pointers = new Map();
+let mode = null, drawId = null, panning = false, spaceDown = false, pinch = null, lastPan = null;
+function screenPt(e) { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function beginStroke(e) {
+  const p = screenPt(e), w = s2w(p.x, p.y);
+  cur = { pts: [w.x, w.y], w: brush / cam.z, t0: performance.now(), sm: { x: w.x, y: w.y } };
+  mode = 'draw'; drawId = e.pointerId;
+  document.body.classList.add('drawing');
+  hideHint();
+  overlayDirty = true;
+}
+function extendStroke(e) {
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of (evs.length ? evs : [e])) {
+    const p = screenPt(ev), w = s2w(p.x, p.y);
+    cur.sm.x += (w.x - cur.sm.x) * 0.5; cur.sm.y += (w.y - cur.sm.y) * 0.5;
+    const n = cur.pts.length;
+    if (Math.hypot(cur.sm.x - cur.pts[n - 2], cur.sm.y - cur.pts[n - 1]) * cam.z > 1.6) cur.pts.push(cur.sm.x, cur.sm.y);
+  }
+  overlayDirty = true;
+}
+function commitStroke(e) {
+  if (!cur) return;
+  if (e) { const p = screenPt(e), w = s2w(p.x, p.y); const n = cur.pts.length; if (Math.hypot(w.x - cur.pts[n - 2], w.y - cur.pts[n - 1]) * cam.z > 1) cur.pts.push(w.x, w.y); }
+  const s = finishStroke({ pts: cur.pts, w: cur.w });
+  strokes.push(s); history.push({ t: 'stroke' });
+  cur = null; mode = null; drawId = null;
+  endDrawingUi();
+  computeMotif(); sceneDirty = true; updateButtons(); updateInfo();
+  if (!$('cu').hidden) scheduleLive(true);
+}
+let uiTimer = 0;
+function endDrawingUi() { clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove('drawing'), 500); }
+function startPan(e) { mode = 'pan'; panning = true; lastPan = { x: e.clientX, y: e.clientY }; cv.classList.add('panning'); }
+function startPinch() {
+  const ps = [...pointers.values()];
+  if (ps.length < 2) return;
+  mode = 'pinch'; panning = true;
+  pinch = { cx: (ps[0].x + ps[1].x) / 2, cy: (ps[0].y + ps[1].y) / 2, d: Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) || 1 };
+}
+cv.addEventListener('pointerdown', e => {
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (e.pointerType === 'touch') {
+    if (pointers.size === 1 && !mode) beginStroke(e);
+    else if (pointers.size >= 2) {
+      if (cur) { if (cur.pts.length < 8 || performance.now() - cur.t0 < 220) { cur = null; drawId = null; endDrawingUi(); overlayDirty = true; } else commitStroke(); }
+      startPinch();
+    }
+  } else {
+    if (e.button === 0 && !spaceDown && !mode) beginStroke(e);
+    else if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)) { e.preventDefault(); startPan(e); }
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (mode === 'draw' && e.pointerId === drawId && cur) extendStroke(e);
+  else if (mode === 'pan') { panBy(e.clientX - lastPan.x, e.clientY - lastPan.y); lastPan = { x: e.clientX, y: e.clientY }; }
+  else if (mode === 'pinch' && pointers.size >= 2) {
+    const ps = [...pointers.values()];
+    const cx = (ps[0].x + ps[1].x) / 2, cy = (ps[0].y + ps[1].y) / 2, d = Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) || 1;
+    panBy(cx - pinch.cx, cy - pinch.cy);
+    zoomAt(cx, cy, d / pinch.d, true);
+    pinch = { cx, cy, d };
+  }
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (mode === 'draw' && e.pointerId === drawId) commitStroke(e.type === 'pointercancel' ? null : e);
+  else if (mode === 'pan') { mode = null; panning = false; cv.classList.remove('panning'); sceneDirty = true; }
+  else if (mode === 'pinch') { if (pointers.size < 2) { mode = pointers.size ? 'wait' : null; panning = false; sceneDirty = true; } }
+  else if (mode === 'wait' && pointers.size === 0) mode = null;
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const p = screenPt(e);
+  let dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  if (e.ctrlKey) dy *= 3;
+  if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) { panBy(-e.deltaX, 0); return; }
+  zoomAt(p.x, p.y, Math.exp(-dy * 0.0016));
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'Escape') { if (!$('cat').hidden) { closeCatalog(); e.preventDefault(); return; } if (!$('cu').hidden) { closeCustom(); e.preventDefault(); return; } }
+  if (e.target && e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return;
+  if (!$('cat').hidden) return;
+  if (k === ' ') { if (!spaceDown) { spaceDown = true; cv.classList.add('pan'); } e.preventDefault(); return; }
+  if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'Z')) { e.preventDefault(); undo(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === 'f' || k === 'F') { e.preventDefault(); fractalize(); }
+  else if (k === 'r' || k === 'R') { e.preventDefault(); reroll(); }
+  else if (k === 'z' || k === 'Z') { e.preventDefault(); undo(); }
+  else if (k === 'c' || k === 'C') { e.preventDefault(); clearAll(); }
+  else if (k === 'k' || k === 'K') { e.preventDefault(); openCatalog(); }
+  else if (k === 'm' || k === 'M') { e.preventDefault(); $('cu').hidden ? openCustom() : closeCustom(); }
+  else if (k === '[') setBrush(brush - 1);
+  else if (k === ']') setBrush(brush + 1);
+  else if (k === 'h' || k === 'H' || k === '0') { const b = fractalBounds(); if (b) { const keep = cam.z; cam.z = 1e9; fitTo(b); cam.z = keep; } }
+});
+window.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; cv.classList.remove('pan'); } });
+window.addEventListener('blur', () => { spaceDown = false; cv.classList.remove('pan'); });
+
+/* ============ actions ============ */
+function reroll() {
+  if (!strokes.length) { toast('draw something first'); return; }
+  if (fractal && fractal.custom) { toast('custom designs don\u2019t roll. slide something'); return; }
+  fractalize(fractal ? fractal.cat : null);
+}
+function undo() {
+  const h = history.pop();
+  if (!h) { toast('nothing to undo'); return; }
+  if (h.t === 'stroke') { strokes.pop(); computeMotif(); }
+  else if (h.t === 'fractal') { fractal = h.prev; anim = null; }
+  else if (h.t === 'clear') { strokes = h.strokes; fractal = h.fractal; computeMotif(); }
+  if (!strokes.length) fractal = null;
+  sceneDirty = true; updateInfo(); updateButtons(); showHintIfEmpty();
+  if (!$('cu').hidden && h.t === 'stroke') scheduleLive();
+}
+function clearAll() {
+  if (!strokes.length) return;
+  history.push({ t: 'clear', strokes, fractal });
+  strokes = []; fractal = null; anim = null; motif = null;
+  sceneDirty = true; updateInfo(); updateButtons(); showHintIfEmpty();
+  toast('cleared · Z brings it back');
+}
+function setBrush(v) {
+  brush = Math.max(1, Math.min(16, v | 0));
+  $('size').value = brush;
+  const d = Math.max(2, Math.min(16, brush)); $('dot').style.width = d + 'px'; $('dot').style.height = d + 'px';
+}
+$('size').addEventListener('input', e => setBrush(+e.target.value));
+$('bFr').addEventListener('click', () => fractalize());
+$('bRe').addEventListener('click', reroll);
+$('bUn').addEventListener('click', undo);
+$('bCl').addEventListener('click', clearAll);
+$('bCat').addEventListener('click', openCatalog);
+$('bCu').addEventListener('click', () => $('cu').hidden ? openCustom() : closeCustom());
+for (const b of document.querySelectorAll('.bar button')) b.addEventListener('pointerup', () => b.blur());
+
+/* ============ UI bits ============ */
+function updateInfo() {
+  const el = $('info');
+  if (fractal && strokes.length) el.textContent = fractal.name + ' · ' + fractal.fam + (fractal.custom ? '' : ' · seed ' + fractal.seed) + ' · ' + fractal.copies.length.toLocaleString('en-US') + ' copies';
+  else if (strokes.length) el.textContent = strokes.length + (strokes.length === 1 ? ' stroke' : ' strokes') + ' · not a fractal yet';
+  else el.textContent = '';
+}
+function updateButtons() {
+  $('bRe').disabled = !strokes.length; $('bUn').disabled = !history.length; $('bCl').disabled = !strokes.length; $('bFr').disabled = false;
+}
+let toastT = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1400); }
+function hideHint() { $('hint').classList.add('hide'); }
+function showHintIfEmpty() {
+  if (strokes.length) return;
+  const done = store.get('inc.done', 0);
+  $('hintText').textContent = done ? 'draw something' : 'draw something, then press Fractalize';
+  $('hintSmall').style.display = done ? 'none' : '';
+  try { if (matchMedia('(pointer:coarse)').matches) $('hintSmall').textContent = 'one finger draws · two fingers pan and pinch-zoom'; } catch (e) {}
+  $('hint').classList.remove('hide');
+}
+
+/* ============ catalog thumbnails ============ */
+const SAMPLE_STROKES = (() => {
+  const a = [];
+  for (let i = 0; i <= 10; i++) a.push(-24, 40 - i * 5.5);
+  for (let i = 1; i <= 22; i++) { const t = Math.PI + i / 22 * Math.PI * 1.25; a.push(Math.cos(t) * 24, -15 + Math.sin(t) * 24); }
+  return [finishStroke({ pts: a, w: 7 }), finishStroke({ pts: [16, 34, 30, 24], w: 7 })];
+})();
+const thumbCache = new Map();
+let thumbQueue = [], pumping = false;
+function drawThumb(t, cvs) {
+  const keepS = strokes, keepM = motif, keepC = capOverride, keepSc = capScale;
+  let res = null, sm = null;
+  try {
+    strokes = SAMPLE_STROKES; computeMotif(true); sm = motif; capOverride = 360; capScale = 1;
+    res = t.gen(mulberry(4242 * 2654435761 >>> 0));
+  } catch (e) { res = null; }
+  finally { strokes = keepS; motif = keepM; capOverride = keepC; capScale = keepSc; }
+  const x = cvs.getContext('2d'), Wc = cvs.width, Hc = cvs.height;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.fillStyle = '#000'; x.fillRect(0, 0, Wc, Hc);
+  if (!res || !sm) return;
+  const mode = res.mode || 'grow';
+  const vis = [];
+  for (const c of res.copies) { const a = copyAlpha(c, mode, Infinity, 1); if (a > 0.02 && c.s <= 1.6) vis.push([c, a]); }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [c] of vis) for (const [px, py] of [[sm.x0, sm.y0], [sm.x1, sm.y0], [sm.x0, sm.y1], [sm.x1, sm.y1]]) {
+    const [X, Y] = apply(c.m, px, py); if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+  }
+  if (!isFinite(x0)) return;
+  const pad = Wc * 0.07, k = Math.min((Wc - 2 * pad) / Math.max(1e-6, x1 - x0), (Hc - 2 * pad) / Math.max(1e-6, y1 - y0));
+  const V = [k, 0, 0, k, Wc / 2 - (x0 + x1) / 2 * k, Hc / 2 - (y0 + y1) / 2 * k];
+  x.strokeStyle = '#fff'; x.lineCap = 'round'; x.lineJoin = 'round';
+  vis.sort((p, q) => q[0].d - p[0].d);
+  for (const [c, a] of vis) {
+    const sc = k * c.s; if (sc * 80 < 0.6) continue;
+    const M = mul(V, c.m); x.setTransform(M[0], M[1], M[2], M[3], M[4], M[5]);
+    x.globalAlpha = a; x.lineWidth = Math.max(5, 1.1 / sc);
+    for (const s of SAMPLE_STROKES) x.stroke(s.path);
+  }
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  try { x.globalCompositeOperation = 'lighter'; x.filter = 'blur(3px)'; x.globalAlpha = 0.55; x.drawImage(cvs, 0, 0); } catch (e) {}
+  x.filter = 'none'; x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+}
+function pump() {
+  if ($('cat').hidden) { pumping = false; return; }
+  const t0 = performance.now();
+  while (thumbQueue.length && performance.now() - t0 < 14) { const [t, c] = thumbQueue.shift(); drawThumb(t, c); }
+  if (thumbQueue.length) setTimeout(pump, 0); else pumping = false;
+}
+function thumbFor(t) {
+  const key = t.id + (t.user ? JSON.stringify(t.user.spec) : '');
+  let c = thumbCache.get(key);
+  if (!c) { c = document.createElement('canvas'); c.width = 240; c.height = 180; thumbCache.set(key, c); thumbQueue.push([t, c]); }
+  return c;
+}
+
+/* ============ catalog panel ============ */
+let catFam = 'All';
+function catalogItems() {
+  const yours = customsMem.map(u => ({ id: u.id, name: u.name, fam: 'Yours', desc: 'made by you', gen: () => customRes(u.spec), user: u }));
+  return yours.concat(TYPES);
+}
+function renderChips() {
+  const fams = ['All'].concat(FAMS.filter(f => f !== 'Yours' || customsMem.length));
+  const box = $('chips'); box.innerHTML = '';
+  for (const f of fams) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pbtn sm' + (f === catFam ? ' on' : ''); b.textContent = f;
+    b.setAttribute('aria-pressed', f === catFam ? 'true' : 'false');
+    b.addEventListener('click', () => { catFam = f; renderChips(); renderCatalog(); });
+    box.appendChild(b);
+  }
+}
+function renderCatalog() {
+  const q = $('catQ').value.trim().toLowerCase();
+  const all = catalogItems();
+  const items = all.filter(t => (catFam === 'All' || t.fam === catFam) && (!q || (t.name + ' ' + t.fam + ' ' + t.desc).toLowerCase().includes(q)));
+  $('catCount').textContent = TYPES.length + ' built in' + (customsMem.length ? ' · ' + customsMem.length + ' yours' : '');
+  const grid = $('catGrid'); grid.innerHTML = '';
+  if (catFam === 'All' && !q) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'card surprise';
+    b.innerHTML = '<span>Surprise me<small>any of the ' + TYPES.length + ', at random</small></span>';
+    b.addEventListener('click', () => choose(null));
+    grid.appendChild(b);
+  }
+  for (const t of items) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'card' + (fractal && fractal.cat === t.id ? ' now' : '');
+    b.setAttribute('aria-label', t.name + ', ' + t.fam);
+    b.appendChild(thumbFor(t));
+    const n = document.createElement('span'); n.className = 'cn'; n.textContent = t.name; b.appendChild(n);
+    const f = document.createElement('span'); f.className = 'cf'; f.textContent = t.fam + ' · ' + t.desc; b.appendChild(f);
+    if (t.user) {
+      const ops = document.createElement('span'); ops.className = 'ops';
+      const ed = document.createElement('span'); ed.textContent = 'edit'; ed.setAttribute('role', 'button');
+      const del = document.createElement('span'); del.textContent = 'delete'; del.setAttribute('role', 'button');
+      ed.addEventListener('click', e => { e.stopPropagation(); customSpec = cloneSpec(t.user.spec); $('cuName').value = t.user.name; closeCatalog(); openCustom(); });
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        if (del.dataset.armed) { saveCustoms(customsMem.filter(u => u.id !== t.id)); if (catFam === 'Yours' && !customsMem.length) catFam = 'All'; renderChips(); renderCatalog(); toast('deleted'); }
+        else { del.dataset.armed = '1'; del.textContent = 'sure?'; setTimeout(() => { del.dataset.armed = ''; del.textContent = 'delete'; }, 2500); }
+      });
+      ops.appendChild(ed); ops.appendChild(del); b.appendChild(ops);
+    }
+    b.addEventListener('click', () => choose(t.id));
+    grid.appendChild(b);
+  }
+  if (!items.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'nothing called that. try "spiral" or "tree".'; grid.appendChild(p); }
+  if (!pumping && thumbQueue.length) { pumping = true; setTimeout(pump, 30); }
+}
+function openCatalog() {
+  if (!$('cu').hidden) closeCustom();
+  $('cat').hidden = false; $('catBg').hidden = false;
+  renderChips(); renderCatalog();
+  setTimeout(() => { try { if (!matchMedia('(pointer:coarse)').matches) $('catQ').focus(); } catch (e) {} }, 30);
+}
+function closeCatalog() { $('cat').hidden = true; $('catBg').hidden = true; }
+function choose(id) {
+  closeCatalog();
+  if (!strokes.length) {
+    pendingType = id;
+    const t = id && typeById(id);
+    toast(t ? 'draw something, then Fractalize → ' + t.name : 'draw something first');
+    return;
+  }
+  fractalize(id);
+}
+$('catX').addEventListener('click', closeCatalog);
+$('catBg').addEventListener('click', closeCatalog);
+$('catQ').addEventListener('input', renderCatalog);
+
+/* ============ make-your-own panel ============ */
+const SLIDERS = [
+  ['ang', 'where', 0, 360, 1, v => Math.round(v) + '°'],
+  ['dist', 'how far', 0, 3, 0.01, v => v.toFixed(2)],
+  ['turn', 'turn', -180, 180, 1, v => Math.round(v) + '°'],
+  ['size', 'size', 0.1, 0.9, 0.01, v => Math.round(v * 100) + '%'],
+  ['stretch', 'stretch', 0.4, 1.6, 0.01, v => v.toFixed(2) + '×']
+];
+let liveQueued = false, liveFit = false;
+function scheduleLive(fit) {
+  if (fit) liveFit = true;
+  if (liveQueued) return;
+  liveQueued = true;
+  requestAnimationFrame(() => { liveQueued = false; const f = liveFit; liveFit = false; liveCustom(f); });
+}
+function liveCustom(fit) {
+  if (!strokes.length) { $('cuNote').textContent = 'draw on the canvas. Your design shows up here live.'; return; }
+  fractalize('custom', 1, { live: true, noFit: !fit });
+  $('cuNote').textContent = fractal ? fractal.copies.length.toLocaleString('en-US') + ' copies of your drawing' : '';
+}
+function renderRules() {
+  const box = $('rules'); box.innerHTML = '';
+  customSpec.rules.forEach((ru, idx) => {
+    const d = document.createElement('div'); d.className = 'rule';
+    d.innerHTML = '<div class="rh"><b>copy ' + (idx + 1) + '</b><label class="ck"><input type="checkbox" data-k="flip"' + (ru.flip ? ' checked' : '') + '> mirror</label>' +
+      (customSpec.rules.length > 1 ? '<button type="button" class="pbtn sm" data-del>remove</button>' : '') + '</div>' +
+      SLIDERS.map(([k, l, mn, mx, st, f]) => '<label class="sl"><span>' + l + '</span><input type="range" data-k="' + k + '" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + ru[k] + '" aria-label="copy ' + (idx + 1) + ' ' + l + '"><output>' + f(ru[k]) + '</output></label>').join('');
+    const onIn = e => {
+      const k = e.target.dataset.k; if (!k) return;
+      ru[k] = k === 'flip' ? e.target.checked : +e.target.value;
+      const sl = SLIDERS.find(z => z[0] === k), o = e.target.parentElement.querySelector('output');
+      if (sl && o) o.textContent = sl[5](ru[k]);
+      scheduleLive();
+    };
+    d.addEventListener('input', onIn); d.addEventListener('change', onIn);
+    const del = d.querySelector('[data-del]');
+    if (del) del.addEventListener('click', () => { customSpec.rules.splice(idx, 1); renderRules(); scheduleLive(); });
+    box.appendChild(d);
+  });
+  $('addRule').disabled = customSpec.rules.length >= 6;
+  $('cuSym').value = customSpec.sym; $('cuSymV').textContent = customSpec.sym + (customSpec.sym === 1 ? ' (off)' : '-fold');
+  $('cuDet').value = customSpec.detail || 1; $('cuDetV').textContent = Math.round((customSpec.detail || 1) * 100) + '%';
+  $('stGrow').classList.toggle('on', customSpec.style !== 'leaf'); $('stLeaf').classList.toggle('on', customSpec.style === 'leaf');
+}
+function openCustom() {
+  if (!$('cat').hidden) closeCatalog();
+  $('cu').hidden = false; document.body.classList.add('cu-open');
+  renderRules(); liveCustom(true);
+}
+function closeCustom() { $('cu').hidden = true; document.body.classList.remove('cu-open'); if (fractal) fractal.live = false; }
+(() => {
+  const box = $('presets');
+  for (const name of Object.keys(PRESETS)) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pbtn sm'; b.textContent = name.toLowerCase();
+    b.addEventListener('click', () => { customSpec = cloneSpec(PRESETS[name]); renderRules(); liveCustom(true); });
+    box.appendChild(b);
+  }
+})();
+$('addRule').addEventListener('click', () => {
+  if (customSpec.rules.length >= 6) return;
+  const r = mulberry((Math.random() * 1e9) >>> 0);
+  customSpec.rules.push({ ang: Math.round(rv(r, 0, 360)), dist: 1.6, turn: 0, size: 0.4, stretch: 1, flip: false });
+  renderRules(); scheduleLive(true);
+  const b = $('cu').querySelector('.cubody'); b.scrollTop = b.scrollHeight;
+});
+$('cuRand').addEventListener('click', () => { customSpec = randomSpec(mulberry((Math.random() * 1e9) >>> 0)); renderRules(); liveCustom(true); });
+$('cuSym').addEventListener('input', e => { customSpec.sym = +e.target.value; $('cuSymV').textContent = customSpec.sym + (customSpec.sym === 1 ? ' (off)' : '-fold'); scheduleLive(); });
+$('cuDet').addEventListener('input', e => { customSpec.detail = +e.target.value; $('cuDetV').textContent = Math.round(customSpec.detail * 100) + '%'; scheduleLive(); });
+$('stGrow').addEventListener('click', () => { customSpec.style = 'grow'; renderRules(); scheduleLive(true); });
+$('stLeaf').addEventListener('click', () => { customSpec.style = 'leaf'; renderRules(); scheduleLive(true); });
+$('cuX').addEventListener('click', closeCustom);
+$('cuSave').addEventListener('click', () => {
+  const name = ($('cuName').value.trim() || 'my fractal ' + (customsMem.length + 1)).slice(0, 40);
+  const ex = customsMem.find(u => u.name === name);
+  const list = customsMem.filter(u => u !== ex);
+  list.unshift({ id: ex ? ex.id : 'u:' + Date.now().toString(36), name, spec: cloneSpec(customSpec) });
+  saveCustoms(list);
+  toast((ex ? 'updated ' : 'saved ') + '“' + name + '” · find it in Catalog → Yours');
+});
+
+/* ============ debug / test hook ============ */
+window.__inc = {
+  fractalize: (cat, seed) => fractalize(cat, seed),
+  methods: () => CATS.slice(),
+  types: () => TYPES.map(t => t.id),
+  custom: (spec) => { if (spec) customSpec = cloneSpec(spec); return fractalize('custom', 1, { live: true }); },
+  customs: () => customsMem.slice(),
+  state: () => ({ strokes: strokes.length, fractal: fractal && { name: fractal.name, seed: fractal.seed, copies: fractal.copies.length, cat: fractal.cat, mode: fractal.mode, visible: fractal.copies.filter(c => copyAlpha(c, fractal.mode, Infinity, 1) > 0.02).length }, cam: { ...cam }, renderMs: lastRenderMs, drawn: lastDrawn, animating: !!anim, history: history.length }),
+  render: () => { const t = performance.now(); renderScene(t); present(); return performance.now() - t; },
+  fit: () => { const b = fractalBounds(); if (b) { const keep = cam.z; cam.z = 1e9; fitTo(b); cam.z = keep; } }
+};
+
+window.addEventListener('resize', () => { resize(); if (motif) buildSprites(); });
+resize(); setBrush(3); updateButtons(); updateInfo(); showHintIfEmpty();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

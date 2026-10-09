@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Fame Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: one centred column — masthead, search/jump bar, then an endless ranked list on cream paper */
+  :root {
+    --paper: #f6f1e7;
+    --card: #fffdf8;
+    --ink: #1d1a16;
+    --muted: #7a6f60;
+    --line: #e2d9c8;
+    --gold: #b8862b;
+    --silver: #8d96a0;
+    --bronze: #a8643a;
+    --accent: #2f5d50;
+    --display: "DM Serif Display", Georgia, "Times New Roman", serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden]{display:none!important}
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 400 15px/1.45 var(--body); overflow-x: hidden; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 64px 16px 80px; }
+  header { text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .eyebrow { font: 600 12px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  h1 { font: 400 clamp(40px, 8vw, 72px)/1 var(--display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .lede { max-width: 56ch; color: var(--muted); margin: 0; text-wrap: balance; }
+  .counter { font: 600 13px var(--body); color: var(--accent); font-variant-numeric: tabular-nums; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 14px; }
+  .field { flex: 1 1 240px; position: relative; min-width: 0; }
+  .field input { width: 100%; font: 500 15px var(--body); padding: 12px 14px; border: 1.5px solid var(--ink); border-radius: 10px; background: var(--card); color: var(--ink); }
+  .field input:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .jump { display: flex; gap: 8px; flex: 0 1 280px; min-width: 0; }
+  .jump input { flex: 1; min-width: 0; font: 500 15px var(--body); padding: 12px 14px; border: 1.5px solid var(--ink); border-radius: 10px; background: var(--card); color: var(--ink); font-variant-numeric: tabular-nums; }
+  button { font: 600 14px var(--body); border: 1.5px solid var(--ink); background: var(--ink); color: var(--paper); border-radius: 10px; padding: 11px 16px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--card); border: 1.5px solid var(--ink); border-radius: 10px; z-index: 20; overflow: hidden; }
+  .suggest button { display: block; width: 100%; text-align: left; background: transparent; color: var(--ink); border: 0; border-radius: 0; padding: 9px 14px; font-weight: 500; }
+  .suggest button:hover, .suggest button.on { background: #efe7d6; }
+  .suggest small { color: var(--muted); font-weight: 400; }
+  .status { font-size: 13px; color: var(--muted); min-height: 20px; margin-bottom: 8px; }
+  .status.warn { color: #9b3d22; }
+  .found { background: var(--card); border: 1.5px solid var(--accent); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .found b { font: 400 22px var(--display); }
+  ol.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .row { display: grid; grid-template-columns: 74px 56px 1fr auto; gap: 14px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 10px 10px; cursor: pointer; text-align: left; color: var(--ink); width: 100%; font: inherit; }
+  .row:hover { border-color: var(--ink); }
+  .rank { font: 400 26px/1 var(--display); text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .rank.r1 { color: var(--gold); } .rank.r2 { color: var(--silver); } .rank.r3 { color: var(--bronze); }
+  .pic { width: 56px; height: 56px; border-radius: 50%; background: #e9e0cd center/cover no-repeat; display: grid; place-items: center; font: 400 20px var(--display); color: var(--muted); overflow: hidden; }
+  .pic img { width: 100%; height: 100%; object-fit: cover; }
+  .who { display: block; min-width: 0; }
+  .name { display: block; font: 600 16px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pts { text-align: right; font: 600 14px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pts small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .row.hit { border: 2px solid var(--accent); }
+  .more { display: flex; justify-content: center; padding: 18px; color: var(--muted); font-size: 13px; }
+  .prev { display: flex; justify-content: center; margin-bottom: 10px; }
+  .skeleton .name, .skeleton .meta { background: #ece4d3; color: transparent; border-radius: 6px; }
+  /* detail sheet */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(29, 26, 22, .45); display: grid; place-items: center; padding: 16px; z-index: 50; }
+  .sheet { background: var(--card); border-radius: 16px; max-width: 560px; width: 100%; max-height: 90vh; overflow: auto; padding: 22px; position: relative; border: 1.5px solid var(--ink); }
+  .sheet .close { position: absolute; top: 12px; right: 12px; padding: 6px 11px; }
+  .sheet .big { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; padding-right: 48px; }
+  .sheet .big .pic { width: 96px; height: 96px; flex: none; font-size: 32px; }
+  .sheet h2 { font: 400 30px/1.1 var(--display); margin: 0 0 4px; text-wrap: balance; }
+  .sheet .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; margin: 12px 0; }
+  .sheet .facts dt { color: var(--muted); }
+  .sheet .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .sheet p.extract { margin: 0 0 12px; }
+  .sheet a { color: var(--accent); font-weight: 600; }
+  .note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 30px; max-width: 60ch; margin-inline: auto; }
+  @media (max-width: 520px) {
+    .row { grid-template-columns: 52px 46px 1fr; gap: 10px; }
+    .pic { width: 46px; height: 46px; }
+    .rank { font-size: 20px; }
+    .pts { grid-column: 3; text-align: left; }
+    .pts small { display: inline; margin-left: 4px; }
+  }
+</style>
+</head>
+<body>
+<a class="kf-home" href="index.html" aria-label="Back to Kai.fun">← Kai.fun</a>
+<style>.kf-home{position:fixed;top:12px;left:12px;z-index:9999;font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;background:#fff;border:1.5px solid #111;border-radius:999px;padding:7px 12px;text-decoration:none;box-shadow:2px 2px 0 #111}.kf-home:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #111}</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">The Fame Ladder</div>
+    <h1>The 5,000,000 most famous people</h1>
+    <p class="lede">Every person on Wikidata, ranked by fame points: <b>100 points</b> for every language Wikipedia has written about them, plus <b>1 point</b> per known fact.</p>
+    <div class="counter" id="counter">Counting everyone…</div>
+  </header>
+
+  <div class="bar">
+    <div class="field">
+      <input id="search" type="search" placeholder="Where does someone rank? Type a name…" autocomplete="off" aria-label="Find a person">
+      <div class="suggest" id="suggest" hidden></div>
+    </div>
+    <form class="jump" id="jumpForm">
+      <input id="jumpTo" inputmode="numeric" placeholder="Jump to rank, e.g. 1000000" aria-label="Jump to rank">
+      <button type="submit">Go</button>
+    </form>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="found"></div>
+  <div class="prev" id="prevWrap" hidden><button class="ghost" id="prevBtn">↑ Show ranks above</button></div>
+  <ol class="list" id="list"></ol>
+  <div class="more" id="more">Loading…</div>
+  <p class="note">Data comes live from Wikidata, the free database behind Wikipedia, via the QLever search engine. Fame points measure how widely someone is written about, not how good or important they are. Ties are broken by number of known facts.</p>
+</div>
+
+<div class="sheet-bg" id="sheetBg" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetName">
+    <button class="ghost close" id="sheetClose" aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const PAGE = 50, LIMIT = 5000000;
+  const QLEVER = "https://qlever.cs.uni-freiburg.de/api/wikidata";
+  const WDQS = "https://query.wikidata.org/sparql";
+  const PFX = `PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <http://schema.org/>
+`;
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  let offline = false;          // true once live data is unreachable
+  let topOffset = 0;            // rank-1 of the first row shown
+  let nextOffset = 0;           // rank-1 of the next row to load
+  let loading = false;
+  let highlightQ = null;
+  const cache = new Map();      // Q-id -> person
+
+  // ---------- data access ----------
+  async function sparql(endpoint, query, timeoutMs = 25000) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      const url = endpoint + "?query=" + encodeURIComponent(query) + (endpoint === WDQS ? "&format=json" : "");
+      const r = await fetch(url, { headers: { Accept: "application/sparql-results+json" }, signal: ctl.signal });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      return j.results.bindings;
+    } finally { clearTimeout(t); }
+  }
+  const val = (b, k) => (b[k] ? b[k].value : null);
+  const qid = (uri) => uri.slice(uri.lastIndexOf("/") + 1);
+
+  function pageQuery(offset) {
+    return PFX + `SELECT ?p ?sl ?st ?name ?mul ?desc ?birth ?img ?article WHERE {
+  { SELECT ?p ?sl ?st WHERE { ?p wdt:P31 wd:Q5 . ?p wikibase:sitelinks ?sl . ?p wikibase:statements ?st }
+    ORDER BY DESC(?sl) DESC(?st) ?p LIMIT ${PAGE} OFFSET ${offset} }
+  OPTIONAL { ?p rdfs:label ?name FILTER(LANG(?name) = "en") }
+  OPTIONAL { ?p rdfs:label ?mul FILTER(LANG(?mul) = "mul") }
+  OPTIONAL { ?p schema:description ?desc FILTER(LANG(?desc) = "en") }
+  OPTIONAL { ?p wdt:P569 ?birth }
+  OPTIONAL { ?p wdt:P18 ?img }
+  OPTIONAL { ?article schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> }
+}`;
+  }
+
+  // rows from SPARQL -> ordered, de-duplicated people
+  function toPeople(rows, offset) {
+    const order = [], byQ = new Map();
+    for (const b of rows) {
+      const q = qid(val(b, "p"));
+      let p = byQ.get(q);
+      if (!p) {
+        p = { q, sl: +val(b, "sl"), st: +val(b, "st"), name: null, desc: null, birth: null, img: null, article: null };
+        byQ.set(q, p); order.push(p);
+      }
+      p.name = p.name || val(b, "name") || val(b, "mul");
+      p.desc = p.desc || val(b, "desc");
+      p.birth = p.birth || val(b, "birth");
+      p.img = p.img || val(b, "img");
+      p.article = p.article || val(b, "article");
+    }
+    // the inner query is ordered, but the outer joins may shuffle rows: re-sort the same way
+    order.sort((a, b) => b.sl - a.sl || b.st - a.st || (a.q < b.q ? -1 : 1));
+    order.forEach((p, i) => { p.rank = offset + i + 1; p.name = p.name || p.q; cache.set(p.q, p); });
+    return order;
+  }
+
+  async function fetchPage(offset) {
+    try {
+      return toPeople(await sparql(QLEVER, pageQuery(offset)), offset);
+    } catch (e) {
+      // second chance: the official Wikidata query service (slower; fine near the top of the list)
+      try {
+        const q = pageQuery(offset).replace("?p wikibase:statements ?st }", "?p wikibase:statements ?st FILTER(?sl > 30) }");
+        return toPeople(await sparql(WDQS, q, 30000), offset);
+      } catch (e2) { throw e; }
+    }
+  }
+
+  // ---------- formatting ----------
+  function bornText(b) {
+    if (!b) return "birth date unknown";
+    const m = /^(-?)(\d+)-(\d\d)-(\d\d)/.exec(b);
+    if (!m) { const y = /^(-?)(\d+)$/.exec(b); return y ? `born ${parseInt(y[2], 10)}${y[1] ? " BC" : ""}` : b; }
+    const year = parseInt(m[2], 10);
+    if (m[1] === "-") return `born ${fmt(year)} BC`;
+    if (m[3] === "01" && m[4] === "01") return `born ${year}`;
+    const d = new Date(Date.UTC(2000, +m[3] - 1, +m[4]));
+    return `born ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}, ${year}`;
+  }
+  const points = (p) => p.sl * 100 + p.st;
+  const thumb = (img, w) => img ? img.replace(/^http:/, "https:") + "?width=" + w : null;
+  const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+  function picHTML(p, w) {
+    const t = thumb(p.img, w);
+    return `<span class="pic">${t ? `<img src="${esc(t)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${t ? "" : esc(initials(p.name))}</span>`;
+  }
+
+  function rowHTML(p) {
+    const r = p.rank <= 3 ? ` r${p.rank}` : "";
+    return `<li><button class="row${p.q === highlightQ ? " hit" : ""}" data-q="${esc(p.q)}" id="r-${esc(p.q)}">
+      <span class="rank${r}">${fmt(p.rank)}</span>${picHTML(p, 112)}
+      <span class="who"><span class="name">${esc(p.name)}</span><span class="meta">${esc(bornText(p.birth))} · ${esc(p.desc || "no description yet")}</span></span>
+      <span class="pts">${fmt(points(p))}<small>points</small></span></button></li>`;
+  }
+
+  // ---------- list ----------
+  const list = $("list"), more = $("more"), status = $("status");
+
+  async function loadNext() {
+    if (loading || nextOffset >= LIMIT) return;
+    loading = true;
+    more.textContent = "Loading ranks " + fmt(nextOffset + 1) + "–" + fmt(Math.min(nextOffset + PAGE, LIMIT)) + "…";
+    try {
+      const people = offline ? offlinePage(nextOffset) : await fetchPage(nextOffset);
+      list.insertAdjacentHTML("beforeend", people.map(rowHTML).join(""));
+      nextOffset += PAGE;
+      more.textContent = people.length < PAGE || nextOffset >= LIMIT ? "That's everyone on the ladder." : "Scroll for more";
+      if (!people.length && !offline) more.textContent = "No more people here.";
+    } catch (e) {
+      if (!offline) { goOffline(); loading = false; return loadNext(); }
+      more.textContent = "Couldn't load more.";
+    }
+    loading = false;
+  }
+
+  async function loadPrev() {
+    if (loading || topOffset <= 0) return;
+    loading = true;
+    const from = Math.max(0, topOffset - PAGE);
+    $("prevBtn").disabled = true;
+    try {
+      const people = offline ? offlinePage(from) : await fetchPage(from);
+      const keep = people.filter((p) => p.rank <= topOffset);
+      const h = document.documentElement.scrollHeight;
+      list.insertAdjacentHTML("afterbegin", keep.map(rowHTML).join(""));
+      window.scrollBy(0, document.documentElement.scrollHeight - h);
+      topOffset = from;
+    } catch (e) { status.textContent = "Couldn't load the ranks above."; }
+    $("prevBtn").disabled = false;
+    $("prevWrap").hidden = topOffset <= 0;
+    loading = false;
+  }
+
+  function startAt(rank, hq = null) {
+    rank = Math.max(1, Math.min(LIMIT, Math.floor(rank)));
+    highlightQ = hq;
+    const off = Math.max(0, rank - 1 - (hq ? 2 : 0));
+    topOffset = nextOffset = off;
+    list.innerHTML = "";
+    $("prevWrap").hidden = topOffset <= 0;
+    loadNext().then(() => {
+      const el = hq && document.getElementById("r-" + hq);
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    if (!hq) window.scrollTo({ top: list.offsetTop - 120, behavior: "smooth" });
+  }
+
+  new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) loadNext(); }, { rootMargin: "600px" }).observe(more);
+  $("prevBtn").addEventListener("click", loadPrev);
+  $("jumpForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const n = parseInt($("jumpTo").value.replace(/[^\d]/g, ""), 10);
+    if (n > 0) { $("found").innerHTML = ""; startAt(n); }
+  });
+
+  list.addEventListener("click", (e) => {
+    const b = e.target.closest(".row");
+    if (b) openSheet(b.dataset.q);
+  });
+
+  // ---------- total count ----------
+  async function loadCount() {
+    try {
+      const rows = await sparql(QLEVER, PFX + "SELECT (COUNT(?p) AS ?c) WHERE { ?p wdt:P31 wd:Q5 }", 20000);
+      const c = +rows[0].c.value;
+      $("counter").textContent = `${fmt(c)} people on Wikidata · showing the top ${fmt(Math.min(c, LIMIT))}`;
+    } catch (e) {
+      $("counter").textContent = offline ? "Offline sample" : "About 12 million people on Wikidata · showing the top 5,000,000";
+    }
+  }
+
+  // ---------- detail sheet ----------
+  async function openSheet(q) {
+    const p = cache.get(q);
+    if (!p) return;
+    const body = $("sheetBody");
+    body.innerHTML = `<div class="big">${picHTML(p, 240)}<div><h2 id="sheetName">${esc(p.name)}</h2><div class="meta">${esc(p.desc || "")}</div></div></div>
+      <dl class="facts"><dt>Rank</dt><dd>#${fmt(p.rank)}</dd><dt>Born</dt><dd>${esc(bornText(p.birth).replace(/^born /, ""))}</dd>
+      <dt>Fame points</dt><dd>${fmt(points(p))} = ${p.sl} languages × 100 + ${fmt(p.st)} facts</dd></dl>
+      <p class="extract" id="extract">${p.blurb ? esc(p.blurb) : offline ? "" : "Reading Wikipedia…"}</p>
+      <div id="links"></div>`;
+    $("sheetBg").hidden = false;
+    $("sheetClose").focus();
+    const links = [];
+    if (p.article) links.push(`<a href="${esc(p.article)}" target="_blank" rel="noopener">Read on Wikipedia</a>`);
+    if (!offline) links.push(`<a href="https://www.wikidata.org/wiki/${esc(p.q)}" target="_blank" rel="noopener">Wikidata ${esc(p.q)}</a>`);
+    $("links").innerHTML = links.join(" &nbsp;·&nbsp; ");
+    if (offline || p.blurb) return;
+    try {
+      let title = p.article ? decodeURIComponent(p.article.split("/wiki/")[1]) : null;
+      if (!title) { $("extract").textContent = p.desc ? cap(p.desc) + "." : "No English Wikipedia article yet."; return; }
+      const r = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title));
+      const j = await r.json();
+      p.blurb = j.extract || p.desc;
+      if (document.getElementById("extract")) $("extract").textContent = p.blurb;
+    } catch (e) {
+      if (document.getElementById("extract")) $("extract").textContent = p.desc ? cap(p.desc) + "." : "";
+    }
+  }
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  function closeSheet() { $("sheetBg").hidden = true; }
+  $("sheetClose").addEventListener("click", closeSheet);
+  $("sheetBg").addEventListener("click", (e) => { if (e.target === $("sheetBg")) closeSheet(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); $("suggest").hidden = true; } });
+
+  // ---------- "where does X rank?" ----------
+  const search = $("search"), suggest = $("suggest");
+  let sTimer = null, sItems = [], sIdx = -1;
+  search.addEventListener("input", () => {
+    clearTimeout(sTimer);
+    const q = search.value.trim();
+    if (q.length < 2) { suggest.hidden = true; return; }
+    sTimer = setTimeout(() => runSuggest(q), 250);
+  });
+  search.addEventListener("keydown", (e) => {
+    if (suggest.hidden || !sItems.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sIdx = (sIdx + (e.key === "ArrowDown" ? 1 : -1) + sItems.length) % sItems.length;
+      [...suggest.children].forEach((c, i) => c.classList.toggle("on", i === sIdx));
+    } else if (e.key === "Enter") { e.preventDefault(); pick(sItems[Math.max(0, sIdx)]); }
+  });
+
+  async function runSuggest(q) {
+    if (offline) {
+      sItems = OFFLINE.map((p, i) => ({ id: "off" + i, label: p[0], description: p[2] })).filter((p) => p.label.toLowerCase().includes(q.toLowerCase())).slice(0, 7);
+    } else {
+      try {
+        const r = await fetch("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=en&uselang=en&type=item&limit=7&origin=*&search=" + encodeURIComponent(q));
+        sItems = (await r.json()).search || [];
+      } catch (e) { sItems = []; }
+    }
+    sIdx = -1;
+    suggest.innerHTML = sItems.length
+      ? sItems.map((s) => `<button type="button" data-id="${esc(s.id)}">${esc(s.label)} <small>${esc(s.description || "")}</small></button>`).join("")
+      : `<button type="button" disabled>No matches</button>`;
+    suggest.hidden = false;
+  }
+  suggest.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-id]");
+    if (b) pick(sItems.find((s) => s.id === b.dataset.id));
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".field")) suggest.hidden = true; });
+
+  async function pick(s) {
+    if (!s) return;
+    suggest.hidden = true;
+    search.value = s.label;
+    const found = $("found");
+    if (offline) {
+      const i = OFFLINE.findIndex((p) => p[0] === s.label);
+      if (i >= 0) { found.innerHTML = `<div class="found"><span><b>${esc(s.label)}</b> is #${i + 1} in the offline sample</span></div>`; startAt(i + 1, offlinePerson(i).q); }
+      return;
+    }
+    found.innerHTML = `<div class="found">Finding ${esc(s.label)}'s rank…</div>`;
+    try {
+      const me = await sparql(QLEVER, PFX + `SELECT ?sl ?st ?human WHERE { wd:${s.id} wikibase:sitelinks ?sl . wd:${s.id} wikibase:statements ?st . BIND(EXISTS { wd:${s.id} wdt:P31 wd:Q5 } AS ?human) }`);
+      if (!me.length) throw new Error("not found");
+      const sl = +me[0].sl.value, st = +me[0].st.value;
+      if (me[0].human.value !== "true" && me[0].human.value !== "1") {
+        found.innerHTML = `<div class="found">${esc(s.label)} isn't a person on Wikidata (${esc(s.description || "something else")}), so they aren't on the ladder.</div>`;
+        return;
+      }
+      const c = await sparql(QLEVER, PFX + `SELECT (COUNT(?p) AS ?c) WHERE { ?p wdt:P31 wd:Q5 . ?p wikibase:sitelinks ?s . ?p wikibase:statements ?t . FILTER(?s > ${sl} || (?s = ${sl} && ?t > ${st})) }`, 40000);
+      const rank = +c[0].c.value + 1;
+      const inRange = rank <= LIMIT;
+      found.innerHTML = `<div class="found"><span><b>${esc(s.label)}</b> is #${fmt(rank)} with ${fmt(sl * 100 + st)} points${inRange ? "" : " — just off the 5,000,000 ladder"}.</span>${inRange ? `<button class="ghost" id="goFound">Show on the ladder</button>` : ""}</div>`;
+      if (inRange) $("goFound").addEventListener("click", () => startAt(rank, s.id));
+    } catch (e) {
+      found.innerHTML = `<div class="found">Couldn't work out ${esc(s.label)}'s rank right now. Try again in a moment.</div>`;
+    }
+  }
+
+  // ---------- offline sample (used only when Wikidata can't be reached) ----------
+  // name, birth year, known for, approx. languages
+  const OFFLINE = [
+    ["Jesus", "-0004", "central figure of Christianity", 300], ["Barack Obama", "1961-08-04", "44th president of the United States", 290],
+    ["Muhammad", "0570-01-01", "founder of Islam", 290], ["Albert Einstein", "1879-03-14", "physicist who developed the theory of relativity", 280],
+    ["Isaac Newton", "1643-01-04", "mathematician and physicist", 260], ["Aristotle", "-0384", "Ancient Greek philosopher", 260],
+    ["Leonardo da Vinci", "1452-04-15", "Italian Renaissance artist and engineer", 260], ["William Shakespeare", "1564-04-26", "English playwright and poet", 255],
+    ["Elizabeth II", "1926-04-21", "Queen of the United Kingdom", 250], ["Adolf Hitler", "1889-04-20", "dictator of Nazi Germany", 245],
+    ["Napoleon", "1769-08-15", "Emperor of the French", 245], ["Karl Marx", "1818-05-05", "philosopher and economist", 240],
+    ["Wolfgang Amadeus Mozart", "1756-01-27", "classical composer", 240], ["Charles Darwin", "1809-02-12", "naturalist, theory of evolution", 235],
+    ["Michael Jackson", "1958-08-29", "singer, the King of Pop", 235], ["Gautama Buddha", "-0563", "founder of Buddhism", 235],
+    ["Galileo Galilei", "1564-02-15", "astronomer and physicist", 235], ["Plato", "-0428", "Ancient Greek philosopher", 230],
+    ["Mahatma Gandhi", "1869-10-02", "leader of Indian independence", 230], ["Julius Caesar", "-0100", "Roman general and statesman", 230],
+    ["Christopher Columbus", "1451-10-31", "Genoese navigator", 225], ["Joseph Stalin", "1878-12-18", "leader of the Soviet Union", 225],
+    ["Ludwig van Beethoven", "1770-12-17", "composer and pianist", 225], ["Abraham Lincoln", "1809-02-12", "16th president of the United States", 220],
+    ["Marie Curie", "1867-11-07", "physicist and chemist, two Nobel Prizes", 220], ["Vincent van Gogh", "1853-03-30", "Dutch painter", 215],
+    ["Pablo Picasso", "1881-10-25", "Spanish painter and sculptor", 215], ["Donald Trump", "1946-06-14", "45th and 47th president of the United States", 215],
+    ["Vladimir Lenin", "1870-04-22", "Russian revolutionary", 215], ["Cristiano Ronaldo", "1985-02-05", "Portuguese footballer", 210],
+    ["Lionel Messi", "1987-06-24", "Argentine footballer", 210], ["Nelson Mandela", "1918-07-18", "president of South Africa", 210],
+    ["Martin Luther King Jr.", "1929-01-15", "civil rights leader", 205], ["Alexander the Great", "-0356", "king of Macedon", 205],
+    ["Johann Sebastian Bach", "1685-03-31", "Baroque composer", 205], ["Socrates", "-0470", "Ancient Greek philosopher", 205],
+    ["Confucius", "-0551", "Chinese philosopher", 205], ["Pope Francis", "1936-12-17", "Pope of the Catholic Church", 200],
+    ["George Washington", "1732-02-22", "1st president of the United States", 200], ["Nikola Tesla", "1856-07-10", "inventor and engineer", 200],
+    ["Queen Victoria", "1819-05-24", "Queen of the United Kingdom", 200], ["Elvis Presley", "1935-01-08", "singer, the King of Rock and Roll", 195],
+    ["Martin Luther", "1483-11-10", "leader of the Protestant Reformation", 195], ["Dante Alighieri", "1265-05-21", "Italian poet", 195],
+    ["Genghis Khan", "1162-05-31", "founder of the Mongol Empire", 195], ["Pythagoras", "-0570", "Ancient Greek mathematician", 190],
+    ["Thomas Edison", "1847-02-11", "inventor", 190], ["Stephen Hawking", "1942-01-08", "theoretical physicist", 190],
+    ["Marilyn Monroe", "1926-06-01", "actress", 185], ["Freddie Mercury", "1946-09-05", "singer of Queen", 180],
+    ["Taylor Swift", "1989-12-13", "singer-songwriter", 175], ["Elon Musk", "1971-06-28", "businessman, Tesla and SpaceX", 175],
+    ["Steve Jobs", "1955-02-24", "co-founder of Apple", 175], ["Frida Kahlo", "1907-07-06", "Mexican painter", 170],
+    ["Bill Gates", "1955-10-28", "co-founder of Microsoft", 170], ["Pelé", "1940-10-23", "Brazilian footballer", 170],
+    ["Michael Jordan", "1963-02-17", "basketball player", 160], ["Ada Lovelace", "1815-12-10", "mathematician, first programmer", 150],
+    ["Usain Bolt", "1986-08-21", "sprinter", 150], ["Beyoncé", "1981-09-04", "singer", 150],
+  ];
+  function offlinePerson(i) {
+    const [name, birth, desc, sl] = OFFLINE[i];
+    const p = { q: "off" + i, name, birth: birth.length === 5 ? birth + "-01-01" : birth, desc, sl, st: 300 - i * 3, img: null, article: "https://en.wikipedia.org/wiki/" + encodeURIComponent(name.replace(/ /g, "_")), rank: i + 1 };
+    cache.set(p.q, p);
+    return p;
+  }
+  function offlinePage(offset) {
+    const out = [];
+    for (let i = offset; i < Math.min(offset + PAGE, OFFLINE.length); i++) out.push(offlinePerson(i));
+    return out;
+  }
+  function goOffline() {
+    offline = true;
+    status.className = "status warn";
+    status.textContent = "Can't reach Wikidata from here, so this is a small built-in sample with approximate points. On kaifun.fun the full live list of 5,000,000 loads.";
+    $("counter").textContent = "Offline sample";
+    list.innerHTML = "";
+    topOffset = nextOffset = 0;
+    $("prevWrap").hidden = true;
+  }
+
+  loadNext();
+  loadCount();
+})();
+</script>
+</body>
+</html>

@@ -1,1021 +1,1222 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOKS terminal</title>
-    <style>
-        :root {
-            --bg: #0b0f0c;
-            --panel: #101712;
-            --edge: #1f3527;
-            --green: #38e07a;
-            --dim: #5a7263;
-            --red: #ff5d5d;
-            --amber: #ffd166;
-            --text: #c8e6d0;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: "Courier New",monospace;
-            min-height: 100vh;
-            padding: 14px 12px 60px;
-        }
-
-        .wrap {
-            max-width: 940px;
-            margin: 0 auto;
-        }
-
-        a.back {
-            color: var(--dim);
-            text-decoration: none;
-            font-size: 13px;
-        }
-
-            a.back:hover {
-                color: var(--green);
-            }
-
-        header {
-            text-align: center;
-            margin: 10px 0 6px;
-        }
-
-        .logo {
-            font-size: clamp(34px,7vw,56px);
-            font-weight: bold;
-            letter-spacing: 12px;
-            color: var(--green);
-            text-shadow: 0 0 12px rgba(56,224,122,.45);
-        }
-
-            .logo .blink {
-                animation: blink 1s steps(1) infinite;
-            }
-
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
-
-        .tagline {
-            color: var(--dim);
-            font-size: 12px;
-            margin-top: 2px;
-        }
-
-        /* ticker tape */
-        .tape {
-            overflow: hidden;
-            border-top: 1px solid var(--edge);
-            border-bottom: 1px solid var(--edge);
-            margin: 12px 0;
-            white-space: nowrap;
-            font-size: 13px;
-            padding: 5px 0;
-        }
-
-        .tape-inner {
-            display: inline-block;
-            animation: scroll 30s linear infinite;
-        }
-
-        @keyframes scroll {
-            from {
-                transform: translateX(0);
-            }
-
-            to {
-                transform: translateX(-50%);
-            }
-        }
-
-        .tape .up {
-            color: var(--green);
-        }
-
-        .tape .down {
-            color: var(--red);
-        }
-
-        .hud {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 14px;
-            justify-content: center;
-            font-size: 14px;
-            margin-bottom: 12px;
-        }
-
-            .hud span b {
-                color: var(--amber);
-            }
-
-            .hud .pk {
-                color: var(--dim);
-                font-size: 12px;
-            }
-
-        .tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            justify-content: center;
-            margin-bottom: 12px;
-        }
-
-        .tab {
-            background: var(--panel);
-            border: 1px solid var(--edge);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 13px;
-            padding: 7px 12px;
-            cursor: pointer;
-        }
-
-            .tab.active {
-                border-color: var(--green);
-                color: var(--green);
-                box-shadow: 0 0 8px rgba(56,224,122,.25);
-            }
-
-            .tab.locked {
-                color: var(--dim);
-                cursor: not-allowed;
-            }
-
-            .tab:hover:not(.locked) {
-                border-color: var(--green);
-            }
-
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--edge);
-            padding: 14px;
-            display: none;
-        }
-
-            .panel.show {
-                display: block;
-            }
-
-        .ptitle {
-            color: var(--green);
-            font-size: 13px;
-            letter-spacing: 2px;
-            border-bottom: 1px solid var(--edge);
-            padding-bottom: 6px;
-            margin-bottom: 10px;
-        }
-
-        .hint {
-            color: var(--dim);
-            font-size: 12px;
-            margin-bottom: 10px;
-        }
-
-        /* market */
-        .stockRow {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            padding: 8px 2px;
-            border-bottom: 1px dashed var(--edge);
-            font-size: 13px;
-        }
-
-            .stockRow:last-child {
-                border-bottom: none;
-            }
-
-        .tick {
-            color: var(--amber);
-            font-weight: bold;
-            min-width: 64px;
-        }
-
-        .sname {
-            flex: 1;
-            min-width: 120px;
-            color: var(--dim);
-            font-size: 12px;
-        }
-
-        .price {
-            min-width: 86px;
-            text-align: right;
-        }
-
-        .chg {
-            min-width: 60px;
-            text-align: right;
-            font-size: 12px;
-        }
-
-            .chg.up {
-                color: var(--green);
-            }
-
-            .chg.down {
-                color: var(--red);
-            }
-
-        canvas.spark {
-            width: 86px;
-            height: 24px;
-            border: 1px solid var(--edge);
-            background: #0d130e;
-        }
-
-        .own {
-            font-size: 11px;
-            color: var(--dim);
-            min-width: 62px;
-            text-align: right;
-        }
-
-        button.b {
-            background: #0d130e;
-            border: 1px solid var(--edge);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 12px;
-            padding: 4px 9px;
-            cursor: pointer;
-        }
-
-            button.b:hover {
-                border-color: var(--green);
-                color: var(--green);
-            }
-
-            button.b:disabled {
-                opacity: .4;
-                cursor: default;
-            }
-
-        .game {
-            border: 1px dashed var(--edge);
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-
-            .game h3 {
-                font-size: 14px;
-                color: var(--amber);
-                margin-bottom: 6px;
-            }
-
-            .game input {
-                width: 90px;
-                background: #0d130e;
-                border: 1px solid var(--edge);
-                color: var(--text);
-                font-family: inherit;
-                font-size: 13px;
-                padding: 5px;
-                margin-right: 6px;
-            }
-
-        #slotsReels {
-            font-size: 34px;
-            letter-spacing: 8px;
-            margin: 8px 0;
-            min-height: 44px;
-        }
-
-        .result {
-            font-size: 13px;
-            min-height: 18px;
-            margin-top: 5px;
-        }
-
-            .result.win {
-                color: var(--green);
-            }
-
-            .result.lose {
-                color: var(--red);
-            }
-
-        .item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 2px;
-            border-bottom: 1px dashed var(--edge);
-            font-size: 13px;
-        }
-
-            .item:last-child {
-                border-bottom: none;
-            }
-
-            .item .nm {
-                flex: 1;
-            }
-
-                .item .nm small {
-                    display: block;
-                    color: var(--dim);
-                    font-size: 11px;
-                }
-
-            .item .pr {
-                color: var(--amber);
-                min-width: 80px;
-                text-align: right;
-            }
-
-        .owned-tag {
-            color: var(--green);
-            font-size: 12px;
-        }
-
-        .planetGrid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .planet {
-            background: #0d130e;
-            border: 1px solid var(--edge);
-            color: var(--text);
-            font-family: inherit;
-            padding: 10px;
-            width: 150px;
-            text-align: center;
-            cursor: pointer;
-        }
-
-            .planet:hover {
-                border-color: var(--green);
-            }
-
-            .planet.here {
-                border-color: var(--green);
-                box-shadow: 0 0 8px rgba(56,224,122,.25);
-            }
-
-            .planet .pe {
-                font-size: 28px;
-            }
-
-            .planet .pn {
-                color: var(--amber);
-                margin-top: 4px;
-                font-size: 13px;
-            }
-
-            .planet .pd {
-                font-size: 10px;
-                color: var(--dim);
-                margin-top: 2px;
-            }
-
-        #log {
-            margin-top: 12px;
-            font-size: 11px;
-            color: var(--dim);
-            max-height: 84px;
-            overflow-y: auto;
-            border-top: 1px solid var(--edge);
-            padding-top: 6px;
-        }
-
-        .foot {
-            margin-top: 14px;
-            font-size: 11px;
-            color: var(--dim);
-            text-align: center;
-        }
-
-        .danger {
-            border-color: var(--red) !important;
-            color: var(--red) !important;
-        }
-
-        /* lose screen */
-        #loseScreen {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(5,8,6,.96);
-            z-index: 50;
-            text-align: center;
-            padding-top: 12vh;
-        }
-
-            #loseScreen.show {
-                display: block;
-            }
-
-            #loseScreen .big {
-                color: var(--red);
-                font-size: clamp(38px,9vw,72px);
-                letter-spacing: 8px;
-                text-shadow: 0 0 18px rgba(255,93,93,.5);
-                margin-bottom: 8px;
-            }
-
-            #loseScreen pre {
-                color: var(--dim);
-                font-size: 14px;
-                line-height: 1.2;
-                margin: 14px 0;
-            }
-
-            #loseScreen .stats {
-                color: var(--text);
-                font-size: 14px;
-                line-height: 1.8;
-            }
-
-            #loseScreen button {
-                margin-top: 22px;
-                background: none;
-                border: 1px solid var(--red);
-                color: var(--red);
-                font-family: inherit;
-                font-size: 16px;
-                padding: 12px 26px;
-                cursor: pointer;
-            }
-
-                #loseScreen button:hover {
-                    background: rgba(255,93,93,.1);
-                }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Soks</title>
+<meta name="description" content="A surprisingly accurate stock market where every company makes socks. Trade, short, borrow from First National Laundromat, and try not to lose your shirt.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 fill=%22%23000%22/%3E%3Cpath d=%22M5 1h5v8l4 3-2 3-6-3z%22 fill=%22%23ff9e1b%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+:root{
+  --bg:#000;--panel:#07080b;--line:#2a2a2a;--line2:#3b3b3b;
+  --amber:#ff9e1b;--amber-d:#b86e0c;--amber-l:#ffc46b;
+  --white:#e9e9e9;--dim:#8a8a8a;--dim2:#5d5d5d;
+  --up:#30d26b;--down:#ff4b4b;--blue:#1d3c9b;--blue-l:#4f7bff;--key:#f5c400;--keyd:#9a7b00;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--amber);font:13px/1.35 var(--mono);overflow-x:hidden;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit}
+.up{color:var(--up)}.down{color:var(--down)}.dim{color:var(--dim)}.wh{color:var(--white)}
+.num{font-variant-numeric:tabular-nums}
+
+/* top status */
+.top{display:flex;align-items:center;gap:14px;padding:8px 12px 8px 120px;min-height:52px;border-bottom:1px solid var(--line2);background:linear-gradient(#0c0d12,#000);flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:.14em;color:#000;background:var(--amber);padding:2px 8px;font-size:15px}
+.logo small{font-weight:500;letter-spacing:.04em;font-size:10px;margin-left:6px}
+.clock{color:var(--white);font-size:14px;white-space:nowrap}
+.mkt{font-weight:700;padding:1px 7px;border:1px solid currentColor;white-space:nowrap}
+.mkt.open{color:var(--up)}.mkt.closed{color:var(--down)}.mkt.halt{color:var(--key)}
+.dayprog{width:110px;height:6px;background:#1a1a1a;border:1px solid var(--line2);position:relative}
+.dayprog i{position:absolute;left:0;top:0;bottom:0;background:var(--amber)}
+.keys{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+.key{appearance:none;background:linear-gradient(#ffd83a,var(--key));color:#000;border:0;border-bottom:3px solid var(--keyd);border-radius:3px;padding:3px 9px 2px;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:.04em;white-space:nowrap}
+.key:active{transform:translateY(2px);border-bottom-width:1px}
+.key.on{background:linear-gradient(#fff,#ffe9a0);box-shadow:0 0 0 2px var(--amber) inset}
+.key.red{background:linear-gradient(#ff6a5a,#d8281a);border-bottom-color:#7d1007;color:#fff}
+.key.green{background:linear-gradient(#55e98a,#1fae4d);border-bottom-color:#0c6a2b}
+.key.gray{background:linear-gradient(#cfcfcf,#9c9c9c);border-bottom-color:#555}
+.key:disabled{opacity:.4;cursor:default}
+
+/* ticker */
+.tape{position:relative;height:26px;overflow:hidden;border-bottom:1px solid var(--line2);background:#0a0500;white-space:nowrap}
+.tape .lbl{position:absolute;left:0;top:0;bottom:0;z-index:2;background:var(--amber);color:#000;font-weight:700;padding:4px 8px;letter-spacing:.08em}
+.tape .track{position:absolute;left:0;top:0;height:100%;display:flex;align-items:center;will-change:transform}
+.tape .item{padding:0 26px 0 0;color:var(--amber-l)}
+.tape .item b{color:var(--white);font-weight:600;margin-right:6px}
+.tape .item .tg{color:#000;background:var(--amber);padding:0 4px;margin-right:6px;font-weight:700;font-size:11px}
+
+/* layout */
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr) 340px;gap:6px;padding:6px;align-items:start}
+.col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);min-width:0}
+.ph{display:flex;align-items:center;gap:8px;padding:3px 8px;background:#14161f;border-bottom:1px solid var(--line);color:var(--white);font-weight:600;letter-spacing:.06em;font-size:12px;text-transform:uppercase}
+.ph .n{color:#000;background:var(--amber);padding:0 4px;font-size:11px}
+.ph .r{margin-left:auto;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0}
+.pb{padding:8px}
+
+/* summary */
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 10px}
+.sum .k{color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.sum .v{color:var(--white);font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum .big{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sum .big .v{font-size:26px;color:var(--amber)}
+.mcall{display:none;margin-top:8px;border:1px solid var(--down);color:#fff;background:repeating-linear-gradient(45deg,#3a0000 0 10px,#1c0000 10px 20px);padding:6px 8px;font-weight:600}
+.mcall.on{display:block;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{border-color:#ff9e9e}}
+
+/* watchlist */
+table{width:100%;border-collapse:collapse}
+.wl td,.wl th{padding:3px 6px;white-space:nowrap;text-align:right}
+.wl th{color:var(--dim);font-weight:500;font-size:11px;border-bottom:1px solid var(--line)}
+.wl td:first-child,.wl th:first-child{text-align:left}
+.wl tr.row{cursor:pointer}
+.wl tr.row:hover td{background:#10131c}
+.wl tr.sel td{background:#1d2a55!important;color:#fff}
+.wl tr.idx td{border-top:1px dashed var(--line2);cursor:pointer}
+.wl .tk{color:var(--amber);font-weight:700}
+.wl tr.sel .tk{color:#fff}
+.wl canvas{display:block;width:56px;height:16px}
+.wl .miss{color:var(--key);font-weight:700}
+.flash-up td.p{animation:fu .6s}.flash-dn td.p{animation:fd .6s}
+@keyframes fu{from{background:rgba(48,210,107,.35)}}@keyframes fd{from{background:rgba(255,75,75,.35)}}
+
+/* chart panel */
+.qhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:8px 8px 4px}
+.qhead .tkr{font-size:22px;font-weight:700;color:#000;background:var(--amber);padding:0 6px}
+.qhead .nm{color:var(--white);font-size:14px}
+.qhead .px{font-size:24px;font-weight:700;color:var(--white)}
+.qhead .ch{font-size:15px;font-weight:600}
+.qstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 12px;padding:2px 8px 6px;font-size:12px}
+.qstats div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dotted #222;white-space:nowrap;overflow:hidden}
+.qstats span:first-child{color:var(--dim)}
+.qstats span:last-child{color:var(--white);overflow:hidden;text-overflow:ellipsis}
+.blurb{padding:0 8px 6px;color:var(--amber-l);font-style:italic;font-size:12px}
+.ctl{display:flex;gap:4px;padding:4px 8px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;border:1px solid var(--line2)}
+.seg button{background:#000;color:var(--amber);border:0;border-right:1px solid var(--line2);padding:2px 9px;cursor:pointer;font-weight:600}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--amber);color:#000}
+.chartwrap{position:relative;height:330px;margin:0 8px 8px;border:1px solid var(--line)}
+.chartwrap canvas{display:block;width:100%;height:100%;touch-action:pan-y;cursor:crosshair}
+.halted{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.78);color:var(--key);text-align:center;font-weight:700;font-size:16px;gap:6px;padding:10px}
+.halted.on{display:flex}
+.halted small{color:var(--dim);font-weight:400;font-size:12px}
+
+/* order ticket */
+.ticket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:8px}
+.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.side button{border:1px solid var(--line2);background:#000;color:var(--white);padding:5px 0;font-weight:700;cursor:pointer;letter-spacing:.06em}
+.side button.on.b{background:var(--up);color:#000;border-color:var(--up)}
+.side button.on.s{background:var(--down);color:#000;border-color:var(--down)}
+.side button.on.sh{background:#c04dff;color:#000;border-color:#c04dff}
+.side button.on.c{background:var(--blue-l);color:#000;border-color:var(--blue-l)}
+.fld{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fld label{color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.fld input{width:100%;background:#000;color:var(--white);border:1px solid var(--line2);padding:5px 6px;min-width:0;border-radius:0}
+.fld input:focus{outline:1px solid var(--amber);border-color:var(--amber)}
+.fld .row{display:flex;gap:3px}
+.est{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--dim);font-size:12px}
+.est b{color:var(--white);font-weight:600}
+.go{grid-column:1/-1;display:flex;gap:6px;align-items:center}
+.go .key{font-size:14px;padding:6px 14px 5px}
+.msg{flex:1;font-size:12px;min-height:1.3em}
+.msg.err{color:var(--down)}.msg.ok{color:var(--up)}
+
+/* positions */
+.pos td,.pos th{padding:3px 5px;text-align:right;white-space:nowrap}
+.pos th{color:var(--dim);font-weight:500;font-size:11px;border-bottom:1px solid var(--line)}
+.pos td:first-child,.pos th:first-child{text-align:left}
+.pos .tk{font-weight:700;cursor:pointer}
+.xbtn{background:none;border:1px solid var(--line2);color:var(--dim);cursor:pointer;padding:0 5px;font-size:11px}
+.xbtn:hover{color:#fff;border-color:var(--amber)}
+.empty{color:var(--dim2);padding:8px;text-align:center;font-style:italic}
+.orders{border-top:1px solid var(--line);padding:6px 8px;font-size:12px}
+.orders .o{display:flex;justify-content:space-between;gap:6px;padding:2px 0}
+
+/* bank */
+.bank .brand{font-weight:700;color:#7fd3ff;letter-spacing:.04em}
+.bank .slogan{color:var(--dim);font-size:11px;font-style:italic;margin-bottom:6px}
+.score{display:flex;align-items:center;gap:8px;margin:6px 0}
+.score .bar{flex:1;height:10px;background:linear-gradient(90deg,#b31b1b,#e07b1a 35%,#e8d31d 55%,#5fcf4a 75%,#1aa34a);position:relative;border:1px solid var(--line2)}
+.score .bar i{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;box-shadow:0 0 0 1px #000}
+.score b{color:var(--white);font-size:18px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:1px 10px;font-size:12px}
+.kv span:nth-child(odd){color:var(--dim)}
+.kv span:nth-child(even){color:var(--white);text-align:right}
+.loanrow{display:flex;gap:5px;margin-top:8px}
+.loanrow input{flex:1;min-width:0;background:#000;color:var(--white);border:1px solid var(--line2);padding:4px 6px}
+
+/* movers / news / ach */
+.movers{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px}
+.movers div{display:flex;justify-content:space-between;cursor:pointer}
+.news{max-height:260px;overflow:auto;font-size:12px}
+.news .n{padding:4px 8px;border-bottom:1px solid #141414}
+.news .t{color:var(--dim);margin-right:6px}
+.news .n.big{color:#fff;background:#1a0d00}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:5px}
+.ach div{border:1px solid var(--line);padding:4px 6px;font-size:11px;color:var(--dim2)}
+.ach div b{display:block;font-size:12px}
+.ach div.got{border-color:var(--amber-d);color:var(--amber-l);background:#120a00}
+.ach div.got b{color:var(--amber)}
+.nwchart{height:120px;border:1px solid var(--line);margin-top:6px}
+.nwchart canvas{width:100%;height:100%;display:block}
+
+/* dialogs */
+.dlg{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:16px}
+.dlg.on{display:flex}
+.dlg .box{max-width:480px;width:100%;background:#05060a;border:1px solid var(--amber);box-shadow:0 0 0 4px #000,0 0 40px rgba(255,158,27,.25)}
+.dlg .box .ph{background:var(--amber);color:#000}
+.dlg .body{padding:14px;color:var(--white);font-size:14px;line-height:1.45}
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;padding:0 14px 14px}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:150;background:#120a00;border:1px solid var(--amber);color:var(--amber-l);padding:8px 14px;max-width:min(560px,92vw);font-weight:600;display:none;box-shadow:0 6px 30px rgba(0,0,0,.6)}
+.toast.on{display:block}
+
+/* bankruptcy */
+.bk{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a0000,#000 70%);padding:16px;overflow:auto}
+.bk.on{display:flex}
+.bk .inner{max-width:620px;width:100%;text-align:center;color:var(--white)}
+.bk h1{color:var(--down);font-size:clamp(26px,6vw,46px);margin:0 0 6px;letter-spacing:.06em}
+.bk pre{color:#bbb;font-size:clamp(9px,2.6vw,13px);line-height:1.15;margin:12px auto;display:inline-block;text-align:left}
+.bk .epi{font-size:17px;color:var(--amber-l);font-style:italic;margin:10px 0 16px}
+.bk .st{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 18px;font-size:12px}
+.bk .st div{border:1px solid var(--line2);padding:6px}
+.bk .st b{display:block;font-size:16px;color:#fff}
+
+/* phone */
+@media (max-width:1100px){
+  .grid{grid-template-columns:minmax(0,1fr) 330px}
+  .colL{grid-column:2;grid-row:1 / span 2}
+  .colC{grid-column:1;grid-row:1 / span 3}
+  .colR{grid-column:2}
+}
+@media (max-width:760px){
+  body{font-size:12.5px}
+  .top{padding:8px 10px 8px 112px;gap:8px}
+  .keys{margin-left:0;width:100%}
+  .dayprog{width:70px}
+  .grid{grid-template-columns:minmax(0,1fr);padding:4px;gap:5px}
+  .col{display:contents}
+  .panel{grid-column:1}
+  .p-acct{order:1}.p-quote{order:2}.p-ticket{order:3}.p-pos{order:4}.p-watch{order:5}.p-bank{order:6}.p-movers{order:7}.p-news{order:8}.p-ach{order:9}
+  .qstats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chartwrap{height:240px}
+  .ticket{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sum .big .v{font-size:22px}
+  .pos td,.pos th{padding:3px 3px;font-size:11.5px}
+  .pos .hideM{display:none}
+  .wl .hideM{display:none}
+}
+@media (prefers-reduced-motion:reduce){.mcall.on{animation:none}.flash-up td.p,.flash-dn td.p{animation:none}}
+</style>
 </head>
 <body>
-    <div class="wrap">
-        <a class="back" href="index.html">&larr; kai.fun</a>
-        <header>
-            <div class="logo">SOKS<span class="blink">_</span></div>
-            <div class="tagline">// the sock economy terminal · v2 · unlock everything · don't go broke</div>
-        </header>
+<a class="kf-home" href="index.html" aria-label="Back to Kai.fun">← Kai.fun</a>
+<style>.kf-home{position:fixed;top:12px;left:12px;z-index:9999;font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;background:#fff;border:1.5px solid #111;border-radius:999px;padding:7px 12px;text-decoration:none;box-shadow:2px 2px 0 #111}.kf-home:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #111}</style>
 
-        <div class="tape"><div class="tape-inner" id="tape"></div></div>
+<header class="top">
+  <span class="logo">SOCKBERG<small>PROFESSIONAL</small></span>
+  <span class="clock num" id="clock">MON 05 JAN 2026 09:30</span>
+  <span class="mkt open" id="mkt">● OPEN</span>
+  <span class="dayprog" title="Trading day progress"><i id="dayprog"></i></span>
+  <div class="keys" role="group" aria-label="Game speed">
+    <button class="key gray" data-speed="0" title="Pause (space)">❚❚ PAUSE</button>
+    <button class="key on" data-speed="1">1×</button>
+    <button class="key" data-speed="2">2×</button>
+    <button class="key" data-speed="5">5×</button>
+    <button class="key red" id="btnReset" title="Start over">RESET</button>
+  </div>
+</header>
+<div class="tape" aria-label="News ticker"><span class="lbl">NEWS</span><div class="track" id="track"></div></div>
 
-        <div class="hud">
-            <span>CASH <b id="cashV">$0</b></span>
-            <span>NET <b id="worthV">$0</b></span>
-            <span id="planetV">🧦 Sock World</span>
-            <span class="pk">peak <span id="peakV">$0</span></span>
+<div class="grid">
+  <div class="col colL">
+    <section class="panel p-acct">
+      <div class="ph"><span class="n">1</span>Account<span class="r" id="fundName">—</span></div>
+      <div class="pb">
+        <div class="sum">
+          <div class="big"><div><div class="k">Net worth</div><div class="v num" id="nw">$10,000.00</div></div><div class="num" id="nwChg">+0.00 (0.00%) today</div></div>
+          <div><div class="k">Cash</div><div class="v num" id="cash">—</div></div>
+          <div><div class="k">Buying pwr</div><div class="v num" id="bp">—</div></div>
+          <div><div class="k">Equity</div><div class="v num" id="eq">—</div></div>
+          <div><div class="k">Long</div><div class="v num" id="lmv">—</div></div>
+          <div><div class="k">Short</div><div class="v num" id="smv">—</div></div>
+          <div><div class="k">Lint</div><div class="v num" id="lint">0 g</div></div>
         </div>
+        <div class="mcall" id="mcall"></div>
+        <div class="nwchart"><canvas id="nwc"></canvas></div>
+      </div>
+    </section>
+    <section class="panel p-watch">
+      <div class="ph"><span class="n">2</span>Watch<span class="r">click to chart</span></div>
+      <table class="wl num" id="wl"><thead><tr><th>TICKER</th><th>LAST</th><th>CHG%</th><th class="hideM">1D</th></tr></thead><tbody></tbody></table>
+    </section>
+  </div>
 
-        <div class="tabs" id="tabs"></div>
-
-        <div class="panel" id="p-work">
-            <div class="ptitle">── WORK ──</div>
-            <div class="hint">honest labor. everything starts with folding.</div>
-            <div style="text-align:center;padding:10px;">
-                <button class="b" style="font-size:36px;padding:14px 22px;" onclick="fold()">🧺</button>
-                <div class="result" id="foldRes">$1 per fold</div>
-            </div>
+  <div class="col colC">
+    <section class="panel p-quote">
+      <div class="ph"><span class="n">3</span>Quote &amp; chart <span class="r" id="secName"></span></div>
+      <div class="qhead"><span class="tkr" id="qT">ARGYL</span><span class="nm" id="qN"></span><span class="px num" id="qP"></span><span class="ch num" id="qC"></span></div>
+      <div class="qstats num" id="qS"></div>
+      <div class="blurb" id="qB"></div>
+      <div class="ctl">
+        <div class="seg" id="rangeSeg"><button data-r="1D" class="on">1D</button><button data-r="1W">1W</button><button data-r="1M">1M</button><button data-r="ALL">ALL</button></div>
+        <div class="seg" id="modeSeg"><button data-m="line" class="on">LINE</button><button data-m="candle">CANDLES</button></div>
+      </div>
+      <div class="chartwrap"><canvas id="chart"></canvas><div class="halted" id="halted"></div></div>
+    </section>
+    <section class="panel p-ticket">
+      <div class="ph"><span class="n">4</span>Order ticket<span class="r">commission-free* <span class="dim">(*we sell your order flow to the Lint Exchange)</span></span></div>
+      <form class="ticket" id="ticket" autocomplete="off">
+        <div class="side" id="sideSeg">
+          <button type="button" data-s="buy" class="b on">BUY</button><button type="button" data-s="sell" class="s">SELL</button><button type="button" data-s="short" class="sh">SHORT</button><button type="button" data-s="cover" class="c">COVER</button>
         </div>
+        <div class="fld"><label for="oQty">Quantity</label><div class="row"><input id="oQty" inputmode="numeric" value="10"><button type="button" class="xbtn" id="oMax">MAX</button></div></div>
+        <div class="fld"><label>Type</label><div class="seg" id="typeSeg"><button type="button" data-t="mkt" class="on">MKT</button><button type="button" data-t="lmt">LMT</button></div></div>
+        <div class="fld"><label for="oLim">Limit price</label><input id="oLim" inputmode="decimal" disabled></div>
+        <div class="fld"><label>Ticker</label><input id="oTk" disabled></div>
+        <div class="est"><span>Est. <b id="oEst">—</b></span><span>You hold <b id="oHold">0</b></span><span id="oFee"></span></div>
+        <div class="go"><button class="key green" type="submit" id="oGo">SUBMIT &lt;GO&gt;</button><span class="msg" id="oMsg"></span></div>
+      </form>
+    </section>
+    <section class="panel p-pos">
+      <div class="ph"><span class="n">5</span>Positions<span class="r" id="realized"></span></div>
+      <table class="pos num" id="pos"><thead><tr><th>TKR</th><th>QTY</th><th class="hideM">AVG</th><th>LAST</th><th class="hideM">MKT VAL</th><th>P/L</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="orders" id="orders"></div>
+    </section>
+  </div>
 
-        <div class="panel" id="p-market">
-            <div class="ptitle">── MARKET ──</div>
-            <div class="hint" id="marketHint">prices tick every 2s.</div>
-            <div id="stockList"></div>
+  <div class="col colR">
+    <section class="panel bank p-bank">
+      <div class="ph"><span class="n">6</span>Credit &amp; loans</div>
+      <div class="pb">
+        <div class="brand">FIRST NATIONAL LAUNDROMAT</div>
+        <div class="slogan">Est. 1952 · “We’ll take you to the cleaners.” · Member FDIC (Fluff, Dry, Iron, Crease)</div>
+        <div class="score"><span class="dim">CREDIT</span><div class="bar"><i id="scoreMark"></i></div><b class="num" id="score">700</b></div>
+        <div class="kv num">
+          <span>Rating</span><span id="rating">Good</span>
+          <span>Loan balance</span><span id="debt">$0.00</span>
+          <span>APR (compounds daily)</span><span id="apr">—</span>
+          <span>Next payment</span><span id="due">—</span>
+          <span>Can borrow up to</span><span id="maxLoan">—</span>
+          <span>Margin rate on negative cash</span><span>14.0% APR</span>
         </div>
+        <div class="loanrow"><input id="loanAmt" inputmode="decimal" placeholder="Amount $" aria-label="Loan amount"><button class="key" id="btnBorrow">BORROW</button><button class="key gray" id="btnRepay">REPAY</button></div>
+        <div class="msg" id="loanMsg" style="margin-top:4px"></div>
+      </div>
+    </section>
+    <section class="panel p-movers">
+      <div class="ph"><span class="n">7</span>Top movers today</div>
+      <div class="pb movers num" id="movers"></div>
+    </section>
+    <section class="panel p-news">
+      <div class="ph"><span class="n">8</span>News wire<span class="r" id="newsCount"></span></div>
+      <div class="news" id="news"></div>
+    </section>
+    <section class="panel p-ach">
+      <div class="ph"><span class="n">9</span>Sock Hedge Fund achievements<span class="r" id="achCount"></span></div>
+      <div class="pb ach" id="ach"></div>
+    </section>
+  </div>
+</div>
 
-        <div class="panel" id="p-casino">
-            <div class="ptitle">── CASINO ──</div>
-            <div class="hint">the house is a washing machine. it usually wins.</div>
-            <div class="game">
-                <h3>COIN FLIP — double or nothing</h3>
-                <input id="flipBet" type="number" min="1" value="10">
-                <button class="b" onclick="coinFlip()">FLIP</button>
-                <div class="result" id="flipRes"></div>
-            </div>
-            <div class="game">
-                <h3>SOCK SLOTS — match 3</h3>
-                <input id="slotBet" type="number" min="1" value="10">
-                <button class="b" onclick="spinSlots()">SPIN</button>
-                <div id="slotsReels">🧦 🧦 🧦</div>
-                <div class="result" id="slotRes"></div>
-            </div>
-            <div class="game">
-                <h3>SCRATCH TICKET — $5</h3>
-                <button class="b" onclick="scratch()">BUY &amp; SCRATCH</button>
-                <div class="result" id="scratchRes"></div>
-            </div>
-        </div>
+<div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT"><div class="box"><div class="ph" id="dlgT">NOTICE</div><div class="body" id="dlgB"></div><div class="acts" id="dlgA"></div></div></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="bk" id="bk" role="dialog" aria-modal="true"><div class="inner">
+  <h1>BANKRUPT</h1>
+  <div class="dim" id="bkSub">Chapter 11 (Sock Edition)</div>
+  <pre id="bkStone"></pre>
+  <div class="epi" id="bkEpi"></div>
+  <div class="st num" id="bkSt"></div>
+  <button class="key green" id="bkRestart" style="font-size:16px;padding:8px 18px">START A NEW FUND &lt;GO&gt;</button>
+</div></div>
 
-        <div class="panel" id="p-bank">
-            <div class="ptitle">── BANK ──</div>
-            <div class="hint">savings earn 1% every 30s (2% with insulation). guaranteed, unlike everything else here.</div>
-            <div class="game">
-                <h3>SAVINGS: <span id="savingsV">$0</span></h3>
-                <input id="bankAmt" type="number" min="1" value="100">
-                <button class="b" onclick="deposit()">DEPOSIT</button>
-                <button class="b" onclick="withdraw()">WITHDRAW</button>
-                <div class="result" id="bankRes"></div>
-            </div>
-        </div>
+<script>
+(function(){
+"use strict";
+/* ===================== constants ===================== */
+const MIN_PER_DAY=390, REAL_SEC_PER_DAY=60, CLOSE_PAUSE=2.5;
+const START_CASH=10000, SPREAD=0.0006;
+const SECTORS={FORMAL:'Formalwear',ATHL:'Athletic',NOVL:'Novelty',TECH:'Sock Tech',STPL:'Staples'};
+const DEFS=[
+ {tk:'ARGYL',name:'Argyle Holdings plc',sec:'FORMAL',p:182.4,vol:.009,drift:.0004,beta:.6,sh:90e6,div:1.10,borrow:.02,blurb:'Old money. Founded 1782 by a Scottish duke with cold ankles; has not changed its pattern since. Moves like a butler.'},
+ {tk:'TUBE',name:'Tube Sock Corp',sec:'ATHL',p:41.2,vol:.006,drift:.0003,beta:.5,sh:400e6,div:.42,borrow:.02,blurb:'White. Ribbed. Two stripes. The most boring dividend in hosiery — and proud of it.'},
+ {tk:'LOST',name:'Lost Sock Inc',sec:'NOVL',p:6.66,vol:.075,drift:.0004,beta:1.3,sh:250e6,div:0,borrow:.65,blurb:'Business model: be the other one. Extremely volatile. Occasionally disappears from the market entirely.'},
+ {tk:'TOES',name:'Toe Sock Ltd',sec:'NOVL',p:23.0,vol:.055,drift:.0008,beta:1.4,sh:120e6,div:0,borrow:.9,blurb:'Five little pockets of conviction. Retail investors call themselves “Toe Gang”. Fundamentals optional.'},
+ {tk:'COMP',name:'Compression Dynamics',sec:'ATHL',p:128.5,vol:.018,drift:.0009,beta:1.1,sh:150e6,div:0,borrow:.03,blurb:'Squeezes calves and quarterly targets. Beloved by marathoners and long-haul flight nervous types.'},
+ {tk:'NOSH',name:'No-Show Socks Co',sec:'ATHL',p:57.3,vol:.022,drift:.0005,beta:.9,sh:110e6,div:0,borrow:.04,blurb:'You never see them. Investor relations has also never been seen. Sparkline rendered at 8% opacity, as designed.'},
+ {tk:'HEAT',name:'Heated Socks Inc',sec:'TECH',p:74.1,vol:.03,drift:.0003,beta:1.2,sh:60e6,div:0,borrow:.06,blurb:'Battery-powered toes. Strongly seasonal. Product recalls: only two, both “mildly on fire”.'},
+ {tk:'SMLY',name:'Smelly Sock Fund',sec:'STPL',p:19.4,vol:.014,drift:.0006,beta:.7,sh:200e6,div:.15,borrow:.05,blurb:'A closed-end fund that ferments value. Ages like cheese. Do not open the annual report indoors.'},
+ {tk:'WOOL',name:'Merino Mutual',sec:'STPL',p:96.0,vol:.012,drift:.0004,beta:.6,sh:85e6,div:.75,borrow:.02,blurb:'Ethically sourced from sheep who consented verbally. Pays a cosy dividend.'},
+ {tk:'DRES',name:'Dress Sock & Garter',sec:'FORMAL',p:63.2,vol:.011,drift:.0002,beta:.8,sh:70e6,div:.30,borrow:.03,blurb:'Black, slightly see-through, worn to weddings and funerals alike. Suffers whenever banks allow hoodies.'},
+ {tk:'GRIP',name:'Grippy Sock Medical',sec:'STPL',p:34.6,vol:.013,drift:.0004,beta:.2,sh:95e6,div:.12,borrow:.03,blurb:'Every hospital stay ends with a free pair. Recession-proof, slip-proof, fashion-proof.'},
+ {tk:'KNEE',name:'Knee-High Industries',sec:'NOVL',p:28.3,vol:.03,drift:.0002,beta:1.1,sh:80e6,div:0,borrow:.08,blurb:'Over-the-knee and over-leveraged. Fashion cycle: every 7 years, like a cicada.'},
+ {tk:'SMRT',name:'SmartSock AI',sec:'TECH',p:212.0,vol:.04,drift:.0012,beta:1.6,sh:140e6,div:0,borrow:.12,blurb:'A sock with Bluetooth, a subscription and a chatbot. Pre-revenue. Post-hype. Bubble-prone.'}
+];
+const ETF={tk:'SOKX',name:'SPDR Sock ETF (SOKX)',sec:'ETF',blurb:'Owns a little of every sock company, weighted by market cap. For people who cannot decide which sock to wear, so wear all of them.'};
+const IDX={tk:'DJLA',name:'Dow Jones Laundry Average',sec:'INDEX',blurb:'Price-weighted average of all 13 sock companies, divided by a divisor nobody understands. Not tradeable. Mostly vibes.'};
+const DOW=['SUN','MON','TUE','WED','THU','FRI','SAT'],MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const FUND_A=['Two Left Feet','Cold Feet','Darn Good','Heel & Toe','Odd Pair','Spin Cycle','Fluff & Fold','Holey','Sole Survivor','Toe Jam','Bobbin','Lint Roller'];
+const FUND_B=['Capital','Partners LLC','Asset Management','Hedge Fund','Ventures','& Sons','Holdings','Global Macro'];
 
-        <div class="panel" id="p-shop">
-            <div class="ptitle">── SOCK SHOP ──</div>
-            <div class="hint">one-time buys. some actually do things.</div>
-            <div id="itemList"></div>
-        </div>
+/* ===================== helpers ===================== */
+const $=id=>document.getElementById(id);
+const rnd=Math.random;
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function gauss(){let u=0,v=0;while(u===0)u=rnd();while(v===0)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function money(v,dp=2){const s=v<0?'-':'';v=Math.abs(v);return s+'$'+v.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+function moneyC(v){const a=Math.abs(v);if(a>=1e9)return (v<0?'-':'')+'$'+(a/1e9).toFixed(2)+'B';if(a>=1e6)return (v<0?'-':'')+'$'+(a/1e6).toFixed(2)+'M';if(a>=1e4)return (v<0?'-':'')+'$'+(a/1e3).toFixed(1)+'K';return money(v);}
+function pxf(p){return p>=1000?p.toFixed(1):p>=1?p.toFixed(2):p.toFixed(3);}
+function pct(v,dp=2){return (v>=0?'+':'')+(v*100).toFixed(dp)+'%';}
+function cls(v){return v>0?'up':v<0?'down':'dim';}
+function sgn(v,dp=2){return (v>=0?'+':'')+v.toFixed(dp);}
+function dateStr(ms){const d=new Date(ms);return `${DOW[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2,'0')} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}`;}
+function shortDate(ms){const d=new Date(ms);return `${String(d.getUTCDate()).padStart(2,'0')} ${MON[d.getUTCMonth()]}`;}
+function timeStr(min){const t=570+Math.floor(min);return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        <div class="panel" id="p-ship">
-            <div class="ptitle">── SOCKETSHIP ──</div>
-            <div class="hint" id="shipHint"></div>
-            <div id="shipArea"></div>
-        </div>
+/* ===================== state ===================== */
+let S=null; // whole game
+let ACH={}; // persists across restarts
+function newStock(def){
+  return {tk:def.tk,name:def.name,sec:def.sec,price:def.p,vol:def.vol,drift:def.drift,beta:def.beta,sh:def.sh,div:def.div,borrow:def.borrow,
+    open:def.p,prev:def.p,hi:def.p,lo:def.p,fair:def.p,volu:0,halted:false,bubble:null,eps:+(def.p/ (14+rnd()*20)/4).toFixed(2),
+    nextEarn:3+Math.floor(rnd()*18),nextDiv:def.div?2+Math.floor(rnd()*12):-1,
+    m:[],h30:[],d:[]};
+}
+function newGame(){
+  const start=Date.UTC(2026,0,5); // Monday
+  S={v:1,fund:`${pick(FUND_A)} ${pick(FUND_B)}`,day:0,min:0,phase:'open',closeT:0,date:start,dates:{},
+    cash:START_CASH,pos:{},orders:[],oid:1,realized:0,lint:0,
+    bank:{debt:0,dueDay:-1,missed:0,borrowed:0},credit:700,
+    mcall:null,crash:0,news:[],nw:[],dayStartNW:START_CASH,peak:START_CASH,trades:0,marginCalls:0,liquidations:0,worst:null,
+    stocks:{},etf:null,idx:null,divisor:1,etfDiv:1,bankrupt:false,
+    hist0:0};
+  for(const d of DEFS)S.stocks[d.tk]=newStock(d);
+  S.etf={...newStock({tk:'SOKX',name:ETF.name,sec:'ETF',p:100,vol:0,drift:0,beta:1,sh:0,div:0,borrow:.02}),etf:true};
+  S.idx={...newStock({tk:'DJLA',name:IDX.name,sec:'INDEX',p:31000,vol:0,drift:0,beta:1,sh:0,div:0,borrow:0}),index:true};
+  // divisor so DJLA ≈ 31,000 and SOKX ≈ 100
+  S.divisor=companies().reduce((a,s)=>a+s.price,0)/31000;
+  S.etfDiv=companies().reduce((a,s)=>a+s.price*s.sh,0)/100;
+  prehistory(60);
+  S.dates[0]=S.date;
+  startDay(true);
+  recordNW();
+  news(`Markets open. ${S.fund} begins trading with ${money(START_CASH,0)} and two cold feet.`,[],'WIRE',false);
+}
+function companies(){return Object.values(S.stocks);}
+function allTradable(){return [...companies(),S.etf];}
+function getStock(tk){return tk==='SOKX'?S.etf:tk==='DJLA'?S.idx:S.stocks[tk];}
+function calcIndex(){return companies().reduce((a,s)=>a+s.price,0)/S.divisor;}
+function calcETF(){return companies().reduce((a,s)=>a+s.price*s.sh,0)/S.etfDiv;}
 
-        <div id="log"></div>
-        <div class="foot">
-            autosaves in your browser ·
-            <button class="b danger" onclick="hardReset()">wipe save</button>
-        </div>
-    </div>
+/* generate 60 days of history ending at start: 13 thirty-minute steps per day */
+function prehistory(days){
+  const list=companies();
+  // walk backwards is awkward; walk forwards from a scaled start then rescale so the last close = current price
+  const paths={};for(const s of list)paths[s.tk]=[];
+  const lp={};for(const s of list)lp[s.tk]=0;
+  for(let d=0;d<days;d++){
+    for(let k=0;k<13;k++){
+      const zm=gauss();const zs={};for(const sec in SECTORS)zs[sec]=gauss();
+      for(const s of list){
+        const sig=s.vol/Math.sqrt(13);
+        const z=s.beta*.6*zm+Math.sqrt(Math.max(0,1-s.beta*s.beta*.36))*(.5*zs[s.sec]+.85*gauss());
+        const o=lp[s.tk];lp[s.tk]+=s.drift/13+sig*z;
+        const hi=Math.max(o,lp[s.tk])+Math.abs(gauss())*sig*.4,lo=Math.min(o,lp[s.tk])-Math.abs(gauss())*sig*.4;
+        paths[s.tk].push([o,hi,lo,lp[s.tk]]);
+      }
+    }
+  }
+  // dates going backwards (weekdays)
+  const dts=[];let t=S.date;for(let d=0;d<days;d++){do{t-=864e5;}while([0,6].includes(new Date(t).getUTCDay()));dts.unshift(t);}
+  S.hist0=-days;
+  for(let d=0;d<days;d++)S.dates[d-days]=dts[d];
+  for(const s of list){
+    const P=paths[s.tk],end=P[P.length-1][3],scale=x=>s.price*Math.exp(x-end);
+    for(let d=0;d<days;d++){
+      let O,H=-1e9,L=1e9,C;
+      for(let k=0;k<13;k++){const b=P[d*13+k];const bar={t:(d-days)*13+k,o:scale(b[0]),h:scale(b[1]),l:scale(b[2]),c:scale(b[3])};
+        if(k===0)O=bar.o;H=Math.max(H,bar.h);L=Math.min(L,bar.l);C=bar.c;
+        if(d>=days-21)s.h30.push(bar);}
+      s.d.push({t:d-days,o:O,h:H,l:L,c:C});
+    }
+    s.prev=s.price;
+  }
+  // index & etf histories from component histories
+  for(const which of ['idx','etf']){
+    const X=S[which];X.d=[];X.h30=[];
+    const f=which==='idx'?(get)=>companies().reduce((a,s)=>a+get(s),0)/S.divisor:(get)=>companies().reduce((a,s)=>a+get(s)*s.sh,0)/S.etfDiv;
+    for(let i=0;i<companies()[0].d.length;i++)X.d.push({t:companies()[0].d[i].t,o:f(s=>s.d[i].o),h:f(s=>s.d[i].h),l:f(s=>s.d[i].l),c:f(s=>s.d[i].c)});
+    for(let i=0;i<companies()[0].h30.length;i++)X.h30.push({t:companies()[0].h30[i].t,o:f(s=>s.h30[i].o),h:f(s=>s.h30[i].h),l:f(s=>s.h30[i].l),c:f(s=>s.h30[i].c)});
+    X.price=X.prev=X.d[X.d.length-1].c;
+  }
+}
 
-    <div id="loseScreen">
-        <div class="big">BANKRUPT</div>
-        <pre>
-      ___
-     (o o)      the sock economy
-      \_/       claims another.
-     _|_|_
-  </pre>
-        <div class="stats" id="loseStats"></div>
-        <button onclick="startOver()">[ START OVER ]</button>
-    </div>
+/* ===================== day cycle ===================== */
+function startDay(first){
+  S.min=0;S.phase='open';
+  const all=[...companies(),S.etf,S.idx];
+  for(const s of all){s.prev=s.price;s.volu=0;}
+  // pre-market events (not on very first day)
+  if(!first){
+    preMarket();
+  }
+  for(const s of all){s.open=s.price;s.hi=s.price;s.lo=s.price;s.m=[s.price];
+    s.d.push({t:S.day,o:s.price,h:s.price,l:s.price,c:s.price});
+    s.h30.push({t:S.day*13,o:s.price,h:s.price,l:s.price,c:s.price});
+    trimHist(s);}
+  S.dayStartNW=netWorth();
+}
+function trimHist(s){if(s.h30.length>21*13+1)s.h30.splice(0,s.h30.length-(21*13+1));if(s.d.length>1500)s.d.splice(0,s.d.length-1500);}
+function nextDate(ms){let t=ms,cal=0;do{t+=864e5;cal++;}while([0,6].includes(new Date(t).getUTCDay()));return {t,cal};}
+function endDay(){
+  S.phase='closed';S.closeT=CLOSE_PAUSE;
+  // overnight: borrow fees, margin interest, dividends, loan interest
+  const nd=nextDate(S.date);const cal=nd.cal;
+  // short borrow fees
+  let fees=0;for(const tk in S.pos){const p=S.pos[tk];if(p.qty<0){const s=getStock(tk);fees+=-p.qty*s.price*s.borrow/365*cal;}}
+  if(fees>0){S.cash-=fees;}
+  // margin interest on negative cash
+  if(S.cash<0){const mi=-S.cash*.14/365*cal;S.cash-=mi;}
+  // loan compounding daily (calendar days)
+  if(S.bank.debt>0){S.bank.debt*=Math.pow(1+apr()/365,cal);}
+  // dividends
+  for(const s of companies()){
+    if(s.nextDiv===S.day){
+      s.nextDiv=S.day+12+Math.floor(rnd()*6);
+      const p=S.pos[s.tk];
+      if(rnd()<.14){ // lint dividend
+        const g=+(s.div*8*(.5+rnd())).toFixed(1);
+        news(`${s.tk} pays dividend IN LINT: ${g} g per share. Shareholders “disappointed but warm”.`,[],'DIV');
+        if(p&&p.qty>0){S.lint+=g*p.qty;unlock('lint');toast(`You received ${(g*p.qty).toLocaleString('en-US',{maximumFractionDigits:1})} g of lint from ${s.tk}.`);}
+      }else{
+        news(`${s.tk} pays $${s.div.toFixed(2)}/share dividend. ${s.tk==='TUBE'?'Nobody is surprised.':'Cosy.'}`,[],'DIV');
+        if(p){S.cash+=s.div*p.qty; if(p.qty>0)toast(`Dividend: ${money(s.div*p.qty)} from ${s.tk}.`); else toast(`Your short pays ${s.tk}'s dividend: ${money(s.div*p.qty)}.`);}
+      }
+    }
+  }
+  // loan payments (every 5 trading days)
+  if(S.bank.debt>0.005&&S.day>=S.bank.dueDay){
+    const minPay=Math.min(S.bank.debt,Math.max(25,S.bank.debt*.03));
+    if(S.cash>=minPay){S.cash-=minPay;S.bank.debt-=minPay;S.bank.missed=0;bumpCredit(+4);news(`First National Laundromat auto-debits ${money(minPay)}. Thank you for being clean.`,[],'BANK',false);}
+    else{S.bank.missed++;S.bank.debt+=35;bumpCredit(-35);news(`PAYMENT MISSED. First National Laundromat adds a $35 “soggy fee”. Strike ${S.bank.missed} of 3.`,[],'BANK',true);
+      if(S.bank.missed>=3){collectDebt();}}
+    S.bank.dueDay=S.day+5;
+  }
+  if(S.bank.debt<0.005&&S.bank.debt!==0){S.bank.debt=0;}
+  // margin check end of day (deadline)
+  checkMargin(true);
+  // crash survival
+  if(S.crash>0){S.crash--;if(S.crash===0&&!S.bankrupt&&Object.keys(S.pos).length)unlock('crash');}
+  for(const s of companies()){if(s.bubble){s.bubble.days--;}s.fair=(s.fair||s.price)*Math.exp(s.drift);}
+  if(S.day>=4)unlock('week');
+  recordNW();
+  S.peak=Math.max(S.peak,netWorth());
+  checkWealth();
+  if(netWorth()<0&&!S.bankrupt){goBankrupt('net worth below zero at the closing bell');return;}
+  S.nextDate=nd.t;
+  save();
+}
+function advanceToNextDay(){
+  S.date=S.nextDate||nextDate(S.date).t;S.day++;S.dates[S.day]=S.date;
+  // prune old dates for saves
+  for(const k in S.dates){if(+k<S.day-1600)delete S.dates[k];}
+  startDay(false);
+}
+function preMarket(){
+  // halt LOST randomly / return
+  const L=S.stocks.LOST;
+  if(L.halted){L.halted=false;const g=(rnd()<.5?-1:1)*(.1+rnd()*.4);L.price*=Math.exp(g);
+    news(`LOST has been FOUND behind a radiator. Trading resumes ${pct(Math.exp(g)-1,0)}.`,[],'HALT',true);
+    if(S.pos.LOST&&S.pos.LOST.qty>0)unlock('lostfound');}
+  else if(rnd()<.09){L.halted=true;news('LOST is MISSING. Trading halted. Last seen: dryer drum, level 2. Search party formed.',[],'HALT',true);}
+  // splits
+  for(const s of companies()){
+    if(s.price>420){const k=s.price>900?3:2;split(s,k);}
+    else if(s.price<0.9){split(s,0.1);}
+  }
+  // earnings
+  for(const s of companies()){
+    if(s.nextEarn<=S.day){s.nextEarn=S.day+16+Math.floor(rnd()*8);earnings(s);}
+  }
+  // overnight gaps
+  for(const s of companies()){if(!s.halted)s.price*=Math.exp(gauss()*s.vol*.25);}
+  // macro: crash or bubble
+  if(S.crash===0&&rnd()<.012)startCrash();
+  if(rnd()<.015){const c=pick(companies().filter(s=>['NOVL','TECH'].includes(s.sec)&&!s.bubble));if(c){c.bubble={days:3+Math.floor(rnd()*5),rate:.04+rnd()*.05};news(`SOCKMANIA: analysts say ${c.tk} is “the future of feet”. Retail piles in.`,[],'BUBBLE',true);}}
+  for(const s of companies()){if(s.bubble&&s.bubble.days<=0){const drop=.35+rnd()*.35;s.bubble=null;addImpact([s.tk],Math.log(1-drop),40);news(`POP. The ${s.tk} bubble bursts. “It was just a sock,” admits analyst who said otherwise yesterday.`,[],'BUBBLE',true);}}
+  // seasonal heat
+  const mo=new Date(S.date).getUTCMonth();const H=S.stocks.HEAT;H.season=([10,11,0,1].includes(mo)?.003:[5,6,7].includes(mo)?-.003:0);
+  // index/etf follow
+  S.idx.price=calcIndex();S.etf.price=calcETF();
+}
+function split(s,k){
+  const old=calcIndex()*S.divisor;
+  s.price/=k;s.sh*=k;s.eps/=k;s.div/=k;s.fair=(s.fair||s.price*k)/k;
+  const sc=v=>v/k;
+  for(const b of s.d){b.o=sc(b.o);b.h=sc(b.h);b.l=sc(b.l);b.c=sc(b.c);}
+  for(const b of s.h30){b.o=sc(b.o);b.h=sc(b.h);b.l=sc(b.l);b.c=sc(b.c);}
+  s.m=s.m.map(sc);s.prev/=k;s.open/=k;s.hi/=k;s.lo/=k;
+  const p=S.pos[s.tk];if(p){p.qty=Math.round(p.qty*k*1000)/1000;p.cost/=k;}
+  for(const o of S.orders)if(o.tk===s.tk){o.qty=Math.max(1,Math.round(o.qty*k));if(o.limit)o.limit/=k;}
+  const nw=companies().reduce((a,x)=>a+x.price,0);S.divisor=S.divisor*nw/old;
+  if(k>1)news(`${s.tk} announces ${k}-for-1 stock split. Same socks, more pieces.`,[],'SPLIT',true);
+  else news(`${s.tk} performs 1-for-10 REVERSE split: ten ${s.tk==='LOST'?'lost socks become one lost sock':'cheap socks become one slightly less cheap sock'}.`,[],'SPLIT',true);
+}
+function earnings(s){
+  const est=s.eps;const surprise=gauss()*.12+(s.tk==='SMRT'?-.03:0);
+  const act=+(est*(1+surprise)).toFixed(2);
+  const beat=act>=est;
+  const mv=clamp(surprise*(s.tk==='TOES'||s.tk==='LOST'?2.2:1.2)+gauss()*.02,-.35,.35);
+  s.eps=Math.max(.01,+(act*(1.0+gauss()*.03)).toFixed(2));
+  s.fair=(s.fair||s.price)*Math.exp(mv*.6);
+  const q=`Q${1+Math.floor(new Date(S.date).getUTCMonth()/3)}`;
+  const quips=beat?['Squeezed it.','Smells like success.','Toe-tally beat.','Ribbed for your pleasure.','Pairs well with expectations.']:['Missed by a mile.','Came out of the wash shrunk.','Holes in the guidance.','Unravelled on the call.','Left foot only.'];
+  const txt=s.tk==='NOSH'?`NOSH ${q} earnings released. Nobody saw them. EPS reportedly $${act.toFixed(2)} vs $${est.toFixed(2)} est.`:`${s.tk} ${q}: EPS $${act.toFixed(2)} vs $${est.toFixed(2)} est. ${pick(quips)}`;
+  addImpact([s.tk],mv,6);
+  news(txt+` ${s.tk} ${pct(Math.exp(mv)-1,0)}`,[],beat?'BEAT':'MISS',Math.abs(mv)>.08);
+}
+function startCrash(){
+  S.crash=2;
+  for(const s of companies())addImpact([s.tk],-(.18+rnd()*.22)*(s.tk==='GRIP'?.2:1)*(s.beta+.3)/1.3,300);
+  news('THE GREAT UNRAVELLING: a single loose thread at a Bangladeshi mill sends the entire sock market into freefall. Circuit breakers tripped over.',[],'CRASH',true);
+}
+function collectDebt(){
+  news('First National Laundromat sends the Debt Collectors (two large men holding a laundry basket).',[],'BANK',true);
+  // liquidate everything to repay
+  liquidate(Infinity,'debt collection');
+  const pay=Math.min(S.cash,S.bank.debt);S.cash-=pay;S.bank.debt-=pay;
+  if(S.bank.debt>1){goBankrupt('defaulted on the First National Laundromat');}
+  else{S.bank.missed=0;}
+}
 
-    <script>
-        // ================== DATA ==================
-        const PLANETS = {
-            sock: {
-                name: "Sock World", emoji: "🧦", desc: "home. smells like laundry.",
-                stocks: [
-                    { t: "SOCK", n: "SockCorp Global", p: 50, v: 0.04 },
-                    { t: "WOOL", n: "Wool Futures", p: 120, v: 0.03 },
-                    { t: "TOES", n: "Toe Warmer Inc.", p: 18, v: 0.06 },
-                    { t: "ANKL", n: "Ankle Cut Industries", p: 35, v: 0.05 },
-                    { t: "FUZZ", n: "Fuzzy Slipper Labs", p: 210, v: 0.07 },
-                    { t: "HOLE", n: "Hole Repair Services", p: 8, v: 0.10 },
-                ]
-            },
-            glove: {
-                name: "Glovea", emoji: "🧤", desc: "five-fingered markets.",
-                stocks: [
-                    { t: "FING", n: "Finger Slot Partners", p: 340, v: 0.09 },
-                    { t: "MITT", n: "Mitten Collective", p: 150, v: 0.08 },
-                    { t: "GRIP", n: "Grip Tech", p: 520, v: 0.11 },
-                ]
-            },
-            hat: {
-                name: "Hatlantis", emoji: "🎩", desc: "top-heavy economy.",
-                stocks: [
-                    { t: "BRIM", n: "Brim Dynamics", p: 800, v: 0.10 },
-                    { t: "FEDA", n: "Fedora Holdings", p: 430, v: 0.12 },
-                    { t: "BEAN", n: "Beanie Startups", p: 95, v: 0.15 },
-                ]
-            },
-            scarf: {
-                name: "Scarf Nebula", emoji: "🧣", desc: "long positions only.",
-                stocks: [
-                    { t: "WRAP", n: "Wraparound Ltd.", p: 1200, v: 0.12 },
-                    { t: "KNIT", n: "Knitwork Protocol", p: 2200, v: 0.14 },
-                ]
-            },
-            pants: {
-                name: "Pantaloonia", emoji: "👖", desc: "the final frontier.",
-                stocks: [
-                    { t: "DENM", n: "Denim Reserve", p: 5000, v: 0.16 },
-                    { t: "CUFF", n: "Cuffed Capital", p: 9000, v: 0.20 },
-                ]
-            },
-        };
+/* ===================== simulation step ===================== */
+function addImpact(tks,logTotal,mins){S.impacts=S.impacts||[];S.impacts.push({tks,per:logTotal/mins,left:mins});}
+function stepMinute(){
+  if(S.bankrupt)return;
+  const zm=gauss();const zs={};for(const sec in SECTORS)zs[sec]=gauss();
+  const crashMul=S.crash>0?2.2:1;
+  const imp={};
+  if(S.impacts){for(const e of S.impacts){for(const tk of e.tks)imp[tk]=(imp[tk]||0)+e.per;e.left--;}S.impacts=S.impacts.filter(e=>e.left>0);}
+  const sq=Math.sqrt(MIN_PER_DAY);
+  for(const s of companies()){
+    if(s.halted)continue;
+    const sig=s.vol/sq*crashMul;
+    const z=s.beta*.6*zm+Math.sqrt(Math.max(0,1-s.beta*s.beta*.36))*(.5*zs[s.sec]+.85*gauss());
+    if(!s.fair)s.fair=s.price;
+    let mu=(s.drift+(s.season||0)+(s.bubble?s.bubble.rate:-.035*Math.log(s.price/s.fair)))/MIN_PER_DAY;
+    if(s.tk==='TOES'&&rnd()<.0008){const m=(rnd()<.5?1:-1)*(.08+rnd()*.25);addImpact(['TOES'],m,15);news(m>0?'r/ToeStreetBets declares “TOES TO THE MOON”. Short sellers sweat through their socks. TOES '+pct(Math.exp(m)-1,0):'Toe Gang influencer admits he “just likes the stock”. TOES '+pct(Math.exp(m)-1,0),[],'MEME',true);}
+    const r=mu+sig*z+(imp[s.tk]||0)-sig*sig/2;
+    s.price=Math.max(.01,s.price*Math.exp(r));
+    s.volu+=Math.round(s.sh*.00002*(1+Math.abs(z))*(1+Math.abs(imp[s.tk]||0)*200)*(.5+rnd()));
+  }
+  S.idx.price=calcIndex();S.etf.price=calcETF();
+  S.min++;
+  const k=Math.min(12,Math.floor(S.min/30));
+  for(const s of [...companies(),S.etf,S.idx]){
+    s.hi=Math.max(s.hi,s.price);s.lo=Math.min(s.lo,s.price);s.m.push(s.price);
+    const db=s.d[s.d.length-1];db.h=Math.max(db.h,s.price);db.l=Math.min(db.l,s.price);db.c=s.price;
+    let hb=s.h30[s.h30.length-1];
+    if(hb.t!==S.day*13+k){hb={t:S.day*13+k,o:hb.c,h:hb.c,l:hb.c,c:hb.c};s.h30.push(hb);}
+    hb.h=Math.max(hb.h,s.price);hb.l=Math.min(hb.l,s.price);hb.c=s.price;
+  }
+  fillOrders();
+  if(S.min%10===0)checkMargin(false);
+  if(S.min%30===0)recordNW();
+  if(rnd()<1/110)randomNews();
+  if(S.min>=MIN_PER_DAY)endDay();
+}
 
-        const ITEMS = [
-            { id: "pair", n: "A Matching Pair of Socks", d: "purely for morale.", p: 25 },
-            { id: "puppet", n: "Sock Puppet Advisor", d: "shows trend arrows on the market.", p: 500 },
-            { id: "lucky", n: "Lucky Socks", d: "coin flips win 55% instead of 48%.", p: 2500 },
-            { id: "drawer", n: "Sock Drawer Organizer", d: "folding pays $3 instead of $1.", p: 1000 },
-            { id: "insul", n: "Wool Bank Insulation", d: "savings interest 2% instead of 1%.", p: 5000 },
-            { id: "golden", n: "The Golden Sock", d: "pure status. +$10,000 net worth.", p: 10000 },
-        ];
+/* ===================== news ===================== */
+const NEWS=[
+ ()=>{const n=(2+rnd()*9).toFixed(0),m=.15+rnd()*.25;return [`Washing machines worldwide eat ${n}% more socks`,[['LOST',m]]];},
+ ()=>[`Sandal season begins`,[['ALL',-(.02+rnd()*.035)],['NOSH',.02]]],
+ ()=>[`Back-to-school season: parents panic-buy multipacks`,[['ALL',.015+rnd()*.025],['TUBE',.02]]],
+ ()=>[`Consumer confidence in feet hits record high`,[['ALL',.01+rnd()*.02]]],
+ ()=>[`Long-range forecast: “a very sock-heavy winter”`,[['ALL',.008+rnd()*.012],['HEAT',.03+rnd()*.04],['WOOL',.02]]],
+ ()=>[`Laundry detergent prices spike; people wash socks less, buy more`,[['ALL',.01+rnd()*.015],['SMLY',.03]]],
+ ()=>[`Cold snap grips the Northern Hemisphere`,[['HEAT',.08+rnd()*.08],['WOOL',.03+rnd()*.03]]],
+ ()=>[`Celebrity spotted wearing socks with sandals; fashion world in shambles`,[['TOES',.08+rnd()*.15],['KNEE',.03],['ALL',.008]]],
+ ()=>[`Study finds argyle linked to “increased smugness”`,[['ARGYL',.02+rnd()*.03]]],
+ ()=>[`Fed raises interest rates; household laundry budgets tightened`,[['ALL',-(.015+rnd()*.025)]]],
+ ()=>[`Fed cuts rates; everyone buys a fresh 6-pack`,[['ALL',.012+rnd()*.02]]],
+ ()=>[`Flu season peaks; hospitals hand out record grippy socks`,[['GRIP',.04+rnd()*.06]]],
+ ()=>[`SmartSock AI announces it is “now an AI company” (it already was)`,[['SMRT',.08+rnd()*.2]]],
+ ()=>[`SmartSock firmware update makes socks sing at 3 a.m.`,[['SMRT',-(.08+rnd()*.14)]]],
+ ()=>[`Heated sock recall: units described as “only mildly on fire”`,[['HEAT',-(.08+rnd()*.12)]]],
+ ()=>[`Sheep go on strike demanding shorter haircuts`,[['WOOL',-(.05+rnd()*.07)]]],
+ ()=>[`Single sock found behind dryer after 11 years; family “emotional”`,[['LOST',-(.1+rnd()*.15)]]],
+ ()=>[`Global Matching Treaty signed — all socks must now come in pairs`,[['LOST',-(.2+rnd()*.15)]]],
+ ()=>[`Major banks relax dress codes; hoodies and trainers everywhere`,[['DRES',-(.05+rnd()*.05)],['ARGYL',-.015],['NOSH',.03]]],
+ ()=>[`Royal wedding: groom wears argyle under morning suit`,[['ARGYL',.04+rnd()*.05],['DRES',.02]]],
+ ()=>[`Gen Z declares ankle socks “cringe” again`,[['NOSH',-(.05+rnd()*.07)],['KNEE',.05+rnd()*.06]]],
+ ()=>[`No-Show Socks hosts investor day; nobody sees them`,[['NOSH',(rnd()<.5?-1:1)*(.02+rnd()*.05)]]],
+ ()=>[`Smelly Sock Fund reports “notes of Camembert” in latest vintage`,[['SMLY',.02+rnd()*.05]]],
+ ()=>[`Knee-High Industries sued over “knee-low” marketing`,[['KNEE',-(.07+rnd()*.08)]]],
+ ()=>[`Marathon season: compression demand stretches to new highs`,[['COMP',.04+rnd()*.05]]],
+ ()=>[`Laundromat chain merges with dryer cartel`,[['LOST',.08+rnd()*.1],['ALL',-.006]]],
+ ()=>[`Analyst downgrades entire sock sector to “Hamper”`,[['ALL',-(.015+rnd()*.025)]]],
+ ()=>[`Sock-puppet revival sweeps Broadway`,[['ALL',.01+rnd()*.012],['KNEE',.02]]],
+ ()=>{const t=pick(['TOES','LOST','KNEE','SMRT']),m=.06+rnd()*.25;return [`Billionaire posts a single sock emoji at 2 a.m.; ${t} rallies`,[[t,m]]];},
+ ()=>[`Moths spotted in central warehouse`,[['WOOL',-(.03+rnd()*.04)],['ARGYL',-(.02+rnd()*.02)]]],
+ ()=>[`Tube Sock Corp announces no news, again`,[['TUBE',.003]]],
+ ()=>[`Heatwave forecast for the weekend`,[['HEAT',-(.04+rnd()*.05)],['NOSH',.02],['ALL',-.005]]],
+ ()=>[`Supply chain snag: elastic shortage hits waistbands and sock tops`,[['COMP',-(.04+rnd()*.04)],['KNEE',-(.03+rnd()*.04)],['TUBE',-.01]]],
+ ()=>[`Influencer reveals “barefoot is the new sock”; everyone ignores her`,[['ALL',-.004]]],
+ ()=>[`Toe Sock Ltd unveils six-toed edition “for the ambitious”`,[['TOES',(rnd()<.5?-1:1)*(.05+rnd()*.15)]]],
+ ()=>[`Dryer manufacturers promise “zero sock loss” technology`,[['LOST',-(.08+rnd()*.12)]]],
+ ()=>[`Short-seller report alleges Smelly Sock Fund is “just smelly socks”`,[['SMLY',-(.06+rnd()*.08)]]],
+ ()=>[`Grandmothers worldwide knit 30% fewer socks this winter`,[['ALL',.008],['WOOL',.03],['ARGYL',.02]]]
+];
+function randomNews(){
+  const [txt,fx]=pick(NEWS)();
+  const parts=[];let big=false;
+  for(const [t,m] of fx){
+    const tks=t==='ALL'?companies().map(s=>s.tk):[t];
+    const mins=t==='ALL'?30:5+Math.floor(rnd()*10);
+    addImpact(tks.filter(x=>!getStock(x).halted),m,mins);
+    if(Math.abs(m)>=.008||fx.length===1)parts.push(`${t==='ALL'?'SECTOR':t} ${pct(Math.exp(m)-1,0)}`);
+    if(Math.abs(m)>.07)big=true;
+  }
+  news(`${txt} — ${parts.join(', ')}`,[],big?'FLASH':'WIRE',big);
+}
+function news(txt,_,tag,big){
+  const it={d:S.day,min:S.min,txt,tag:tag||'WIRE',big:!!big};
+  S.news.unshift(it);if(S.news.length>80)S.news.length=80;
+  tickerQueue.push(it);newsDirty=true;
+}
 
-        // unlock thresholds: peak net worth needed to open each tab
-        const TABS = [
-            { id: "work", label: "WORK", req: 0 },
-            { id: "market", label: "MARKET", req: 150 },
-            { id: "casino", label: "CASINO", req: 500 },
-            { id: "bank", label: "BANK", req: 1500 },
-            { id: "shop", label: "SOCK SHOP", req: 5000 },
-            { id: "ship", label: "SOCKETSHIP", req: 15000 },
-        ];
+/* ===================== account ===================== */
+function acct(){
+  let lmv=0,smv=0,maint=0;
+  for(const tk in S.pos){const p=S.pos[tk],s=getStock(tk),v=p.qty*s.price;
+    const hv=s.vol>.04;
+    if(p.qty>0){lmv+=v;maint+=v*(hv?.5:.3);}else{smv+=-v;maint+=-v*(hv?.8:.5);}}
+  const eq=S.cash+lmv-smv;
+  const bp=Math.max(0,2*eq-(lmv+smv));
+  return {lmv,smv,eq,maint,bp,gross:lmv+smv};
+}
+function lintValue(){return S.lint*0.002;}
+function netWorth(){const a=acct();return a.eq-S.bank.debt+lintValue();}
+function apr(){return .06+(850-S.credit)*.0006;}
+function maxLoan(){const nw=netWorth();const cap=Math.max(0,(S.credit-300)/550)*Math.max(2000,nw*.75+3000);return Math.max(0,Math.floor(cap-S.bank.debt));}
+function bumpCredit(d){S.credit=clamp(Math.round(S.credit+d),300,850);}
+function rating(c){return c>=800?'Exceptional':c>=740?'Very Good':c>=670?'Good':c>=580?'Fair':c>=450?'Poor':'Damp';}
 
-        // ================== STATE ==================
-        let S = {
-            cash: 100, savings: 0,
-            planet: "sock", ship: false,
-            items: {}, hold: {}, prices: {}, hist: {},
-            peak: 100, folds: 0, tycoon: false, dead: false,
-            unlocked: { work: true },
-        };
+function trade(side,tk,qty,limitPx,fromOrder){
+  const s=getStock(tk);
+  if(!s||s.index)return 'Not tradeable. The DJLA is a feeling, not a stock.';
+  qty=Math.floor(qty);if(!(qty>0))return 'Quantity must be a positive whole number of shares.';
+  if(S.phase!=='open')return 'Market is closed. Use a limit order to queue for the next open.';
+  if(s.halted)return `${tk} is halted (it is missing). Try again when it is found.`;
+  const p=S.pos[tk]||{qty:0,cost:0};
+  const a=acct();
+  const buyPx=s.price*(1+SPREAD),sellPx=s.price*(1-SPREAD);
+  if(side==='buy'){
+    if(p.qty<0)return `You are short ${tk}. Use COVER first.`;
+    const cost=qty*buyPx;
+    if(cost>a.bp+1e-6)return `Insufficient buying power (${money(a.bp)}). Even with margin.`;
+    p.cost=(p.qty*p.cost+cost)/(p.qty+qty);p.qty+=qty;S.cash-=cost;
+    if(tk==='SOKX')unlock('etf');
+  }else if(side==='sell'){
+    if(p.qty<=0)return `You do not own any ${tk}. Did you mean SHORT?`;
+    qty=Math.min(qty,p.qty);const pr=qty*sellPx;const pl=(sellPx-p.cost)*qty;
+    S.cash+=pr;p.qty-=qty;S.realized+=pl;noteTrade(tk,pl);
+  }else if(side==='short'){
+    if(p.qty>0)return `You are long ${tk}. SELL it first.`;
+    const val=qty*sellPx;
+    if(val>a.bp+1e-6)return `Insufficient margin to short that much (buying power ${money(a.bp)}).`;
+    p.cost=(-p.qty*p.cost+val)/(-p.qty+qty);p.qty-=qty;S.cash+=val;unlock('short');
+  }else if(side==='cover'){
+    if(p.qty>=0)return `You are not short ${tk}.`;
+    qty=Math.min(qty,-p.qty);const c=qty*buyPx;const pl=(p.cost-buyPx)*qty;
+    S.cash-=c;p.qty+=qty;S.realized+=pl;noteTrade(tk,pl);
+  }else return 'Unknown order side.';
+  if(Math.abs(p.qty)<1e-9)delete S.pos[tk];else S.pos[tk]=p;
+  S.trades++;unlock('first');
+  if(S.realized>=1000)unlock('profit');
+  return null;
+}
+function noteTrade(tk,pl){if(!S.worst||pl<S.worst.pl)S.worst={tk,pl};}
+function maxQty(side,tk){
+  const s=getStock(tk),a=acct(),p=S.pos[tk]||{qty:0};
+  if(side==='buy')return p.qty<0?0:Math.floor(a.bp/(s.price*(1+SPREAD)));
+  if(side==='sell')return Math.max(0,Math.floor(p.qty));
+  if(side==='short')return p.qty>0?0:Math.floor(a.bp/(s.price));
+  if(side==='cover')return Math.max(0,Math.floor(-p.qty));
+  return 0;
+}
+function fillOrders(){
+  if(!S.orders.length)return;
+  const keep=[];
+  for(const o of S.orders){
+    const s=getStock(o.tk);if(s.halted){keep.push(o);continue;}
+    const hit=(o.side==='buy'||o.side==='cover')?s.price<=o.limit:s.price>=o.limit;
+    if(hit){const err=trade(o.side,o.tk,o.qty,o.limit,true);
+      if(err){news(`Limit order cancelled: ${o.side.toUpperCase()} ${o.qty} ${o.tk} — ${err}`,[],'ORDER',false);}
+      else{toast(`Limit filled: ${o.side.toUpperCase()} ${o.qty} ${o.tk} @ ${pxf(s.price)}`);}
+      posDirty=true;}
+    else keep.push(o);
+  }
+  S.orders=keep;
+}
 
-        function initPrices() {
-            for (const pk in PLANETS) {
-                S.prices[pk] = S.prices[pk] || {};
-                S.hist[pk] = S.hist[pk] || {};
-                S.hold[pk] = S.hold[pk] || {};
-                for (const st of PLANETS[pk].stocks) {
-                    if (S.prices[pk][st.t] == null) S.prices[pk][st.t] = st.p;
-                    if (!S.hist[pk][st.t]) S.hist[pk][st.t] = [st.p];
-                    if (S.hold[pk][st.t] == null) S.hold[pk][st.t] = 0;
-                }
-            }
-        }
+/* ===================== margin ===================== */
+function checkMargin(eod){
+  const a=acct();
+  if(a.gross<1){if(S.mcall){S.mcall=null;}return;}
+  const short=a.eq<a.maint;
+  if(!short){if(S.mcall){S.mcall=null;news('Margin call satisfied. The broker unclenches.',[],'MARGIN',false);}return;}
+  const severe=a.eq<a.maint*.6;
+  if(!S.mcall){
+    S.mcall={deadline:S.day+1,need:a.maint-a.eq};S.marginCalls++;bumpCredit(-25);unlock('mcall');
+    news(`MARGIN CALL on ${S.fund}: deposit ${money(a.maint-a.eq)} by tomorrow's close or positions will be liquidated.`,[],'MARGIN',true);
+    if(!severe)dialog('MARGIN CALL',`<p>Your equity (<b>${money(a.eq)}</b>) has fallen below the maintenance requirement (<b>${money(a.maint)}</b>).</p><p>Sell or cover positions, or borrow cash from First National Laundromat, before the close on <b>${dateStr(S.dates[S.day]+ (new Date(S.dates[S.day]).getUTCDay()===5?3:1)*864e5)}</b>. Otherwise our robot will sell your socks for you, badly.</p>`,[['UNDERSTOOD','key']]);
+  }
+  if(severe||(eod&&S.day>=S.mcall.deadline)){
+    liquidate(a.maint*1.15,severe?'equity fell below 60% of maintenance':'margin call deadline passed');
+  }
+}
+function liquidate(targetMaintCover,reason){
+  const sold=[];
+  // sell biggest positions first
+  const order=Object.keys(S.pos).sort((x,y)=>Math.abs(S.pos[y].qty*getStock(y).price)-Math.abs(S.pos[x].qty*getStock(x).price));
+  for(const tk of order){
+    const a=acct();
+    if(targetMaintCover!==Infinity&&a.eq>=a.maint*1.15)break;
+    const p=S.pos[tk],s=getStock(tk);
+    const px=s.price*(p.qty>0?(1-SPREAD*5):(1+SPREAD*5)); // fire-sale slippage
+    if(p.qty>0){S.cash+=p.qty*px;S.realized+=(px-p.cost)*p.qty;noteTrade(tk,(px-p.cost)*p.qty);}
+    else{S.cash-=(-p.qty)*px;S.realized+=(p.cost-px)*(-p.qty);noteTrade(tk,(p.cost-px)*(-p.qty));}
+    sold.push(`${Math.abs(p.qty)} ${tk}`);delete S.pos[tk];
+  }
+  S.orders=[];
+  if(sold.length){
+    S.liquidations++;bumpCredit(-40);unlock('liq');
+    news(`FORCED LIQUIDATION (${reason}): sold ${sold.join(', ')} at fire-sale prices.`,[],'MARGIN',true);
+    if(!S.bankrupt)dialog('FORCED LIQUIDATION',`<p>Reason: ${esc(reason)}.</p><p>The broker's robot sold: <b>${esc(sold.join(', '))}</b>.</p><p>Your credit score has been docked 40 points and your pride somewhat more.</p>`,[['OK','key']]);
+  }
+  S.mcall=null;posDirty=true;
+  if(netWorth()<0)goBankrupt('liquidation left you owing more than you own');
+}
 
-        // ================== SAVE / LOAD ==================
-        const KEY = "soks_save_v2";
-        function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } }
-        function load() {
-            try {
-                const d = localStorage.getItem(KEY);
-                if (d) S = Object.assign(S, JSON.parse(d));
-            } catch (e) { }
-        }
-        function hardReset() {
-            if (!confirm("wipe your entire sock empire?")) return;
-            localStorage.removeItem(KEY); location.reload();
-        }
-        function startOver() {
-            localStorage.removeItem(KEY); location.reload();
-        }
+/* ===================== bank ===================== */
+function borrow(amt){
+  amt=Math.floor(amt*100)/100;
+  if(!(amt>0))return 'Enter an amount to borrow.';
+  const mx=maxLoan();
+  if(amt>mx)return `The Laundromat will only lend you ${money(mx,0)} (credit ${S.credit}).`;
+  S.bank.debt+=amt;S.cash+=amt;S.bank.borrowed+=amt;bumpCredit(-5);
+  if(S.bank.dueDay<S.day)S.bank.dueDay=S.day+5;
+  unlock('loan');news(`${S.fund} borrows ${money(amt)} from First National Laundromat at ${(apr()*100).toFixed(1)}% APR. Bold.`,[],'BANK',false);
+  return null;
+}
+function repay(amt){
+  if(S.bank.debt<=0)return 'You owe the Laundromat nothing. They are suspicious.';
+  amt=Math.min(amt||0,S.bank.debt);
+  if(!(amt>0))return 'Enter an amount to repay.';
+  if(amt>S.cash+1e-6)return `Not enough cash (${money(S.cash)}).`;
+  S.cash-=amt;S.bank.debt-=amt;
+  if(S.bank.debt<0.01){S.bank.debt=0;S.bank.missed=0;bumpCredit(+20);unlock('debtfree');news(`${S.fund} repays First National Laundromat in full. Credit score glows.`,[],'BANK',false);}
+  else bumpCredit(+2);
+  return null;
+}
 
-        // ================== HELPERS ==================
-        const $ = id => document.getElementById(id);
-        function fmt(n) {
-            if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
-            return "$" + Math.floor(n).toLocaleString();
-        }
-        function log(msg) {
-            const el = $("log");
-            el.innerHTML = "&gt; " + msg + "<br>" + el.innerHTML;
-            while (el.childNodes.length > 80) el.removeChild(el.lastChild);
-        }
-        function totalShares() {
-            let n = 0;
-            for (const pk in S.hold) for (const t in S.hold[pk]) n += (S.hold[pk][t] || 0);
-            return n;
-        }
-        function netWorth() {
-            let w = S.cash + S.savings;
-            for (const pk in S.hold)
-                for (const t in S.hold[pk])
-                    w += (S.hold[pk][t] || 0) * (S.prices[pk]?.[t] || 0);
-            if (S.items.golden) w += 10000;
-            if (S.ship) w += 25000;
-            return w;
-        }
+/* ===================== bankruptcy ===================== */
+function fundLines(f){const w=f.split(' '),out=[''];for(const x of w){const cur=out[out.length-1];if((cur+' '+x).trim().length>19)out.push(x);else out[out.length-1]=(cur+' '+x).trim();}return out.slice(0,3);}
+function goBankrupt(reason){
+  if(S.bankrupt)return;
+  S.bankrupt=true;unlock('bankrupt');
+  const nw=netWorth();
+  const worst=S.worst?S.worst.tk:pick(['TOES','LOST','SMRT']);
+  const eps=[
+    `Here lies ${S.fund}. Bought ${worst} at the top. Sold at the bottom. Never found the other sock.`,
+    `They said “buy the dip”. ${S.fund} became the dip.`,
+    `${S.fund}: survived by ${Math.round(S.lint).toLocaleString('en-US')} g of lint and a credit score of ${S.credit}.`,
+    `Rest in pieces, ${S.fund}. Margin-called ${S.marginCalls} time${S.marginCalls===1?'':'s'}, answered ${S.marginCalls?'none':'nothing, as there was nothing to answer'}.`,
+    `${S.fund} went all in on hosiery. Hosiery went all out.`,
+    `In loving memory of ${S.fund}. Darned too late.`
+  ];
+  $('bkSub').textContent=`Chapter 11 (Sock Edition) — ${reason}`;
+  const c=(t)=>{t=String(t).slice(0,19);const l=Math.floor((19-t.length)/2);return '     |'+' '.repeat(l)+t+' '.repeat(19-t.length-l)+'|';};
+  $('bkStone').textContent=['      ___________________','     /                   \\',c('R . I . P'),c(''),...fundLines(S.fund).map(c),c(dateStr(S.dates[0]).slice(4)+' -'),c(dateStr(S.date).slice(4)),c(''),c('"never found the'),c('other sock"'),'  ~~~|___________________|~~~    __','                                (  )  <- the other sock','                                 \\/'].join('\n');
+  $('bkEpi').textContent=pick(eps);
+  $('bkSt').innerHTML=`<div>Days survived<b>${S.day+1}</b></div><div>Peak net worth<b>${moneyC(S.peak)}</b></div><div>Final net worth<b class="down">${moneyC(nw)}</b></div><div>Trades<b>${S.trades}</b></div><div>Margin calls<b>${S.marginCalls}</b></div><div>Owed to Laundromat<b>${moneyC(S.bank.debt)}</b></div>`;
+  $('bk').classList.add('on');
+  speed=0;syncSpeedKeys();
+  save();
+}
 
-        // ================== UNLOCKS ==================
-        function checkUnlocks() {
-            for (const tb of TABS) {
-                if (!S.unlocked[tb.id] && S.peak >= tb.req) {
-                    S.unlocked[tb.id] = true;
-                    log("🔓 UNLOCKED: " + tb.label + (tb.id === "ship" ? " — now save $25,000 for the ship itself." : ""));
-                }
-            }
-        }
-        let activeTab = "work";
-        function renderTabs() {
-            const el = $("tabs");
-            el.innerHTML = "";
-            for (const tb of TABS) {
-                const b = document.createElement("button");
-                const open = !!S.unlocked[tb.id];
-                b.className = "tab" + (open ? "" : " locked") + (activeTab === tb.id ? " active" : "");
-                b.textContent = open ? "[" + tb.label + "]" : "🔒 " + fmt(tb.req);
-                b.onclick = () => {
-                    if (!open) { log("locked. reach " + fmt(tb.req) + " peak net worth for " + tb.label + "."); return; }
-                    activeTab = tb.id;
-                    document.querySelectorAll(".panel").forEach(x => x.classList.remove("show"));
-                    $("p-" + tb.id).classList.add("show");
-                    renderTabs();
-                };
-                el.appendChild(b);
-            }
-            document.querySelectorAll(".panel").forEach(x => x.classList.remove("show"));
-            $("p-" + activeTab).classList.add("show");
-        }
+/* ===================== achievements ===================== */
+const ACHS=[
+ ['first','Cold Feet No More','Make your first trade'],
+ ['short','Sock It To ’Em','Open a short position'],
+ ['etf','Index Hugger','Buy SOKX, the sock ETF'],
+ ['loan','Laundromat Regular','Borrow from First National Laundromat'],
+ ['debtfree','Clean Laundry','Repay a loan in full'],
+ ['lint','Lint Baron','Receive a dividend paid in lint'],
+ ['profit','Darn Good','Realise $1,000 in profit'],
+ ['nw20','Double Knit','Reach $20,000 net worth'],
+ ['nw100','Cashmere','Reach $100,000 net worth'],
+ ['nw1m','Sock Hedge Fund','Reach $1,000,000 net worth'],
+ ['lostfound','Lost & Found','Own LOST when it is found again'],
+ ['week','A Week in the Wash','Survive five trading days'],
+ ['crash','Survived the Unravelling','Hold positions through a crash'],
+ ['mcall','Called to the Office','Receive a margin call'],
+ ['liq','Forced Sale','Get forcibly liquidated'],
+ ['bankrupt','Holey','Go bankrupt']
+];
+function unlock(id){if(ACH[id])return;ACH[id]=Date.now();const a=ACHS.find(x=>x[0]===id);if(a)toast(`ACHIEVEMENT: ${a[1]} — ${a[2]}`);achDirty=true;saveAch();}
+function checkWealth(){const nw=netWorth();if(nw>=2e4)unlock('nw20');if(nw>=1e5)unlock('nw100');if(nw>=1e6)unlock('nw1m');}
+function recordNW(){S.nw.push({t:S.day+S.min/MIN_PER_DAY,v:netWorth()});if(S.nw.length>1200)S.nw.splice(0,S.nw.length-1200);}
 
-        // ================== BANKRUPTCY ==================
-        function checkBankrupt() {
-            if (S.dead) return;
-            if (S.cash < 1 && S.savings < 1 && totalShares() === 0) {
-                S.dead = true;
-                $("loseStats").innerHTML =
-                    "peak net worth: <b style='color:var(--amber)'>" + fmt(S.peak) + "</b><br>"
-                    + "socks folded: " + S.folds + "<br>"
-                    + "planets visited: " + (S.ship ? "several" : "just home") + "<br>"
-                    + "final balance: " + fmt(S.cash);
-                $("loseScreen").classList.add("show");
-                save();
-            }
-        }
+/* ===================== save/load ===================== */
+const KEY='soks.v1',AKEY='soks.ach.v1';
+const rp=x=>+x.toPrecision(7);
+function serialize(){return JSON.stringify(S,(k,v)=>{
+  if((k==='d'||k==='h30')&&Array.isArray(v))return v.map(b=>[b.t,rp(b.o),rp(b.h),rp(b.l),rp(b.c)]);
+  if(k==='m'&&Array.isArray(v))return v.map(rp);
+  return v;});}
+function save(){try{localStorage.setItem(KEY,serialize());}catch(e){}}
+function saveAch(){try{localStorage.setItem(AKEY,JSON.stringify(ACH));}catch(e){}}
+function load(){
+  try{const a=JSON.parse(localStorage.getItem(AKEY)||'null');if(a)ACH=a;}catch(e){}
+  try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(j&&j.v===1&&j.stocks&&j.etf){for(const s of [...Object.values(j.stocks),j.etf,j.idx])for(const key of ['d','h30'])s[key]=s[key].map(b=>Array.isArray(b)?{t:b[0],o:b[1],h:b[2],l:b[3],c:b[4]}:b);S=j;return true;}}catch(e){}
+  return false;
+}
 
-        // ================== MARKET ==================
-        function tickPrices() {
-            for (const pk in PLANETS) {
-                for (const st of PLANETS[pk].stocks) {
-                    const p = S.prices[pk][st.t];
-                    const drift = (Math.random() - 0.495);
-                    const np = Math.max(0.5, p * (1 + drift * st.v * 2));
-                    S.prices[pk][st.t] = np;
-                    const h = S.hist[pk][st.t];
-                    h.push(np); if (h.length > 30) h.shift();
-                }
-            }
-        }
-        function drawSpark(cv, data) {
-            const ctx = cv.getContext("2d");
-            const W = cv.width = 86, H = cv.height = 24;
-            ctx.clearRect(0, 0, W, H);
-            if (data.length < 2) return;
-            const min = Math.min(...data), max = Math.max(...data);
-            const up = data[data.length - 1] >= data[0];
-            ctx.strokeStyle = up ? "#38e07a" : "#ff5d5d";
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            data.forEach((v, i) => {
-                const x = i / (data.length - 1) * (W - 4) + 2;
-                const y = H - 3 - ((v - min) / ((max - min) || 1)) * (H - 6);
-                i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-            });
-            ctx.stroke();
-        }
-        function renderMarket() {
-            const pk = S.planet;
-            $("marketHint").textContent = PLANETS[pk].name + " exchange · prices tick every 2s.";
-            const list = $("stockList");
-            list.innerHTML = "";
-            for (const st of PLANETS[pk].stocks) {
-                const price = S.prices[pk][st.t];
-                const h = S.hist[pk][st.t];
-                const prev = h.length > 1 ? h[h.length - 2] : price;
-                const chg = ((price - prev) / prev * 100);
-                const own = S.hold[pk][st.t] || 0;
-                let trend = "";
-                if (S.items.puppet) {
-                    const avg = h.slice(-6).reduce((a, b) => a + b, 0) / Math.min(6, h.length);
-                    trend = price > avg ? " ▲" : " ▼";
-                }
-                const row = document.createElement("div");
-                row.className = "stockRow";
-                row.innerHTML =
-                    '<span class="tick">' + st.t + trend + '</span>'
-                    + '<span class="sname">' + st.n + '</span>'
-                    + '<canvas class="spark"></canvas>'
-                    + '<span class="price">' + fmt(price) + '</span>'
-                    + '<span class="chg ' + (chg >= 0 ? "up" : "down") + '">' + (chg >= 0 ? "+" : "") + chg.toFixed(1) + '%</span>'
-                    + '<span class="own">own ' + own + '</span>';
-                const b1 = document.createElement("button"); b1.className = "b"; b1.textContent = "buy 1";
-                b1.onclick = () => trade(st.t, 1);
-                const b10 = document.createElement("button"); b10.className = "b"; b10.textContent = "buy 10";
-                b10.onclick = () => trade(st.t, 10);
-                const bs = document.createElement("button"); bs.className = "b"; bs.textContent = "sell all";
-                bs.onclick = () => trade(st.t, -own);
-                row.append(b1, b10, bs);
-                list.appendChild(row);
-                drawSpark(row.querySelector("canvas"), h);
-            }
-        }
-        function trade(t, qty) {
-            const pk = S.planet;
-            const price = S.prices[pk][t];
-            if (qty === 0) return;
-            if (qty > 0) {
-                const cost = price * qty;
-                if (S.cash < cost) { log("not enough cash for " + qty + " " + t); return; }
-                S.cash -= cost; S.hold[pk][t] += qty;
-                log("bought " + qty + " " + t + " @ " + fmt(price));
-            } else {
-                const n = -qty; if (n <= 0) return;
-                S.hold[pk][t] -= n; S.cash += price * n;
-                log("sold " + n + " " + t + " @ " + fmt(price));
-            }
-            render(); save();
-        }
+/* ===================== UI state ===================== */
+let speed=1,sel='ARGYL',range='1D',mode='line',side='buy',otype='mkt';
+let tickerQueue=[],newsDirty=true,posDirty=true,achDirty=true;
+let hover=null;
 
-        // ================== CASINO ==================
-        function getBet(id) {
-            const v = Math.floor(Number($(id).value));
-            if (!v || v < 1 || v > S.cash) return null;
-            return v;
-        }
-        function coinFlip() {
-            const bet = getBet("flipBet"); const res = $("flipRes");
-            if (bet == null) { res.className = "result lose"; res.textContent = "invalid bet."; return; }
-            const winChance = S.items.lucky ? 0.55 : 0.48;
-            S.cash -= bet;
-            if (Math.random() < winChance) {
-                S.cash += bet * 2;
-                res.className = "result win"; res.textContent = "HEADS. +" + fmt(bet);
-            } else {
-                res.className = "result lose"; res.textContent = "tails. -" + fmt(bet);
-            }
-            render(); save();
-        }
-        const REEL = ["🧦", "🧤", "🎩", "🧣", "👖", "💎"];
-        function spinSlots() {
-            const bet = getBet("slotBet"); const res = $("slotRes");
-            if (bet == null) { res.className = "result lose"; res.textContent = "invalid bet."; return; }
-            S.cash -= bet;
-            const r = [0, 0, 0].map(() => REEL[Math.floor(Math.random() * REEL.length)]);
-            $("slotsReels").textContent = r.join(" ");
-            if (r[0] === r[1] && r[1] === r[2]) {
-                const mult = r[0] === "💎" ? 50 : 10;
-                S.cash += bet * mult;
-                res.className = "result win"; res.textContent = "THREE OF A KIND! +" + fmt(bet * mult);
-                log("slots hit x" + mult);
-            } else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) {
-                const w = Math.floor(bet * 1.5); S.cash += w;
-                res.className = "result win"; res.textContent = "pair. +" + fmt(w);
-            } else {
-                res.className = "result lose"; res.textContent = "nothing. -" + fmt(bet);
-            }
-            render(); save();
-        }
-        function scratch() {
-            const res = $("scratchRes");
-            if (S.cash < 5) { res.className = "result lose"; res.textContent = "tickets are $5."; return; }
-            S.cash -= 5;
-            const roll = Math.random(); let win = 0;
-            if (roll < 0.5) win = 0;
-            else if (roll < 0.8) win = 5;
-            else if (roll < 0.95) win = 15;
-            else if (roll < 0.995) win = 50;
-            else win = 500;
-            S.cash += win;
-            if (win === 0) { res.className = "result lose"; res.textContent = "nothing under the foil. -$5"; }
-            else { res.className = "result win"; res.textContent = "+" + fmt(win) + "!"; }
-            render(); save();
-        }
+/* ticker */
+const track=$('track');let tx=0;
+function tickerInit(){track.innerHTML='';tx=60;const items=S.news.slice(0,8).reverse();if(!items.length)items.push({txt:'Welcome to SOCKBERG. Markets open. Socks: on.',tag:'WIRE'});for(const it of items)appendTicker(it);tickerQueue=[];}
+function appendTicker(it){const el=document.createElement('span');el.className='item';el.innerHTML=`<span class="tg">${esc(it.tag)}</span>${esc(it.txt)}`;track.appendChild(el);}
+function tickerFrame(dt){
+  if(reduce){if(tickerQueue.length){track.innerHTML='';appendTicker(tickerQueue[tickerQueue.length-1]);tickerQueue=[];track.style.transform='translateX(70px)';}return;}
+  while(tickerQueue.length){appendTicker(tickerQueue.shift());}
+  tx-=dt*70;
+  const f=track.firstElementChild;
+  if(f&&tx+f.offsetWidth<0){tx+=f.offsetWidth;f.remove();if(track.children.length<4)appendTicker(S.news[Math.floor(rnd()*Math.min(10,S.news.length))]||{txt:'Nothing happening. Socks are fine.',tag:'WIRE'});}
+  const tw=track.scrollWidth,vw=track.parentElement.clientWidth;
+  if(tw+tx<vw&&S.news.length){appendTicker(S.news[Math.floor(rnd()*Math.min(10,S.news.length))]);}
+  track.style.transform=`translateX(${tx}px)`;
+}
 
-        // ================== WORK ==================
-        function fold() {
-            const pay = S.items.drawer ? 3 : 1;
-            S.cash += pay; S.folds++;
-            $("foldRes").textContent = "+$" + pay + " (fold #" + S.folds + ")";
-            render();
-            if (S.folds % 20 === 0) save();
-        }
+/* watchlist */
+let wlRows={};
+function buildWatch(){
+  const tb=$('wl').tBodies[0];tb.innerHTML='';wlRows={};
+  for(const s of [...companies(),S.etf,S.idx]){
+    const tr=document.createElement('tr');tr.className='row'+(s.index?' idx':'')+(s.etf?' idx':'');
+    tr.innerHTML=`<td class="tk">${s.tk}</td><td class="p"></td><td class="c"></td><td class="hideM"><canvas width="112" height="32"></canvas></td>`;
+    tr.onclick=()=>select(s.tk);tb.appendChild(tr);wlRows[s.tk]={tr,p:tr.children[1],c:tr.children[2],cv:tr.querySelector('canvas'),last:s.price};
+  }
+}
+function renderWatch(){
+  for(const s of [...companies(),S.etf,S.idx]){
+    const r=wlRows[s.tk];if(!r)continue;
+    r.tr.classList.toggle('sel',s.tk===sel);
+    if(s.halted){r.p.innerHTML='<span class="miss">MISSING</span>';r.c.textContent='—';r.c.className='c dim';}
+    else{r.p.textContent=s.index?s.price.toLocaleString('en-US',{maximumFractionDigits:0}):pxf(s.price);const ch=s.price/s.prev-1;r.c.textContent=pct(ch);r.c.className='c '+cls(ch);
+      if(!reduce&&Math.abs(s.price-r.last)/r.last>.004){r.tr.classList.remove('flash-up','flash-dn');void r.tr.offsetWidth;r.tr.classList.add(s.price>r.last?'flash-up':'flash-dn');}
+    }
+    r.last=s.price;
+    spark(r.cv,s.m,s.prev,s.tk==='NOSH');
+  }
+}
+function spark(cv,arr,prev,ghost){
+  const g=cv.getContext('2d'),w=cv.width,h=cv.height;g.clearRect(0,0,w,h);
+  if(arr.length<2)return;
+  let mn=prev,mx=prev;for(const v of arr){if(v<mn)mn=v;if(v>mx)mx=v;}const rg=(mx-mn)||1;
+  g.globalAlpha=ghost?.08:1;
+  g.strokeStyle='#333';g.setLineDash([2,2]);g.beginPath();const py=h-2-(prev-mn)/rg*(h-4);g.moveTo(0,py);g.lineTo(w,py);g.stroke();g.setLineDash([]);
+  g.strokeStyle=arr[arr.length-1]>=prev?'#30d26b':'#ff4b4b';g.lineWidth=2;g.beginPath();
+  for(let i=0;i<arr.length;i++){const x=i/MIN_PER_DAY*w,y=h-2-(arr[i]-mn)/rg*(h-4);i?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();g.globalAlpha=1;
+}
 
-        // ================== BANK ==================
-        function deposit() {
-            const v = Math.floor(Number($("bankAmt").value));
-            if (!v || v < 1 || v > S.cash) { $("bankRes").textContent = "can't deposit that."; return; }
-            S.cash -= v; S.savings += v;
-            $("bankRes").textContent = "deposited " + fmt(v);
-            render(); save();
-        }
-        function withdraw() {
-            const v = Math.floor(Number($("bankAmt").value));
-            if (!v || v < 1 || v > S.savings) { $("bankRes").textContent = "can't withdraw that."; return; }
-            S.savings -= v; S.cash += v;
-            $("bankRes").textContent = "withdrew " + fmt(v);
-            render(); save();
-        }
-        setInterval(() => {
-            if (S.dead) return;
-            if (S.savings > 0) {
-                const rate = S.items.insul ? 0.02 : 0.01;
-                S.savings += S.savings * rate;
-                log("bank interest paid.");
-                render(); save();
-            }
-        }, 30000);
+/* quote */
+function infoOf(tk){if(tk==='SOKX')return ETF;if(tk==='DJLA')return IDX;return DEFS.find(d=>d.tk===tk);}
+function renderQuote(){
+  const s=getStock(sel),info=infoOf(sel);
+  $('qT').textContent=s.tk;$('qN').textContent=s.name+(s.index?' · INDEX':s.etf?' · ETF':' · SOCK Equity');
+  $('qP').textContent=s.index?s.price.toLocaleString('en-US',{maximumFractionDigits:2}):pxf(s.price);
+  const ch=s.price-s.prev;$('qC').textContent=`${sgn(ch,s.index?1:2)} (${pct(ch/s.prev)})`;$('qC').className='ch num '+cls(ch);
+  $('secName').textContent=SECTORS[s.sec]||(s.etf?'Exchange-traded fund':'Index');
+  const pe=s.index||s.etf?'—':(s.tk==='SMRT'?'n/a (pre-revenue)':s.tk==='NOSH'?'unseen':(s.price/(s.eps*4)).toFixed(1));
+  const cap=s.index?'—':s.etf?moneyC(calcETF()*S.etfDiv/100*1.2):moneyC(s.price*s.sh);
+  const yld=s.div>0?((s.div*4*1.6)/s.price*100).toFixed(2)+'%':'—';
+  const ne=s.index||s.etf?'—':shortDate(projDate(s.nextEarn));
+  const rows=[['Open',pxf(s.open)],['High',pxf(s.hi)],['Low',pxf(s.lo)],['Prev close',pxf(s.prev)],
+    ['Volume',s.index?'—':(s.volu/1e6).toFixed(2)+'M'],['Mkt cap',cap],['P/E',pe],['Div yield',yld],
+    ['Earnings',ne],['Borrow fee',s.index?'—':(s.borrow*100).toFixed(0)+'%/yr'+(s.borrow>.3?' (hard)':'')],['EPS (qtr)',s.index||s.etf?'—':'$'+s.eps.toFixed(2)],['Status',s.halted?'HALTED':s.bubble?'BUBBLE':S.crash?'CRASHING':'Normal']];
+  $('qS').innerHTML=rows.map(r=>`<div><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  $('qB').textContent=info.blurb;
+  const H=$('halted');
+  if(s.halted){H.classList.add('on');H.innerHTML='LOST IS MISSING<small>Trading halted. Last seen in a dryer drum. Expected to be found by tomorrow’s open (or never).</small>';}
+  else H.classList.remove('on');
+}
+function projDate(day){let t=S.dates[S.day]||S.date;for(let d=S.day;d<day;d++)t=nextDate(t).t;return t;}
 
-        // ================== SHOP ==================
-        function renderShop() {
-            const list = $("itemList");
-            list.innerHTML = "";
-            for (const it of ITEMS) {
-                const row = document.createElement("div");
-                row.className = "item";
-                row.innerHTML = '<div class="nm">' + it.n + '<small>' + it.d + '</small></div>'
-                    + '<div class="pr">' + fmt(it.p) + '</div>';
-                if (S.items[it.id]) {
-                    const tag = document.createElement("span");
-                    tag.className = "owned-tag"; tag.textContent = "OWNED";
-                    row.appendChild(tag);
-                } else {
-                    const b = document.createElement("button"); b.className = "b"; b.textContent = "buy";
-                    b.onclick = () => {
-                        if (S.cash < it.p) { log("can't afford " + it.n); return; }
-                        S.cash -= it.p; S.items[it.id] = true;
-                        log("bought " + it.n);
-                        render(); save();
-                    };
-                    row.appendChild(b);
-                }
-                list.appendChild(row);
-            }
-        }
+/* chart */
+const cv=$('chart');
+function chartData(){
+  const s=getStock(sel);let bars=[],slots,label;
+  if(range==='1D'){
+    if(mode==='line'){bars=s.m.map((v,i)=>({c:v,o:v,h:v,l:v,i}));slots=MIN_PER_DAY+1;label=b=>timeStr(b.i);}
+    else{for(let i=0;i<s.m.length;i+=5){const seg=s.m.slice(i,i+6);bars.push({o:seg[0],c:seg[seg.length-1],h:Math.max(...seg),l:Math.min(...seg),i});}slots=MIN_PER_DAY/5+1;label=b=>timeStr(b.i);}
+    return {bars,slots,label,ref:s.prev};
+  }
+  if(range==='1W'){const from=(S.day-4)*13;bars=s.h30.filter(b=>b.t>=from);slots=Math.max(bars.length,65);label=b=>`${shortDate(S.dates[Math.floor(b.t/13)])} ${timeStr((b.t%13)*30)}`;return {bars,slots,label};}
+  if(range==='1M'){
+    if(mode==='line'){const from=(S.day-20)*13;bars=s.h30.filter(b=>b.t>=from);slots=bars.length;label=b=>`${shortDate(S.dates[Math.floor(b.t/13)])} ${timeStr((b.t%13)*30)}`;}
+    else{bars=s.d.slice(-21);slots=bars.length;label=b=>shortDate(S.dates[b.t]);}
+    return {bars,slots,label};
+  }
+  bars=s.d.slice();
+  if(mode==='candle'&&bars.length>160){const w=[];for(let i=0;i<bars.length;i+=5){const g=bars.slice(i,i+5);w.push({t:g[0].t,o:g[0].o,c:g[g.length-1].c,h:Math.max(...g.map(b=>b.h)),l:Math.min(...g.map(b=>b.l))});}bars=w;}
+  slots=bars.length;label=b=>{const ms=S.dates[b.t];return ms?shortDate(ms)+' '+new Date(ms).getUTCFullYear():'';};
+  return {bars,slots,label};
+}
+function drawChart(){
+  const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#000';g.fillRect(0,0,W,H);
+  const {bars,slots,label,ref}=chartData();
+  if(!bars.length)return;
+  const padR=62,padB=20,padT=10,cw=W-padR-6,ch=H-padB-padT;
+  let mn=Infinity,mx=-Infinity;for(const b of bars){mn=Math.min(mn,b.l);mx=Math.max(mx,b.h);}if(ref){mn=Math.min(mn,ref);mx=Math.max(mx,ref);}
+  const pad=(mx-mn)*.08||mx*.01;mn-=pad;mx+=pad;
+  const X=i=>6+(slots<=1?cw/2:i/(slots-1)*cw),Y=v=>padT+(mx-v)/(mx-mn)*ch;
+  // grid
+  g.font='11px '+getComputedStyle(document.body).fontFamily;g.textBaseline='middle';
+  const step=niceStep((mx-mn)/5);
+  g.strokeStyle='#161616';g.fillStyle='#777';g.lineWidth=1;
+  const dec=clamp(Math.ceil(-Math.log10(step)),0,4);
+  for(let v=Math.ceil(mn/step)*step;v<=mx;v+=step){const y=Math.round(Y(v))+.5;g.beginPath();g.moveTo(6,y);g.lineTo(6+cw,y);g.stroke();g.fillText(v>=10000?v.toLocaleString('en-US',{maximumFractionDigits:dec}):v.toFixed(dec),W-padR+4,y);}
+  // x labels
+  g.textBaseline='top';g.textAlign='center';const nl=Math.max(2,Math.floor(cw/110));
+  for(let k=0;k<nl;k++){const i=Math.round(k/(nl-1)*(bars.length-1));const b=bars[i];if(!b)continue;const xi=range==='1D'?(mode==='line'?b.i:b.i/5):i;let x=X(xi);x=clamp(x,30,cw-20);g.fillStyle='#666';g.fillText(label(b),x,H-padB+5);}
+  g.textAlign='left';
+  if(ref){g.strokeStyle='#555';g.setLineDash([4,4]);g.beginPath();g.moveTo(6,Y(ref));g.lineTo(6+cw,Y(ref));g.stroke();g.setLineDash([]);g.fillStyle='#777';g.textBaseline='bottom';g.fillText('prev close',8,Y(ref)-2);}
+  const xiOf=(b,i)=>range==='1D'?(mode==='line'?b.i:b.i/5):i;
+  if(mode==='line'){
+    const last=bars[bars.length-1].c,first=ref||bars[0].o,up=last>=first;
+    const col=up?'#30d26b':'#ff4b4b';
+    const grad=g.createLinearGradient(0,padT,0,padT+ch);grad.addColorStop(0,up?'rgba(48,210,107,.28)':'rgba(255,75,75,.28)');grad.addColorStop(1,'rgba(0,0,0,0)');
+    g.beginPath();bars.forEach((b,i)=>{const x=X(xiOf(b,i)),y=Y(b.c);i?g.lineTo(x,y):g.moveTo(x,y);});
+    g.lineTo(X(xiOf(bars[bars.length-1],bars.length-1)),padT+ch);g.lineTo(X(xiOf(bars[0],0)),padT+ch);g.closePath();g.fillStyle=grad;g.fill();
+    g.beginPath();bars.forEach((b,i)=>{const x=X(xiOf(b,i)),y=Y(b.c);i?g.lineTo(x,y):g.moveTo(x,y);});g.strokeStyle=sel==='NOSH'?'rgba(255,158,27,.35)':col;g.lineWidth=1.6;g.stroke();
+  }else{
+    const bw=Math.max(1,Math.min(14,cw/slots*.7));
+    bars.forEach((b,i)=>{const x=X(xiOf(b,i)),up=b.c>=b.o;g.strokeStyle=g.fillStyle=up?'#30d26b':'#ff4b4b';
+      g.beginPath();g.moveTo(Math.round(x)+.5,Y(b.h));g.lineTo(Math.round(x)+.5,Y(b.l));g.stroke();
+      const y1=Y(Math.max(b.o,b.c)),y2=Y(Math.min(b.o,b.c));g.fillRect(x-bw/2,y1,bw,Math.max(1,y2-y1));});
+  }
+  // last price tag
+  const lp=bars[bars.length-1].c;const ly=Y(lp);g.fillStyle='#ff9e1b';g.fillRect(W-padR+1,ly-8,padR-2,16);g.fillStyle='#000';g.textBaseline='middle';g.font='600 11px '+getComputedStyle(document.body).fontFamily;g.fillText(fmtAxis(lp),W-padR+4,ly);
+  // hover
+  if(hover!=null){
+    let best=0,bd=1e9;bars.forEach((b,i)=>{const d=Math.abs(X(xiOf(b,i))-hover);if(d<bd){bd=d;best=i;}});
+    const b=bars[best],x=X(xiOf(b,best));
+    g.strokeStyle='rgba(255,158,27,.6)';g.setLineDash([3,3]);g.beginPath();g.moveTo(x,padT);g.lineTo(x,padT+ch);g.moveTo(6,Y(b.c));g.lineTo(6+cw,Y(b.c));g.stroke();g.setLineDash([]);
+    const txt=mode==='candle'||range!=='1D'?`${label(b)}  O ${fmtAxis(b.o)} H ${fmtAxis(b.h)} L ${fmtAxis(b.l)} C ${fmtAxis(b.c)}`:`${label(b)}  ${fmtAxis(b.c)}`;
+    g.font='11px '+getComputedStyle(document.body).fontFamily;const tw=g.measureText(txt).width+12;
+    const bx=clamp(x-tw/2,4,W-tw-4);g.fillStyle='rgba(20,22,31,.95)';g.fillRect(bx,2,tw,18);g.strokeStyle='#ff9e1b';g.strokeRect(bx+.5,2.5,tw-1,17);g.fillStyle='#fff';g.textBaseline='middle';g.fillText(txt,bx+6,11);
+  }
+}
+function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r||1)));const m=r/p;return (m<1.5?1:m<3?2:m<7?5:10)*p;}
+function fmtAxis(v){return v>=10000?v.toLocaleString('en-US',{maximumFractionDigits:0}):v>=100?v.toFixed(1):v>=1?v.toFixed(2):v.toFixed(3);}
+cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect();hover=e.clientX-r.left;chartDirty=true;});
+cv.addEventListener('pointerleave',()=>{hover=null;chartDirty=true;});
+cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();hover=e.clientX-r.left;chartDirty=true;});
+let chartDirty=true;
 
-        // ================== SHIP & PLANETS ==================
-        function renderShip() {
-            const area = $("shipArea");
-            area.innerHTML = "";
-            if (!S.ship) {
-                $("shipHint").textContent = "a ship shaped like a sock. $25,000. it goes to clothing planets.";
-                const b = document.createElement("button");
-                b.className = "b"; b.style.fontSize = "15px"; b.style.padding = "10px 18px";
-                b.textContent = "🚀 BUY SOCKETSHIP — $25,000";
-                b.onclick = () => {
-                    if (S.cash < 25000) { log("the ship costs $25,000. keep grinding."); return; }
-                    S.cash -= 25000; S.ship = true;
-                    log("🚀 SOCKETSHIP ACQUIRED.");
-                    render(); save();
-                };
-                area.appendChild(b);
-            } else {
-                $("shipHint").textContent = "pick a destination. each planet has its own exchange.";
-                const grid = document.createElement("div");
-                grid.className = "planetGrid";
-                for (const pk in PLANETS) {
-                    const P = PLANETS[pk];
-                    const b = document.createElement("button");
-                    b.className = "planet" + (S.planet === pk ? " here" : "");
-                    b.innerHTML = '<div class="pe">' + P.emoji + '</div><div class="pn">' + P.name + '</div><div class="pd">' + P.desc + '</div>';
-                    b.onclick = () => {
-                        if (S.planet === pk) return;
-                        S.planet = pk;
-                        log("flew to " + P.name + " " + P.emoji);
-                        render(); save();
-                    };
-                    grid.appendChild(b);
-                }
-                area.appendChild(grid);
-            }
-        }
+/* net worth chart */
+function drawNW(){
+  const c=$('nwc'),dpr=Math.min(2,devicePixelRatio||1),W=c.clientWidth,H=c.clientHeight;if(!W)return;
+  if(c.width!==Math.round(W*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);}
+  const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#000';g.fillRect(0,0,W,H);
+  const pts=[...S.nw,{t:S.day+S.min/MIN_PER_DAY,v:netWorth()}];
+  let mn=Math.min(...pts.map(p=>p.v),START_CASH),mx=Math.max(...pts.map(p=>p.v),START_CASH);const pd=Math.max((mx-mn)*.08,START_CASH*.01);mn-=pd;mx+=pd;const rg=(mx-mn)||1;
+  const t0=pts[0].t,t1=Math.max(pts[pts.length-1].t,t0+1);
+  const X=t=>4+(t-t0)/(t1-t0)*(W-56),Y=v=>6+(mx-v)/rg*(H-14);
+  g.strokeStyle='#333';g.setLineDash([3,3]);g.beginPath();g.moveTo(4,Y(START_CASH));g.lineTo(W-52,Y(START_CASH));g.stroke();g.setLineDash([]);
+  if(mn<0){g.strokeStyle='#5a1a1a';g.beginPath();g.moveTo(4,Y(0));g.lineTo(W-52,Y(0));g.stroke();}
+  g.beginPath();pts.forEach((p,i)=>{i?g.lineTo(X(p.t),Y(p.v)):g.moveTo(X(p.t),Y(p.v));});g.strokeStyle='#ff9e1b';g.lineWidth=1.6;g.stroke();
+  g.fillStyle='#777';g.font='10px '+getComputedStyle(document.body).fontFamily;g.textBaseline='middle';g.fillText(moneyC(mx),W-50,10);g.fillText(moneyC(mn),W-50,H-8);
+  g.fillStyle='#555';g.fillText('NET WORTH',8,12);
+}
 
-        // ================== TICKER TAPE ==================
-        function renderTape() {
-            const pk = S.planet;
-            let s = "";
-            for (const st of PLANETS[pk].stocks) {
-                const h = S.hist[pk][st.t];
-                const up = h.length < 2 || h[h.length - 1] >= h[h.length - 2];
-                s += st.t + ' <span class="' + (up ? "up" : "down") + '">' + fmt(S.prices[pk][st.t])
-                    + (up ? " ▲" : " ▼") + '</span> &nbsp; · &nbsp; ';
-            }
-            $("tape").innerHTML = s + s; // doubled for the seamless loop
-        }
+/* account / positions / bank */
+function renderAccount(){
+  const a=acct(),nw=netWorth(),d=nw-S.dayStartNW;
+  $('fundName').textContent=S.fund;
+  $('nw').textContent=money(nw);$('nw').className='v num '+(nw<0?'down':'');
+  $('nwChg').innerHTML=`<span class="${cls(d)}">${sgn(d)} (${pct(d/Math.max(1,Math.abs(S.dayStartNW)))})</span> <span class="dim">today</span>`;
+  $('cash').textContent=moneyC(S.cash);$('cash').className='v num '+(S.cash<0?'down':'');
+  $('bp').textContent=moneyC(a.bp);$('eq').textContent=moneyC(a.eq);$('lmv').textContent=moneyC(a.lmv);$('smv').textContent=moneyC(a.smv);
+  $('lint').textContent=`${S.lint.toLocaleString('en-US',{maximumFractionDigits:1})} g`;$('lint').title=`Lint is worth $0.002/g on the Lint Exchange (${money(lintValue())})`;
+  const mc=$('mcall');
+  if(S.mcall){mc.classList.add('on');mc.innerHTML=`MARGIN CALL — equity ${moneyC(a.eq)} &lt; maintenance ${moneyC(a.maint)}. Fix by close ${S.day>=S.mcall.deadline?'TODAY':'tomorrow'} or get liquidated.`;}
+  else mc.classList.remove('on');
+  // bank
+  $('score').textContent=S.credit;$('scoreMark').style.left=`calc(${(S.credit-300)/550*100}% - 1px)`;$('rating').textContent=rating(S.credit);
+  $('debt').textContent=money(S.bank.debt);$('debt').className=S.bank.debt>0?'down':'';
+  $('apr').textContent=(apr()*100).toFixed(1)+'%';
+  $('due').textContent=S.bank.debt>0?`${shortDate(projDate(Math.max(S.bank.dueDay,S.day)))} · min ${money(Math.min(S.bank.debt,Math.max(25,S.bank.debt*.03)))}${S.bank.missed?` · ${S.bank.missed} missed`:''}`:'—';
+  $('maxLoan').textContent=money(maxLoan(),0);
+}
+function renderPositions(){
+  const tb=$('pos').tBodies[0];const tks=Object.keys(S.pos);
+  if(!tks.length){tb.innerHTML=`<tr><td colspan="7" class="empty">No positions. Your sock drawer is empty.</td></tr>`;}
+  else{
+    tb.innerHTML=tks.map(tk=>{const p=S.pos[tk],s=getStock(tk),mv=p.qty*s.price,pl=p.qty>0?(s.price-p.cost)*p.qty:(p.cost-s.price)*-p.qty,plp=pl/Math.abs(p.cost*p.qty);
+      return `<tr><td class="tk" data-tk="${tk}">${tk}${p.qty<0?' <span class="dim">S</span>':''}</td><td class="${p.qty<0?'down':'wh'}">${p.qty.toLocaleString('en-US')}</td><td class="hideM">${pxf(p.cost)}</td><td class="wh">${s.halted?'<span class="miss">MISS</span>':pxf(s.price)}</td><td class="hideM">${moneyC(mv)}</td><td class="${cls(pl)}">${moneyC(pl)}<br><small>${pct(plp,1)}</small></td><td><button class="xbtn" data-close="${tk}" title="Close position">CLOSE</button></td></tr>`;}).join('');
+  }
+  $('realized').innerHTML=`realised <span class="${cls(S.realized)}">${moneyC(S.realized)}</span>`;
+  const od=$('orders');
+  od.innerHTML=S.orders.length?'<div class="dim">OPEN LIMIT ORDERS</div>'+S.orders.map(o=>`<div class="o"><span>${o.side.toUpperCase()} ${o.qty} ${o.tk} @ ${pxf(o.limit)}</span><button class="xbtn" data-cancel="${o.id}">CANCEL</button></div>`).join(''):'<span class="dim">No open orders.</span>';
+}
+$('pos').addEventListener('click',e=>{
+  const c=e.target.closest('[data-close]');if(c){const tk=c.dataset.close,p=S.pos[tk];if(!p)return;const err=trade(p.qty>0?'sell':'cover',tk,Math.abs(p.qty));setMsg($('oMsg'),err||`Closed ${tk}.`,!err);posDirty=true;save();return;}
+  const t=e.target.closest('[data-tk]');if(t)select(t.dataset.tk);
+});
+$('orders').addEventListener('click',e=>{const c=e.target.closest('[data-cancel]');if(c){S.orders=S.orders.filter(o=>o.id!==+c.dataset.cancel);posDirty=true;save();}});
+function renderMovers(){
+  const l=companies().filter(s=>!s.halted).map(s=>({tk:s.tk,c:s.price/s.prev-1})).sort((a,b)=>b.c-a.c);
+  const up=l.slice(0,4),dn=l.slice(-4).reverse();
+  $('movers').innerHTML=up.map((u,i)=>`<div data-tk="${u.tk}"><span class="tk wh">${u.tk}</span><span class="${cls(u.c)}">${pct(u.c)}</span></div><div data-tk="${dn[i].tk}"><span class="tk wh">${dn[i].tk}</span><span class="${cls(dn[i].c)}">${pct(dn[i].c)}</span></div>`).join('');
+}
+$('movers').addEventListener('click',e=>{const t=e.target.closest('[data-tk]');if(t)select(t.dataset.tk);});
+function renderNews(){
+  $('news').innerHTML=S.news.slice(0,40).map(n=>`<div class="n${n.big?' big':''}"><span class="t">${shortDate(S.dates[n.d]||S.date)} ${timeStr(Math.min(n.min,390))}</span><span class="tg">${esc(n.tag)}</span> ${esc(n.txt)}</div>`).join('')||'<div class="empty">Quiet on the wire.</div>';
+  $('newsCount').textContent=S.news.length+' items';
+}
+function renderAch(){
+  $('ach').innerHTML=ACHS.map(a=>`<div class="${ACH[a[0]]?'got':''}" title="${esc(a[2])}"><b>${ACH[a[0]]?'★':'☆'} ${esc(a[1])}</b>${esc(a[2])}</div>`).join('');
+  $('achCount').textContent=`${ACHS.filter(a=>ACH[a[0]]).length}/${ACHS.length}`;
+}
+function renderTop(){
+  $('clock').textContent=`${dateStr(S.date)} ${S.phase==='open'?timeStr(S.min):'16:00'} ET`;
+  const m=$('mkt');
+  if(S.phase==='open'){m.className='mkt '+(S.crash?'halt':'open');m.textContent=S.crash?'● CRASHING':'● OPEN';}
+  else{const nd=nextDate(S.date);m.className='mkt closed';m.textContent=nd.cal>1?'CLOSED · WEEKEND (socks in the wash)':'CLOSED';}
+  $('dayprog').style.width=(S.phase==='open'?S.min/MIN_PER_DAY*100:100)+'%';
+}
+function renderTicket(){
+  const s=getStock(sel);
+  $('oTk').value=sel;
+  const q=+$('oQty').value||0;const px=otype==='lmt'?(+$('oLim').value||s.price):s.price;
+  $('oEst').textContent=s.index?'not tradeable':money(q*px);
+  const p=S.pos[sel];$('oHold').textContent=p?p.qty.toLocaleString('en-US'):'0';
+  $('oFee').textContent=side==='short'?`borrow fee ${(s.borrow*100).toFixed(0)}%/yr`:'';
+  if(otype==='lmt'&&document.activeElement!==$('oLim')&&!$('oLim').value)$('oLim').value=pxf(s.price);
+  $('oGo').disabled=!!s.index;
+}
 
-        // ================== RENDER / LOOP ==================
-        function render() {
-            const w = netWorth();
-            if (w > S.peak) S.peak = w;
-            checkUnlocks();
-            $("cashV").textContent = fmt(S.cash);
-            $("worthV").textContent = fmt(w);
-            $("peakV").textContent = fmt(S.peak);
-            $("planetV").textContent = PLANETS[S.planet].emoji + " " + PLANETS[S.planet].name;
-            $("savingsV").textContent = fmt(S.savings);
-            renderTabs();
-            renderMarket();
-            renderShop();
-            renderShip();
-            renderTape();
-            if (!S.tycoon && w >= 1000000) {
-                S.tycoon = true;
-                log("🏆 $1,000,000 NET WORTH — SOCK TYCOON.");
-                alert("🏆 $1,000,000 NET WORTH!\nYou are officially a Sock Tycoon.");
-                save();
-            }
-            checkBankrupt();
-        }
+function select(tk){sel=tk;hover=null;chartDirty=true;$('oLim').value='';renderQuote();renderWatch();renderTicket();if(innerWidth<760)document.querySelector('.p-quote').scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});}
 
-        load();
-        initPrices();
-        render();
-        if (S.dead) { checkBankrupt(); } // re-show lose screen on reload if already bankrupt
-        log("SOKS terminal online. balance " + fmt(S.cash) + ". fold socks to begin.");
-        setInterval(() => { if (!S.dead) { tickPrices(); render(); } }, 2000);
-        setInterval(() => { if (!S.dead) save(); }, 15000);
-    </script>
+/* dialogs */
+function dialog(title,html,acts){
+  $('dlgT').textContent=title;$('dlgB').innerHTML=html;const A=$('dlgA');A.innerHTML='';
+  for(const [lbl,cl,fn] of acts){const b=document.createElement('button');b.className=cl;b.textContent=lbl;b.onclick=()=>{$('dlg').classList.remove('on');if(fn)fn();};A.appendChild(b);}
+  $('dlg').classList.add('on');setTimeout(()=>A.lastChild&&A.lastChild.focus(),0);
+}
+let toastT=0;function toast(t){const el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),3200);}
+function setMsg(el,t,ok){el.textContent=t||'';el.className='msg '+(ok?'ok':'err');}
+
+/* ===================== controls ===================== */
+function syncSpeedKeys(){document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===speed));}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{if(S.bankrupt)return;speed=+b.dataset.speed;syncSpeedKeys();});
+$('rangeSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;range=b.dataset.r;[...$('rangeSeg').children].forEach(x=>x.classList.toggle('on',x===b));chartDirty=true;};
+$('modeSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;[...$('modeSeg').children].forEach(x=>x.classList.toggle('on',x===b));chartDirty=true;};
+$('sideSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;side=b.dataset.s;[...$('sideSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderTicket();};
+$('typeSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;otype=b.dataset.t;[...$('typeSeg').children].forEach(x=>x.classList.toggle('on',x===b));$('oLim').disabled=otype!=='lmt';if(otype==='lmt')$('oLim').value=pxf(getStock(sel).price);renderTicket();};
+$('oMax').onclick=()=>{$('oQty').value=maxQty(side,sel);renderTicket();};
+$('oQty').oninput=renderTicket;$('oLim').oninput=renderTicket;
+$('ticket').onsubmit=e=>{
+  e.preventDefault();if(S.bankrupt)return;
+  const q=Math.floor(+$('oQty').value);
+  if(otype==='mkt'){
+    const err=trade(side,sel,q);
+    setMsg($('oMsg'),err||`Filled: ${side.toUpperCase()} ${q} ${sel} @ ${pxf(getStock(sel).price)}`,!err);
+  }else{
+    const lim=+$('oLim').value;const s=getStock(sel);
+    if(!(q>0))setMsg($('oMsg'),'Quantity must be a positive whole number.',false);
+    else if(!(lim>0))setMsg($('oMsg'),'Enter a limit price.',false);
+    else if(s.index)setMsg($('oMsg'),'Not tradeable.',false);
+    else{S.orders.push({id:S.oid++,tk:sel,side,qty:q,limit:lim});setMsg($('oMsg'),`Limit order placed: ${side.toUpperCase()} ${q} ${sel} @ ${pxf(lim)} (good till cancelled)`,true);if(S.phase==='open')fillOrders();}
+  }
+  posDirty=true;checkMargin(false);save();
+};
+$('btnBorrow').onclick=()=>{if(S.bankrupt)return;const err=borrow(+$('loanAmt').value);setMsg($('loanMsg'),err||'Funds deposited. Interest is already compounding. Enjoy!',!err);$('loanAmt').value='';checkMargin(false);save();};
+$('btnRepay').onclick=()=>{if(S.bankrupt)return;const v=$('loanAmt').value?+$('loanAmt').value:Math.min(S.cash,S.bank.debt);const err=repay(v);setMsg($('loanMsg'),err||`Repaid ${money(v)}.`,!err);$('loanAmt').value='';save();};
+$('btnReset').onclick=()=>dialog('RESET FUND',`<p>Close <b>${esc(S.fund)}</b> and start over with ${money(START_CASH,0)}? Achievements are kept. Debts are, miraculously, forgiven.</p>`,[['CANCEL','key gray'],['RESET','key red',()=>restart()]]);
+$('bkRestart').onclick=()=>restart();
+function restart(){$('bk').classList.remove('on');newGame();speed=1;syncSpeedKeys();sel='ARGYL';fullRender();tickerInit();save();toast(`New fund opened: ${S.fund}. ${money(START_CASH,0)} in cash. Good luck.`);}
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key===' '){e.preventDefault();speed=speed?0:1;syncSpeedKeys();}
+  else if(e.key==='1'||e.key==='2'||e.key==='5'){speed=+e.key;syncSpeedKeys();}
+  else if(e.key==='Escape')$('dlg').classList.remove('on');
+});
+addEventListener('resize',()=>{chartDirty=true;});
+addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
+
+/* ===================== main loop ===================== */
+function fullRender(){buildWatch();renderTop();renderWatch();renderQuote();renderAccount();renderPositions();renderMovers();renderNews();renderAch();renderTicket();drawChart();drawNW();}
+let acc=0,last=performance.now(),uiT=0,saveT=0,slowT=0;
+function frame(now){
+  let dt=Math.min(.25,(now-last)/1000);last=now;
+  if(S&&!S.bankrupt&&speed>0){
+    if(S.phase==='open'){acc+=dt*speed*MIN_PER_DAY/REAL_SEC_PER_DAY;let n=0;while(acc>=1&&n<200&&S.phase==='open'){acc-=1;stepMinute();n++;}if(S.phase!=='open')acc=0;chartDirty=true;}
+    else{S.closeT-=dt*speed;if(S.closeT<=0)advanceToNextDay();}
+  }
+  tickerFrame(dt);
+  uiT+=dt;slowT+=dt;saveT+=dt;
+  if(uiT>.12){uiT=0;renderTop();renderWatch();renderQuote();renderAccount();if(chartDirty){drawChart();chartDirty=false;}
+    if(posDirty||slowT>.5){renderPositions();posDirty=false;}
+    if(slowT>.5){slowT=0;renderMovers();drawNW();renderTicket();}
+    if(newsDirty){renderNews();newsDirty=false;}
+    if(achDirty){renderAch();achDirty=false;}
+  }
+  if(saveT>8){saveT=0;save();}
+  requestAnimationFrame(frame);
+}
+
+/* ===================== boot ===================== */
+if(!load())newGame();
+fullRender();tickerInit();
+if(S.bankrupt){goBankruptShow();}
+function goBankruptShow(){S.bankrupt=false;goBankrupt('previously');}
+requestAnimationFrame(frame);
+
+/* ===================== debug hook (for tests / curious players) ===================== */
+window.__soks={
+  get S(){return S;},acct,netWorth,trade,borrow,repay,maxQty,checkMargin,save,load:()=>{const ok=load();fullRender();return ok;},
+  setSpeed(v){speed=v;syncSpeedKeys();},
+  stepMinutes(n){for(let i=0;i<n&&!S.bankrupt;i++){if(S.phase!=='open')advanceToNextDay();stepMinute();}fullRender();},
+  advanceDays(n){for(let d=0;d<n&&!S.bankrupt;d++){if(S.phase!=='open')advanceToNextDay();while(S.phase==='open'&&!S.bankrupt)stepMinute();}fullRender();},
+  setPrice(tk,p){const s=getStock(tk);s.price=p;S.idx.price=calcIndex();S.etf.price=calcETF();},
+  crash(){startCrash();},
+  forceMarginCall(drop){ // leverage up to the max on TOES, then knock its price down
+    if(S.phase!=='open'){advanceToNextDay();}
+    S.stocks.TOES.halted=false;if(S.pos.TOES&&S.pos.TOES.qty<0)trade('cover','TOES',-S.pos.TOES.qty);const q=maxQty('buy','TOES');const err=trade('buy','TOES',q);this.setPrice('TOES',S.stocks.TOES.price*(drop||.78));checkMargin(false);fullRender();return {err,q,...acct(),mcall:S.mcall};},
+  bankrupt(){goBankrupt('debug hook');}
+};
+})();
+</script>
 </body>
 </html>
