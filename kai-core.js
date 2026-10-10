@@ -458,7 +458,8 @@ KAI.STAMPS = [
   { id:'time', kai:'Kaiyu', en:'Read Kai Time', how:'Visit Kai Time.' },
   { id:'pedia', kai:'Rinu maku', en:'Kaipedia reader', how:'Read 5 Kaipedia articles.' },
   { id:'anthem', kai:'Kanta!', en:'Sang the anthem', how:'Play the Kaiya anthem all the way through.' },
-  { id:'citizen', kai:'Kaiteno', en:'Citizen of Kaiya', how:'Pass the citizenship test.' }
+  { id:'citizen', kai:'Kaiteno', en:'Citizen of Kaiya', how:'Pass the citizenship test.' },
+  { id:'desk', kai:'Mitu!', en:'Found the desk', how:'Find 5 secrets on the Desk of Kai.' }
 ];
 const PKEY = 'kaiism.v1';
 function loadP() { try { const j = JSON.parse(localStorage.getItem(PKEY) || 'null'); if (j && typeof j === 'object') return j; } catch (e) {} return { stamps: {}, name: '' }; }

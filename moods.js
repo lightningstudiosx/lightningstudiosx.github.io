@@ -116,6 +116,10 @@ const M=[
  ["shadow","shadow","secret","led","flat","","#1a1a1a","shadow",1,1],
  ["bottomfeeder","bottom feeder","secret","sleepy","o","","#7fb3d5","bottomfeeder",1,1],
  ["error","ERROR","secret","x","flat","","#d62828","error",1,1],
+ // desk of kai (desk.html)
+ ["deskgoblin","desk goblin","secret","angry","teeth","horns","#9be37d","deskgoblin",1,1],
+ ["nightowl","night owl","secret","wide","small","moon","#3b2a6e","nightowl",1,1],
+ ["snackthief","snack thief","secret","wink","tongue","bandana","#f0c060","snackthief",1,1],
  // intricate puzzle
  ["smilend","Smilend","cooked","closed","flat","halo","#1a1a1a","smilend",1,1],
  // the final one
@@ -141,6 +145,8 @@ const HINTS={
   printable:"put him on paper", copycat:"steal his words", immersive:"give him the whole screen",
   flipped:"turn the world over. thrice.", shadow:"type the absence of light", bottomfeeder:"the end of the page, again and again",
   error:"the page can only take so much",
+  deskgoblin:"kai's desk has a locked drawer. something lives in it.", nightowl:"kill the lights at kai's desk and look outside",
+  snackthief:"kai left his chips on the desk. all of them.",
   smilend:"when he is broken, ask him the only question there is. two games hide in the grid, side by side.",
   sisyphus:"the boulder is round and yellow", completionist:"every face that chance allows", trinity:"three games, three doors, all open",
   patience:"stay a while. longer than that.", antirobot:"away and up, up \u2014 the rest, reversed",
@@ -156,6 +162,7 @@ const KEEP={
   fire:"epic",ghost:"epic",alien:"epic",poet:"epic",villain:"epic",vampire:"epic",astronaut:"epic",superhero:"epic",wizard:"epic",madscientist:"epic",
   golden:"legendary",glitch:"legendary",cosmic:"legendary",knight:"legendary",cat:"legendary",surfer:"legendary",monk:"legendary",clown:"legendary",mime:"legendary",grandpa:"legendary",
   robot:"secret",pizza:"secret",creator:"secret",nocturnal:"secret",speedrun:"secret",contextual:"secret",error:"secret",doorkeeper:"secret",overclocked:"secret",binge:"secret",
+  deskgoblin:"secret",nightowl:"secret",snackthief:"secret",
   smilend:"cooked",sisyphus:"cooked",completionist:"cooked",trinity:"cooked",patience:"cooked",antirobot:"cooked",century:"cooked",missedyou:"cooked",unlucky:"cooked",festive:"cooked",
   kai:"final",
 };
@@ -382,6 +389,9 @@ const STYLE={
   bottomfeeder:t=>"you scrolled all the way here for this: "+t,
   error:t=>"ERR "+Math.floor(Math.random()*900+100)+": "+t.replace(/[aeiou]/g,"#")+" [unhandled]",
   smilend:t=>"this is the end of smiles. "+t+" ...and yet it kept smiling.",
+  deskgoblin:t=>"heh heh. "+t.toLowerCase()+" ...now close the drawer. this drawer is MINE.",
+  nightowl:t=>"hoo. "+t.toLowerCase()+" ...why are you still up? hoo hoo.",
+  snackthief:t=>"*crunch* "+t+" *crunch* ...what chips? i don't see any chips.",
   p0:t=>t.split(" ").map(w=>{ const x=w.match(/^([^aeiou]*)(.*)$/i); return x&&x[1]? x[2]+x[1].toLowerCase()+"ay" : w+"way"; }).join(" "),
   p1:t=>t.replace(/e/gi,"3").replace(/a/gi,"4").replace(/o/gi,"0").replace(/i/gi,"1").replace(/s/gi,"5"),
   p2:t=>t.toUpperCase().replace(/[,.!?]/g," STOP")+" STOP END",
