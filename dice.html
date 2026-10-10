@@ -4,63 +4,143 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>dice · Kai.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Barlow+Semi+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --felt:#0b5d3b; --felt-deep:#063823; --rail:#4a2216; --rail-hi:#6b3420; --rail-lo:#2a120b;
+    --brass:#e2bd67; --brass-lo:#a57d2c; --ivory:#f6f1e7; --ink:#1b120d;
+    --chip-red:#c8313a; --chip-blue:#2b62b0; --chip-violet:#6f47a8;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;}
-  body{background:#101014;overflow:hidden;font-family:"Trebuchet MS",system-ui,sans-serif;}
-  #c{position:fixed;inset:0;display:block;}
-  #bar{
-    position:fixed;top:10px;left:50%;transform:translateX(-50%);
-    display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;
-    background:rgba(16,16,20,.72);border:1px solid #333;border-radius:12px;
-    padding:8px 10px;z-index:10;max-width:96vw;
-  }
-  #bar button{
-    border:2px solid #000;border-radius:10px;background:#f5b829;color:#141414;
-    font-family:inherit;font-weight:700;font-size:13px;padding:8px 12px;
-    cursor:pointer;box-shadow:2px 2px 0 #000;
-  }
-  #bar button:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #000;}
-  #bar button.alt{background:#4aa9d8;color:#fff;}
-  #bar button.alt2{background:#9b7fd4;color:#fff;}
-  #bar button.warn{background:#2a2a2e;color:#bbb;}
-  #bar input{
-    width:58px;border:2px solid #000;border-radius:8px;font-family:inherit;
-    font-size:13px;font-weight:700;padding:7px 6px;text-align:center;
-  }
-  #bar .lbl{color:#999;font-size:11px;}
-  #result{
-    position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
-    color:#fff;font-size:17px;font-weight:700;text-align:center;z-index:10;
-    background:rgba(16,16,20,.72);border:1px solid #333;border-radius:12px;
-    padding:8px 16px;min-width:120px;
-  }
-  #result .sub{font-size:11px;color:#999;font-weight:400;}
-  #homeLink{
-    position:fixed;bottom:10px;left:12px;font-size:12px;color:#666;
-    text-decoration:none;z-index:10;
-  }
-  #homeLink:hover{color:#ccc;}
-  #overlay{
-    position:fixed;inset:0;background:#101014;color:#aaa;z-index:50;
+  body{background:var(--felt-deep);overflow:hidden;font-family:"Barlow Semi Condensed","Trebuchet MS",system-ui,sans-serif;color:var(--ivory);}
+  #c{position:fixed;inset:0;display:block;touch-action:none;}
+  button,input{font-family:inherit;}
+  button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--brass);outline-offset:3px;}
+
+  /* ---- table marking printed on the felt ---- */
+  #mark{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:5;text-align:center;pointer-events:none;
+    color:rgba(246,241,231,.86);}
+  #mark h1{font-family:"Limelight",Georgia,serif;font-weight:400;font-size:clamp(34px,5vw,54px);letter-spacing:.06em;line-height:1;
+    text-shadow:0 2px 0 rgba(0,0,0,.25);}
+  #mark .arc{display:inline-block;margin-top:6px;padding:3px 14px;border:1.5px solid rgba(246,241,231,.45);border-radius:999px;
+    font-size:13px;font-weight:600;letter-spacing:.08em;color:rgba(246,241,231,.75);white-space:nowrap;}
+  #homeLink{position:fixed;top:16px;left:16px;z-index:12;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;
+    border-radius:999px;background:rgba(6,40,25,.55);border:1px solid rgba(226,189,103,.35);color:var(--brass);
+    font-weight:700;font-size:14px;text-decoration:none;letter-spacing:.02em;}
+  #homeLink:hover{background:rgba(6,40,25,.85);color:#f3d58f;}
+
+  /* ---- result plaque ---- */
+  #result{pointer-events:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--railH,112px) + 16px);z-index:10;
+    min-width:220px;max-width:min(92vw,640px);padding:10px 22px 11px;text-align:center;
+    background:linear-gradient(#f0d488,#d2a64c 55%,#b98b34);color:var(--ink);border-radius:10px;
+    box-shadow:0 1px 0 #fff6 inset,0 -2px 0 #0003 inset,0 10px 24px rgba(0,0,0,.35);
+    font-size:17px;font-weight:700;line-height:1.25;}
+  #result::before,#result::after{content:"";position:absolute;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff7,#7a5a1e 70%);}
+  #result::before{left:8px;} #result::after{right:8px;}
+  #result b{font-family:"Limelight",Georgia,serif;font-weight:400;font-size:30px;vertical-align:-3px;margin-left:2px;}
+  #result .sub{font-size:13px;font-weight:600;color:#4b3414;margin-top:2px;}
+  #result .vals{word-break:break-word;}
+
+  /* ---- the rail (controls) ---- */
+  #bar{position:fixed;left:0;right:0;bottom:0;z-index:10;
+    display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    background:
+      linear-gradient(180deg,var(--rail-hi) 0,var(--rail) 18%,var(--rail) 70%,var(--rail-lo) 100%);
+    border-top:3px solid #1a0a05;box-shadow:0 -10px 30px rgba(0,0,0,.35);}
+  #bar::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:rgba(255,220,170,.18);}
+  .grp{display:flex;align-items:center;gap:10px;}
+  .grpLabel{font-size:13px;font-weight:700;color:#e9cfa0;letter-spacing:.03em;margin-right:2px;}
+
+  /* poker chips */
+  .chip{position:relative;width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;
+    background:
+      radial-gradient(circle,var(--c) 0 52%,transparent 53%),
+      repeating-conic-gradient(var(--c) 0 22.5deg,#fff 22.5deg 30deg,var(--c) 30deg 45deg);
+    box-shadow:0 0 0 2px rgba(0,0,0,.35),0 4px 0 #0007,0 6px 12px rgba(0,0,0,.35);
+    transition:transform .12s ease,box-shadow .12s ease;}
+  .chip::after{content:"";position:absolute;inset:11px;border-radius:50%;border:2px dashed rgba(255,255,255,.55);pointer-events:none;}
+  .chip::before{content:"+";position:absolute;top:-4px;right:-4px;width:22px;height:22px;border-radius:50%;
+    background:linear-gradient(#f4dc95,#c99a40);color:var(--ink);font-size:17px;font-weight:800;line-height:21px;text-align:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.5);}
+  .chip .nm{font-size:14px;font-weight:800;letter-spacing:.01em;text-shadow:0 1px 1px rgba(0,0,0,.4);}
+  .chip:hover{transform:translateY(-3px);box-shadow:0 0 0 2px rgba(0,0,0,.35),0 7px 0 #0007,0 10px 16px rgba(0,0,0,.35);}
+  .chip:active{transform:translateY(2px);box-shadow:0 0 0 2px rgba(0,0,0,.35),0 2px 0 #0007;}
+  #addD6{--c:var(--chip-red);} #addBarrel{--c:var(--chip-blue);} #addOrb{--c:var(--chip-violet);}
+
+  /* sides stepper */
+  .stepper{display:flex;align-items:center;height:48px;border-radius:12px;background:#1f0d07;border:1px solid #6b3a22;
+    box-shadow:0 2px 0 #fff1 inset;padding:0 4px;}
+  .stepper button{width:40px;height:40px;border:0;border-radius:9px;background:transparent;color:var(--brass);font-size:22px;font-weight:700;cursor:pointer;}
+  .stepper button:hover{background:#ffffff12;}
+  .stepper label{display:flex;flex-direction:column;align-items:center;line-height:1;}
+  .stepper .lbl{font-size:11px;font-weight:700;color:#c9a578;letter-spacing:.05em;}
+  #sidesIn{width:46px;border:0;background:transparent;color:var(--ivory);text-align:center;font-size:21px;font-weight:800;
+    -moz-appearance:textfield;padding:0;}
+  #sidesIn::-webkit-inner-spin-button,#sidesIn::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+
+  #rollAll{height:56px;padding:0 34px;border:0;border-radius:14px;cursor:pointer;
+    font-family:"Limelight",Georgia,serif;font-size:24px;letter-spacing:.06em;color:var(--ink);
+    background:linear-gradient(#f4dc95,#dcb25a 50%,#b88a33);
+    box-shadow:0 1px 0 #fff8 inset,0 -3px 0 #0002 inset,0 4px 0 #3b1a0c,0 8px 16px rgba(0,0,0,.4);
+    transition:transform .12s ease,box-shadow .12s ease;}
+  #rollAll:hover{transform:translateY(-2px);box-shadow:0 1px 0 #fff8 inset,0 -3px 0 #0002 inset,0 6px 0 #3b1a0c,0 12px 20px rgba(0,0,0,.4);}
+  #rollAll:active{transform:translateY(3px);box-shadow:0 1px 0 #fff8 inset,0 1px 0 #3b1a0c;}
+  #clearAll{height:44px;padding:0 16px;border-radius:10px;border:1.5px solid #8a5034;background:transparent;color:#e9cfa0;
+    font-weight:700;font-size:15px;cursor:pointer;letter-spacing:.03em;}
+  #clearAll:hover{background:#ffffff10;color:#fff;}
+
+  #overlay{position:fixed;inset:0;background:var(--felt-deep);color:#cfe3d6;z-index:50;
     display:flex;align-items:center;justify-content:center;text-align:center;
-    font-size:14px;padding:20px;white-space:pre-line;
+    font-size:17px;font-weight:600;padding:20px;white-space:pre-line;line-height:1.5;}
+
+  @media (max-width:640px){
+    #homeLink{top:12px;left:12px;}
+    #mark{top:64px;}
+    #mark h1{font-size:34px;}
+    #bar{gap:10px 8px;padding:12px 10px calc(12px + env(safe-area-inset-bottom));}
+    .grpLabel{display:none;}
+    .chip{width:56px;height:56px;}
+    .chip::after{inset:9px;}
+    .chip .nm{font-size:12.5px;}
+    .grp.make{gap:8px;}
+    .grp.go{width:100%;justify-content:center;}
+    #rollAll{flex:1;max-width:240px;height:52px;font-size:22px;}
+    .stepper{height:48px;}
+    .stepper button{width:34px;}
+    #sidesIn{width:38px;}
+    #result{font-size:15px;min-width:0;width:max-content;max-width:calc(100vw - 32px);}
   }
+  @media (prefers-reduced-motion:reduce){ .chip,#rollAll{transition:none;} }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<a id="homeLink" href="index.html">&larr; Kai.fun</a>
+<div id="mark"><h1>Dice</h1><span class="arc">a table for strange dice</span></div>
+<div id="result">tap a die to kick it<div class="sub">add dice from the rail below</div></div>
 <div id="bar">
-  <button id="addD6">+ d6</button>
-  <button id="addBarrel" class="alt">+ barrel</button>
-  <button id="addOrb" class="alt2">+ orb</button>
-  <span class="lbl">sides</span>
-  <input id="sidesIn" type="number" min="3" max="60" value="10">
-  <button id="rollAll">ROLL ALL</button>
-  <button id="clearAll" class="warn">CLEAR</button>
+  <div class="grp make">
+    <span class="grpLabel">add</span>
+    <button id="addD6" class="chip" aria-label="add a six-sided die"><span class="nm">d6</span></button>
+    <button id="addBarrel" class="chip" aria-label="add a barrel die"><span class="nm">barrel</span></button>
+    <button id="addOrb" class="chip" aria-label="add an orb die"><span class="nm">orb</span></button>
+    <div class="stepper" title="how many sides the barrel and orb get">
+      <button id="sidesDown" aria-label="fewer sides">&minus;</button>
+      <label><input id="sidesIn" type="number" min="3" max="60" value="10" inputmode="numeric"><span class="lbl">sides</span></label>
+      <button id="sidesUp" aria-label="more sides">+</button>
+    </div>
+  </div>
+  <div class="grp go">
+    <button id="rollAll">Roll all</button>
+    <button id="clearAll">Clear</button>
+  </div>
 </div>
-<div id="result">tap a die to kick it<div class="sub">add dice above</div></div>
-<a id="homeLink" href="index.html">&larr; kai.fun</a>
 <div id="overlay">loading 3D engine…</div>
 
 <script>
@@ -100,7 +180,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x101014);
+scene.background = new THREE.Color(0x063823);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
 camera.position.set(0, 16, 11);
@@ -118,16 +198,34 @@ scene.add(sun);
 // felt table
 const TRAY_W = 19, TRAY_D = 12;
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(TRAY_W*2, TRAY_D*2),
+  new THREE.PlaneGeometry(TRAY_W*5, TRAY_D*8),
   new THREE.MeshStandardMaterial({color:0x0b5d3b, roughness:0.95})
 );
 ground.rotation.x = -Math.PI/2;
 ground.receiveShadow = true;
 scene.add(ground);
+// wooden rail drawn where the invisible tray walls are (visual only — physics unchanged)
+(function(){
+  const wood = new THREE.MeshStandardMaterial({color:0x5a2a18, roughness:0.55});
+  const T = 0.5, Hh = 0.55;
+  const mk = (w,d,x,z)=>{ const m = new THREE.Mesh(new THREE.BoxGeometry(w,Hh,d), wood); m.position.set(x,Hh/2,z); m.castShadow = true; m.receiveShadow = true; scene.add(m); };
+  mk(TRAY_W+2*T, T, 0, -TRAY_D/2-T/2); mk(TRAY_W+2*T, T, 0, TRAY_D/2+T/2);
+  mk(T, TRAY_D, -TRAY_W/2-T/2, 0);     mk(T, TRAY_D, TRAY_W/2+T/2, 0);
+})();
 
 function resize(){
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth/innerHeight;
+  // narrow screens: widen the view so the whole tray still fits between the title and the rail
+  // tall phone screens look at the tray from its long side, so it fills the screen top to bottom
+  const portrait = camera.aspect < 0.85;
+  if(portrait){ camera.position.set(11, 16, 0); camera.zoom = Math.min(1, camera.aspect/0.92); }
+  else { camera.position.set(0, 16, 11); camera.zoom = Math.min(1, camera.aspect/1.45); }
+  camera.lookAt(0, 0, 0);
+  const railH = document.getElementById("bar").offsetHeight;
+  document.documentElement.style.setProperty("--railH", railH+"px");
+  // nudge the table up so the rail never hides its front edge
+  camera.setViewOffset(innerWidth, innerHeight, 0, railH*0.42, innerWidth, innerHeight);
   camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize); resize();
@@ -285,7 +383,7 @@ function addOrb(N){
   dice.push({mesh, body, kind:"orb", sides:N, points:fib(N)});
 }
 function capMsg(){
-  resultEl.innerHTML = "that's plenty of dice (max "+MAXD+")<div class='sub'>CLEAR to start over</div>";
+  resultEl.innerHTML = "that's plenty of dice (max "+MAXD+")<div class='sub'>clear the table to start over</div>";
 }
 
 // ================= READING RESULTS =================
@@ -345,8 +443,8 @@ function checkSettled(){
   }
   settledShown = true;
   const total = vals.reduce((a,b)=>a+b, 0);
-  resultEl.innerHTML = vals.join(" + ") + " = <b>" + total + "</b>"
-    + "<div class='sub'>" + dice.length + " dice \u00b7 tap to kick \u00b7 ROLL ALL to shake</div>";
+  resultEl.innerHTML = "<span class='vals'>" + vals.join(" + ") + " =</span> <b>" + total + "</b>"
+    + "<div class='sub'>" + dice.length + (dice.length===1?" die":" dice") + " on the table \u2014 tap one to kick it</div>";
 }
 
 // ================= INTERACTION =================
@@ -371,6 +469,10 @@ canvas.addEventListener("pointerdown", (e)=>{
 document.getElementById("addD6").onclick = addD6;
 document.getElementById("addBarrel").onclick = ()=>addBarrel(Number(document.getElementById("sidesIn").value));
 document.getElementById("addOrb").onclick = ()=>addOrb(Number(document.getElementById("sidesIn").value));
+const sidesIn = document.getElementById("sidesIn");
+function bumpSides(d){ const v = Math.max(3, Math.min(60, (Number(sidesIn.value)||10) + d)); sidesIn.value = v; }
+document.getElementById("sidesDown").onclick = ()=>bumpSides(-1);
+document.getElementById("sidesUp").onclick = ()=>bumpSides(1);
 document.getElementById("rollAll").onclick = ()=>{
   dice.forEach(d=>{
     d.body.wakeUp();
@@ -383,7 +485,7 @@ document.getElementById("rollAll").onclick = ()=>{
 document.getElementById("clearAll").onclick = ()=>{
   dice.forEach(d=>{ scene.remove(d.mesh); world.removeBody(d.body); });
   dice.length = 0;
-  resultEl.innerHTML = "tap a die to kick it<div class='sub'>add dice above</div>";
+  resultEl.innerHTML = "tap a die to kick it<div class='sub'>add dice from the rail below</div>";
 };
 
 // ================= LOOP =================

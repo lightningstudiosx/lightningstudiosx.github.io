@@ -4,46 +4,151 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>calculations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Patrick+Hand&family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --board:#fbfbf8; --ink:#1d1f24; --blue:#2456d8; --red:#c62828; --green:#2e7d32;
+    --alu1:#e4e6ea; --alu2:#b9bec6; --alu3:#8d939c;
+    --hand:"Patrick Hand","Comic Sans MS","Comic Neue","Trebuchet MS",cursive;
+    --marker:"Permanent Marker","Comic Sans MS","Trebuchet MS",cursive;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;overflow:hidden;}
-  body{background:#f4f2ec;font-family:"Comic Sans MS","Trebuchet MS",cursive;}
-  #scroller{position:fixed;inset:0;overflow:auto;cursor:grab;}
+  body{background:var(--board);color:var(--ink);font-family:var(--hand);}
+  #scroller{position:fixed;inset:0;overflow:auto;cursor:grab;overscroll-behavior:contain;}
   #scroller.panning{cursor:grabbing;}
   #board{display:block;}
+  /* aluminium whiteboard frame (decorative, never blocks the board) */
+  #frame{
+    position:fixed;inset:0;pointer-events:none;z-index:4;
+    box-shadow:
+      inset 0 0 0 9px var(--alu2),
+      inset 0 0 0 10px var(--alu3),
+      inset 0 0 0 11px #fff,
+      inset 0 6px 22px rgba(0,0,0,.10);
+  }
+  /* ---------- header card ---------- */
   #barWrap{
-    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+    position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:5;
+    width:min(640px,calc(100vw - 36px));
+    background:#fff;border:2.5px solid var(--ink);border-radius:18px;
+    box-shadow:5px 6px 0 rgba(29,31,36,.85);
+    padding:14px 18px 12px;
   }
+  #ttl{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin-bottom:12px;}
+  #ttl h1{
+    font-family:var(--marker);font-weight:400;font-size:40px;line-height:1;letter-spacing:.5px;
+    position:relative;padding-bottom:6px;
+  }
+  #ttl h1 .eq{color:var(--red);}
+  #ttl h1 svg{position:absolute;left:-4px;bottom:-6px;width:calc(100% + 8px);height:14px;overflow:visible;}
+  #ttl .tag{font-size:18px;color:#7a7d85;margin-bottom:6px;white-space:nowrap;}
+  #barRow{display:flex;gap:8px;}
   #bar{
-    width:min(520px,88vw);padding:12px 16px;font-family:inherit;font-size:17px;
-    border:3px solid #141414;border-radius:14px;background:#fff;
-    box-shadow:3px 3px 0 rgba(20,20,20,.75);outline:none;
+    flex:1;min-width:0;height:52px;padding:0 16px;font-family:var(--hand);font-size:22px;color:var(--ink);
+    border:2.5px solid var(--ink);border-radius:12px;background:#fff;outline:none;
   }
-  #bar:focus{border-color:#2456d8;}
-  #lvlRow{
-    margin-top:7px;display:flex;align-items:center;gap:10px;
-    background:#fff;border:3px solid #141414;border-radius:12px;
-    padding:7px 14px;box-shadow:3px 3px 0 rgba(20,20,20,.75);
+  #bar::placeholder{color:#a3a6ad;}
+  #bar:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(36,86,216,.14);}
+  #solve{
+    height:52px;padding:0 22px;border:2.5px solid var(--ink);border-radius:12px;cursor:pointer;
+    background:var(--red);color:#fff;font-family:var(--marker);font-size:20px;letter-spacing:.5px;
+    box-shadow:3px 3px 0 var(--ink);transition:transform .08s, box-shadow .08s;
   }
-  #lvlRow input{flex:1;accent-color:#c62828;}
-  #lvlRow span{font-size:13px;white-space:nowrap;font-weight:700;}
+  #solve:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);}
+  #solve:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
+  #lvlRow{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:center;}
+  #lvlRow .k{font-family:var(--marker);font-size:16px;color:var(--ink);}
+  #lvlLab{justify-self:end;font-size:19px;white-space:nowrap;}
+  #lvlLab b{font-family:var(--marker);font-weight:400;color:var(--red);margin-right:7px;}
+  #lvlLab i{font-style:normal;color:var(--ink);}
+  #lvlSlide{grid-column:1 / -1;position:relative;}
+  #lvl{-webkit-appearance:none;appearance:none;width:100%;height:40px;background:transparent;cursor:pointer;display:block;}
+  #lvl::-webkit-slider-runnable-track{
+    height:10px;border-radius:99px;border:2px solid var(--ink);
+    background:linear-gradient(90deg,#1d1f24 0%,var(--blue) 35%,#8a3fd1 65%,var(--red) 100%);
+  }
+  #lvl::-moz-range-track{
+    height:6px;border-radius:99px;border:2px solid var(--ink);
+    background:linear-gradient(90deg,#1d1f24 0%,var(--blue) 35%,#8a3fd1 65%,var(--red) 100%);
+  }
+  #lvl::-webkit-slider-thumb{
+    -webkit-appearance:none;width:30px;height:30px;margin-top:-12px;border-radius:50%;
+    background:#fff;border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+  }
+  #lvl::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);}
+  #lvl:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px rgba(36,86,216,.25),2px 2px 0 var(--ink);}
+  #ticks{display:flex;justify-content:space-between;padding:0 8px;margin-top:-4px;font-size:15px;color:#9a9da4;}
+  #ticks span{width:20px;text-align:center;cursor:pointer;line-height:1.2;}
+  #ticks span.on{color:var(--red);font-family:var(--marker);}
+  #tries{margin-top:10px;padding-top:10px;border-top:2px dashed #e3e4e8;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;font-size:18px;color:#7a7d85;}
+  #tries button{
+    font-family:var(--hand);font-size:19px;color:var(--blue);background:transparent;cursor:pointer;
+    border:2px dashed #c7cad1;border-radius:10px;padding:2px 12px;min-height:40px;
+  }
+  #barWrap.compact #ttl,#barWrap.compact #tries{display:none;}
+  #barWrap.compact{padding-top:12px;}
+  #tries button:hover{border-color:var(--blue);background:rgba(36,86,216,.06);}
+  /* ---------- marker ledge ---------- */
+  #ledge{
+    position:fixed;left:0;right:0;bottom:0;height:16px;z-index:6;pointer-events:none;
+    background:linear-gradient(var(--alu1),var(--alu2) 60%,var(--alu3));
+    border-top:1px solid #fff;box-shadow:0 -3px 10px rgba(0,0,0,.08);
+  }
+  .mk{position:absolute;bottom:12px;height:12px;width:78px;border-radius:3px 6px 6px 3px;box-shadow:0 2px 3px rgba(0,0,0,.25);}
+  .mk::after{content:"";position:absolute;right:-12px;top:2px;width:14px;height:8px;border-radius:2px 5px 5px 2px;background:inherit;filter:brightness(.75);}
+  .mk.b{right:200px;background:var(--blue);} .mk.r{right:110px;background:var(--red);} .mk.g{right:300px;background:var(--green);width:66px;}
+  .eraser{position:absolute;right:28px;bottom:12px;width:56px;height:18px;border-radius:4px;background:#2b2e35;box-shadow:inset 0 -6px 0 #d9d2c3,0 2px 3px rgba(0,0,0,.25);}
   #home{
-    position:fixed;bottom:10px;left:12px;z-index:5;font-size:13px;
-    color:#999;text-decoration:none;font-family:"Trebuchet MS",sans-serif;
+    position:fixed;bottom:28px;left:26px;z-index:7;
+    display:inline-flex;align-items:center;min-height:44px;padding:8px 14px 8px 12px;
+    background:#fff27a;color:#3b3a1e;text-decoration:none;font-family:var(--hand);font-size:19px;
+    box-shadow:2px 4px 8px rgba(0,0,0,.14);transform:rotate(-3deg);border-radius:2px;
   }
-  #home:hover{color:#141414;}
+  #home:hover{transform:rotate(-1deg) translateY(-2px);color:#000;}
+  @media (max-width:640px){
+    #barWrap{top:16px;padding:12px 12px 10px;border-radius:16px;box-shadow:4px 4px 0 rgba(29,31,36,.85);}
+    #ttl{margin-bottom:10px;}
+    #ttl h1{font-size:31px;}
+    #ttl .tag{display:none;}
+    #bar{height:48px;font-size:20px;padding:0 12px;}
+    #solve{height:48px;padding:0 14px;font-size:18px;}
+    #lvlRow{margin-top:8px;gap:0 10px;}
+    #lvlLab{font-size:16px;}
+    #ticks{font-size:13px;padding:0 5px;}
+    #tries{margin-top:6px;padding-top:6px;font-size:15px;gap:4px;}
+    #tries button{font-size:16px;padding:1px 8px;}
+    .mk.g,.mk.b{display:none;}
+    #home{bottom:26px;left:16px;font-size:17px;}
+    #frame{box-shadow:inset 0 0 0 6px var(--alu2),inset 0 0 0 7px var(--alu3),inset 0 4px 16px rgba(0,0,0,.08);}
+  }
 </style>
 </head>
 <body>
 <div id="scroller"><canvas id="board"></canvas></div>
+<div id="frame"></div>
 <div id="barWrap">
-  <input id="bar" placeholder="type any equation… like 2+2" autocomplete="off" spellcheck="false">
-  <div id="lvlRow">
-    <input type="range" id="lvl" min="1" max="10" value="5">
-    <span id="lvlLab">expansion: 5</span>
+  <div id="ttl">
+    <h1>calc<span class="eq">u</span>lations<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 C 50 3, 110 13, 198 5" fill="none" stroke="#c62828" stroke-width="4" stroke-linecap="round"/></svg></h1>
+    <span class="tag">the long way round</span>
   </div>
+  <div id="barRow">
+    <input id="bar" placeholder="type any equation… like 2+2" autocomplete="off" spellcheck="false" enterkeyhint="go" aria-label="equation">
+    <button id="solve" type="button">solve</button>
+  </div>
+  <div id="lvlRow">
+    <span class="k">expansion</span>
+    <span id="lvlLab">expansion: 5</span>
+    <div id="lvlSlide">
+      <input type="range" id="lvl" min="1" max="10" value="5" aria-label="expansion level">
+      <div id="ticks"></div>
+    </div>
+  </div>
+  <div id="tries">try <button type="button">2+2</button><button type="button">(3+4)*2</button><button type="button">2^10/8</button><button type="button">7/3</button></div>
 </div>
-<a id="home" href="index.html">&larr; kai.fun</a>
+<div id="ledge"><span class="mk g"></span><span class="mk b"></span><span class="mk r"></span><span class="eraser"></span></div>
+<a id="home" href="index.html">&larr; Kai.fun</a>
 
 <script>
 // ============ SAFE MATH PARSER ============
@@ -100,6 +205,7 @@ function fmt(n){
   if(Math.abs(n-Math.round(n))<1e-9) return String(Math.round(n));
   return String(Math.round(n*10000)/10000);
 }
+const HAND="'Comic Sans MS','Comic Neue','Patrick Hand',cursive";
 const SUP="⁰¹²³⁴⁵⁶⁷⁸⁹", SUB="₀₁₂₃₄₅₆₇₈₉";
 function sup(n){ return String(n).split("").map(c=>c==="-"?"⁻":c==="."?"·":SUP[+c]||c).join(""); }
 function sub(n){ return String(n).split("").map(c=>SUB[+c]||c).join(""); }
@@ -249,6 +355,8 @@ addEventListener("pointerup",()=>{ pan=null; scroller.classList.remove("panning"
 let lastUserScroll=0, lastAutoScroll=0;
 scroller.addEventListener("scroll",()=>{
   if(performance.now()-lastAutoScroll>80) lastUserScroll=performance.now();
+  // tuck the title + examples away once the board scrolls, so the working stays visible
+  document.getElementById("barWrap").classList.toggle("compact", scroller.scrollTop>60);
 });
 function smudgesBand(y0,y1){
   for(let i=0;i<8;i++){
@@ -257,7 +365,7 @@ function smudgesBand(y0,y1){
     const fs=16+Math.random()*20, txt=["x=","∴","(2)","dx","≈","??","=0","∞"][i%8];
     record(()=>{
       ctx.save(); ctx.globalAlpha=al; ctx.translate(px,py); ctx.rotate(rot);
-      ctx.fillStyle="#555"; ctx.font=fs+"px Comic Sans MS"; ctx.fillText(txt,0,0);
+      ctx.fillStyle="#555"; ctx.font=fs+"px "+HAND; ctx.fillText(txt,0,0);
       ctx.restore();
     });
   }
@@ -298,7 +406,7 @@ function marker(ch, x, y, size, color){
     ctx.save();
     ctx.translate(x+(Math.random()-0.5)*1.2, y+(Math.random()-0.5)*2.4);
     ctx.rotate((Math.random()-0.5)*0.09);
-    ctx.font="bold "+(size+(Math.random()-0.5)*2)+"px Comic Sans MS";
+    ctx.font="bold "+(size+(Math.random()-0.5)*2)+"px "+HAND;
     ctx.fillStyle=color;
     ctx.globalAlpha=0.82+Math.random()*0.15;
     ctx.fillText(ch,0,0);
@@ -330,8 +438,17 @@ function strokeSeg(sg){
 
 // ============ ANIMATION QUEUE ============
 let tasks=[], penY=90, colX=40, colW=0, epoch=0;
+function layoutCol(){
+  const vw=Math.min(innerWidth, W||innerWidth);
+  colW=Math.min(vw-64, 900);
+  colX=Math.max(32, Math.round((vw-colW)/2));
+  const bw=document.getElementById("barWrap");
+  bw.classList.remove("compact");
+  const hb=bw.getBoundingClientRect().bottom;
+  penY=Math.round(hb+56);
+}
 function measure(t,size){
-  ctx.font="bold "+size+"px Comic Sans MS";
+  ctx.font="bold "+size+"px "+HAND;
   return ctx.measureText(t).width;
 }
 function queueLine(step){
@@ -387,7 +504,7 @@ function pump(now){
     if(tasks.length && tasks[0].d>30) break;
   }
   if(tasks.length && performance.now()-lastUserScroll>1600){
-    const want=Math.max(0, penY-innerHeight*0.55);
+    const want=Math.max(0, penY-innerHeight*0.62);
     if(Math.abs(scroller.scrollTop-want)>30){
       lastAutoScroll=performance.now();
       scroller.scrollTop=want;
@@ -401,7 +518,7 @@ function calculate(src){
   epoch++;
   tasks=[]; ops=[];
   wipe();
-  penY=90; colX=40; colW=Math.min(W-120, 940);
+  layoutCol();
   scroller.scrollTo(0,0); lastUserScroll=0;
   let parsed;
   try{ parsed=evalExpr(src); }
@@ -429,20 +546,32 @@ try{ const sv=localStorage.getItem("calc_level"); if(sv) lvlEl.value=sv; }catch(
 function lvlText(){
   const names={1:"just answer it",2:"barely",3:"a little",4:"noticeable",5:"standard nonsense",
     6:"getting silly",7:"academic",8:"unhinged",9:"thesis mode",10:"THE WHOLE BOARD"};
-  lvlLab.textContent="expansion "+lvlEl.value+": "+names[+lvlEl.value];
+  lvlLab.innerHTML="<b>"+lvlEl.value+"</b><i>"+names[+lvlEl.value]+"</i>";
+  lvlLab.title="expansion "+lvlEl.value+": "+names[+lvlEl.value];
+  document.querySelectorAll("#ticks span").forEach((t,i)=>t.classList.toggle("on", i+1===+lvlEl.value));
 }
+document.getElementById("ticks").innerHTML=Array.from({length:10},(_,i)=>"<span>"+(i+1)+"</span>").join("");
+document.querySelectorAll("#ticks span").forEach((t,i)=>t.onclick=()=>{ lvlEl.value=i+1; lvlEl.oninput(); });
 lvlEl.oninput=()=>{ lvlText(); try{ localStorage.setItem("calc_level", lvlEl.value); }catch(e){} };
 lvlText();
 const bar=document.getElementById("bar");
+if(innerWidth<520) bar.placeholder="any equation… like 2+2";
 bar.addEventListener("keydown",(e)=>{
   if(e.key==="Enter" && bar.value.trim()){
     calculate(bar.value.trim());
     bar.select();
   }
 });
+document.getElementById("solve").onclick=()=>{
+  if(bar.value.trim()) calculate(bar.value.trim()); else bar.focus();
+};
+document.querySelectorAll("#tries button").forEach(b=>b.onclick=()=>{
+  bar.value=b.textContent; calculate(bar.value);
+});
 W=Math.max(1600, innerWidth); H=1400;
 setupCanvas();
 wipe();
+layoutCol();
 // opening doodle
 [{t:"the whiteboard is ready.", c:"#1a1a1a"},
  {t:"give me an equation. the slider decides how much worse it gets.", c:"#2456d8"}].forEach(queueLine);

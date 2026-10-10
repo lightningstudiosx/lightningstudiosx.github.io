@@ -2,58 +2,317 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AI trainer · Kai.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --bg:#f5f3ef; --rail:#ecE9e3; --surface:#ffffff; --ink:#17181c; --ink2:#3a3c44; --muted:#71747d; --faint:#a3a5ad;
+    --line:#e2ded6; --line2:#d6d1c7; --accent:#ff6a1f; --accent-ink:#c84a08; --blue:#3b6ea8; --green:#2f9e6a;
+    --brain:#111318; --brain2:#181b22; --brain-line:#262a33; --brain-ink:#d2d6df; --brain-mute:#7f889a;
+    --h:38; --s:18%;
+    --ui:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;min-height:100vh;}
-  #top{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid #ccc;background:#f3f3f3;}
-  #top .logo{font-size:30px;font-weight:900;color:#ff7a00;letter-spacing:-1px;} #top .logo span{color:#3b6ea8;}
-  #top .tt{font-size:13px;color:#333;} #top a{margin-left:auto;font-size:12px;color:#666;text-decoration:none;}
-  #main{display:flex;height:calc(100vh - 52px);}
-  #left{flex:1;display:flex;flex-direction:column;min-width:0;}
-  #log{flex:1;overflow-y:auto;padding:10px 14px;font-size:15px;line-height:1.55;}
-  .l{margin:3px 0;word-break:break-word;} .you b{color:#1e5aa8;} .str b{color:#c22;} .sys{color:#555;font-style:italic;font-size:13px;} .sys a{color:#c22;font-weight:700;}
-  #typing{color:#666;font-size:13px;font-style:italic;height:18px;padding:0 14px;}
-  #bottom{display:flex;gap:6px;padding:8px;border-top:1px solid #ccc;background:#fafafa;}
-  #bottom textarea{flex:1;height:70px;border:1px solid #999;padding:8px;font-family:inherit;font-size:15px;resize:none;}
-  #bottom button{width:110px;border:1px solid #999;background:#eee;font-family:inherit;font-size:20px;cursor:pointer;} #bottom button small{display:block;font-size:10px;color:#666;}
-  #right{width:360px;border-left:1px solid #ccc;background:#111;color:#ddd;display:flex;flex-direction:column;overflow-y:auto;}
-  #right h3{font-size:11px;letter-spacing:1px;color:#8ab;padding:8px 10px 4px;text-transform:uppercase;}
-  canvas{width:100%;display:block;background:#0a0a0a;}
-  .st{padding:4px 10px;font-size:12px;line-height:1.6;} .st b{color:#fff;}
-  #face{font-size:40px;text-align:center;padding:4px;} #stage{text-align:center;font-size:12px;color:#8ab;padding:0 8px;}
-  #bar{height:6px;background:#222;margin:6px 10px;} #barF{height:100%;background:#ff7a00;width:0;transition:width .4s;}
-  .facts{padding:0 10px 8px;font-size:11.5px;line-height:1.5;max-height:170px;overflow-y:auto;} .facts b{color:#ff7a00;} .facts i{color:#8ab;font-style:normal;}
-  .chips{padding:0 10px 8px;display:flex;flex-wrap:wrap;gap:3px;} .chips span{background:#222;border:1px solid #444;border-radius:999px;padding:1px 7px;font-size:11px;}
-  .tools{padding:6px 10px 14px;display:flex;gap:6px;flex-wrap:wrap;} .tools button{background:#222;color:#ddd;border:1px solid #444;font-family:inherit;font-size:11px;padding:4px 8px;cursor:pointer;}
-  @media(max-width:760px){ #main{flex-direction:column;height:auto;} #right{width:100%;} #log{height:50vh;} }
+  html,body{height:100%;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;color:inherit;cursor:pointer;}
+  svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  kbd{font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--surface);}
+
+  #app{display:grid;grid-template-columns:272px minmax(0,1fr) 372px;height:100vh;height:100dvh;}
+  #app.brain-collapsed{grid-template-columns:272px minmax(0,1fr) 0;}
+  #app.brain-collapsed #right{display:none;}
+
+  /* ---------- the orb (the AI's face; changes colour + comes alive as it levels up) ---------- */
+  .orb{position:relative;width:56px;height:56px;border-radius:50%;flex:none;isolation:isolate;}
+  .orb::before{content:"";position:absolute;inset:0;border-radius:50%;z-index:-1;
+    background:conic-gradient(from 0deg,hsl(var(--h) var(--s) 62%),hsl(calc(var(--h) + 70) var(--s) 58%),hsl(calc(var(--h) + 150) var(--s) 64%),hsl(calc(var(--h) + 230) var(--s) 58%),hsl(var(--h) var(--s) 62%));
+    box-shadow:inset 0 -7px 14px rgba(0,0,0,.22),0 6px 18px hsl(var(--h) var(--s) 45% / .35);}
+  .orb::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 33% 27%,rgba(255,255,255,.95) 0 7%,rgba(255,255,255,.35) 18%,transparent 42%);}
+  .orb.sm{width:28px;height:28px;}
+  .orb.sm::before{box-shadow:inset 0 -3px 6px rgba(0,0,0,.2);}
+  .orb.xl{width:84px;height:84px;}
+  .thinking .orb::before,.orb.spin::before{animation:spin 1.6s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #face .lv{position:absolute;right:-6px;bottom:-4px;background:var(--ink);color:#fff;font:600 10.5px/1 var(--mono);padding:4px 6px;border-radius:999px;border:2px solid var(--surface);}
+
+  /* ---------- left rail ---------- */
+  #rail{background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;padding:16px 14px 14px;overflow-y:auto;min-height:0;}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);padding:2px 4px;}
+  .brand .mark{width:26px;height:26px;}
+  .brand .wm{font-weight:800;font-size:21px;letter-spacing:-.04em;} .brand .wm span{color:var(--accent);}
+  .brand .tag{font:500 10px/1 var(--mono);color:var(--muted);border:1px solid var(--line2);border-radius:999px;padding:3px 6px;margin-left:auto;}
+  .rail-head{display:flex;align-items:center;gap:8px;}
+  .rail-head .icon-btn{margin-left:auto;}
+  .new-chat{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--line2);background:var(--surface);font-size:14.5px;font-weight:600;box-shadow:0 1px 0 rgba(0,0,0,.04);transition:border-color .15s,transform .1s;}
+  .new-chat:hover{border-color:var(--ink);} .new-chat:active{transform:scale(.99);} .new-chat kbd{margin-left:auto;}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;}
+  .eyebrow{font:600 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .model-card .mc-top{display:flex;align-items:center;gap:13px;margin:10px 0 12px;}
+  .model-card .mc-name{font-weight:700;font-size:17px;letter-spacing:-.02em;line-height:1.15;word-break:break-word;}
+  #stage{font-size:13px;color:var(--ink2);margin-top:3px;} #stage b{text-transform:capitalize;font-weight:600;}
+  #stageDesc{font-size:12px;color:var(--muted);margin-top:1px;}
+  #bar{height:6px;background:#efebe4;border-radius:99px;overflow:hidden;}
+  #barF{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--accent),hsl(var(--h) 85% 55%));transition:width .5s ease;}
+  #nextLvl{display:flex;justify-content:space-between;font:500 11px/1 var(--mono);color:var(--muted);margin-top:7px;}
+  #stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:13px;}
+  #stats .tile{background:var(--surface);padding:7px 9px;min-width:0;}
+  #stats .tile b{display:block;font:600 14px/1.2 var(--mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #stats .tile span{font-size:11px;color:var(--muted);}
+
+  .recent h4,.tools h4{margin:0 4px 7px;}
+  #recent{display:flex;flex-direction:column;gap:2px;}
+  #recent button{display:flex;align-items:center;gap:9px;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:10px;background:transparent;font-size:13.5px;text-align:left;color:var(--ink2);}
+  #recent button span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #recent button:hover{background:rgba(0,0,0,.05);color:var(--ink);}
+  #recent button.cur{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line);}
+  #recent .none{font-size:12.5px;color:var(--faint);padding:2px 6px;}
+  .tools .row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .tbtn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:transparent;font-size:13px;font-weight:500;}
+  .tbtn:hover{background:var(--surface);border-color:var(--ink2);}
+  .tbtn.danger{grid-column:1/-1;color:#b3261e;border-color:#e8c9c4;}
+  .tbtn.danger:hover{background:#fff4f2;border-color:#b3261e;}
+  #wipeAsk{grid-column:1/-1;display:none;gap:6px;align-items:center;font-size:12.5px;color:#b3261e;background:#fff4f2;border:1px solid #e8c9c4;border-radius:10px;padding:6px 6px 6px 10px;}
+  #wipeAsk.on{display:flex;} #wipeAsk span{flex:1;}
+  #wipeAsk button{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid currentColor;background:#fff;font-size:12.5px;font-weight:600;}
+  #wipeAsk button.yes{background:#b3261e;color:#fff;border-color:#b3261e;}
+  .back{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 6px;margin-top:auto;color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:500;}
+  .back:hover{color:var(--ink);}
+
+  /* ---------- chat ---------- */
+  #chat{display:flex;flex-direction:column;min-width:0;min-height:0;position:relative;}
+  #topbar{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid transparent;flex:none;}
+  #topbar.scrolled{border-bottom-color:var(--line);background:rgba(245,243,239,.9);backdrop-filter:blur(8px);}
+  #chatTitle{font-weight:600;font-size:15px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pill{font:600 11px/1 var(--mono);color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 8px;white-space:nowrap;}
+  .pill b{text-transform:capitalize;font-weight:600;}
+  #topbar .sp{flex:1;}
+  .icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:40px;height:40px;padding:0 10px;border-radius:11px;border:1px solid transparent;background:transparent;font-size:13.5px;font-weight:600;color:var(--ink2);}
+  .icon-btn:hover{background:rgba(0,0,0,.05);color:var(--ink);}
+  #brainBtn{border-color:var(--line2);background:var(--surface);}
+  #menuBtn{display:none;}
+
+  #log{flex:1;overflow-y:auto;min-height:0;scroll-behavior:smooth;}
+  #thread{max-width:760px;margin:0 auto;padding:14px 22px 30px;display:flex;flex-direction:column;gap:18px;}
+  .msg{display:flex;gap:12px;animation:rise .25s ease-out;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}}
+  .msg.you{justify-content:flex-end;}
+  .msg.you .bubble{max-width:min(78%,560px);background:var(--ink);color:#fff;padding:11px 15px;border-radius:18px 18px 5px 18px;font-size:15.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+  .msg.ai .orb{margin-top:2px;}
+  .msg.ai .body{min-width:0;max-width:min(88%,620px);}
+  .msg.ai .who{font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 5px 2px;}
+  .msg.ai .text{background:var(--surface);border:1px solid var(--line);border-radius:5px 18px 18px 18px;padding:12px 16px;font-size:15.5px;line-height:1.62;word-break:break-word;box-shadow:0 1px 2px rgba(20,20,30,.04);}
+  .msg.ai .text p+p,.msg.ai .text p+ul,.msg.ai .text ul+p{margin-top:8px;}
+  .msg.ai .text ul{list-style:none;display:flex;flex-direction:column;gap:3px;}
+  .msg.ai .text li{position:relative;padding-left:16px;} .msg.ai .text li::before{content:"";position:absolute;left:3px;top:.68em;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .msg.ai .text b{font-weight:650;}
+  .msg.ai .text.streaming>:last-child::after,.msg.ai .text.streaming:empty::after{content:"";display:inline-block;width:8px;height:1em;vertical-align:-2px;margin-left:2px;border-radius:2px;background:hsl(var(--h) 80% 55%);animation:blink .8s steps(2) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+  .cites{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 0 2px;}
+  .cites .lbl{font:500 11px/1 var(--mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-right:2px;}
+  .cite{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 5px;text-decoration:none;max-width:100%;}
+  .cite i{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;font:700 9.5px/1 var(--mono);font-style:normal;color:#fff;flex:none;}
+  .cite span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  a.cite:hover{border-color:var(--ink2);color:var(--ink);}
+  .cite.y i{background:var(--ink);} .cite.wt i{background:#6a4fb3;} .cite.d i{background:var(--green);} .cite.wp i{background:var(--blue);} .cite.s i{background:var(--accent);}
+  .msg.note{gap:9px;align-items:flex-start;padding-left:40px;font-size:13px;line-height:1.45;color:var(--muted);}
+  .msg.note svg{width:15px;height:15px;margin-top:1px;color:var(--faint);}
+  .msg.note.warn{color:#9a4a00;} .msg.note.warn svg{color:#d9822b;}
+  .msg.note a{color:var(--accent-ink);font-weight:600;}
+  .msg.thinking .dots{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--line);border-radius:5px 18px 18px 18px;padding:12px 16px;}
+  .msg.thinking .dots i{width:7px;height:7px;border-radius:50%;background:hsl(var(--h) 70% 55%);animation:bob 1s ease-in-out infinite;}
+  .msg.thinking .dots i:nth-child(2){animation-delay:.15s;} .msg.thinking .dots i:nth-child(3){animation-delay:.3s;}
+  .msg.thinking .dots .lb{margin-left:7px;font-size:13.5px;color:var(--muted);}
+  @keyframes bob{0%,60%,100%{transform:translateY(0);opacity:.45;}30%{transform:translateY(-4px);opacity:1;}}
+
+  /* empty state */
+  .empty{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 22px 18px;max-width:760px;margin:0 auto;}
+  .empty h1{font-size:clamp(28px,4vw,40px);font-weight:750;letter-spacing:-.04em;line-height:1.05;margin:20px 0 10px;}
+  .empty h1 em{font-style:normal;color:var(--accent);}
+  .empty .lede{color:var(--ink2);font-size:15.5px;line-height:1.55;max-width:520px;}
+  .empty .known{display:inline-flex;gap:14px;margin-top:14px;font:500 12px/1 var(--mono);color:var(--muted);}
+  .empty .known b{color:var(--ink);font-weight:600;}
+  .sugg{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:26px;text-align:left;}
+  .sugg button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:5px;min-height:76px;padding:13px 15px;border-radius:14px;border:1px solid var(--line);background:var(--surface);transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .sugg button:hover{border-color:var(--ink2);box-shadow:0 6px 18px rgba(20,20,30,.07);transform:translateY(-1px);}
+  .sugg .k{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;}
+  .sugg .k svg{width:16px;height:16px;color:var(--accent);}
+  .sugg .v{font-size:13px;color:var(--muted);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .cmds{margin-top:16px;font-size:12.5px;color:var(--muted);line-height:1.8;}
+  .cmds code{font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:#ebe7df;border-radius:5px;padding:2px 6px;}
+
+  /* composer */
+  #composerWrap{flex:none;padding:0 22px 14px;padding-bottom:max(14px,env(safe-area-inset-bottom));}
+  #composerWrap>*{max-width:760px;margin-left:auto;margin-right:auto;}
+  #typing{display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;margin-bottom:8px;font-size:12.5px;color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #typing::before{content:"";width:11px;height:11px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none;}
+  #typing:empty{display:none;}
+  #bottom{display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--line2);border-radius:20px;padding:8px 8px 8px 16px;box-shadow:0 8px 26px rgba(20,20,30,.07);transition:border-color .15s,box-shadow .15s;}
+  #bottom:focus-within{border-color:var(--ink2);box-shadow:0 8px 26px rgba(20,20,30,.1),0 0 0 3px hsl(var(--h) 80% 60% / .14);}
+  #msg{flex:1;min-width:0;border:0;outline:0;resize:none;background:transparent;font-family:inherit;font-size:16px;line-height:1.5;color:var(--ink);padding:8px 0;height:40px;max-height:180px;}
+  #msg::placeholder{color:var(--faint);}
+  #send{width:42px;height:42px;border-radius:13px;border:0;background:var(--ink);color:#fff;display:grid;place-items:center;flex:none;transition:background .15s,transform .1s;}
+  #send:hover{background:var(--accent);} #send:active{transform:scale(.94);}
+  #send:disabled{background:#d9d5cd;cursor:default;}
+  #send svg{width:19px;height:19px;stroke-width:2.3;}
+  .hint{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--faint);}
+  .hint span{display:inline-flex;align-items:center;gap:5px;}
+
+  /* ---------- brain inspector ---------- */
+  #right{background:var(--brain);color:var(--brain-ink);display:flex;flex-direction:column;min-height:0;overflow-y:auto;border-left:1px solid #000;}
+  #right .bh{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;height:56px;padding:0 10px 0 18px;background:rgba(17,19,24,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--brain-line);flex:none;}
+  #right .bh h2{font-size:14px;font-weight:650;letter-spacing:-.01em;}
+  #right .bh .live{display:inline-flex;align-items:center;gap:6px;font:500 10.5px/1 var(--mono);color:#7fd1a6;text-transform:uppercase;letter-spacing:.08em;}
+  #right .bh .live::before{content:"";width:6px;height:6px;border-radius:50%;background:#3ccf86;box-shadow:0 0 0 3px rgba(60,207,134,.18);}
+  #right .bh .icon-btn{margin-left:auto;color:var(--brain-mute);} #right .bh .icon-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
+  .bsec{padding:16px 18px 4px;}
+  .bsec h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;font-weight:600;color:#eef0f4;margin-bottom:3px;}
+  .bsec h3 small{font:500 10.5px/1 var(--mono);color:var(--brain-mute);font-weight:500;}
+  .bsec .cap{font-size:12px;color:var(--brain-mute);margin-bottom:10px;line-height:1.4;}
+  canvas{width:100%;height:auto;display:block;background:#0b0d11;border:1px solid var(--brain-line);border-radius:12px;aspect-ratio:360/260;}
+  .facts{font-size:12.5px;line-height:1.5;max-height:220px;overflow-y:auto;border:1px solid var(--brain-line);border-radius:12px;background:var(--brain2);}
+  .facts .f{padding:8px 11px;border-bottom:1px solid var(--brain-line);} .facts .f:last-child{border-bottom:0;}
+  .facts b{color:#ffb27f;font-weight:600;} .facts i{color:var(--brain-mute);font-style:normal;}
+  .facts .nothing{padding:12px;color:var(--brain-mute);}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;padding-bottom:18px;}
+  .chips span{background:var(--brain2);border:1px solid var(--brain-line);border-radius:999px;padding:4px 9px;font:500 11px/1.2 var(--mono);color:#b7bfcf;}
+
+  #scrim{display:none;position:fixed;inset:0;background:rgba(15,16,20,.4);z-index:40;}
+
+  /* drawers */
+  @media (max-width:1179px){
+    #app,#app.brain-collapsed{grid-template-columns:272px minmax(0,1fr);}
+    #app.brain-collapsed #right{display:flex;}
+    #right{position:fixed;top:0;right:0;bottom:0;width:min(392px,100vw);z-index:50;transform:translateX(102%);transition:transform .25s ease,visibility .25s;visibility:hidden;}
+    #app.brain-open #right{transform:none;visibility:visible;box-shadow:-20px 0 50px rgba(0,0,0,.25);}
+    #app.brain-open~#scrim,#app.rail-open~#scrim{display:block;}
+  }
+  @media (max-width:759px){
+    #app,#app.brain-collapsed{grid-template-columns:minmax(0,1fr);}
+    #rail{position:fixed;top:0;left:0;bottom:0;width:min(304px,88vw);z-index:50;transform:translateX(-102%);transition:transform .25s ease,visibility .25s;visibility:hidden;}
+    #app.rail-open #rail{transform:none;visibility:visible;box-shadow:20px 0 50px rgba(0,0,0,.2);}
+    #menuBtn{display:inline-flex;}
+    #topbar{padding:0 8px;gap:4px;}
+    #brainBtn .t{display:none;}
+    #thread{padding:10px 14px 24px;gap:16px;}
+    .msg.note{padding-left:0;}
+    .msg.ai .body{max-width:calc(100% - 40px);}
+    .msg.you .bubble{max-width:86%;}
+    .empty{padding:10px 16px 14px;justify-content:flex-start;}
+    .empty .orb.xl{width:64px;height:64px;}
+    .empty h1{margin-top:14px;font-size:28px;}
+    .empty .lede{font-size:14.5px;}
+    .sugg{grid-template-columns:1fr;gap:8px;margin-top:18px;}
+    .sugg button{min-height:60px;padding:11px 13px;}
+    .cmds{font-size:12px;}
+    #composerWrap{padding:0 10px 10px;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+    .hint .k2{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important;} #log{scroll-behavior:auto;} }
 </style>
 </head>
 <body>
-<div id="top"><div class="logo">ai<span>trainer</span></div><div class="tt">Talk to your AI!<br><span style="font-size:11px;color:#777">it learns facts, grammar and a neural network from everything you say. feed it articles, not word lists.</span></div><a href="index.html">← kai.fun</a></div>
-<div id="main">
-  <div id="left">
-    <div id="log"></div><div id="typing"></div>
-    <div id="bottom"><button id="newBtn">New<small>Esc</small></button><textarea id="msg" placeholder="say something. try: 'a frog is a green animal. frogs eat flies. frogs live in ponds.' then ask 'what is a frog?' · Website: https://en.wikipedia.org/wiki/Frog · it looks up words it doesn't know by itself · 'define everything' looks up every word it has ever seen · reset"></textarea><button id="send">Send<small>Enter</small></button></div>
-  </div>
-  <div id="right">
-    <div id="face">🥚</div><div id="stage">egg</div><div id="bar"><div id="barF"></div></div>
-    <div class="st" id="stats"></div>
-    <h3>neural network — live (3 words → 32 neurons → next word)</h3><canvas id="net" width="360" height="260"></canvas>
-    <h3>word map — what it thinks is similar</h3><canvas id="map" width="360" height="260"></canvas>
-    <h3>knowledge base</h3><div class="facts" id="facts">nothing yet.</div>
-    <h3>sentence shapes it learned</h3><div class="chips" id="shapes"></div>
-    <div class="tools"><button id="export">⬇ save brain</button><button id="import">⬆ load brain</button><input type="file" id="impFile" hidden accept=".json"></div>
-  </div>
+<div id="app">
+  <!-- ===================== LEFT: model + chats ===================== -->
+  <aside id="rail" aria-label="Your AI">
+    <div class="rail-head">
+      <div class="brand"><svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="#17181c"/><circle cx="8" cy="9" r="2.2" fill="#ff6a1f"/><circle cx="8" cy="17" r="2.2" fill="#fff"/><circle cx="18.5" cy="13" r="2.6" fill="#ff6a1f"/><path d="M8 9l10.5 4M8 17l10.5-4" stroke="#fff" stroke-width="1.3" opacity=".7"/></svg><span class="wm"><span>ai</span>trainer</span></div>
+      <button class="icon-btn" id="railClose" aria-label="Close menu" style="display:none"><svg class="i" data-ic="x"></svg></button>
+    </div>
+    <button id="newBtn" class="new-chat"><svg class="i" data-ic="plus"></svg>New chat<kbd>Esc</kbd></button>
+
+    <section class="card model-card" aria-label="Model card">
+      <div class="eyebrow">Model card</div>
+      <div class="mc-top">
+        <div id="face" class="orb"><span class="lv">Lv 1</span></div>
+        <div style="min-width:0">
+          <div class="mc-name" id="modelName">Unnamed AI</div>
+          <div id="stage">Level 1 · <b>egg</b></div>
+          <div id="stageDesc">knows nothing</div>
+        </div>
+      </div>
+      <div id="bar"><div id="barF"></div></div>
+      <div id="nextLvl"><span>training</span><span></span></div>
+      <div id="stats"></div>
+    </section>
+
+    <section class="recent">
+      <h4 class="eyebrow">Recent chats</h4>
+      <div id="recent"></div>
+    </section>
+
+    <section class="tools">
+      <h4 class="eyebrow">Brain file</h4>
+      <div class="row">
+        <button class="tbtn" id="export"><svg class="i" data-ic="down"></svg>Save brain</button>
+        <button class="tbtn" id="import"><svg class="i" data-ic="up"></svg>Load brain</button>
+        <input type="file" id="impFile" hidden accept=".json">
+        <button class="tbtn danger" id="wipeBtn"><svg class="i" data-ic="trash"></svg>Wipe brain</button>
+        <div id="wipeAsk" role="alert"><span>Erase everything it learned?</span><button id="wipeNo">Cancel</button><button class="yes" id="wipeYes">Wipe</button></div>
+      </div>
+    </section>
+
+    <a class="back" href="index.html"><svg class="i" data-ic="left"></svg>Kai.fun</a>
+  </aside>
+
+  <!-- ===================== MIDDLE: conversation ===================== -->
+  <main id="chat">
+    <header id="topbar">
+      <button class="icon-btn" id="menuBtn" aria-label="Open menu"><svg class="i" data-ic="menu"></svg></button>
+      <div id="chatTitle">New chat</div>
+      <span class="pill" id="lvlPill">Lv 1 · <b>egg</b></span>
+      <div class="sp"></div>
+      <button class="icon-btn" id="brainBtn" aria-label="Show brain"><svg class="i" data-ic="net"></svg><span class="t">Brain</span></button>
+    </header>
+    <div id="log"><div id="thread"></div></div>
+    <div id="composerWrap">
+      <div id="typing" aria-live="polite"></div>
+      <div id="bottom">
+        <textarea id="msg" rows="1" placeholder="Teach it something, ask a question, or paste Website: https://…" aria-label="Message"></textarea>
+        <button id="send" aria-label="Send"><svg class="i" data-ic="send"></svg></button>
+      </div>
+      <div class="hint"><span><kbd>Enter</kbd> send</span><span class="k2"><kbd>Shift</kbd>+<kbd>Enter</kbd> new line</span><span>It only knows what it learned — it can be wrong.</span></div>
+    </div>
+  </main>
+
+  <!-- ===================== RIGHT: brain inspector ===================== -->
+  <aside id="right" aria-label="Brain inspector">
+    <div class="bh"><h2>Brain inspector</h2><span class="live">live</span><button class="icon-btn" id="brainClose" aria-label="Hide brain"><svg class="i" data-ic="x"></svg></button></div>
+    <section class="bsec">
+      <h3>Neural network <small>3 → 32 → next word</small></h3>
+      <p class="cap">The last 3 words go in, 32 neurons fire, and it guesses the next word. Blue = excited, red = calmed.</p>
+      <canvas id="net" width="360" height="260"></canvas>
+    </section>
+    <section class="bsec">
+      <h3>Word map <small>similar words cluster</small></h3>
+      <p class="cap">Where its top words sit in its own head. Colour = word class it worked out by itself.</p>
+      <canvas id="map" width="360" height="260"></canvas>
+    </section>
+    <section class="bsec">
+      <h3>Knowledge base <small id="factCount"></small></h3>
+      <p class="cap">Facts it pulled out of sentences, newest first.</p>
+      <div class="facts" id="facts">nothing yet.</div>
+    </section>
+    <section class="bsec">
+      <h3>Sentence shapes</h3>
+      <p class="cap">Grammar templates it learned; {n} = a word class.</p>
+      <div class="chips" id="shapes"></div>
+    </section>
+  </aside>
 </div>
+<div id="scrim"></div>
 
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const FUNC=new Set("a an the is are was were be been being am i you he she it we they me him her us them my your his its our their this that these those of in on at to for with by from as and or but if so not no yes do does did have has had can could will would should may might must very really just also there here what who where when why how which than then too into over under about up down out off all some any many much more most other such only own same".split(" "));
 // ================= MEMORY =================
-const EMPTY=()=>({vocab:{},n2:{},n3:{},n4:{},starts:{},facts:{},shapes:{},lessons:0,sites:[],looked:{},nn:null});
+const EMPTY=()=>({vocab:{},n2:{},n3:{},n4:{},starts:{},facts:{},shapes:{},lessons:0,sites:[],looked:{},nn:null,srcs:{}});
 let B=EMPTY();
 function sentences(text){ return text.toLowerCase().replace(/[“”"()\[\]{}<>*_~`|#]/g," ").split(/(?<=[.!?])\s+|\n+/).map(s=>s.replace(/[.!?;:]+$/,"").trim()).filter(s=>s.length>1); }
 const isWord=w=>/^[a-z][a-z'’-]*$/.test(w)&&(w.length>1||w==="a"||w==="i")||/^\d{1,4}$/.test(w);
@@ -73,7 +332,10 @@ function extractFacts(sent){
     out.push([subj,rel,obj]); break; }
   return out;
 }
-function addFact(s,r,o){ s=sing(s); const f=B.facts[s]||(B.facts[s]={}); const rr=f[r]||(f[r]={}); rr[o]=(rr[o]||0)+1; }
+// where a fact came from: y = you said it, wt = wiktionary, d = dictionary, wp = wikipedia, s<n> = a website it read (B.sites[n])
+function srcCode(src){ if(!src||src==="you"||src==="y") return "y"; if(/^s\d+$/.test(src)) return src; if(/wiktionary/.test(src)) return "wt"; if(/dictionaryapi/.test(src)) return "d"; if(/wikipedia/.test(src)) return "wp"; return "x"; }
+function addFact(s,r,o,src){ s=sing(s); const f=B.facts[s]||(B.facts[s]={}); const rr=f[r]||(f[r]={}); rr[o]=(rr[o]||0)+1;
+  if(!B.srcs) B.srcs={}; const k=s+"|"+r+"|"+o, c=srcCode(src); if(!B.srcs[k]||c==="y") B.srcs[k]=c; }
 function getFacts(s){ return B.facts[sing(s)]||null; }
 function bestObj(rel){ return Object.entries(rel).sort((a,b)=>b[1]-a[1])[0][0]; }
 function verb(rel,subj){ const plural=/s$/.test(subj)&&sing(subj)!==subj; if(!plural) return rel; return {"has":"have","eats":"eat","likes":"like","lives in":"live in","needs":"need","wants":"want","goes to":"go to","comes from":"come from","looks like":"look like","means":"mean","is":"are"}[rel]||rel; }
@@ -86,7 +348,7 @@ async function learn(text,opts){
     ws.forEach((w,i)=>{ if(!B.vocab[w]) newWords++; B.vocab[w]=(B.vocab[w]||0)+1; const nx= i<ws.length-1? ws[i+1] : "<end>";
       bump(B.n2,w,nx); if(i>=1) bump(B.n3,ws[i-1]+" "+w,nx); if(i>=2) bump(B.n4,ws[i-2]+" "+ws[i-1]+" "+w,nx);
       ctxs.push([[ws[i-2]||"<s>",ws[i-1]||"<s>",w],nx]); });
-    extractFacts(sent).forEach(([s,r,o])=>{ newFacts++; addFact(s,r,o); });
+    extractFacts(sent).forEach(([s,r,o])=>{ newFacts++; addFact(s,r,o,opts.src); });
     if(!opts.noShapes&&nSent%3===0){ const sh=shapeOf(ws); if(sh) B.shapes[sh]=(B.shapes[sh]||0)+1; }
   });
   await NN.train(ctxs, opts.epochs||6, opts.quiet, opts.onProgress);
@@ -121,23 +383,26 @@ const NN=(()=>{
   function hash(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))|0; return h; }
   function pack(){ const r2=a=>Array.from(a,x=>+x.toFixed(2)); return {vocab,EMB:EMB.map(r2),W1:W1.map(r2),b1:r2(b1),W2:W2.map(r2),b2:b2.map(x=>+x.toFixed(2)),steps}; }
   function unpack(o){ if(!o||!o.vocab) return; vocab=o.vocab; ids={}; vocab.forEach((w,i)=>ids[w]=i); EMB=o.EMB.map(a=>Float32Array.from(a)); W1=o.W1.map(a=>Float32Array.from(a)); b1=Float32Array.from(o.b1); W2=o.W2.map(a=>Float32Array.from(a)); b2=o.b2.slice(); steps=o.steps||0; clusters=null; }
-  function draw(){ const c=$("net"); if(!c) return; const g=c.getContext("2d"); const W=c.width, Hh=c.height; g.fillStyle="#0a0a0a"; g.fillRect(0,0,W,Hh);
+  // canvases are drawn at 2x for sharp lines; layout maths stays in 360x260 units
+  const BG="#0b0d11", FONT="Geist, Arial, sans-serif";
+  function surface(c){ const S=c._s||1; const g=c.getContext("2d"); g.setTransform(S,0,0,S,0,0); return {g,W:c.width/S,Hh:c.height/S}; }
+  function draw(){ const c=$("net"); if(!c) return; const {g,W,Hh}=surface(c); g.fillStyle=BG; g.fillRect(0,0,W,Hh);
     const inX=46, hidX=W/2-10, outX=W-78; const ctx=last.ctx, hs=last.h, outs=last.top;
     ctx.forEach((w,p)=>{ const y=Hh/2+(p-1)*70; const ci=ids[w]; if(ci===undefined) return; for(let k=0;k<H;k++){ let s=0; for(let j=0;j<E;j++) s+=W1[k][p*E+j]*EMB[ci][j]; const yy=22+k*(Hh-44)/(H-1); g.strokeStyle= s>0? "rgba(80,180,255,"+Math.min(0.8,Math.abs(s))+")":"rgba(255,90,90,"+Math.min(0.8,Math.abs(s))+")"; g.lineWidth=0.3+Math.min(2,Math.abs(s)*1.5); g.beginPath(); g.moveTo(inX,y); g.lineTo(hidX,yy); g.stroke(); } });
     outs.forEach(([ow,p],oi)=>{ const j=ids[ow]; if(j===undefined) return; const y=22+oi*(Hh-44)/Math.max(1,outs.length-1); for(let k=0;k<H;k++){ const w=W2[j][k]*hs[k]; if(Math.abs(w)<0.05) continue; const yy=22+k*(Hh-44)/(H-1); g.strokeStyle= w>0? "rgba(80,180,255,"+Math.min(0.8,Math.abs(w)*1.5)+")":"rgba(255,90,90,"+Math.min(0.8,Math.abs(w)*1.5)+")"; g.lineWidth=0.3+Math.min(2,Math.abs(w)*2); g.beginPath(); g.moveTo(hidX,yy); g.lineTo(outX,y); g.stroke(); } });
-    g.font="11px Arial"; g.textAlign="center"; ctx.forEach((w,p)=>{ const y=Hh/2+(p-1)*70; g.fillStyle= ids[w]!==undefined? "#ff7a00":"#333"; g.beginPath(); g.arc(inX,y,9,0,7); g.fill(); g.fillStyle="#fff"; g.fillText(w==="<s>"?"(start)":w,inX,y+22); });
+    g.font="11px "+FONT; g.textAlign="center"; ctx.forEach((w,p)=>{ const y=Hh/2+(p-1)*70; g.fillStyle= ids[w]!==undefined? "#ff6a1f":"#2a2e38"; g.beginPath(); g.arc(inX,y,9,0,7); g.fill(); g.fillStyle="#fff"; g.fillText(w==="<s>"?"(start)":w,inX,y+22); });
     for(let k=0;k<H;k++){ const y=22+k*(Hh-44)/(H-1); const a=Math.abs(hs[k]); g.fillStyle= hs[k]>0? "rgba(80,180,255,"+(0.15+a*0.85)+")":"rgba(255,90,90,"+(0.15+a*0.85)+")"; g.beginPath(); g.arc(hidX,y,3+a*3,0,7); g.fill(); }
-    g.textAlign="left"; outs.forEach(([ow,p],oi)=>{ const y=22+oi*(Hh-44)/Math.max(1,outs.length-1); g.fillStyle="rgba(255,122,0,"+(0.25+p*0.75)+")"; g.beginPath(); g.arc(outX,y,3+p*9,0,7); g.fill(); g.fillStyle="#ddd"; g.fillText((ow==="<end>"?"(end)":ow)+" "+(p*100).toFixed(0)+"%",outX+12,y+4); });
-    g.fillStyle="#666"; g.font="10px Arial"; g.textAlign="center"; g.fillText("context",inX,12); g.fillText(H+" neurons",hidX,12); g.fillText("next word",outX,12);
-    if(vocab.length<=2){ g.fillStyle="#555"; g.font="13px Arial"; g.fillText("no neurons yet — say something",W/2,Hh/2); } drawMap(); }
-  function drawMap(){ const c=$("map"); if(!c) return; const g=c.getContext("2d"); const W=c.width, Hh=c.height; g.fillStyle="#0a0a0a"; g.fillRect(0,0,W,Hh);
-    const top=Object.entries(B.vocab).filter(([w])=>!FUNC.has(w)&&ids[w]!==undefined).sort((a,b)=>b[1]-a[1]).slice(0,70).map(([w])=>w); if(top.length<3){ g.fillStyle="#555"; g.font="13px Arial"; g.textAlign="center"; g.fillText("needs more words",W/2,Hh/2); return; }
+    g.textAlign="left"; outs.forEach(([ow,p],oi)=>{ const y=22+oi*(Hh-44)/Math.max(1,outs.length-1); g.fillStyle="rgba(255,106,31,"+(0.25+p*0.75)+")"; g.beginPath(); g.arc(outX,y,3+p*9,0,7); g.fill(); g.fillStyle="#d2d6df"; g.fillText((ow==="<end>"?"(end)":ow)+" "+(p*100).toFixed(0)+"%",outX+12,y+4); });
+    g.fillStyle="#6b7385"; g.font="10px "+FONT; g.textAlign="center"; g.fillText("context",inX,12); g.fillText(H+" neurons",hidX,12); g.fillText("next word",outX,12);
+    if(vocab.length<=2){ g.fillStyle="#7f889a"; g.font="13px "+FONT; g.fillText("no neurons yet — say something",W/2,Hh/2); } drawMap(); }
+  function drawMap(){ const c=$("map"); if(!c) return; const {g,W,Hh}=surface(c); g.fillStyle=BG; g.fillRect(0,0,W,Hh);
+    const top=Object.entries(B.vocab).filter(([w])=>!FUNC.has(w)&&ids[w]!==undefined).sort((a,b)=>b[1]-a[1]).slice(0,70).map(([w])=>w); if(top.length<3){ g.fillStyle="#7f889a"; g.font="13px "+FONT; g.textAlign="center"; g.fillText("needs more words",W/2,Hh/2); return; }
     const M=top.map(w=>EMB[ids[w]]); const mean=new Float32Array(E); M.forEach(v=>{ for(let j=0;j<E;j++) mean[j]+=v[j]/M.length; }); const X=M.map(v=>Float32Array.from(v,(x,j)=>x-mean[j]));
     const pc=(excl)=>{ let v=Float32Array.from({length:E},()=>Math.random()-0.5); for(let it=0;it<25;it++){ const nv=new Float32Array(E); X.forEach(x=>{ let d=0; for(let j=0;j<E;j++) d+=x[j]*v[j]; for(let j=0;j<E;j++) nv[j]+=d*x[j]; }); if(excl){ let d=0; for(let j=0;j<E;j++) d+=nv[j]*excl[j]; for(let j=0;j<E;j++) nv[j]-=d*excl[j]; } const n=Math.sqrt(nv.reduce((a,b)=>a+b*b,0))||1; v=Float32Array.from(nv,x=>x/n); } return v; };
     const p1=pc(), p2=pc(p1); const pts=X.map(x=>{ let a=0,b=0; for(let j=0;j<E;j++){ a+=x[j]*p1[j]; b+=x[j]*p2[j]; } return [a,b]; }); const ma=Math.max(...pts.map(p=>Math.abs(p[0])))||1, mb=Math.max(...pts.map(p=>Math.abs(p[1])))||1;
-    kmeans(); const cols=["#ff7a00","#4aa9d8","#6fb85c","#9b7fd4","#f5b829","#ff6b5e","#5cf2ff","#ff9db0"]; g.font="10px Arial"; g.textAlign="center";
-    pts.forEach(([a,b],i)=>{ const x=W/2+a/ma*(W/2-30), y=Hh/2-b/mb*(Hh/2-16); const k= cent? clusters[ids[top[i]]] : 0; g.fillStyle=cols[k%8]; g.beginPath(); g.arc(x,y,3,0,7); g.fill(); g.fillStyle="#ccc"; g.fillText(top[i],x,y-6); });
-    g.fillStyle="#666"; g.textAlign="left"; g.fillText("colour = word class it worked out by itself",6,Hh-6); }
+    kmeans(); const cols=["#ff6a1f","#4aa9d8","#6fb85c","#9b7fd4","#f5b829","#ff6b5e","#5cf2ff","#ff9db0"]; g.font="10px "+FONT; g.textAlign="center";
+    pts.forEach(([a,b],i)=>{ const x=W/2+a/ma*(W/2-30), y=Hh/2-b/mb*(Hh/2-16); const k= cent? clusters[ids[top[i]]] : 0; g.fillStyle=cols[k%8]; g.beginPath(); g.arc(x,y,3,0,7); g.fill(); g.fillStyle="#c9ced8"; g.fillText(top[i],x,y-6); });
+    g.fillStyle="#6b7385"; g.textAlign="left"; g.fillText("colour = word class it worked out by itself",6,Hh-6); }
   return {train,predict,look,similar,cls,classWords,pack,unpack,reset:init,draw,size:()=>vocab.length,steps:()=>steps,H};
 })();
 // ================= TALKING (generate several, keep the most coherent) =================
@@ -162,29 +427,61 @@ function generate(seedsIn){
   const cands=[]; for(let i=0;i<8;i++) cands.push(walk(seeds)); for(let i=0;i<3;i++) cands.push(fromShape(seeds));
   const best=cands.filter(Boolean).map(c=>[c,score(c,seeds)]).sort((a,b)=>b[1]-a[1])[0]; return best? best[0].join(" ") : null;
 }
-function factSentence(s,f){ const parts=[]; if(f.is) parts.push(s+" "+verb("is",s)+" "+art(bestObj(f.is))); if(f.has) parts.push("it has "+bestObj(f.has)); if(f.can) parts.push("it can "+bestObj(f.can)); if(f["lives in"]) parts.push("it lives in "+bestObj(f["lives in"])); if(f.eats) parts.push("it eats "+bestObj(f.eats)); if(f.likes) parts.push("it likes "+bestObj(f.likes)); if(f["made by"]) parts.push("it was made by "+bestObj(f["made by"])); if(f.means) parts.push("it means "+bestObj(f.means)); if(f["looks like"]) parts.push("it looks like "+bestObj(f["looks like"])); if(f["comes from"]) parts.push("it comes from "+bestObj(f["comes from"])); if(f.made) parts.push("it made "+bestObj(f.made)); if(f.needs) parts.push("it needs "+bestObj(f.needs)); return parts.join(". "); }
+// ---- citations: every fact used in an answer remembers where it came from ----
+let CITES=[];
+function cite(s,rel,o){ const c=B.srcs&&B.srcs[sing(s)+"|"+rel+"|"+o]; if(!c||c==="x") return; const t=sing(s); const key=(c==="wt"||c==="wp")? c+t : c; if(!CITES.some(x=>x.key===key)) CITES.push({key,c,t}); }
+function andList(a){ return a.length<2? (a[0]||"") : a.slice(0,-1).join(", ")+" and "+a[a.length-1]; }
+const PRED=[["has",o=>o],["can",o=>o],["lives in",o=>o],["eats",o=>o],["likes",o=>o],["made by",o=>o],["means",o=>o],["looks like",o=>o],["comes from",o=>o],["made",o=>o],["needs",o=>o],["wants",o=>o],["goes to",o=>o]];
+function predPhrase(rel,s,o){ const pl=verb("is",s)==="are"; if(rel==="made by") return (pl?"were":"was")+" made by "+o; if(rel==="can") return "can "+o; if(rel==="made") return "made "+o; return verb(rel,s)+" "+o; }
+// builds full sentences out of everything it knows about s, e.g. "**Frog** is a green animal. It eats flies and lives in ponds."
+// "frog" -> "a **frog**" when it has heard "a frog" (so it's a thing, not a name)
+function subjName(s){ const a=(B.n2.a||{}), an=(B.n2.an||{}); return (!s.includes(" ")&&(a[s]||an[s]))? (an[s]&&!a[s]?"an":"a")+" **"+s+"**" : "**"+s+"**"; }
+// lookups get cut at 14 words; show that as "…" instead of a sentence that stops on "and."
+function shown(o){ const w=o.split(" "); if(w.length<14) return o; while(w.length>3&&FUNC.has(w[w.length-1])) w.pop(); return w.join(" ")+"…"; }
+const end=x=>/…$/.test(x)? x : x+".";
+function factSentence(s,f){ const pl=verb("is",s)==="are", pron=pl?"they":"it"; let out=""; let n=0;
+  if(f.is){ const o=bestObj(f.is); cite(s,"is",o); out=end(subjName(s)+" "+verb("is",s)+" "+shown(art(o))); n++; }
+  const preds=[]; PRED.forEach(([rel])=>{ if(f[rel]){ const o=bestObj(f[rel]); cite(s,rel,o); preds.push(predPhrase(rel,s,o)); n++; } });
+  for(let i=0;i<preds.length;i+=3){ const chunk=preds.slice(i,i+3); out+=(out?" ":"")+(i===0? (out? pron : subjName(s)) : pron+" also")+" "+end(andList(chunk.map(shown))); }
+  return out; }
 function findSubjects(rel,objWord){ return Object.entries(B.facts).filter(([s,f])=>f[rel]&&Object.keys(f[rel]).some(o=>o.includes(objWord))).map(x=>x[0]); }
+function myName(){ const f=B.facts["you"]; return f&&f.is? bestObj(f.is) : null; }
+function factTotal(){ return Object.values(B.facts).reduce((a,f)=>a+Object.values(f).reduce((b,r)=>b+Object.keys(r).length,0),0); }
+function aboutMe(){ const s=stage(), i=STAGES.indexOf(s), nm=myName();
+  return (nm? "I'm **"+nm+"**, a" : "I'm a")+" tiny AI you're training from scratch, right here in your browser. I'm level "+(i+1)+" ("+s[2]+"): I know "+vocabSize()+" words, "+factTotal()+" facts and "+(Object.keys(B.n3).length+Object.keys(B.n4).length).toLocaleString()+" grammar patterns.\nThings I can do:\n• learn facts and grammar from anything you tell me\n• look up words I don't know in Wiktionary, the dictionary and Wikipedia\n• read a whole article if you say Website: and a link\n• answer questions like “what is a frog?” or “where do frogs live?”\nI only know what I've been taught, so I can be wrong."; }
+function knowAbout(x){ const f=getFacts(x); lastTopic=x; if(!f) return "I don't know anything about **"+x+"** yet. Teach me — try “"+x+" is …”.";
+  const lines=[]; for(const rel in f){ const os=Object.entries(f[rel]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([o])=>{ cite(x,rel,o); return rel==="is"? art(o) : o; }); lines.push("• "+subjName(x).replace(/\*\*/g,"")+" "+(rel==="is"? verb("is",x) : predPhrase(rel,x,"").trim())+" "+andList(os.map(shown))); }
+  return "Here's everything I know about **"+x+"**:\n"+lines.join("\n"); }
+function summary(){ const subs=Object.keys(B.facts).filter(s=>s!=="you").slice(-5).reverse(); if(!vocabSize()) return "Nothing yet — I'm brand new. Tell me something like “frogs eat flies.”";
+  return "So far I know **"+vocabSize()+"** words and **"+factTotal()+"** facts from "+B.lessons+" lessons"+(B.sites.length?" and "+B.sites.length+" website"+(B.sites.length>1?"s":""):"")+"."+(subs.length? " Lately I learned about "+andList(subs)+". Ask me about any of them!" : " I haven't picked up any facts yet — try telling me what something is."); }
 let lastTopic=null;
 function answer(userText){
+  CITES=[];
   const t=userText.toLowerCase().replace(/[?!.]+$/,"").trim(); const V=vocabSize(); let m;
-  if((m=t.match(/^what (?:is|are) (?:like|similar to) (?:a |an |the )?(.+)$/))){ const sim=NN.similar(m[1],5); return sim.length? m[1]+" is kind of like "+sim.map(x=>x[0]).join(", ")+"." : "i haven't learned "+m[1]+" yet."; }
-  if((m=t.match(/^(?:what|who) (?:is|are|was|were) (?:a |an |the )?(.+)$/))||(m=t.match(/^tell me about (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:what|who)'?s (?:a |an |the )?(.+)$/))){ const s=m[1]; const f=getFacts(s); lastTopic=s; if(f) return factSentence(s,f)+"."; const w0=words(s)[0]||s; const sim=NN.similar(w0,3); if(B.n2[w0]) return "i've heard of "+s+"… "+(sim.length?"it reminds me of "+sim.map(x=>x[0]).join(" and ")+". ":"")+(generate([w0])||""); return "i don't know what "+s+" is yet. tell me: "+s+" is …"; }
-  if((m=t.match(/^where (?:do|does|did) (?:a |an |the )?(.+?) live$/))||(m=t.match(/^where (?:is|are) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&(f["lives in"]||f["comes from"])) return m[1]+" "+verb("lives in",m[1])+" "+bestObj(f["lives in"]||f["comes from"])+"."; return f? "i know some things about "+m[1]+" but not where it lives. tell me: "+m[1]+" lives in …" : "who is "+m[1]+"?"; }
-  if((m=t.match(/^what (?:do|does) (?:a |an |the )?(.+?) (eat|like|love|have|need|want|mean)s?$/))){ const rel={eat:"eats",like:"likes",love:"likes",have:"has",need:"needs",want:"wants",mean:"means"}[m[2]]; const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f[rel]) return m[1]+" "+verb(rel,m[1])+" "+Object.keys(f[rel]).slice(0,3).join(" and ")+"."; return f? "not sure what "+m[1]+" "+rel+". tell me!" : "i don't know "+m[1]+" yet."; }
-  if((m=t.match(/^what can (?:a |an |the )?(.+?) do$/))){ const f=getFacts(m[1]); lastTopic=m[1]; return f&&f.can? m[1]+" can "+Object.keys(f.can).slice(0,3).join(" and ")+"." : "i don't know what "+m[1]+" can do. tell me: "+m[1]+" can …"; }
-  if((m=t.match(/^who (?:made|invented|created|built|wrote|discovered) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f["made by"]) return m[1]+" was made by "+bestObj(f["made by"])+"."; const s=findSubjects("made",m[1]); return s.length? s[0]+" made "+m[1]+"." : "i don't know who made "+m[1]+"."; }
-  if((m=t.match(/^(?:is|are|was|were|does|do|can|did) (?:a |an |the )?(.+?) (.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(!f) return "i don't know "+m[1]+" yet."; const rest=m[2].replace(/^(?:a|an|the)\s+/,""); for(const rel in f){ for(const o in f[rel]){ if(o.includes(rest)||rest.includes(o)) return "yes! "+m[1]+" "+verb(rel,m[1])+" "+(rel==="is"?art(o):o)+"."; } } return "i don't think so. "+factSentence(m[1],f)+"."; }
-  if((m=t.match(/^who (likes|loves|eats|has|can|lives in|needs|wants) (?:a |an |the )?(.+)$/))){ const rel={loves:"likes"}[m[1]]||m[1]; const s=findSubjects(rel,m[2]); return s.length? s.slice(0,3).join(", ")+" "+verb(rel,s.length>1?"s":s[0])+" "+m[2]+"." : "nobody i know "+rel+" "+m[2]+"."; }
-  if(/^why/.test(t)&&lastTopic){ const f=getFacts(lastTopic); if(f) return "because "+factSentence(lastTopic,f)+"."; }
-  if(/^(what|who|whats|what's) (is|are)? ?(your|ur) name/.test(t)) return "i don't have a name yet. you could give me one: 'your name is …'";
-  if(/^(hi|hello|hey|yo|sup|good (?:morning|evening|afternoon))\b/.test(t)){ const g=pick({"hi!":3,"hey!":2,"hello!":2,"hi there!":1,"yo!":1}); const subs=Object.keys(B.facts).filter(x=>!B.looked[x]); const sub=lastTopic||subs[Math.floor(Math.random()*subs.length)]; if(sub&&Math.random()<0.6) return g+" "+pick({["do you like "+sub+"?"]:2,["tell me more about "+sub+"."]:1,["i've been thinking about "+sub+"."]:1}); const gen= V>=20? generate([]) : null; return g+(gen? " "+gen : ""); }
+  if(/^(what|who|whats|what's) (is|are)? ?(your|ur) name/.test(t)){ const nm=myName(); return nm? "my name is **"+nm+"**." : "i don't have a name yet. you could give me one: 'your name is …'"; }
+  if(/^(?:who|what) (?:are|r) (?:you|u)$|^(?:tell me about|describe) yourself$|^what can (?:you|u) do$|^help$/.test(t)) return aboutMe();
+  if((m=t.match(/^what (?:do|did) (?:you|u) (?:know|learn|remember)(?: about (?:a |an |the )?(.+))?$/))||(m=t.match(/^what have (?:you|u) learn(?:ed|t)(?: about (?:a |an |the )?(.+))?$/))) return m[1]? knowAbout(m[1]) : summary();
+  if((m=t.match(/^what (?:is|are) (?:like|similar to) (?:a |an |the )?(.+)$/))){ const sim=NN.similar(m[1],5); return sim.length? "**"+m[1]+"** is kind of like "+andList(sim.map(x=>x[0]))+" — those words show up near it in my word map." : "i haven't learned "+m[1]+" yet."; }
+  if((m=t.match(/^(?:what|who) (?:is|are|was|were) (?:a |an |the )?(.+)$/))||(m=t.match(/^tell me about (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:what|who)'?s (?:a |an |the )?(.+)$/))){ const s=m[1]; const f=getFacts(s); lastTopic=s; if(f){ const fs=factSentence(s,f); return fs+(Object.keys(f).length===1&&Object.keys(Object.values(f)[0]).length===1? " That's all I know about it so far — tell me more!" : ""); } const w0=words(s)[0]||s; const sim=NN.similar(w0,3); if(B.n2[w0]){ const gen=generate([w0]); return "i've heard of "+s+", but nobody has told me what it is. "+(sim.length?"it reminds me of "+andList(sim.map(x=>x[0]))+". ":"")+(gen? "here's my best guess: “"+gen+"”" : ""); } return "i don't know what **"+s+"** is yet. you can teach me — just say “"+s+" is …”."; }
+  if((m=t.match(/^where (?:do|does|did) (?:a |an |the )?(.+?) live$/))||(m=t.match(/^where (?:is|are) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&(f["lives in"]||f["comes from"])){ const rel=f["lives in"]?"lives in":"comes from", o=bestObj(f[rel]); cite(m[1],rel,o); return "**"+m[1]+"** "+verb("lives in",m[1])+" "+o+"."; } return f? "i know some things about "+m[1]+", but not where it lives. tell me: “"+m[1]+" lives in …”" : "who is "+m[1]+"? i haven't heard of them yet."; }
+  if((m=t.match(/^what (?:do|does) (?:a |an |the )?(.+?) (eat|like|love|have|need|want|mean)s?$/))){ const rel={eat:"eats",like:"likes",love:"likes",have:"has",need:"needs",want:"wants",mean:"means"}[m[2]]; const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f[rel]){ const os=Object.keys(f[rel]).slice(0,3); os.forEach(o=>cite(m[1],rel,o)); return "**"+m[1]+"** "+verb(rel,m[1])+" "+andList(os)+"."; } return f? "i'm not sure what "+m[1]+" "+rel.replace(/s$/,"")+(rel==="has"?"s":"")+". tell me!" : "i don't know "+m[1]+" yet."; }
+  if((m=t.match(/^what can (?:a |an |the )?(.+?) do$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f.can){ const os=Object.keys(f.can).slice(0,3); os.forEach(o=>cite(m[1],"can",o)); return "**"+m[1]+"** can "+andList(os)+"."; } return "i don't know what "+m[1]+" can do. tell me: “"+m[1]+" can …”"; }
+  if((m=t.match(/^who (?:made|invented|created|built|wrote|discovered) (?:a |an |the )?(.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(f&&f["made by"]){ const o=bestObj(f["made by"]); cite(m[1],"made by",o); return "**"+m[1]+"** was made by "+o+"."; } const s=findSubjects("made",m[1]); if(s.length){ const o=Object.keys(B.facts[s[0]].made).find(x=>x.includes(m[1])); cite(s[0],"made",o); return s[0]+" made "+m[1]+"."; } return "i don't know who made "+m[1]+"."; }
+  if((m=t.match(/^(?:is|are|was|were|does|do|can|did) (?:a |an |the )?(.+?) (.+)$/))){ const f=getFacts(m[1]); lastTopic=m[1]; if(!f) return "i don't know "+m[1]+" yet, so i can't say."; const rest=m[2].replace(/^(?:a|an|the)\s+/,""); for(const rel in f){ for(const o in f[rel]){ if(o.includes(rest)||rest.includes(o)){ cite(m[1],rel,o); return "yes! "+m[1]+" "+verb(rel,m[1])+" "+(rel==="is"?art(o):o)+"."; } } } return "i don't think so — at least, nobody told me that. here's what i do know: "+factSentence(m[1],f); }
+  if((m=t.match(/^who (likes|loves|eats|has|can|lives in|needs|wants) (?:a |an |the )?(.+)$/))){ const rel={loves:"likes"}[m[1]]||m[1]; const s=findSubjects(rel,m[2]); s.slice(0,3).forEach(x=>{ const o=Object.keys(B.facts[x][rel]).find(y=>y.includes(m[2])); cite(x,rel,o); }); return s.length? andList(s.slice(0,3))+" "+verb(rel,s.length>1?"s":s[0])+" "+m[2]+"." : "nobody i know "+rel+" "+m[2]+"."; }
+  if(/^why/.test(t)&&lastTopic){ const f=getFacts(lastTopic); if(f) return "because "+factSentence(lastTopic,f); }
+  if(/^(hi|hello|hey|yo|sup|good (?:morning|evening|afternoon))\b/.test(t)){ const g=pick({"hi!":3,"hey!":2,"hello!":2,"hi there!":1,"yo!":1}); const subs=Object.keys(B.facts).filter(x=>!B.looked[x]&&x!=="you"); const sub=lastTopic||subs[Math.floor(Math.random()*subs.length)]; if(sub&&Math.random()<0.6) return g+" "+pick({["do you like "+sub+"?"]:2,["tell me more about "+sub+"."]:1,["i've been thinking about "+sub+"."]:1}); const gen= V>=20? generate([]) : null; return g+(gen? " "+gen : " what should i learn today?"); }
   if(V===0) return "…"; if(V<4) return pick(B.vocab)+(Math.random()<0.5?"!":"?");
   const seeds=words(t); const ctx=[seeds[seeds.length-3]||"<s>",seeds[seeds.length-2]||"<s>",seeds[seeds.length-1]||"<s>"]; NN.look(ctx);
-  const topic=seeds.find(w=>getFacts(w)&&!FUNC.has(w)&&!B.looked[sing(w)]); if(topic&&Math.random()<0.7){ lastTopic=topic; return factSentence(topic,getFacts(topic))+"."; }
+  const topic=seeds.find(w=>getFacts(w)&&!FUNC.has(w)&&!B.looked[sing(w)]); if(topic&&Math.random()<0.7){ lastTopic=topic; return factSentence(topic,getFacts(topic)); }
   let g=generate(seeds)||pick(B.vocab); const punct= V<50? "" : (Math.random()<0.7?".":Math.random()<0.5?"!":"?");
   if(V>=150&&Math.random()<0.35){ const g2=generate(seeds); if(g2&&g2!==g) g+=punct+" "+g2; }
   return g+punct;
 }
+// "what does it eat?" -> "what does frog eat?" (remembers what you were just talking about)
+function resolveRefs(t){ if(!lastTopic) return t; return t.replace(/\b(it|they|them)\b/i,lastTopic); }
+// sentence case + capital I, so replies read like an assistant instead of a babbling notebook
+function polish(s){ return String(s).replace(/(^|[.!?…]\s+|\n(?:• )?|“)(\*\*)?([a-z])/g,(_,a,b,c)=>a+(b||"")+c.toUpperCase()).replace(/\bi(?=$|[\s'’.,!?])/g,"I"); }
 // ================= STORAGE: IndexedDB (big), desktop server (unlimited), localStorage (fallback) =================
 const DESKTOP= location.port==="8765";
 const DB={ open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("kaifun_ai",1); r.onupgradeneeded=()=>r.result.createObjectStore("brain"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
@@ -192,7 +489,7 @@ const DB={ open(){ return new Promise((res,rej)=>{ const r=indexedDB.open("kaifu
   async set(v){ const db=await this.open(); return new Promise((res,rej)=>{ const tx=db.transaction("brain","readwrite"); tx.objectStore("brain").put(v,"main"); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); } };
 let saveT=null, warned=false;
 function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{ B.nn=NN.pack(); try{ if(DESKTOP){ await fetch("/brain",{method:"POST",body:JSON.stringify(B)}); return; } if(window.indexedDB){ await DB.set(B); return; } localStorage.setItem("aitrainer4",JSON.stringify(B)); }
-  catch(e){ if(!warned){ warned=true; const d=document.createElement("div"); d.className="l sys"; d.innerHTML="⚠️ your browser's storage limit is reached — this brain is too big to keep here. it still works this session (use ⬇ save brain), or <a href='aitrainer-desktop.py' download>download the desktop version</a> to keep going with no limits."; $("log").appendChild(d); } } },900); }
+  catch(e){ if(!warned){ warned=true; addSysHTML("⚠️ your browser's storage limit is reached — this brain is too big to keep here. it still works this session (use Save brain), or <a href='aitrainer-desktop.py' download>download the desktop version</a> to keep going with no limits."); } } },900); }
 async function loadBrain(){ try{ if(DESKTOP){ const r=await fetch("/brain"); if(r.ok){ const j=await r.json(); if(j&&j.vocab) return j; } } else if(window.indexedDB){ const j=await DB.get(); if(j&&j.vocab) return j; const ls=localStorage.getItem("aitrainer4"); if(ls) return JSON.parse(ls); } }catch(e){} return null; }
 // ================= LOOKING THINGS UP (built in: wiktionary -> dictionary -> wikipedia) =================
 const SOURCES=["https://en.wiktionary.org","https://api.dictionaryapi.dev","https://en.wikipedia.org"];
@@ -216,61 +513,173 @@ const LOOKUP_CHAT=6;        // words looked up per thing you say
 let stopLookups=false;
 async function autoLookup(list,max,onProgress){ const seen=new Set(); const todo=list.map(w=>w.toLowerCase()).filter(w=>{ if(seen.has(w)) return false; seen.add(w); return /^[a-z][a-z-]{2,}$/.test(w)&&!FUNC.has(w)&&!getFacts(w)&&!B.looked[w]; }).slice(0,max);
   let got=[], done=0; stopLookups=false; const total=todo.length;
-  const worker=async()=>{ while(todo.length&&!stopLookups){ const w=todo.shift(); B.looked[w]=1; try{ const r=await lookup(w); if(r){ const obj=defToObject(w,r.def); addFact(w,"is",obj); await learn(w+" is "+obj+".",{epochs:2,quiet:true,noShapes:true}); got.push(w); } }catch(e){} done++; if(onProgress) onProgress(done,got.length,total); if(done%25===0){ save(); ui(); } } };
+  const worker=async()=>{ while(todo.length&&!stopLookups){ const w=todo.shift(); B.looked[w]=1; try{ const r=await lookup(w); if(r){ const obj=defToObject(w,r.def); addFact(w,"is",obj,r.src); await learn(w+" is "+obj+".",{epochs:2,quiet:true,noShapes:true,src:r.src}); got.push(w); } }catch(e){} done++; if(onProgress) onProgress(done,got.length,total); if(done%25===0){ save(); ui(); } } };
   await Promise.all([worker(),worker(),worker(),worker()]); if(Object.keys(B.looked).length>50000) B.looked={}; return got; }
 function defToObject(term,def){ let d=def.toLowerCase().replace(/[.!?]+$/,""); const re=new RegExp("^(?:the |a |an )?"+term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"s? (?:is|are|was|were) (?:a |an |the )?"); d=d.replace(re,""); return d.split(" ").slice(0,14).join(" "); }
 function termOf(t){ t=t.toLowerCase().replace(/[?!.]+$/,"").trim(); let m; if((m=t.match(/^(?:what|who) (?:is|are|was|were) (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:what|who)'?s (?:a |an |the )?(.+)$/))||(m=t.match(/^(?:define|look up|lookup|search|tell me about|explain) (?:a |an |the )?(.+)$/))||(m=t.match(/^what (?:does|do) (.+?) mean$/))) return m[1].trim(); return null; }
+const SELF=new Set(["you","u","yourself","me","i","it","they","them","this","that","your name","ur name"]);
+
 // ================= UI =================
 const STAGES=[[0,"🥚","egg","knows nothing"],[1,"🐣","hatchling","heard something"],[15,"👶","baby","babbles"],[50,"🧒","toddler","short sentences"],[150,"🧑","student","copies how you talk"],[400,"🤖","AI","has opinions (yours)"],[1000,"🧠","brain","has read more than it's been told"],[3000,"👑","oracle","knows more words than you"]];
+const HUES=[36,48,18,198,152,262,318,44], SATS=[14,38,62,72,78,84,90,96]; // the orb gets more colourful as it levels up
 function stage(){ const V=vocabSize(); let s=STAGES[0]; STAGES.forEach(x=>{ if(V>=x[0]) s=x; }); return s; }
-function ui(){ const V=vocabSize(), s=stage(), i=STAGES.indexOf(s), nxt=STAGES[i+1]; const nf=Object.values(B.facts).reduce((a,f)=>a+Object.values(f).reduce((b,r)=>b+Object.keys(r).length,0),0);
-  $("face").textContent=s[1]; $("stage").textContent=s[2]+" · "+s[3]+(nxt?" · "+(nxt[0]-V)+" words to "+nxt[2]:"")+(DESKTOP?" · desktop mode":""); $("barF").style.width=(nxt?((V-s[0])/(nxt[0]-s[0])*100):100)+"%";
-  $("stats").innerHTML="<b>"+V+"</b> words · <b>"+nf+"</b> facts · <b>"+Object.keys(B.shapes).length+"</b> sentence shapes · <b>"+(Object.keys(B.n3).length+Object.keys(B.n4).length).toLocaleString()+"</b> grammar patterns<br><b>"+(NN.size()+NN.H)+"</b> neurons · <b>"+(NN.size()*48+32*48).toLocaleString()+"</b> synapses · <b>"+NN.steps().toLocaleString()+"</b> training steps · <b>"+B.lessons+"</b> lessons";
-  const F=Object.entries(B.facts).slice(-14).reverse(); $("facts").innerHTML=F.length? F.map(([s,f])=>"<div><b>"+esc(s)+"</b> "+Object.entries(f).map(([r,o])=>"<i>"+esc(r)+"</i> "+esc(bestObj(o))).join(" · ")+"</div>").join("") : 'nothing yet. tell it things like "frogs eat flies".';
-  $("shapes").innerHTML=Object.entries(B.shapes).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([s])=>"<span>"+esc(s)+"</span>").join("")||"<span>…</span>"; NN.draw(); }
-function line(who,text){ const d=document.createElement("div"); d.className="l "+(who==="you"?"you":who==="str"?"str":"sys"); if(who==="sys") d.textContent=text; else d.innerHTML="<b>"+(who==="you"?"You":"Stranger")+":</b> "+esc(text); $("log").appendChild(d); $("log").scrollTop=$("log").scrollHeight; }
+const IC={plus:'<path d="M12 5v14M5 12h14"/>',send:'<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/>',menu:'<path d="M4 7h16M4 12h16M4 17h10"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  net:'<circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.8 7l3.4 3.8M6.8 17l3.4-3.8M13.8 10.8L17.3 7M13.8 13.2l3.5 3.8"/>',
+  down:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',up:'<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',trash:'<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/>',left:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 016.5 17H20V3H6.5A2.5 2.5 0 004 5.5zM4 19.5A2.5 2.5 0 006.5 22H20v-5"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>',
+  warn:'<path d="M12 3.5L22 20H2zM12 10v4.5M12 17.4v.1"/>',spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
+  redo:'<path d="M20 12a8 8 0 11-2.3-5.6M20 4v5h-5"/>',brain:'<path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 006 0V4.8A2 2 0 009 4zM15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-6 0"/>',
+  chat:'<path d="M5 5h14a1 1 0 011 1v9a1 1 0 01-1 1H10l-4 3.5V16H5a1 1 0 01-1-1V6a1 1 0 011-1z"/>',teach:'<path d="M3 9l9-5 9 5-9 5zM7 11.5V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-4.5"/>',ask:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 015 .9c0 1.8-2.5 2.2-2.5 3.8M12 17.2v.1"/>',tag:'<path d="M3 12V4h8l10 10-8 8zM7.5 7.5v.1"/>'};
+function ic(n,cls){ return '<svg class="i'+(cls?" "+cls:"")+'" viewBox="0 0 24 24" aria-hidden="true">'+(IC[n]||"")+'</svg>'; }
+document.querySelectorAll("svg[data-ic]").forEach(s=>{ s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("aria-hidden","true"); s.innerHTML=IC[s.dataset.ic]||""; });
+// hi-dpi canvases
+["net","map"].forEach(id=>{ const c=$(id), S=2; c._s=S; c.width=360*S; c.height=260*S; });
+const nameOf=()=>myName()||"Your AI";
+function ui(){ const V=vocabSize(), s=stage(), i=STAGES.indexOf(s), nxt=STAGES[i+1]; const nf=factTotal();
+  const R=document.documentElement.style; R.setProperty("--h",HUES[i]); R.setProperty("--s",SATS[i]+"%");
+  $("face").querySelector(".lv").textContent="Lv "+(i+1); $("face").title=s[2];
+  $("modelName").textContent=myName()||"Unnamed AI";
+  $("stage").innerHTML="Level "+(i+1)+" · <b>"+esc(s[2])+"</b>"; $("stageDesc").textContent=s[3]+(DESKTOP?" · desktop mode":"");
+  $("lvlPill").innerHTML="Lv "+(i+1)+" · <b>"+esc(s[2])+"</b>";
+  $("nextLvl").innerHTML= nxt? "<span>"+(nxt[0]-V)+" word"+(nxt[0]-V===1?"":"s")+" to "+esc(nxt[2])+"</span><span>"+V+"/"+nxt[0]+"</span>" : "<span>max level</span><span>"+V+" words</span>";
+  $("barF").style.width=(nxt?((V-s[0])/(nxt[0]-s[0])*100):100)+"%";
+  const T=(n,l)=>'<div class="tile"><b>'+(typeof n==="number"?n.toLocaleString():n)+'</b><span>'+l+'</span></div>';
+  $("stats").innerHTML=T(V,"words")+T(nf,"facts")+T(Object.keys(B.n3).length+Object.keys(B.n4).length,"grammar bits")+T(Object.keys(B.shapes).length,"sentence shapes")+T(NN.size()+NN.H,"neurons")+T(NN.size()*48+32*48,"synapses")+T(NN.steps(),"training steps")+T(B.lessons,"lessons");
+  const F=Object.entries(B.facts).slice(-14).reverse(); $("factCount").textContent=Object.keys(B.facts).length? Object.keys(B.facts).length.toLocaleString()+" subjects" : "";
+  $("facts").innerHTML=F.length? F.map(([s,f])=>'<div class="f"><b>'+esc(s)+"</b> "+Object.entries(f).map(([r,o])=>"<i>"+esc(r)+"</i> "+esc(bestObj(o))).join(" · ")+"</div>").join("") : '<div class="nothing">nothing yet. tell it things like “frogs eat flies”.</div>';
+  $("shapes").innerHTML=Object.entries(B.shapes).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([s])=>"<span>"+esc(s)+"</span>").join("")||"<span>none yet — keep talking</span>";
+  document.querySelectorAll(".msg.ai .who").forEach(w=>w.textContent=nameOf());
+  const ek=document.querySelector(".empty .known"); if(ek) ek.innerHTML=knownLine();
+  NN.draw(); }
+
+// ---------- conversation view ----------
+const thread=$("thread"), logEl=$("log");
+let chat={id:Date.now(),msgs:[]};      // current conversation (kept so it survives a reload)
+let thinkEl=null, pending=0;
+function nearBottom(){ return logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<140; }
+function scrollDown(force){ if(force||nearBottom()) logEl.scrollTop=logEl.scrollHeight; }
+function put(el){ const stick=nearBottom(); if(thinkEl&&thinkEl.parentNode===thread) thread.insertBefore(el,thinkEl); else thread.appendChild(el); if(stick) logEl.scrollTop=logEl.scrollHeight; }
+function fmt(text){ const lines=esc(text).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split("\n"); let h="", inL=false;
+  lines.forEach(l=>{ if(/^• /.test(l)){ if(!inL){ h+="<ul>"; inL=true; } h+="<li>"+l.slice(2)+"</li>"; } else { if(inL){ h+="</ul>"; inL=false; } if(l.trim()) h+="<p>"+l+"</p>"; } }); if(inL) h+="</ul>"; return h||"<p>…</p>"; }
+const CITE_NAME={y:"You told me",wt:"Wiktionary",d:"Dictionary",wp:"Wikipedia"}, CITE_MARK={y:"Y",wt:"Wt",d:"D",wp:"W"};
+function citeHTML(cs){ if(!cs||!cs.length) return ""; return '<div class="cites"><span class="lbl">Sources</span>'+cs.map(x=>{ let name=CITE_NAME[x.c], href=null, cls=x.c, mark=CITE_MARK[x.c];
+    if(x.c==="wt") href="https://en.wiktionary.org/wiki/"+encodeURIComponent(x.t), name+=" · "+x.t;
+    if(x.c==="wp") href="https://en.wikipedia.org/wiki/"+encodeURIComponent(x.t), name+=" · "+x.t;
+    if(x.c==="d") name+=" · "+x.t;
+    if(/^s\d+$/.test(x.c)){ const u=B.sites[+x.c.slice(1)]; if(!u) return ""; cls="s"; mark="↗"; href=u; let host=u; try{ const U=new URL(u); host=U.hostname.replace(/^www\./,""); const w=U.pathname.match(/^\/wiki\/(.+)/); if(/wikipedia\.org$/.test(host)&&w) host="Wikipedia · "+decodeURIComponent(w[1]).replace(/_/g," "); }catch(e){} name=host; }
+    if(!name) return ""; const inner='<i>'+esc(mark)+'</i><span>'+esc(name)+'</span>';
+    return href? '<a class="cite '+cls+'" href="'+esc(href)+'" target="_blank" rel="noopener">'+inner+'</a>' : '<span class="cite '+cls+'">'+inner+'</span>'; }).join("")+'</div>'; }
+const NOTE_IC={"📖":"book","📡":"globe","📚":"book","⚠️":"warn","🥚":"redo","🧠":"brain"};
+function noteEl(text,isHTML){ let t=String(text).trim().replace(/^\((.*)\)$/s,"$1"), icon="spark";
+  for(const k in NOTE_IC){ if(t.startsWith(k)){ icon=NOTE_IC[k]; t=t.slice(k.length).trim(); break; } }
+  const d=document.createElement("div"); d.className="msg note"+(icon==="warn"?" warn":""); d.innerHTML=ic(icon)+"<span>"+(isHTML? t : esc(t))+"</span>"; return d; }
+function aiEl(text,cites){ const d=document.createElement("div"); d.className="msg ai"; d.innerHTML='<div class="orb sm"></div><div class="body"><div class="who">'+esc(nameOf())+'</div><div class="text">'+fmt(text)+'</div>'+citeHTML(cites)+'</div>'; return d; }
+function render(m){ if(m.w==="you"){ const d=document.createElement("div"); d.className="msg you"; d.innerHTML='<div class="bubble">'+esc(m.t)+'</div>'; return d; } if(m.w==="str") return aiEl(m.t,m.c); return noteEl(m.t,m.h); }
+function record(m){ chat.msgs.push(m); if(chat.msgs.length>300) chat.msgs.splice(0,chat.msgs.length-300); persistChat(); }
+function line(who,text){ hideEmpty(); const m={w:who==="you"?"you":who==="str"?"str":"sys",t:text}; put(render(m)); record(m); if(who==="you") setTitle(); }
 const addSys=t=>line("sys",t);
-function strangerSays(text,delay){ $("typing").textContent="Stranger is typing…"; setTimeout(()=>{ $("typing").textContent=""; line("str",text); },delay||(400+Math.min(2500,text.length*25))); }
-async function handle(text){ line("you",text); const t=text.trim();
-  if(/^reset$/i.test(t)){ if(confirm("wipe its entire brain?")){ B=EMPTY(); NN.reset(); save(); ui(); addSys("🥚 brain wiped."); } return; }
-  const site=t.match(/^website:\s*(\S+)/i); if(site){ await readSite(site[1]); return; }
-  if(/^stop( looking( things)? up)?$/i.test(t)){ stopLookups=true; addSys("ok, stopping the lookups."); return; }
-  if(/^(?:define|look up) everything$/i.test(t)){ const all=Object.entries(B.vocab).filter(([w,c])=>!FUNC.has(w)&&!getFacts(w)&&!B.looked[w]).sort((a,b)=>b[1]-a[1]).map(([w])=>w); if(!all.length){ addSys("it already has a definition for every word it knows."); return; }
-    addSys("📖 looking up all "+all.length+" undefined words. this runs in the background — keep chatting, or say 'stop'."); const got=await autoLookup(all,all.length,(d,g,tot)=>{ $("typing").textContent="Stranger is looking up everything… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); addSys("📖 done: found definitions for "+got.length+" of "+all.length+" words."); return; }
+function addSysHTML(h){ hideEmpty(); const m={w:"sys",t:h,h:1}; put(render(m)); record(m); }
+function thinking(d,label){ pending=Math.max(0,pending+d); if(pending>0){ if(!thinkEl){ thinkEl=document.createElement("div"); thinkEl.className="msg ai thinking"; thinkEl.innerHTML='<div class="orb sm spin"></div><div class="body"><div class="who"></div><div class="dots"><i></i><i></i><i></i><span class="lb"></span></div></div>'; }
+    thinkEl.querySelector(".who").textContent=nameOf(); if(label||!thinkEl.parentNode) thinkEl.querySelector(".lb").textContent=label||"Thinking"; if(thinkEl.parentNode!==thread){ hideEmpty(); thread.appendChild(thinkEl); } $("app").classList.add("thinking"); scrollDown(); }
+  else { if(thinkEl) thinkEl.remove(); $("app").classList.remove("thinking"); } }
+function thinkLabel(t){ if(thinkEl&&thinkEl.parentNode) thinkEl.querySelector(".lb").textContent=t; }
+const REDUCED=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+function typewriter(box,done){ const nodes=[]; const tw=document.createTreeWalker(box,NodeFilter.SHOW_TEXT); let n; while((n=tw.nextNode())){ nodes.push([n,n.nodeValue]); n.nodeValue=""; }
+  let i=0,j=0; box.classList.add("streaming");
+  const tick=()=>{ let budget=2+Math.floor(Math.random()*4); while(budget>0&&i<nodes.length){ const [nd,full]=nodes[i]; const take=Math.min(budget,full.length-j); nd.nodeValue=full.slice(0,j+take); j+=take; budget-=take; if(j>=full.length){ i++; j=0; } }
+    scrollDown(); if(i<nodes.length) setTimeout(tick,18); else { box.classList.remove("streaming"); if(done) done(); } }; tick(); }
+function strangerSays(text,delay){ text=polish(text); const cites=CITES.slice(); CITES=[]; thinking(1,"Thinking");
+  setTimeout(()=>{ thinking(-1); hideEmpty(); const m={w:"str",t:text,c:cites}; const el=aiEl(text,cites); const cbox=el.querySelector(".cites"); if(cbox) cbox.style.visibility="hidden"; put(el); record(m);
+    if(REDUCED){ if(cbox) cbox.style.visibility=""; return; } typewriter(el.querySelector(".text"),()=>{ if(cbox) cbox.style.visibility=""; scrollDown(); }); },delay||(380+Math.min(900,text.length*6))); }
+
+// ---------- empty state ----------
+const SUGG=[["teach","Teach it a fact","A frog is a green animal. Frogs eat flies. Frogs live in ponds.",1],["ask","Ask a question","What is a frog?",1],["globe","Have it read an article","Website: https://en.wikipedia.org/wiki/Frog",1],["tag","Give it a name","Your name is ",0]];
+function knownLine(){ return "<span><b>"+vocabSize().toLocaleString()+"</b> words</span><span><b>"+factTotal().toLocaleString()+"</b> facts</span><span><b>"+B.sites.length+"</b> sites read</span>"; }
+function showEmpty(){ thread.innerHTML=""; const d=document.createElement("div"); d.className="empty"; d.id="empty";
+  d.innerHTML='<div class="orb xl"></div><h1>What should I <em>learn</em> today?</h1><p class="lede">I\'m an AI that starts from nothing and learns only from you — facts, grammar and a little neural network. Words I don\'t know, I look up in Wiktionary, the dictionary and Wikipedia.</p><div class="known">'+knownLine()+'</div>'
+   +'<div class="sugg">'+SUGG.map((s,i)=>'<button data-i="'+i+'"><span class="k">'+ic(s[0])+esc(s[1])+'</span><span class="v">'+esc(s[2]+(s[3]?"":"…"))+'</span></button>').join("")+'</div>'
+   +'<p class="cmds">Also try <code>what do you know?</code> <code>define everything</code> <code>stop</code> <code>reset</code></p>';
+  d.querySelectorAll(".sugg button").forEach(b=>b.onclick=()=>{ const s=SUGG[+b.dataset.i]; if(s[3]){ $("msg").value=""; handle(s[2]); } else { $("msg").value=s[2]; grow(); $("msg").focus(); const L=s[2].length; $("msg").setSelectionRange(L,L); } });
+  logEl.prepend(d); thread.style.display="none"; }
+function hideEmpty(){ const e=$("empty"); if(e){ e.remove(); thread.style.display=""; } }
+
+// ---------- chats (current one survives reloads; older ones are listed in the sidebar) ----------
+const CHAT_KEY="aitrainer_chat", ARCH_KEY="aitrainer_chats";
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||"null"); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+let chatT=null; function persistChat(){ clearTimeout(chatT); chatT=setTimeout(()=>lsSet(CHAT_KEY,chat),250); }
+const titleOf=c=>{ const f=c.msgs.find(m=>m.w==="you"); return f? f.t.replace(/\s+/g," ").slice(0,60) : "New chat"; };
+function setTitle(){ $("chatTitle").textContent=titleOf(chat); renderRecent(); }
+function archive(){ if(!chat.msgs.some(m=>m.w==="you")) return; const a=(lsGet(ARCH_KEY)||[]).filter(c=>c.id!==chat.id); a.unshift(chat); lsSet(ARCH_KEY,a.slice(0,12)); }
+function renderRecent(){ const a=(lsGet(ARCH_KEY)||[]).filter(c=>c.id!==chat.id); const cur=chat.msgs.some(m=>m.w==="you")? '<button class="cur" disabled>'+ic("chat")+'<span>'+esc(titleOf(chat))+'</span></button>' : "";
+  $("recent").innerHTML=cur+a.slice(0,8).map(c=>'<button data-id="'+c.id+'">'+ic("chat")+'<span>'+esc(titleOf(c))+'</span></button>').join("")||'<div class="none">Your conversations show up here.</div>';
+  $("recent").querySelectorAll("button[data-id]").forEach(b=>b.onclick=()=>openChat(+b.dataset.id)); }
+function paint(){ thread.innerHTML=""; if(!chat.msgs.length){ showEmpty(); } else { hideEmpty(); thread.style.display=""; chat.msgs.forEach(m=>thread.appendChild(render(m))); logEl.scrollTop=logEl.scrollHeight; } setTitle(); }
+function openChat(id){ const a=lsGet(ARCH_KEY)||[]; const c=a.find(x=>x.id===id); if(!c) return; archive(); const rest=(lsGet(ARCH_KEY)||[]).filter(x=>x.id!==id); lsSet(ARCH_KEY,rest); chat=c; lsSet(CHAT_KEY,chat); lastTopic=null; paint(); closeDrawers(); }
+function newChat(){ archive(); chat={id:Date.now(),msgs:[]}; lsSet(CHAT_KEY,chat); lastTopic=null; paint(); closeDrawers(); $("msg").focus(); }
+
+// ---------- what you say ----------
+async function handle(text){ line("you",text); const t0=text.trim();
+  if(/^reset$/i.test(t0)){ if(confirm("wipe its entire brain?")){ wipe(); } return; }
+  const site=t0.match(/^website:\s*(\S+)/i); if(site){ await readSite(site[1]); return; }
+  if(/^stop( looking( things)? up)?$/i.test(t0)){ stopLookups=true; addSys("ok, stopping the lookups."); return; }
+  if(/^(?:define|look up) everything$/i.test(t0)){ const all=Object.entries(B.vocab).filter(([w,c])=>!FUNC.has(w)&&!getFacts(w)&&!B.looked[w]).sort((a,b)=>b[1]-a[1]).map(([w])=>w); if(!all.length){ addSys("it already has a definition for every word it knows."); return; }
+    addSys("📖 looking up all "+all.length+" undefined words. this runs in the background — keep chatting, or say 'stop'."); const got=await autoLookup(all,all.length,(d,g,tot)=>{ $("typing").textContent="Looking up everything… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); addSys("📖 done: found definitions for "+got.length+" of "+all.length+" words."); return; }
+  const isQ=/^(what|who|where|when|why|how|is|are|do|does|can|did|tell me)\b/i.test(t0)||t0.endsWith("?");
+  const t= isQ? resolveRefs(t0) : t0;
   const term=termOf(t); const known=term&&getFacts(term);
-  if(term&&!known&&term.split(" ").length<=4){ $("typing").textContent="Stranger is looking up \u201c"+term+"\u201d…"; const found=await lookup(term); $("typing").textContent=""; B.looked[term]=1;
-    if(found){ addFact(term,"is",defToObject(term,found.def)); if(found.text){ await learn(found.text,{epochs:3,quiet:true,noShapes:true}); } B.lessons++; save(); ui(); addSys("📖 looked up \u201c"+term+"\u201d on "+found.src.replace(/^https?:\/\//,"")+(found.kind?" ("+found.kind+")":"")); }
-    else addSys("📖 couldn't find \u201c"+term+"\u201d anywhere."); }
-  const nm=t.match(/^(?:your|ur) name is (.+?)[.!]?$/i); if(nm){ addFact("you","is",nm[1]); B.lessons++; save(); ui(); strangerSays("ok. my name is "+nm[1]+". i like it."); return; }
-  B.lessons++; const isQ=/^(what|who|where|when|why|how|is|are|do|does|can|did|tell me)\b/i.test(t)||t.endsWith("?");
-  const r= isQ? {newWords:0,newFacts:0} : await learn(t,{epochs:8}); save(); ui();
+  if(term&&!known&&term.split(" ").length<=4&&!SELF.has(term)){ thinking(1,"Looking up “"+term+"” in Wiktionary, the dictionary and Wikipedia"); const found=await lookup(term); thinking(-1); B.looked[term]=1;
+    if(found){ addFact(term,"is",defToObject(term,found.def),found.src); if(found.text){ await learn(found.text,{epochs:3,quiet:true,noShapes:true,src:found.src}); } B.lessons++; save(); ui(); addSys("📖 looked up “"+term+"” on "+found.src.replace(/^https?:\/\//,"")+(found.kind?" ("+found.kind+")":"")); }
+    else addSys("📖 couldn't find “"+term+"” anywhere."); }
+  const nm=t0.match(/^(?:your|ur) name is (.+?)[.!]?$/i); if(nm){ addFact("you","is",nm[1],"you"); B.lessons++; save(); ui(); strangerSays("ok. my name is "+nm[1]+". i like it."); return; }
+  B.lessons++;
+  const r= isQ? {newWords:0,newFacts:0} : await learn(t,{epochs:8,src:"you"}); save(); ui();
   strangerSays(answer(t));
   if(r.newFacts) setTimeout(()=>addSys("(learned "+r.newFacts+" fact"+(r.newFacts>1?"s":"")+(r.newWords?" and "+r.newWords+" new words":"")+")"),150); else if(r.newWords&&vocabSize()<80) setTimeout(()=>addSys("(learned "+r.newWords+" new word"+(r.newWords>1?"s":"")+")"),150);
   // quietly look up words in what you said that it has never had defined
   if(!isQ){ const got=await autoLookup(words(t.toLowerCase()),LOOKUP_CHAT); if(got.length){ save(); ui(); addSys("(📖 quietly learned what "+got.join(", ")+" mean"+(got.length>1?"":"s")+")"); } } }
-async function readSite(url){ if(!/^https?:\/\//i.test(url)) url="https://"+url; addSys("📡 reading "+url+" …"); $("typing").textContent="Stranger is reading…"; let text=null;
+async function readSite(url){ if(!/^https?:\/\//i.test(url)) url="https://"+url; addSys("📡 reading "+url+" …"); let host=url; try{ host=new URL(url).hostname; }catch(e){} thinking(1,"Reading "+host); let text=null;
   try{ const wiki=url.match(/^https?:\/\/([a-z]+)\.wikipedia\.org\/wiki\/([^#?]+)/i);
     if(wiki){ const r=await fetch("https://"+wiki[1]+".wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&origin=*&titles="+wiki[2]); const j=await r.json(); const p=Object.values(j.query.pages)[0]; text=p&&p.extract; }
     else { const r=await fetch("https://r.jina.ai/"+url,{headers:{"Accept":"text/plain"}}); if(r.ok) text=await r.text(); if(!text){ const r2=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url)); if(r2.ok){ const d=new DOMParser().parseFromString(await r2.text(),"text/html"); d.querySelectorAll("script,style,nav,footer,noscript").forEach(e=>e.remove()); text=d.body?d.body.innerText:""; } } }
   }catch(e){ text=null; }
-  $("typing").textContent=""; if(!text||text.trim().length<40){ addSys("couldn't read that site. wikipedia pages always work."); return; }
+  if(!text||text.trim().length<40){ thinking(-1); addSys("couldn't read that site. wikipedia pages always work."); return; }
   text=text.replace(/https?:\/\/\S+/g," ").replace(/\[[^\]]*\]/g," ").replace(/={2,}[^=]+={2,}/g,". ").slice(0,300000);
-  const before=vocabSize(), t0=Date.now(); $("typing").textContent="Stranger is studying… 0%"; await new Promise(r=>setTimeout(r,30));
-  const r=await learn(text,{epochs:2,quiet:true,onProgress:p=>{ $("typing").textContent="Stranger is studying… "+Math.round(p*100)+"%"; }}); B.lessons++; if(!B.sites.includes(url)) B.sites.push(url); save(); ui(); $("typing").textContent="";
+  const before=vocabSize(), t0=Date.now(); thinkLabel("Studying the page · 0%"); await new Promise(r=>setTimeout(r,30));
+  let si=B.sites.indexOf(url); if(si<0){ B.sites.push(url); si=B.sites.length-1; }
+  const r=await learn(text,{epochs:2,quiet:true,src:"s"+si,onProgress:p=>{ thinkLabel("Studying the page · "+Math.round(p*100)+"%"); }}); B.lessons++; save(); ui(); thinking(-1);
   if(r.avgLen<4) addSys("⚠️ that page is mostly a word list, not sentences — it learned words but no grammar or facts from it. feed it articles (wikipedia is perfect).");
   addSys("📚 read ~"+text.split(/\s+/).length.toLocaleString()+" words in "+((Date.now()-t0)/1000).toFixed(1)+"s · "+r.nSent.toLocaleString()+" sentences · learned "+r.newWords+" new words and "+r.newFacts+" facts ("+before+" → "+vocabSize()+" words)");
   const subj=Object.keys(B.facts).slice(-1)[0]; strangerSays(subj? answer("what is "+subj) : answer("tell me about it"));
   // then: figure out what the important words on that page actually mean
   const important=Object.entries(B.vocab).filter(([w,c])=>!FUNC.has(w)&&c>=2&&!getFacts(w)&&!B.looked[w]).sort((a,b)=>b[1]-a[1]).slice(0,LOOKUP_PAGE).map(([w])=>w);
-  if(important.length){ addSys("📖 looking up "+important.length+" words from that page in the background — keep chatting. (say 'stop' to stop)"); const got=await autoLookup(important,LOOKUP_PAGE,(d,g,tot)=>{ $("typing").textContent="Stranger is looking up words… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); if(got.length) addSys("📖 found definitions for "+got.length+" words: "+got.slice(0,15).join(", ")+(got.length>15?"…":"")); } }
-function newChat(){ $("log").innerHTML=""; addSys("You're now chatting with your AI. It knows "+vocabSize()+" words and "+Object.keys(B.facts).length+" things, and looks up words it doesn't know on wiktionary, the dictionary and wikipedia. Say hi!"+(DESKTOP?" (desktop mode: unlimited memory)":"")); }
-$("send").onclick=()=>{ const v=$("msg").value.trim(); if(!v) return; $("msg").value=""; handle(v); };
-$("msg").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); $("send").onclick(); } if(e.key==="Escape") newChat(); };
+  if(important.length){ addSys("📖 looking up "+important.length+" words from that page in the background — keep chatting. (say 'stop' to stop)"); const got=await autoLookup(important,LOOKUP_PAGE,(d,g,tot)=>{ $("typing").textContent="Looking up words from the page… "+d+"/"+tot+" ("+g+" found)"; }); $("typing").textContent=""; save(); ui(); if(got.length) addSys("📖 found definitions for "+got.length+" words: "+got.slice(0,15).join(", ")+(got.length>15?"…":"")); } }
+function wipe(){ B=EMPTY(); NN.reset(); lastTopic=null; save(); ui(); addSys("🥚 brain wiped."); }
+
+// ---------- controls ----------
+const msgEl=$("msg");
+function grow(){ msgEl.style.height="40px"; msgEl.style.height=Math.min(180,msgEl.scrollHeight)+"px"; $("send").disabled=!msgEl.value.trim(); }
+msgEl.addEventListener("input",grow);
+$("send").onclick=()=>{ const v=msgEl.value.trim(); if(!v) return; msgEl.value=""; grow(); handle(v); };
+msgEl.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); $("send").onclick(); } if(e.key==="Escape") newChat(); };
 $("newBtn").onclick=newChat;
 $("export").onclick=()=>{ B.nn=NN.pack(); const a=document.createElement("a"); a.download="ai-brain.json"; a.href=URL.createObjectURL(new Blob([JSON.stringify(B)],{type:"application/json"})); a.click(); };
 $("import").onclick=()=>$("impFile").click();
 $("impFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); if(!j.vocab) throw 0; B=Object.assign(EMPTY(),j); NN.unpack(B.nn); save(); ui(); addSys("🧠 brain loaded."); }catch(x){ addSys("that's not a brain file."); } e.target.value=""; };
-(async()=>{ const j=await loadBrain(); if(j){ B=Object.assign(EMPTY(),j); NN.unpack(B.nn); } ui(); newChat(); })();
+$("wipeBtn").onclick=()=>{ $("wipeAsk").classList.add("on"); $("wipeBtn").style.display="none"; };
+const unask=()=>{ $("wipeAsk").classList.remove("on"); $("wipeBtn").style.display=""; };
+$("wipeNo").onclick=unask; $("wipeYes").onclick=()=>{ unask(); closeDrawers(); wipe(); };
+const app=$("app"), wide=()=>window.innerWidth>=1180;
+function closeDrawers(){ app.classList.remove("rail-open","brain-open"); }
+$("brainBtn").onclick=()=>{ if(wide()) app.classList.toggle("brain-collapsed"); else { app.classList.remove("rail-open"); app.classList.toggle("brain-open"); } NN.draw(); };
+$("brainClose").onclick=()=>{ if(wide()) app.classList.add("brain-collapsed"); else app.classList.remove("brain-open"); };
+$("menuBtn").onclick=()=>{ app.classList.remove("brain-open"); app.classList.add("rail-open"); };
+$("railClose").onclick=closeDrawers; $("scrim").onclick=closeDrawers;
+const mq=matchMedia("(max-width:759px)"); const railX=()=>{ $("railClose").style.display=mq.matches?"":"none"; msgEl.placeholder= mq.matches? "Teach me something, or ask…" : "Teach it something, ask a question, or paste Website: https://…"; }; railX(); mq.addEventListener&&mq.addEventListener("change",railX);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&document.activeElement!==msgEl&&(app.classList.contains("rail-open")||app.classList.contains("brain-open"))) closeDrawers(); });
+logEl.addEventListener("scroll",()=>$("topbar").classList.toggle("scrolled",logEl.scrollTop>4));
+grow();
+(async()=>{ const j=await loadBrain(); if(j){ B=Object.assign(EMPTY(),j); NN.unpack(B.nn); } const c=lsGet(CHAT_KEY); if(c&&Array.isArray(c.msgs)) chat=c; if(NN.size()>2){ const st=pick(B.starts,1)||Object.keys(B.vocab)[0]; if(st) NN.look(["<s>","<s>",st]); } ui(); paint(); })();
 </script>
 </body>
 </html>
