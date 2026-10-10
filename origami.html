@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Origami · Kai.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<style>
+:root{--bg:#f4efe6;--ink:#231f1c;--soft:#7a6f66;--red:#c8312b;--line:#e2d8c9;--card:#fffdf8;--serif:'Shippori Mincho',Georgia,serif;--sans:'Zen Maru Gothic',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+#view{position:fixed;inset:0;touch-action:none}
+#view canvas{display:block;width:100%;height:100%}
+header{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:14px;padding:max(12px,env(safe-area-inset-top)) 16px 10px;pointer-events:none;z-index:5;flex-wrap:wrap}
+header>*{pointer-events:auto}
+.back{color:var(--ink);text-decoration:none;font:700 14px var(--sans);padding:8px 14px;border:1.5px solid var(--ink);border-radius:999px;background:var(--card)}
+.logo{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo h1{margin:0;font:800 30px/1 var(--serif);letter-spacing:.02em}
+.logo .crane{width:34px;height:34px}
+.seal{display:inline-grid;place-items:center;width:30px;height:30px;background:var(--red);color:#fff;font:800 15px var(--serif);border-radius:4px}
+nav.modes{display:flex;gap:4px;background:var(--card);border:1.5px solid var(--ink);border-radius:999px;padding:4px}
+nav.modes button{font:700 14px var(--sans);border:0;background:none;color:var(--ink);padding:8px 16px;border-radius:999px;cursor:pointer;min-height:38px}
+nav.modes button.on{background:var(--ink);color:#fff}
+.panel{position:fixed;z-index:4;background:var(--card);border:1.5px solid var(--ink);border-radius:18px;box-shadow:5px 5px 0 rgba(35,31,28,.9)}
+#learn{left:16px;top:84px;width:300px;max-height:calc(100% - 110px);overflow:auto;padding:14px}
+#learn h2,#gallery h2{margin:0 0 4px;font:800 22px var(--serif)}
+.sub{margin:0 0 12px;color:var(--soft);font-size:14px}
+.models{display:grid;gap:8px}
+.model{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:center;padding:10px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.model:hover{border-color:var(--ink)}
+.model svg{width:56px;height:56px}
+.model b{display:block;font:800 17px var(--serif)}
+.model span{font-size:12.5px;color:var(--soft)}
+.dots{display:inline-flex;gap:3px;margin-left:6px;vertical-align:1px}.dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}.dots i.on{background:var(--red)}
+#step{left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));width:min(640px,calc(100% - 32px));padding:14px 16px;display:none}
+#step.on{display:block}
+.sthead{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.sthead b{font:800 19px var(--serif)}
+.sthead span{font:700 12px var(--sans);letter-spacing:.14em;color:var(--soft);text-transform:uppercase;margin-left:auto}
+#stText{margin:0 0 12px;font-size:16px;line-height:1.45;min-height:46px}
+.prog{display:flex;gap:4px;margin-bottom:12px}.prog i{flex:1;height:5px;border-radius:3px;background:var(--line)}.prog i.on{background:var(--red)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:700 14px var(--sans);min-height:42px;padding:0 16px;border-radius:12px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.btn:hover{background:#f7f1e7}
+.btn.main{background:var(--red);border-color:var(--red);color:#fff}
+.btn.main:hover{background:#b0281f}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:12px;overflow:hidden}
+.seg button{font:700 13px var(--sans);border:0;background:#fff;color:var(--ink);min-height:38px;padding:0 12px;cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff}
+#free{left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));width:min(760px,calc(100% - 32px));padding:12px 14px;display:none}
+#free.on{display:block}
+#freeHint{margin:0 0 10px;font-size:15px}
+#freeHint b{color:var(--red)}
+.papers{display:flex;gap:6px;flex-wrap:wrap}
+.pp{width:34px;height:34px;border-radius:8px;border:2px solid #fff;outline:1.5px solid var(--line);cursor:pointer;background-size:cover}
+.pp.on{outline:2.5px solid var(--ink)}
+#gallery{left:50%;top:84px;transform:translateX(-50%);width:min(980px,calc(100% - 32px));max-height:calc(100% - 110px);overflow:auto;padding:16px;display:none}
+#gallery.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.gi{border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;text-align:left;padding:0;font:inherit;color:inherit}
+.gi:hover{border-color:var(--ink)}
+.gi img{display:block;width:100%;aspect-ratio:1;object-fit:cover;background:var(--bg)}
+.gi div{padding:8px 10px}
+.gi b{display:block;font:800 15px var(--serif)}
+.gi span{font-size:12px;color:var(--soft)}
+.empty{padding:30px 10px;text-align:center;color:var(--soft)}
+#viewer{left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));padding:12px 14px;display:none;width:min(520px,calc(100% - 32px))}
+#viewer.on{display:block}
+#viewer b{font:800 19px var(--serif)}
+#done{position:fixed;left:50%;top:96px;transform:translate(-50%,-20px);opacity:0;transition:.4s;pointer-events:none;z-index:6;text-align:center}
+#done.on{opacity:1;transform:translate(-50%,0)}
+#done div{display:inline-block;background:var(--card);border:1.5px solid var(--ink);border-radius:999px;padding:10px 20px;font:800 20px var(--serif);box-shadow:4px 4px 0 var(--ink)}
+.side{left:16px;top:84px;width:320px;max-height:calc(100% - 110px);overflow:auto;padding:14px;display:none}
+.side.on{display:block}
+.side h2{margin:0 0 4px;font:800 22px var(--serif)}
+.beta{font:700 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;background:var(--red);color:#fff;padding:2px 7px;border-radius:999px;vertical-align:4px}
+nav.modes small{font-size:10px;opacity:.7}
+.btn.up{display:flex;align-items:center;justify-content:center;margin-top:10px;width:100%}
+.tiny{font-size:12px;color:var(--soft);line-height:1.45;margin:8px 0 0}
+.tiny a{color:var(--ink)}
+.model.on{border-color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+#simBar{left:calc(50% + 170px);transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));width:min(560px,calc(100% - 380px));padding:12px 14px;display:none}
+#simBar.on{display:block}
+#simBar input[type=range]{width:100%;accent-color:var(--red);height:28px}
+.pct{font:900 15px var(--sans);color:var(--red);margin-left:10px;font-variant-numeric:tabular-nums}
+.toast{position:fixed;left:50%;top:90px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font:700 14px var(--sans);opacity:0;transition:opacity .3s;z-index:7;pointer-events:none}
+.toast.on{opacity:1}
+.hintbar{position:fixed;right:16px;top:84px;font:700 12px var(--sans);color:var(--soft);z-index:3;text-align:right}
+input.nm{font:700 14px var(--sans);min-height:42px;border:1.5px solid var(--ink);border-radius:12px;padding:0 12px;width:170px;background:#fff}
+@media (max-width:760px){
+  .side{left:12px;right:12px;width:auto;top:auto;bottom:max(12px,env(safe-area-inset-bottom));max-height:34%}
+  #simBar{left:50%;width:calc(100% - 24px);bottom:auto;top:122px;padding:10px 12px}
+  #simBar .row{gap:6px}#simBar .btn{min-height:38px;padding:0 10px;font-size:13px}#simBar .seg button{min-height:34px;padding:0 9px}
+  #simBar .papers{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}#simBar .pp{flex:0 0 30px;width:30px;height:30px}
+  .side{max-height:none;padding:10px 12px}.side h2{font-size:17px}.side .sub,.side .tiny{display:none}
+  .side .models{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x proximity;padding-bottom:4px}
+  .side .model{flex:0 0 200px;grid-template-columns:42px 1fr;padding:8px;scroll-snap-align:start}.side .model svg{width:42px;height:42px}
+  .side .model b{font-size:15px}.side .model span{font-size:11.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .side .btn.up{margin-top:8px;min-height:38px}
+  nav.modes button{font-size:12.5px;padding:8px 4px}nav.modes small{display:none}
+  header{gap:8px}.logo h1{font-size:24px}nav.modes{order:3;width:100%;justify-content:center}nav.modes button{flex:1;padding:8px 6px}
+  #learn{left:12px;right:12px;width:auto;top:auto;bottom:max(12px,env(safe-area-inset-bottom));max-height:46%}
+  #gallery{top:128px;max-height:calc(100% - 150px)}
+  .hintbar{display:none}
+  #step,#free,#viewer{width:calc(100% - 24px)}
+  #stText{font-size:15px;min-height:0}
+  .grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<header>
+  <a class="back" href="index.html">← Kai.fun</a>
+  <div class="logo"><span class="seal">折</span><h1>Origami</h1></div>
+  <nav class="modes"><button data-m="learn" class="on">Learn</button><button data-m="free">Free Fold</button><button data-m="sim">Simulator</button><button data-m="wrap">3D Model <small>beta</small></button><button data-m="gallery">Gallery</button></nav>
+</header>
+<div class="hintbar" id="hintbar">drag to turn the paper · scroll to zoom</div>
+
+<section class="panel" id="learn">
+  <h2>Learn a model</h2>
+  <p class="sub">Pick one and fold it step by step. Real folds, real paper (sort of).</p>
+  <div class="models" id="models"></div>
+</section>
+
+<section class="panel" id="step">
+  <div class="sthead"><b id="stName"></b><span id="stCount"></span></div>
+  <div class="prog" id="prog"></div>
+  <p id="stText"></p>
+  <div class="row">
+    <button class="btn" id="stBack">← Back</button>
+    <button class="btn main" id="stFold">Fold it</button>
+    <button class="btn" id="stAuto">Fold all</button>
+    <span style="flex:1"></span>
+    <button class="btn sm" id="stExit">Models</button>
+  </div>
+</section>
+
+<section class="panel" id="free">
+  <p id="freeHint"></p>
+  <div class="row" style="margin-bottom:10px">
+    <div class="seg" id="segDir"><button data-v="v" class="on">Fold over</button><button data-v="m">Fold behind</button><button data-v="in" title="Inside reverse fold: the flap tucks inside itself">Inside reverse</button><button data-v="out" title="Outside reverse fold: the flap wraps around the outside">Outside reverse</button></div>
+    <div class="seg" id="segLay"><button data-v="all" class="on">All layers</button><button data-v="top">Top layer</button></div>
+    <button class="btn sm" id="fFlip">Flip over</button><button class="btn sm" id="fUndo">Undo</button>
+    <button class="btn sm" id="fReset">New sheet</button>
+    <span style="flex:1"></span>
+    <button class="btn sm main" id="fSave">Save to gallery</button>
+  </div>
+  <div class="row"><span style="font:700 12px var(--sans);color:var(--soft);letter-spacing:.1em">PAPER</span><div class="papers" id="papers"></div>
+    <div class="seg" id="segSheet" style="margin-left:auto"><button data-v="square" class="on">Square</button><button data-v="diamond">Diamond</button><button data-v="rect">Tall</button></div></div>
+</section>
+
+<section class="panel" id="gallery">
+  <h2>Gallery</h2>
+  <p class="sub">Everything you've folded and saved. Click one to look at it up close.</p>
+  <div class="grid" id="grid"></div>
+</section>
+
+<section class="panel side" id="simList">
+  <h2>Fold Simulator</h2>
+  <p class="sub">Real crease patterns, folded by physics. Squash, petal, sink, reverse folds: every fold happens on its own, all at once.</p>
+  <div class="models" id="simPresets"></div>
+  <label class="btn up"><input type="file" id="cpFile" accept=".svg,.fold,image/svg+xml,application/json" hidden>Upload a crease pattern</label>
+  <p class="tiny">Red lines = mountain, blue = valley, black = edge, yellow = flat (Origami Simulator .svg format), or a .fold file. Crease patterns and the physics approach come from <a href="https://origamisimulator.org" target="_blank" rel="noopener">Origami Simulator</a> by Amanda Ghassaei (MIT).</p>
+</section>
+<section class="panel side" id="wrapList">
+  <h2>3D Model → Paper <span class="beta">beta</span></h2>
+  <p class="sub">Give it a 3D model and one square of paper folds and crumples itself around it. Turning <i>any</i> model into clean origami is still a research problem, so this is the experimental version: no cuts, no glue, lots of creases.</p>
+  <div class="models" id="wrapPresets"></div>
+  <label class="btn up"><input type="file" id="objFile" accept=".obj,.stl" hidden>Upload a model (.obj / .stl)</label>
+  <p class="tiny">Works best with chunky, rounded shapes. Thin bits (legs, antennas) just get covered.</p>
+</section>
+<section class="panel" id="simBar">
+  <div class="row" style="margin-bottom:8px"><b id="simName" style="font:800 19px var(--serif)"></b><span class="pct" id="simPct">0%</span><span style="flex:1"></span><span class="tiny" id="simInfo"></span></div>
+  <input type="range" id="simSlider" min="0" max="100" value="0" aria-label="How folded">
+  <div class="row" style="margin-top:8px">
+    <button class="btn main" id="simPlay">Fold it</button>
+    <button class="btn" id="simFlat">Unfold</button>
+    <div class="seg" id="segLines"><button data-v="1" class="on">Creases</button><button data-v="0">Clean</button></div>
+    <span style="flex:1"></span>
+    <button class="btn sm" id="simSave">Save to gallery</button>
+  </div>
+  <div class="row" style="margin-top:8px"><span style="font:700 12px var(--sans);color:var(--soft);letter-spacing:.1em">PAPER</span><div class="papers" id="papers2"></div></div>
+</section>
+<section class="panel" id="viewer">
+  <div class="row"><b id="vName"></b><span style="flex:1"></span><button class="btn sm" id="vReplay">Replay folds</button><button class="btn sm" id="vDel">Delete</button><button class="btn sm main" id="vBack">Back</button></div>
+</section>
+
+<div id="done"><div id="doneText"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TeapotGeometry } from 'three/addons/geometries/TeapotGeometry.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* ======================= paper styles ======================= */
+const STYLES=[
+ {id:'red',name:'Red',base:'#d7372f',back:'#fbf6ec'},
+ {id:'indigo',name:'Indigo',base:'#27407a',back:'#f6f2ea'},
+ {id:'sakura',name:'Sakura',base:'#f4b6c4',back:'#fff8f6',pat:'sakura'},
+ {id:'wave',name:'Seigaiha',base:'#2c6e8f',back:'#f3f0e8',pat:'wave'},
+ {id:'gold',name:'Gold',base:'#d9a838',back:'#fff7e2',pat:'fleck'},
+ {id:'mint',name:'Mint',base:'#7cc6a4',back:'#f6fbf7'},
+ {id:'kraft',name:'Kraft',base:'#b88a5a',back:'#d8b88f'},
+ {id:'dots',name:'Polka',base:'#f2c230',back:'#fffaf0',pat:'dots'},
+ {id:'check',name:'Ichimatsu',base:'#2f6b45',back:'#f5f1e6',pat:'check'},
+ {id:'night',name:'Night',base:'#1b1d3a',back:'#e9e6f5',pat:'stars'},
+ {id:'swan',name:'Swan White',base:'#fbfaf5',back:'#f1ede4',pat:'fleck'}
+];
+const texCache={};
+function styleTex(st){
+  if(texCache[st.id])return texCache[st.id];
+  const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');
+  x.fillStyle=st.base;x.fillRect(0,0,512,512);
+  const r=(()=>{let s=st.id.length*9301+49297;return()=>(s=(s*9301+49297)%233280)/233280})();
+  if(st.pat==='sakura'){for(let i=0;i<40;i++){const px=r()*512,py=r()*512,sz=8+r()*10;x.save();x.translate(px,py);x.rotate(r()*6);x.fillStyle=i%3?'#ffffffcc':'#e37d97cc';for(let k=0;k<5;k++){x.rotate(Math.PI*2/5);x.beginPath();x.ellipse(0,-sz*.6,sz*.35,sz*.6,0,0,7);x.fill()}x.fillStyle='#ffd34d';x.beginPath();x.arc(0,0,sz*.18,0,7);x.fill();x.restore()}}
+  if(st.pat==='wave'){x.strokeStyle='#e7f1f5';x.lineWidth=3;const R=32;for(let row=0;row<30;row++)for(let col=-1;col<10;col++){const cx=col*R*2+(row%2?R:0),cy=row*R*.62;for(let k=4;k>0;k--){x.beginPath();x.arc(cx,cy,R*k/4,Math.PI,0);x.fillStyle=k%2?st.base:'#3f87a8';x.fill();x.stroke()}}}
+  if(st.pat==='dots'){x.fillStyle='#ffffffdd';for(let row=0;row<12;row++)for(let col=0;col<12;col++){x.beginPath();x.arc(col*44+(row%2?22:0)+10,row*44+10,8,0,7);x.fill()}}
+  if(st.pat==='check'){x.fillStyle='#e9e3cf';for(let row=0;row<8;row++)for(let col=0;col<8;col++)if((row+col)%2)x.fillRect(col*64,row*64,64,64)}
+  if(st.pat==='fleck'){for(let i=0;i<600;i++){x.fillStyle=`rgba(255,240,180,${r()*.6})`;x.fillRect(r()*512,r()*512,1+r()*3,1+r()*3)}}
+  if(st.pat==='stars'){for(let i=0;i<220;i++){x.fillStyle=`rgba(255,255,255,${.3+r()*.7})`;x.beginPath();x.arc(r()*512,r()*512,r()*1.8+.4,0,7);x.fill()}x.fillStyle='#ffe9a8';x.beginPath();x.arc(380,120,36,0,7);x.fill();x.fillStyle=st.base;x.beginPath();x.arc(396,110,32,0,7);x.fill()}
+  // paper fibre
+  for(let i=0;i<1600;i++){x.fillStyle=`rgba(${r()<.5?'255,255,255':'0,0,0'},${r()*.05})`;x.fillRect(r()*512,r()*512,1+r()*6,1)}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;texCache[st.id]=t;return t;
+}
+const styleById=id=>STYLES.find(s=>s.id===id)||STYLES[0];
+
+/* ======================= geometry model ======================= */
+let EPS=0.006;
+function tidyLayers(polys){const L=[...new Set(polys.map(P=>P.L))].sort((a,b)=>a-b),m=new Map(L.map((v,i)=>[v,i-Math.floor(L.length/2)]));polys.forEach(P=>{P.L=m.get(P.L)});EPS=Math.min(.006,.16/Math.max(1,L.length));return polys}
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1];
+function sheet(kind){
+  let pts;
+  if(kind==='rect')pts=[[-.7,-1],[.7,-1],[.7,1],[-.7,1]];
+  else if(kind==='diamond')pts=[[0,-1.2],[1.2,0],[0,1.2],[-1.2,0]];
+  else pts=[[-1,-1],[1,-1],[1,1],[-1,1]];
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),mx=Math.min(...xs),my=Math.min(...ys),w=Math.max(...xs)-mx,h=Math.max(...ys)-my,s=Math.max(w,h);
+  return [{p:pts.map(q=>q.slice()),uv:pts.map(q=>[(q[0]-mx)/s,(q[1]-my)/s]),L:0,pose:null}];
+}
+function splitPoly(P,n,c){
+  const s=P.p.map(q=>dot(n,q)-c),E=1e-9;
+  if(s.every(v=>v>=-E)||s.every(v=>v<=E))return [P];
+  const A={p:[],uv:[],L:P.L,pose:P.pose},B={p:[],uv:[],L:P.L,pose:P.pose};
+  for(let i=0;i<P.p.length;i++){
+    const j=(i+1)%P.p.length,si=s[i],sj=s[j];
+    if(si>=-E){A.p.push(P.p[i]);A.uv.push(P.uv[i])}
+    if(si<=E){B.p.push(P.p[i]);B.uv.push(P.uv[i])}
+    if((si>E&&sj<-E)||(si<-E&&sj>E)){const t=si/(si-sj),q=[P.p[i][0]+(P.p[j][0]-P.p[i][0])*t,P.p[i][1]+(P.p[j][1]-P.p[i][1])*t],u=[P.uv[i][0]+(P.uv[j][0]-P.uv[i][0])*t,P.uv[i][1]+(P.uv[j][1]-P.uv[i][1])*t];A.p.push(q);A.uv.push(u);B.p.push(q.slice());B.uv.push(u.slice())}
+  }
+  return [A,B].filter(X=>X.p.length>=3&&Math.abs(area(X.p))>1e-7);
+}
+function area(p){let a=0;for(let i=0;i<p.length;i++){const j=(i+1)%p.length;a+=p[i][0]*p[j][1]-p[j][0]*p[i][1]}return a/2}
+function centroid(p){let x=0,y=0;for(const q of p){x+=q[0];y+=q[1]}return[x/p.length,y/p.length]}
+// prepare a fold: split everything, decide what moves. returns null if nothing moves.
+function planFold(polys,st){
+  if(st.flip){const fl=polys.filter(P=>!P.pose);if(!fl.length)return null;let mnx=1e9,mxx=-1e9;fl.forEach(P=>P.p.forEach(q=>{mnx=Math.min(mnx,q[0]);mxx=Math.max(mxx,q[0])}));const cx=(mnx+mxx)/2,top=Math.max(...fl.map(P=>P.L)),bot=Math.min(...fl.map(P=>P.L));
+    return{polys,mv:new Set(fl),flip:true,cx,a:[cx,0],d:[0,1],zp:(top+bot)/2*EPS,ang:Math.PI,top,bot}}
+  const a=st.a,b=st.b,dl=Math.hypot(b[0]-a[0],b[1]-a[1]);if(dl<1e-6)return null;
+  const d=[(b[0]-a[0])/dl,(b[1]-a[1])/dl],n=[-d[1],d[0]],c=dot(n,a);
+  const sideSign=Math.sign(dot(n,st.side)-c);if(!sideSign)return null;
+  let out=[];for(const P of polys){if(P.pose){out.push(P);continue}out.push(...splitPoly(P,n,c))}
+  const onSide=out.filter(P=>!P.pose&&Math.sign(dot(n,centroid(P.p))-c)===sideSign);
+  let mv=onSide;
+  if(st.f){if(st.f==='top'){const m=Math.max(...onSide.map(P=>P.L));mv=onSide.filter(P=>P.L===m)}
+    else if(st.f==='bot'){const m=Math.min(...onSide.map(P=>P.L));mv=onSide.filter(P=>P.L===m)}
+    else if(st.f==='upper'||st.f==='lower'){const L=[...new Set(onSide.map(P=>P.L))].sort((x,y)=>x-y),h=Math.ceil(L.length/2),up=new Set(L.slice(L.length-h)),lo=new Set(L.slice(0,L.length-h));mv=onSide.filter(P=>st.f==='upper'?up.has(P.L):lo.has(P.L))}
+    else if(st.f==='outer'){const L=[...new Set(onSide.map(P=>P.L))].sort((x,y)=>x-y),k=Math.max(1,Math.floor(L.length/4));const lo=L[k-1],hi=L[L.length-k];mv=onSide.filter(P=>P.L<=lo||P.L>=hi)}
+    else mv=onSide.filter(P=>(st.f.min==null||P.L>=st.f.min)&&(st.f.max==null||P.L<=st.f.max))}
+  if(!mv.length)return null;
+  const top=Math.max(...out.filter(P=>!P.pose).map(P=>P.L)),bot=Math.min(...out.filter(P=>!P.pose).map(P=>P.L));
+  const m=[n[0]*sideSign,n[1]*sideSign],cz=d[0]*m[1]-d[1]*m[0];
+  if(st.dir==='in'||st.dir==='out'){const ls=mv.map(P=>P.L),mid=(Math.max(...ls)+Math.min(...ls))/2,vs=Math.sign(cz);
+    return{polys:out,mv:new Set(mv),a,d,n,c,rev:st.dir,mid,top,bot,zp:mid*EPS,ang:Math.PI,sg:P=>(P.L>=mid?1:-1)*(st.dir==='out'?vs:-vs)}}
+  const valley=st.dir!=='m',sgn=(valley?1:-1)*Math.sign(cz),zp=valley?(top+.5)*EPS:(bot-.5)*EPS;
+  return {polys:out,mv:new Set(mv),a,d,n,c,ang:(st.ang||Math.PI)*sgn,zp,valley,top,bot,partial:!!st.ang&&st.ang<Math.PI-1e-6};
+}
+function applyFold(F){
+  const mv=[...F.mv],maxM=Math.max(...mv.map(P=>P.L)),minM=Math.min(...mv.map(P=>P.L));
+  if(F.flip){for(const P of mv){P.p=P.p.map(q=>[2*F.cx-q[0],q[1]]);P.L=-P.L}return tidyLayers(F.polys)}
+  if(F.rev){for(const P of mv){P.p=P.p.map(q=>{const s=dot(F.n,q)-F.c;return[q[0]-2*s*F.n[0],q[1]-2*s*F.n[1]]});
+      if(F.rev==='in')P.L=P.L>=F.mid?P.L-.45:P.L+.45;else P.L=P.L>=F.mid?F.top+1+(P.L-F.mid):F.bot-1-(F.mid-P.L)}return tidyLayers(F.polys)}
+  for(const P of mv){
+    if(F.partial){P.pose={a:F.a,d:F.d,zp:F.zp,ang:F.ang};continue}
+    P.p=P.p.map(q=>{const s=dot(F.n,q)-F.c;return[q[0]-2*s*F.n[0],q[1]-2*s*F.n[1]]});
+    P.L=F.valley?F.top+1+(maxM-P.L):F.bot-1-(P.L-minM);
+  }
+  return tidyLayers(F.polys);
+}
+function rot3(v,a,d,zp,ang){ // rotate point v=[x,y,z] about axis through (a,zp) dir d
+  const px=v[0]-a[0],py=v[1]-a[1],pz=v[2]-zp,k=[d[0],d[1],0],c=Math.cos(ang),s=Math.sin(ang);
+  const kd=k[0]*px+k[1]*py,cx=k[1]*pz-0*py,cy=0*px-k[0]*pz,cz2=k[0]*py-k[1]*px;
+  return[a[0]+px*c+cx*s+k[0]*kd*(1-c),a[1]+py*c+cy*s+k[1]*kd*(1-c),zp+pz*c+cz2*s];
+}
+
+/* ======================= three scene ======================= */
+const host=document.getElementById('view');
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#f4efe6');
+const camera=new THREE.PerspectiveCamera(38,1,.05,100);camera.position.set(0,-2.4,5.4);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=1.6;controls.maxDistance=12;controls.target.set(0,0,0);
+scene.add(new THREE.HemisphereLight('#ffffff','#d9cbb8',1.6));
+const sun=new THREE.DirectionalLight('#fff5e6',2.2);sun.position.set(2.5,-3,6);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=sun.shadow.camera.bottom=-3;sun.shadow.camera.right=sun.shadow.camera.top=3;sun.shadow.bias=-.0005;sun.shadow.radius=4;scene.add(sun);
+const fill=new THREE.DirectionalLight('#e6efff',.7);fill.position.set(-3,2,-4);scene.add(fill);
+// table
+const table=new THREE.Mesh(new THREE.CircleGeometry(6,64),new THREE.MeshStandardMaterial({color:'#e9e0d2',roughness:1}));table.position.z=-.35;table.receiveShadow=true;scene.add(table);
+const model=new THREE.Group();scene.add(model);const overlay=new THREE.Group();scene.add(overlay);
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+
+let state={polys:sheet('square'),style:'red',sheet:'square',steps:[]};
+let meshes=[];// {P,mesh,geo,edge}
+const edgeMat=new THREE.LineBasicMaterial({color:'#3a2a20',transparent:true,opacity:.28});
+function polyVerts(P,anim){
+  const z=P.L*EPS;return P.p.map(q=>{let v=[q[0],q[1],z];if(P.pose)v=rot3(v,P.pose.a,P.pose.d,P.pose.zp,P.pose.ang);if(anim)v=rot3(v,anim.a,anim.d,anim.zp,anim.ang*(anim.sg?anim.sg(P):1));return v});
+}
+function buildGeo(P,verts){
+  const pos=[],uv=[];for(let i=1;i<verts.length-1;i++)for(const k of[0,i,i+1]){pos.push(...verts[k]);uv.push(...P.uv[k])}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.computeVertexNormals();return g;
+}
+function rebuild(anim){
+  for(const m of meshes){model.remove(m.front,m.back,m.edge);m.geo.dispose();m.eg.dispose()}meshes=[];
+  const st=styleById(state.style),fm=new THREE.MeshStandardMaterial({map:styleTex(st),side:THREE.FrontSide,roughness:.85,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}),bm=new THREE.MeshStandardMaterial({color:st.back,side:THREE.BackSide,roughness:.9,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+  for(const P of state.polys){
+    const moving=anim&&anim.set.has(P),verts=polyVerts(P,moving?anim:null),geo=buildGeo(P,verts);
+    const front=new THREE.Mesh(geo,fm),back=new THREE.Mesh(geo,bm);front.castShadow=back.castShadow=true;
+    const eg=new THREE.BufferGeometry().setFromPoints(verts.concat([verts[0]]).map(v=>new THREE.Vector3(...v)));const edge=new THREE.Line(eg,edgeMat);
+    model.add(front,back,edge);meshes.push({P,front,back,edge,geo,eg,fm,bm});
+  }
+}
+function setStyle(id){state.style=id;rebuild();drawPapers()}
+function bbox(){const b=new THREE.Box3().setFromObject(model);return b}
+let camGoal=null;
+function frameModel(full){const b=bbox(),c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3());c.y+=PH()*.8;camGoal={t:c,dist:Math.max(2.6,Math.max(s.x,s.y,s.z)*2.4)*AF(),full}}
+
+/* ======================= folding with animation ======================= */
+let busy=false;
+function fold(st,{animate=true,record=true}={}){
+  return new Promise(res=>{
+    const F=planFold(state.polys,st);if(!F){res(false);return}
+    state.polys=F.polys;
+    const done=()=>{applyFold(F);if(record)state.steps.push(st);rebuild();busy=false;res(true)};
+    if(!animate){done();return}
+    busy=true;sfx('fold');const t0=performance.now(),dur=F.partial?650:820;
+    const tick=now=>{let p=Math.min(1,(now-t0)/dur);p=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+      rebuild({set:F.mv,a:F.a,d:F.d,zp:F.zp,ang:F.ang*p,sg:F.sg});if(p<1)requestAnimationFrame(tick);else{done();sfx('crease');frameModel()}};
+    requestAnimationFrame(tick);
+  });
+}
+function replay(steps,sheetKind){state.polys=sheet(sheetKind);state.steps=[];for(const s of steps){const F=planFold(state.polys,s);if(F){state.polys=F.polys;applyFold(F);state.steps.push(s)}}rebuild()}
+
+/* ======================= overlays (crease line, arrow, snap dots) ======================= */
+function clearOverlay(){while(overlay.children.length){const o=overlay.children.pop();o.geometry&&o.geometry.dispose()}}
+function topZ(){return Math.max(...state.polys.map(P=>P.L))*EPS+.02}
+function lineAcross(a,b){const d=[b[0]-a[0],b[1]-a[1]],l=Math.hypot(...d);const u=[d[0]/l,d[1]/l];let lo=Infinity,hi=-Infinity;for(const P of state.polys)for(const q of P.p){const t=(q[0]-a[0])*u[0]+(q[1]-a[1])*u[1];lo=Math.min(lo,t);hi=Math.max(hi,t)}lo-=.15;hi+=.15;return[[a[0]+u[0]*lo,a[1]+u[1]*lo],[a[0]+u[0]*hi,a[1]+u[1]*hi]]}
+function drawCrease(st,col='#c8312b'){if(st.flip)return;
+  const z=topZ(),[p,q]=lineAcross(st.a,st.b);
+  const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p[0],p[1],z),new THREE.Vector3(q[0],q[1],z)]);
+  if(st.dir==='in'||st.dir==='out')col='#7a3fb0';
+  const l=new THREE.Line(g,new THREE.LineDashedMaterial({color:st.dir==='m'?'#2b5cad':col,dashSize:.06,gapSize:.04,depthTest:false}));l.computeLineDistances();l.renderOrder=10;overlay.add(l);
+  if(st.side){// curved arrow from side point to its mirror
+    const a=st.a,b=st.b,dl=Math.hypot(b[0]-a[0],b[1]-a[1]),n=[-(b[1]-a[1])/dl,(b[0]-a[0])/dl],c=dot(n,a),s=dot(n,st.side)-c;
+    let from=st.side;// pull point closer to the line so the arrow is short
+    const k=Math.min(1,.45/Math.abs(s));from=[st.side[0]-n[0]*s*(1-k),st.side[1]-n[1]*s*(1-k)];const s2=dot(n,from)-c,to=[from[0]-2*s2*n[0],from[1]-2*s2*n[1]];
+    const pts=[];for(let i=0;i<=24;i++){const t=i/24;pts.push(new THREE.Vector3(from[0]+(to[0]-from[0])*t,from[1]+(to[1]-from[1])*t,z+(st.dir==='m'?-1:1)*Math.sin(Math.PI*t)*Math.abs(s2)*.9+.01))}
+    const ag=new THREE.BufferGeometry().setFromPoints(pts),al=new THREE.Line(ag,new THREE.LineBasicMaterial({color:st.dir==='m'?'#2b5cad':col,depthTest:false}));al.renderOrder=10;overlay.add(al);
+    const dir=pts[24].clone().sub(pts[21]).normalize(),cone=new THREE.Mesh(new THREE.ConeGeometry(.035,.09,12),new THREE.MeshBasicMaterial({color:st.dir==='m'?'#2b5cad':col,depthTest:false}));cone.renderOrder=11;cone.position.copy(pts[24]);cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);overlay.add(cone);
+    const dotm=new THREE.Mesh(new THREE.SphereGeometry(.03,12,8),new THREE.MeshBasicMaterial({color:st.dir==='m'?'#2b5cad':col,depthTest:false}));dotm.renderOrder=11;dotm.position.set(from[0],from[1],z);overlay.add(dotm);
+  }
+}
+
+/* ======================= tutorials ======================= */
+const PI=Math.PI;
+const MODELS=[
+ {id:'plane',name:'Paper Airplane',lvl:1,sheet:'rect',style:'indigo',blurb:'The classic dart. It (theoretically) flies.',
+  steps:[
+   {t:'Fold the top-left corner down to the centre line.',a:[0,1],b:[-.7,.3],side:[-.6,.95]},
+   {t:'Now the top-right corner, to the centre line too.',a:[0,1],b:[.7,.3],side:[.6,.95]},
+   {t:'Fold the new left slanted edge to the centre again. Nice and pointy.',a:[0,1],b:[-.7,-.69],side:[-.6,.2]},
+   {t:'Same on the right side.',a:[0,1],b:[.7,-.69],side:[.6,.2]},
+   {t:'Fold the whole thing in half, backwards, along the middle.',a:[0,-1.2],b:[0,1.2],side:[.3,0],dir:'m'},
+   {t:'Fold the first wing down, so it sticks out sideways.',a:[-.22,-1.2],b:[-.22,1.2],side:[-.5,-.5],f:'upper',ang:PI/2},
+   {t:'And the other wing. Done! Throw it (at your screen, gently).',a:[-.22,-1.2],b:[-.22,1.2],side:[-.5,-.5],dir:'m',f:'lower',ang:PI/2}]},
+ {id:'cup',name:'Paper Cup',lvl:1,sheet:'diamond',style:'sakura',blurb:'A real working cup. Don\'t pour hot tea in it.',
+  steps:[
+   {t:'Fold the bottom corner up to the top corner to make a triangle.',a:[-1.2,0],b:[1.2,0],side:[0,-.8]},
+   {t:'Fold the left corner across so it touches the right edge, keeping the top of the flap flat.',a:[-.206,0],b:[-.497,.703],side:[-1,.05]},
+   {t:'Now fold the right corner across to the left edge.',a:[.206,0],b:[.497,.703],side:[1,.05]},
+   {t:'Fold the front top flap down, over the front.',a:[-1,.703],b:[1,.703],side:[0,1],f:'top'},
+   {t:'Fold the back top flap down behind. That\'s a cup!',a:[-1,.703],b:[1,.703],side:[0,1],dir:'m',f:'bot'}]},
+ {id:'dog',name:'Dog Face',lvl:1,sheet:'diamond',style:'kraft',blurb:'Floppy ears. Very good boy.',
+  steps:[
+   {t:'Fold the top corner down to the bottom corner to make a triangle.',a:[-1.2,0],b:[1.2,0],side:[0,.8]},
+   {t:'Fold the left corner down to make a floppy ear.',a:[-.5,0],b:[-.95,-.25],side:[-1.05,-.02]},
+   {t:'Fold the right corner down for the other ear.',a:[.5,0],b:[.95,-.25],side:[1.05,-.02]},
+   {t:'Fold the tip of the front layer up a little. That\'s the snout.',a:[-1,-.95],b:[1,-.95],side:[0,-1.1],f:'top'},
+   {t:'Fold the top edge behind to round off the head. Woof.',a:[-1.3,-.12],b:[1.3,-.12],side:[0,.05],dir:'m'}],face:'dog'},
+ {id:'fox',name:'Fox',lvl:2,sheet:'diamond',style:'gold',blurb:'Two big pointy ears and a sly look.',
+  steps:[
+   {t:'Fold the top corner down to the bottom corner.',a:[-1.2,0],b:[1.2,0],side:[0,.8]},
+   {t:'Fold the left corner up and across so it pokes above the top edge. That\'s an ear.',a:[-.6,0],b:[0,-1.2],side:[-1,-.05]},
+   {t:'Fold the right corner up the same way for the second ear.',a:[.6,0],b:[0,-1.2],side:[1,-.05]},
+   {t:'Fold the bottom point behind a little to make the chin.',a:[-1,-.98],b:[1,-.98],side:[0,-1.15],dir:'m'}],face:'fox'},
+ {id:'tulip',name:'Tulip',lvl:2,sheet:'diamond',style:'red',blurb:'A flower that never needs watering.',
+  steps:[
+   {t:'Fold the bottom corner up to the top to make a triangle.',a:[-1.2,0],b:[1.2,0],side:[0,-.8]},
+   {t:'Fold the left corner up past the top, crossing to the right. It\'s a petal.',a:[-.1,0],b:[-.442,.94],side:[-1.1,.04]},
+   {t:'Fold the right corner up past the top on the left. A tulip!',a:[.1,0],b:[.442,.94],side:[1.1,.04]},
+   {t:'Tuck the bottom point behind to tidy the base.',a:[-1,.12],b:[1,.12],side:[0,.02],dir:'m'}]},
+{id:'swan',name:'Swan',lvl:2,sheet:'diamond',style:'swan',blurb:'Uses a flip and two reverse folds. Very elegant.',steps:[{"t": "Start white side up. Fold the left edge in to the centre line, hinging at the bottom point.", "a": [0, -1.2], "b": [-0.703, 0.497], "side": [-1.1, 0]}, {"t": "Fold the right edge in to the centre too. That's a kite.", "a": [0, -1.2], "b": [0.703, 0.497], "side": [1.1, 0]}, {"t": "Turn the paper over.", "flip": true}, {"t": "Fold the left long edge to the centre line again. Nice and narrow.", "a": [0, -1.2], "b": [-0.398, 0.802], "side": [-0.55, 0.1]}, {"t": "Same on the right side.", "a": [0, -1.2], "b": [0.398, 0.802], "side": [0.55, 0.1]}, {"t": "Fold the bottom point up to the top point. This becomes the neck.", "a": [-1, 0], "b": [1, 0], "side": [0, -0.5]}, {"t": "Fold the tip back down a little. That's the head.", "a": [-1, 0.95], "b": [1, 0.95], "side": [0, 1.1], "f": "upper"}, {"t": "Fold the whole thing in half, backwards.", "a": [0, -1.3], "b": [0, 1.3], "side": [0.3, 0], "dir": "m"}, {"t": "Outside reverse fold: pull the neck out so it sticks up.", "a": [0, 0.25], "b": [1, 1.25], "side": [-0.05, 0.9], "dir": "out", "f": "outer"}, {"t": "One more small outside reverse fold to pull the head forward. Swan!", "a": [0.56, 0.1], "b": [0.66, 0.38], "side": [0.72, 0.26], "dir": "out"}]},
+ {id:'teller',name:'Fortune Teller',lvl:3,sheet:'square',style:'dots',blurb:'The playground classic, folded flat.',
+  steps:[
+   {t:'Fold the top-right corner to the centre.',a:[0,1],b:[1,0],side:[.9,.9]},
+   {t:'Top-left corner to the centre.',a:[0,1],b:[-1,0],side:[-.9,.9]},
+   {t:'Bottom-left corner to the centre.',a:[0,-1],b:[-1,0],side:[-.9,-.9]},
+   {t:'Bottom-right corner to the centre. You\'ve got a smaller square.',a:[0,-1],b:[1,0],side:[.9,-.9]},
+   {t:'Now fold the right corner behind, to the centre.',a:[.5,-1],b:[.5,1],side:[.9,0],dir:'m'},
+   {t:'Left corner behind, to the centre.',a:[-.5,-1],b:[-.5,1],side:[-.9,0],dir:'m'},
+   {t:'Top corner behind, to the centre.',a:[-1,.5],b:[1,.5],side:[0,.9],dir:'m'},
+   {t:'Bottom corner behind. Pop your fingers in the pockets and tell fortunes!',a:[-1,-.5],b:[1,-.5],side:[0,-.9],dir:'m'}]}
+];
+function modelIcon(m){const st=styleById(m.style);const shapes={plane:'M32 6 L52 50 L32 40 L12 50Z',cup:'M14 18 L50 18 L42 52 L22 52Z M14 18 L32 8 L50 18',dog:'M10 16 L54 16 L32 54Z M10 16 L4 40 L18 22Z M54 16 L60 40 L46 22Z',fox:'M12 20 L52 20 L32 54Z M12 20 L18 4 L28 20Z M52 20 L46 4 L36 20Z',tulip:'M32 50 L12 26 L22 10 L32 22 L42 10 L52 26Z',swan:'M10 44 L44 44 L54 36 L36 38 Z M44 44 L46 12 L52 8 L50 16 L48 40Z',teller:'M32 6 L58 32 L32 58 L6 32Z M32 6 L32 58 M6 32 L58 32'};return `<svg viewBox="0 0 64 64"><path d="${shapes[m.id]}" fill="${st.base}" stroke="#231f1c" stroke-width="2" stroke-linejoin="round"/></svg>`}
+const $=id=>document.getElementById(id);
+$('models').innerHTML=MODELS.map(m=>`<button class="model" data-id="${m.id}">${modelIcon(m)}<div><b>${m.name}<span class="dots">${[1,2,3].map(i=>`<i class="${i<=m.lvl?'on':''}"></i>`).join('')}</span></b><span>${m.blurb} · ${m.steps.length} folds</span></div></button>`).join('');
+let tut=null,ti=0;
+$('models').addEventListener('click',e=>{const b=e.target.closest('.model');if(!b)return;startTut(MODELS.find(m=>m.id===b.dataset.id))});
+function startTut(m){tut=m;ti=0;state={polys:sheet(m.sheet),style:m.style,sheet:m.sheet,steps:[]};clearFace();rebuild();resetCam();$('learn').style.display='none';$('step').classList.add('on');showStep()}
+function showStep(){
+  clearOverlay();const n=tut.steps.length;$('stName').textContent=tut.name;$('prog').innerHTML=tut.steps.map((_,i)=>`<i class="${i<ti?'on':''}"></i>`).join('');
+  if(ti<n){const s=tut.steps[ti];$('stCount').textContent=`Step ${ti+1} of ${n}`;$('stText').textContent=s.t;drawCrease(s);$('stFold').textContent=s.dir==='m'?'Fold it behind':'Fold it';$('stFold').disabled=false;$('stAuto').disabled=false}
+  else{$('stCount').textContent='Finished';$('stText').innerHTML=`You folded a <b>${tut.name}</b>! Drag to spin it around. Save it to your gallery?`;$('stFold').textContent='Save to gallery';$('stAuto').disabled=true}
+  $('stBack').disabled=ti===0;
+}
+$('stFold').addEventListener('click',async()=>{if(busy)return;if(ti>=tut.steps.length){saveModel(tut.name,tut.sheet);return}clearOverlay();await fold(tut.steps[ti]);ti++;if(ti>=tut.steps.length)finishTut();showStep()});
+$('stAuto').addEventListener('click',async()=>{if(busy)return;clearOverlay();while(ti<tut.steps.length){await fold(tut.steps[ti]);ti++;}finishTut();showStep()});
+$('stBack').addEventListener('click',()=>{if(busy||ti===0)return;ti--;replay(tut.steps.slice(0,ti),tut.sheet);clearFace();frameModel();showStep()});
+$('stExit').addEventListener('click',()=>{if(busy)return;tut=null;clearOverlay();clearFace();$('step').classList.remove('on');$('learn').style.display='';state={polys:sheet('square'),style:'red',sheet:'square',steps:[]};rebuild();resetCam()});
+function finishTut(){addFace(tut.face);if(tut.id==='swan'){const t0=performance.now();const sp=now=>{const p=Math.min(1,(now-t0)/700);model.rotation.z=Math.PI/2*(p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2);if(p<1)requestAnimationFrame(sp);else frameModel(true)};requestAnimationFrame(sp)}celebrate(`${tut.name} complete!`);if(tut.id==='plane'){camGoal={t:new THREE.Vector3(-.2,0,0),dist:3.4,pos:new THREE.Vector3(-3.2,-2.4,1.6)}}else frameModel(true)}
+// faces for animal models
+let faceObjs=[];function clearFace(){model.rotation.z=0;for(const o of faceObjs)model.remove(o);faceObjs=[]}
+function addFace(kind){if(!kind)return;const z=topZ()+.004,mk=(x,y,r,c)=>{const m=new THREE.Mesh(new THREE.CircleGeometry(r,24),new THREE.MeshStandardMaterial({color:c,roughness:.6}));m.position.set(x,y,z);model.add(m);faceObjs.push(m)};
+  if(kind==='dog'){mk(-.22,-.42,.055,'#231f1c');mk(.22,-.42,.055,'#231f1c');mk(0,-.74,.075,'#231f1c');mk(-.205,-.405,.016,'#fff');mk(.235,-.405,.016,'#fff')}
+  if(kind==='fox'){mk(-.2,-.38,.05,'#231f1c');mk(.2,-.38,.05,'#231f1c');mk(0,-.86,.06,'#231f1c')}}
+
+/* ======================= free fold ======================= */
+let mode='learn',fDir='v',fLay='all',picks=[],snaps=[],hoverSide=null;
+const snapGroup=new THREE.Group();scene.add(snapGroup);
+function computeSnaps(){
+  const pts=[[0,0]];for(const P of state.polys){if(P.pose)continue;for(let i=0;i<P.p.length;i++){const q=P.p[i],r=P.p[(i+1)%P.p.length];pts.push(q,[(q[0]+r[0])/2,(q[1]+r[1])/2])}}
+  snaps=[];for(const p of pts)if(!snaps.some(s=>Math.hypot(s[0]-p[0],s[1]-p[1])<.02))snaps.push(p);
+  while(snapGroup.children.length){const c=snapGroup.children.pop();c.geometry.dispose()}
+  if(mode!=='free')return;const z=topZ(),geo=new THREE.SphereGeometry(.018,10,8);
+  for(const s of snaps){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:'#231f1c',transparent:true,opacity:.55,depthTest:false}));m.renderOrder=12;m.position.set(s[0],s[1],z);snapGroup.add(m)}
+  for(const p of picks){const m=new THREE.Mesh(new THREE.SphereGeometry(.035,14,10),new THREE.MeshBasicMaterial({color:'#c8312b',depthTest:false}));m.renderOrder=13;m.position.set(p[0],p[1],z);snapGroup.add(m)}
+}
+function freeHint(){$('freeHint').innerHTML=picks.length===0?'<b>1.</b> Click a point on the paper to start a crease.':picks.length===1?'<b>2.</b> Click a second point to finish the crease line.':'<b>3.</b> Click the side of the paper you want to '+({v:'fold <b>over</b>.',m:'fold <b>behind</b>.',in:'<b>inside reverse</b> fold (it tucks between the layers).',out:'<b>outside reverse</b> fold (it wraps around the outside).'}[fDir])+' (Esc to cancel)'}
+const ray=new THREE.Raycaster(),plane=new THREE.Plane(new THREE.Vector3(0,0,1),0);
+function worldAt(e){const r=renderer.domElement.getBoundingClientRect(),v=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(v,camera);plane.constant=-topZ()+.02;const out=new THREE.Vector3();return ray.ray.intersectPlane(plane,out)?[out.x,out.y]:null}
+function onPaper(p){return state.polys.some(P=>!P.pose&&inPoly(p,P.p))}
+function inPoly(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c}
+let downAt=null;
+renderer.domElement.addEventListener('pointerdown',e=>{downAt=[e.clientX,e.clientY]});
+renderer.domElement.addEventListener('pointerup',async e=>{
+  if(!downAt||Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>6||busy)return;downAt=null;
+  if(mode==='learn'&&tut&&ti<tut.steps.length){return}
+  if(mode!=='free')return;
+  const w=worldAt(e);if(!w)return;
+  if(picks.length<2){
+    let best=null,bd=.09;for(const s of snaps){const d=Math.hypot(s[0]-w[0],s[1]-w[1]);if(d<bd){bd=d;best=s}}
+    const p=best?best.slice():(onPaper(w)?w:null);if(!p){toast('Click on the paper');return}
+    if(picks.length===1&&Math.hypot(p[0]-picks[0][0],p[1]-picks[0][1])<.05)return;
+    picks.push(p);sfx('tick');computeSnaps();clearOverlay();if(picks.length===2)drawCrease({a:picks[0],b:picks[1],dir:fDir==='m'?'m':'v'});freeHint();return;
+  }
+  const st={a:picks[0],b:picks[1],side:w,dir:fDir,f:fLay==='top'?'top':null};
+  clearOverlay();picks=[];const ok=await fold(st);if(!ok)toast('Nothing on that side to fold');computeSnaps();freeHint();
+});
+renderer.domElement.addEventListener('pointermove',e=>{if(mode!=='free'||picks.length!==2||busy)return;const w=worldAt(e);if(!w)return;
+  const a=picks[0],b=picks[1],n=[-(b[1]-a[1]),b[0]-a[0]],s=Math.sign(dot(n,w)-dot(n,a));if(s===hoverSide)return;hoverSide=s;
+  for(const m of meshes){const on=!m.P.pose&&Math.sign(dot(n,centroid(m.P.p))-dot(n,a))===s;m.front.material=on?m.fm.clone():m.fm;if(on){m.front.material.emissive=new THREE.Color('#c8312b');m.front.material.emissiveIntensity=.18}}});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&mode==='free'){picks=[];clearOverlay();computeSnaps();freeHint();rebuild()}});
+function segInit(id,cb){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...el.children].forEach(x=>x.classList.toggle('on',x===b));cb(b.dataset.v)})}
+segInit('segDir',v=>{fDir=v;freeHint();if(picks.length===2){clearOverlay();drawCrease({a:picks[0],b:picks[1],dir:v})}});
+segInit('segLay',v=>{fLay=v});
+segInit('segSheet',v=>{state={polys:sheet(v),style:state.style,sheet:v,steps:[]};picks=[];clearOverlay();rebuild();computeSnaps();freeHint();resetCam()});
+$('fFlip').addEventListener('click',async()=>{if(busy)return;picks=[];clearOverlay();await fold({flip:true});computeSnaps();freeHint()});
+$('fUndo').addEventListener('click',()=>{if(busy||!state.steps.length)return;const s=state.steps.slice(0,-1);replay(s,state.sheet);picks=[];clearOverlay();computeSnaps();freeHint();frameModel()});
+$('fReset').addEventListener('click',()=>{if(busy)return;state={polys:sheet(state.sheet),style:state.style,sheet:state.sheet,steps:[]};picks=[];clearOverlay();rebuild();computeSnaps();freeHint();resetCam()});
+$('fSave').addEventListener('click',()=>{if(!state.steps.length){toast('Fold something first!');return}const nm=['Mystery Fold','Untitled Crane','Abstract Bird','Paper Thing','Kai Original','Folded Dream'][(Math.random()*6)|0];saveModel(nm,state.sheet)});
+function drawPapers(){$('papers').innerHTML=STYLES.map(s=>`<button class="pp${s.id===state.style?' on':''}" data-id="${s.id}" title="${s.name}" style="background-image:url(${styleTex(s).image.toDataURL('image/jpeg',.5)})"></button>`).join('')}
+$('papers').addEventListener('click',e=>{const b=e.target.closest('.pp');if(b)setStyle(b.dataset.id)});
+
+/* ======================= gallery ======================= */
+const GK='origami_gallery';
+const loadG=()=>{try{return JSON.parse(localStorage.getItem(GK)||'[]')}catch(e){return[]}};
+const saveG=g=>{try{localStorage.setItem(GK,JSON.stringify(g));return true}catch(e){return false}};
+function snapshot(){
+  const old={p:camera.position.clone(),t:controls.target.clone()},b=bbox(),c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3()),d=Math.max(2.4,Math.max(s.x,s.y,s.z)*2.3);
+  clearOverlay();snapGroup.visible=false;camera.position.set(c.x+d*.35,c.y-d*.55,c.z+d*.75);camera.lookAt(c);renderer.render(scene,camera);
+  const cv=document.createElement('canvas');cv.width=cv.height=260;const x=cv.getContext('2d'),src=renderer.domElement,sz=Math.min(src.width,src.height);x.drawImage(src,(src.width-sz)/2,(src.height-sz)/2,sz,sz,0,0,260,260);
+  camera.position.copy(old.p);controls.target.copy(old.t);snapGroup.visible=true;return cv.toDataURL('image/jpeg',.82);
+}
+function saveModel(name,sheetKind){const g=loadG();const item={id:Date.now(),name,style:state.style,sheet:sheetKind,steps:state.steps,face:tut&&tut.face||null,thumb:snapshot(),date:new Date().toLocaleDateString()};g.unshift(item);while(g.length>40)g.pop();if(!saveG(g)){g.pop();saveG(g)}toast('Saved to your gallery');sfx('save');if(mode==='free'){computeSnaps()}}
+function drawGallery(){const g=loadG();$('grid').innerHTML=g.length?g.map(it=>`<button class="gi" data-id="${it.id}"><img src="${it.thumb}" alt=""><div><b>${esc(it.name)}</b><span>${it.kind==='cp'?'simulated':it.kind==='wrap'?'3D model':it.steps.length+' folds'} · ${it.date}</span></div></button>`).join(''):'<div class="empty">Nothing here yet. Fold something in <b>Learn</b> or <b>Free Fold</b> and save it.</div>'}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let viewing=null;
+$('grid').addEventListener('click',e=>{const b=e.target.closest('.gi');if(!b)return;const it=loadG().find(x=>x.id==b.dataset.id);if(!it)return;
+  if(it.kind==='cp'){const segs=it.key?CP_PRESETS[it.key]:it.segs;if(!segs){toast('That crease pattern was too big to keep');return}state.style=it.style;setMode('sim');loadCP(segs,it.name,it.key);simTarget=it.pct;$('simPlay').textContent='Pause';return}
+  if(it.kind==='wrap'){if(!it.key){toast('Uploaded models are not stored, only their picture');return}state.style=it.style;setMode('wrap');startWrap(presetGeo(it.key),it.name.replace(/^Paper /,''),it.key);wrapTarget=it.pct;return}viewing=it;state.style=it.style;replay(it.steps,it.sheet);state.sheet=it.sheet;clearFace();addFace(it.face);$('gallery').classList.remove('on');$('viewer').classList.add('on');$('vName').textContent=it.name;frameModel(true)});
+$('vBack').addEventListener('click',()=>{viewing=null;$('viewer').classList.remove('on');$('gallery').classList.add('on');clearFace();drawGallery()});
+$('vDel').addEventListener('click',()=>{if(!viewing)return;if($('vDel').dataset.arm!=='1'){$('vDel').dataset.arm='1';$('vDel').textContent='Really delete?';return}$('vDel').dataset.arm='';$('vDel').textContent='Delete';saveG(loadG().filter(x=>x.id!==viewing.id));$('vBack').click()});
+$('vReplay').addEventListener('click',async()=>{if(!viewing||busy)return;const it=viewing;clearFace();state.polys=sheet(it.sheet);state.steps=[];rebuild();resetCam();for(const s of it.steps)await fold(s,{});addFace(it.face);frameModel(true)});
+
+/* ======================= modes ======================= */
+function setMode(m){mode=m;document.querySelectorAll('nav.modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  ['learn','step','free','gallery','viewer','simList','wrapList','simBar'].forEach(id=>{$(id).classList.remove('on');if(id==='learn')$(id).style.display='none'});
+  const flat=m!=='sim'&&m!=='wrap';model.visible=flat;simGroup.visible=m==='sim'||(m==='gallery'&&false);wrapGroup.visible=m==='wrap';$('hintbar').style.display=flat?'':'none';
+  if(m==='sim'){$('simList').classList.add('on');drawPapers2();if(sim){$('simBar').classList.add('on');$('simName').textContent=simName}else{loadCP(CP_PRESETS.crane,'Traditional Crane','crane')}resetCamSim()}
+  if(m==='wrap'){$('wrapList').classList.add('on');drawPapers2();if(wrap){$('simBar').classList.add('on');$('simName').textContent=wrap.name}resetCamSim()}
+  clearOverlay();clearFace();picks=[];viewing=null;$('vDel').dataset.arm='';$('vDel').textContent='Delete';
+  if(m==='learn'){tut=null;$('learn').style.display='';state={polys:sheet('square'),style:'red',sheet:'square',steps:[]};rebuild();resetCam()}
+  if(m==='free'){$('free').classList.add('on');tut=null;state={polys:sheet(state.sheet||'square'),style:state.style,sheet:state.sheet||'square',steps:[]};rebuild();drawPapers();resetCam();freeHint()}
+  if(m==='gallery'){$('gallery').classList.add('on');drawGallery();state={polys:sheet('square'),style:'red',sheet:'square',steps:[]};rebuild()}
+  computeSnaps();
+}
+document.querySelector('nav.modes').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!busy)setMode(b.dataset.m)});
+const SPH=()=>innerWidth<760?.55*AF():PH()*.6;
+const AF=()=>Math.max(1,1/(camera.aspect*1.15)),PH=()=>innerWidth<760?-.75*AF():(mode!=='learn'||tut?-.5:0);
+function resetCamSim(){camGoal={t:new THREE.Vector3(0,SPH(),1),pos:new THREE.Vector3(2.4*AF(),-3.6*AF()+SPH(),3.4*AF())}}
+function resetCam(){const f=AF();camGoal={t:new THREE.Vector3(0,PH(),0),pos:new THREE.Vector3(0,-2.3*f+PH(),4.9*f)}}
+
+/* ======================= fx ======================= */
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1800)}
+let dt0;function celebrate(m){$('doneText').textContent=m;$('done').classList.add('on');clearTimeout(dt0);dt0=setTimeout(()=>$('done').classList.remove('on'),2600);sfx('done')}
+let ac=null;addEventListener('pointerdown',()=>{if(!ac)try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}},{once:true});
+function sfx(k){if(!ac)return;const n=ac.currentTime;
+  if(k==='fold'||k==='crease'){const len=k==='fold'?.35:.08,b=ac.createBuffer(1,ac.sampleRate*len,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++){const e=i/d.length;d[i]=(Math.random()*2-1)*(k==='fold'?Math.sin(Math.PI*e)*.35:(1-e))}const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.frequency.value=k==='fold'?2200:3800;f.Q.value=.7;g.gain.value=k==='fold'?.35:.5;s.buffer=b;s.connect(f);f.connect(g);g.connect(ac.destination);s.start(n);return}
+  const notes=k==='done'?[659,784,988,1319]:k==='save'?[880,1175]:[1400];notes.forEach((fq,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=fq;const t=n+i*.08;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+.35);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+.4)})}
+
+/* ======================= loop ======================= */
+function loop(){
+  if(camGoal){controls.target.lerp(camGoal.t,.08);if(camGoal.pos){camera.position.lerp(camGoal.pos,.08);if(camera.position.distanceTo(camGoal.pos)<.01)camGoal=null}
+    else{const dir=camera.position.clone().sub(controls.target);const l=dir.length();dir.setLength(l+(camGoal.dist-l)*.08);camera.position.copy(controls.target).add(dir);if(Math.abs(l-camGoal.dist)<.01&&controls.target.distanceTo(camGoal.t)<.01)camGoal=null}}
+  if(mode==='sim')stepSim();if(mode==='wrap')stepWrap();
+  controls.update();renderer.render(scene,camera);requestAnimationFrame(loop)}
+/* Crease pattern data and the folding-solver approach are adapted from Origami Simulator
+   https://github.com/amandaghassaei/OrigamiSimulator — license follows:
+
+MIT License
+
+Copyright (c) 2018 Amanda Ghassaei
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+const CP_PRESETS={"crane":[[0.00001,0.00019,0.99981,0.00019,"B",null],[0.99981,0.00019,0.99981,1,"B",null],[0.99981,1,0.00001,1,"B",null],[0.00001,1,0.00001,0.00019,"B",null],[0.86569,0.32574,0.99981,1,"V",180],[0.49991,0.20727,0.79275,0.5001,"V",180],[0.66579,0.5001,0.71664,0.424,"V",180],[0.32555,0.86588,0.99981,1,"V",180],[0.20707,0.5001,0.4999,0.79293,"V",180],[0.4999,0.66598,0.4238,0.71683,"V",180],[0.67427,0.13432,0.00001,0.0002,"V",180],[0.13413,0.67447,0.00001,0.0002,"V",180],[0.49991,0.33422,0.57601,0.28337,"V",180],[0.90869,0.54191,0.79274,0.50009,"V",135],[0.74032,0.61165,0.64632,0.64651,"V",180],[0.54172,0.90888,0.49991,0.79293,"V",135],[0.61146,0.74051,0.64633,0.64651,"V",180],[0.45809,0.09131,0.4999,0.20726,"V",135],[0.38835,0.25967,0.35348,0.35368,"V",180],[0.09112,0.45827,0.20707,0.50009,"V",135],[0.25948,0.38854,0.35348,0.35367,"V",180],[0.33403,0.5001,0.28318,0.57621,"V",180],[0.40527,0.83213,0.35975,0.81393,"V",45],[0.38568,1,0.38568,0.87738,"V",45],[0.16787,0.59501,0.18607,0.64052,"V",45],[0.00001,0.61459,0.12263,0.61459,"V",45],[0.83195,0.40545,0.81374,0.35994,"V",45],[0.99981,0.38587,0.87719,0.38587,"V",45],[0.59482,0.16806,0.64033,0.18626,"V",45],[0.6144,0.00019,0.6144,0.12281,"V",45],[0.15328,0,0.14052,0.02781,"V",180],[0.15416,0.06405,0.11937,0.0804,"V",180],[0.02821,0.14226,0.00001,0.15521,"V",180],[0.64632,0.64651,0.99981,1,"M",-180],[0.10914,0.10933,0.35349,0.35368,"M",-180],[0.33403,0.50009,0.6658,0.50009,"M",-45],[0.49991,0.33422,0.49991,0.66598,"M",-45],[0.79275,0.5001,0.99981,1,"M",-180],[0.66579,0.5001,0.99981,1,"M",-180],[0.79275,0.5001,0.99981,0.0002,"M",-180],[0.49991,0.20727,0.99981,0.0002,"M",-180],[0.71664,0.424,0.86569,0.32574,"M",-180],[0.49991,0.79293,0.99981,1,"M",-180],[0.49991,0.66598,0.99981,1,"M",-180],[0.4999,0.79293,0.00001,1,"M",-180],[0.20707,0.5001,0.00001,0.99999,"M",-180],[0.4238,0.71683,0.32554,0.86588,"M",-180],[0.4999,0.20727,0.00001,0.0002,"M",-180],[0.4999,0.33422,0.00001,0.0002,"M",-180],[0.20707,0.5001,0.00001,0.0002,"M",-180],[0.33403,0.5001,0.00001,0.0002,"M",-180],[0.57601,0.28337,0.67427,0.13432,"M",-180],[0.99981,0.50009,0.90869,0.54191,"M",-135],[0.79274,0.50009,0.74032,0.61165,"M",-180],[0.4999,0.99999,0.54172,0.90888,"M",-135],[0.49991,0.79293,0.61146,0.74051,"M",-180],[0.4999,0.00019,0.45809,0.09131,"M",-135],[0.4999,0.20726,0.38835,0.25967,"M",-180],[0,0.50009,0.09112,0.45827,"M",-135],[0.20707,0.50009,0.25948,0.38854,"M",-180],[0.28318,0.57621,0.13413,0.67447,"M",-180],[0.18634,0.64052,0.35975,0.81393,"M",-45],[0.40527,0.83213,0.38568,0.87783,"M",-45],[0.16787,0.59501,0.12218,0.61459,"M",-45],[0.64033,0.18653,0.81374,0.35994,"M",-45],[0.83195,0.40545,0.87764,0.38587,"M",-45],[0.59482,0.16806,0.6144,0.12236,"M",-45],[0.14052,0.02781,0.15416,0.06405,"M",-180],[0.11937,0.0804,0.10914,0.10917,"M",-180],[0.0803,0.12031,0.10914,0.10916,"M",-180],[0.06415,0.15468,0.02821,0.14226,"M",-180],[0.0803,0.12031,0.06415,0.15468,"V",180],[0.10914,0.10933,0.00001,0.00019,"V",180],[0.33403,0.5001,0.49991,0.66598,"F",0],[0.4999,0.33422,0.66579,0.5001,"F",0],[0.49991,0.66598,0.64633,0.64651,"F",0],[0.64633,0.64651,0.66579,0.5001,"F",0],[0.4999,0.33422,0.35348,0.35367,"F",0],[0.35348,0.35367,0.33403,0.5001,"F",0],[0.49991,0.33422,0.49991,0.20727,"M",-180],[0.35348,0.35367,0.64632,0.64651,"V",90],[0.33403,0.5001,0.20707,0.5001,"M",-180],[0.66579,0.5001,0.79275,0.5001,"M",-180],[0.00001,1,0.18607,0.64052,"F",0],[0.35975,0.81393,0.00001,1,"F",0],[0.81374,0.35994,0.99981,0.00019,"F",0],[0.64033,0.18626,0.99981,0.00019,"F",0],[0.49991,0.66598,0.49991,0.79293,"M",-180]],"flapbird":[[0,0,1,0,"B",null],[1,0,1,1,"B",null],[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0.21429,0.5,0.78571,0.5,"M",-180],[0.5,0.21429,0.5,0.78571,"M",-180],[0,0,0.5,0.21429,"M",-180],[1,0,0.5,0.21429,"M",-180],[1,0,0.78571,0.5,"M",-180],[1,1,0.78571,0.5,"M",-180],[1,1,0.5,0.78571,"M",-180],[0,1,0.5,0.78571,"M",-180],[0,1,0.21429,0.5,"M",-180],[0,0,0.21429,0.5,"M",-180],[0.5,0.21429,0.78571,0.5,"V",180],[0.21429,0.5,0.5,0.78571,"V",180],[0.18293,0.42683,0.35714,0.35714,"V",180],[0.42683,0.18293,0.35714,0.35714,"V",180],[0.57317,0.81707,0.64286,0.64286,"V",180],[0.81707,0.57317,0.64286,0.64286,"V",180],[0.42683,0.18293,0.5,0,"M",-180],[0.18293,0.42683,0,0.5,"M",-180],[0.81707,0.57317,1,0.5,"M",-180],[0.57317,0.81707,0.5,1,"M",-180],[0.35714,0.35714,0.64286,0.64286,"V",180],[0.64286,0.64286,1,1,"M",-180],[0.35714,0.35714,0.10714,0.10714,"M",-180],[0,0.15357,0.04592,0.10714,"V",180],[0.04592,0.10714,0.10714,0.10714,"M",-180],[0.15357,0,0.10714,0.04592,"V",180],[0.10714,0.04592,0.10714,0.10714,"M",-180],[0,0,0.10714,0.10714,"V",180]],"plane":[[0.00059,0,0.75059,0,"B",null],[0.75059,0,0.75059,1,"B",null],[0.75059,1,0.00059,1,"B",null],[0.00059,1,0.00059,0,"B",null],[0.00059,0.375,0.37559,0,"V",180],[0.75059,0.375,0.37559,0,"V",180],[0.37559,0,0.37559,1,"V",180],[0.37559,0,0.75059,0.90625,"V",180],[0.37559,0,0.00059,0.90625,"V",180],[0.37559,0,0.00059,0.15625,"M",-180],[0.37559,0,0.00039,0.0743,"V",180],[0.37559,0,0.75059,0.15625,"M",-180],[0.37559,0,0.00059,0.25,"M",-180],[0.00059,0,0.75059,0,"B",null],[0.75059,0,0.75059,1,"B",null],[0.75059,1,0.00059,1,"B",null],[0.00059,1,0.00059,0,"B",null],[0.00059,0.375,0.37559,0,"V",180],[0.75059,0.375,0.37559,0,"V",180],[0.37559,0,0.37559,1,"V",180],[0.37559,0,0.75059,0.90625,"V",180],[0.37559,0,0.00059,0.90625,"V",180],[0.37559,0,0.00059,0.15625,"M",-180],[0.37559,0,0,0.56521,"V",180],[0.37559,0,0.17712,0.99987,"V",90],[0.37559,0,0.75079,0.0743,"V",180],[0.37559,0,0.75059,0.25,"M",-180],[0.37559,0,0.75118,0.56521,"V",180],[0.37559,0,0.57407,0.99987,"V",90]],"birdbase":[[0,0,1,0,"B",null],[1,0,1,1,"B",null],[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0,0,1,1,"V",90],[0.21429,0.5,0.78571,0.5,"M",-180],[0.5,0.21429,0.5,0.78571,"M",-180],[0,0,0.5,0.21429,"M",-180],[1,0,0.5,0.21429,"M",-180],[1,0,0.78571,0.5,"M",-180],[1,1,0.78571,0.5,"M",-180],[1,1,0.5,0.78571,"M",-180],[0,1,0.5,0.78571,"M",-180],[0,1,0.21429,0.5,"M",-180],[0,0,0.21429,0.5,"M",-180],[0.21429,0.5,0,0.5,"V",180],[0.78571,0.5,1,0.5,"V",180],[0.5,0.21429,0.5,0,"V",180],[0.5,0.78571,0.5,1,"V",180],[0,1,1,0,"V",90]],"frogbase":[[0,0,1,0,"B",null],[1,0,1,1,"B",null],[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0,0,0.35,0.15,"M",-180],[1,0,0.65,0.15,"M",-180],[1,0,0.85,0.35,"M",-180],[1,1,0.85,0.65,"M",-180],[1,1,0.65,0.85,"M",-180],[0,1,0.35,0.85,"M",-180],[0,1,0.15,0.65,"M",-180],[0,0,0.15,0.35,"M",-180],[0.15,0.35,0,0.5,"M",-180],[0.5,0,0.35,0.15,"M",-180],[0.35,0.85,0.5,1,"M",-180],[0,0.5,0.15,0.65,"M",-180],[0.85,0.65,1,0.5,"M",-180],[0.5,1,0.65,0.85,"M",-180],[0.65,0.15,0.5,0,"M",-180],[1,0.5,0.85,0.35,"M",-180],[0.35,0.15,0.5,0.5,"M",-180],[0.65,0.15,0.5,0.5,"M",-180],[0.15,0.35,0.5,0.5,"M",-180],[0.35,0.85,0.5,0.5,"M",-180],[0.15,0.65,0.5,0.5,"M",-180],[0.65,0.85,0.5,0.5,"M",-180],[0.85,0.65,0.5,0.5,"M",-180],[0.85,0.35,0.5,0.5,"M",-180],[0,0,1,1,"V",180],[0.21429,0.5,0.78571,0.5,"V",90],[0.5,0.21429,0.5,0.78571,"V",90],[0.21429,0.5,0,0.5,"V",90],[0.78571,0.5,1,0.5,"V",90],[0.5,0.21429,0.5,0,"V",90],[0.5,0.78571,0.5,1,"V",90],[0,1,1,0,"V",180],[0.35,0.15,0.35,0,"V",180],[0.65,0.15,0.65,0,"V",180],[0.85,0.35,1,0.35,"V",180],[0.85,0.65,1,0.65,"V",180],[0.65,0.85,0.65,1,"V",180],[0.35,0.85,0.35,1,"V",180],[0.15,0.65,0,0.65,"V",180],[0.15,0.35,0,0.35,"V",180]],"waterbombbase":[[0,0,1,0,"B",null],[1,0,1,1,"B",null],[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0,0,1,1,"M",-180],[1,0,0,1,"M",-180],[0,0.5,1,0.5,"V",90],[0.5,0,0.5,1,"V",90]],"squarebase":[[0,0,1,0,"B",null],[1,0,1,1,"B",null],[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0.5,1,0.5,0,"M",-180],[1,0.5,0,0.5,"M",-180],[0,1,1,0,"V",180]],"pinwheel":[[0,0,1,0,"B",null],[0,1,1,1,"B",null],[0,1,0,0,"B",null],[1,1,1,0,"B",null],[0.25,0.75,0.75,0.75,"M",-180],[0.25,0.25,0.75,0.25,"M",-180],[0,0,0.25,0.25,"M",-180],[1,0.5,0.75,0.25,"V",180],[1,0,0.75,0.25,"M",-180],[1,1,0.75,0.75,"M",-180],[0,1,0.25,0.75,"M",-180],[0,0.5,0.25,0.75,"V",180],[0.25,0.25,0.25,0.75,"M",-180],[0.75,0.25,0.75,0.75,"M",-180],[0.25,0.25,0.5,0,"V",180],[0.75,0.75,0.5,1,"V",180]],"boatbase":[[0,0,1,0,"B",null],[0.75,0.25,1,0.25,"V",180],[0,0.25,0.25,0.25,"V",180],[0,0.5,1,0.5,"V",180],[0.75,0.75,1,0.75,"V",180],[0,0.75,0.25,0.75,"V",180],[0,1,1,1,"B",null],[0,1,0,0,"B",null],[1,1,1,0,"B",null],[0.25,0.75,0.75,0.75,"M",-180],[0.25,0.25,0.75,0.25,"M",-180],[0,0.5,0.25,0.25,"M",-180],[0,0,0.25,0.25,"M",-180],[1,0.5,0.75,0.25,"M",-180],[1,0,0.75,0.25,"M",-180],[1,1,0.75,0.75,"M",-180],[1,0.5,0.75,0.75,"M",-180],[0,1,0.25,0.75,"M",-180],[0,0.5,0.25,0.75,"M",-180]],"sink":[[0,0,1,0,"B",null],[0,1,1,1,"B",null],[0,1,0,0,"B",null],[1,1,1,0,"B",null],[0.25,0.75,0.75,0.75,"M",-180],[0.25,0.25,0.75,0.25,"M",-180],[0,0,0.25,0.25,"M",-180],[1,0,0.75,0.25,"M",-180],[1,1,0.75,0.75,"M",-180],[0,1,0.25,0.75,"M",-180],[0.25,0.25,0.25,0.75,"M",-180],[0.75,0.25,0.75,0.75,"M",-180],[0.25,0.75,0.75,0.25,"V",180],[0.25,0.25,0.75,0.75,"V",180],[0.5,0,0.5,0.25,"V",180],[0.5,0.25,0.5,0.75,"M",-180],[0.5,0.75,0.5,1,"V",180]],"waterbomb":[[0.09091,0,0,0.09091,"V",180],[0.09091,0,0.18182,0.09091,"V",180],[0.27273,0,0.18182,0.09091,"V",180],[0.27273,0,0.36364,0.09091,"V",180],[0.45455,0,0.36364,0.09091,"V",180],[0.45455,0,0.54545,0.09091,"V",180],[0.63636,0,0.54545,0.09091,"V",180],[0.63636,0,0.72727,0.09091,"V",180],[0.81818,0,0.72727,0.09091,"V",180],[0.81818,0,0.90909,0.09091,"V",180],[1,0,0.90909,0.09091,"V",180],[0.09091,0.18182,0,0.27273,"V",180],[0.09091,0.18182,0.18182,0.27273,"V",180],[0.27273,0.18182,0.18182,0.27273,"V",180],[0.27273,0.18182,0.36364,0.27273,"V",180],[0.45455,0.18182,0.36364,0.27273,"V",180],[0.45455,0.18182,0.54545,0.27273,"V",180],[0.63636,0.18182,0.54545,0.27273,"V",180],[0.63636,0.18182,0.72727,0.27273,"V",180],[0.81818,0.18182,0.72727,0.27273,"V",180],[0.81818,0.18182,0.90909,0.27273,"V",180],[1,0.18182,0.90909,0.27273,"V",180],[0,0.18182,0.09091,0.27273,"V",180],[0.18182,0.18182,0.09091,0.27273,"V",180],[0.18182,0.18182,0.27273,0.27273,"V",180],[0.36364,0.18182,0.27273,0.27273,"V",180],[0.36364,0.18182,0.45455,0.27273,"V",180],[0.54545,0.18182,0.45455,0.27273,"V",180],[0.54545,0.18182,0.63636,0.27273,"V",180],[0.72727,0.18182,0.63636,0.27273,"V",180],[0.72727,0.18182,0.81818,0.27273,"V",180],[0.90909,0.18182,0.81818,0.27273,"V",180],[0.90909,0.18182,1,0.27273,"V",180],[0.09091,0.36364,0,0.45455,"V",180],[0.09091,0.36364,0.18182,0.45455,"V",180],[0.27273,0.36364,0.18182,0.45455,"V",180],[0.27273,0.36364,0.36364,0.45455,"V",180],[0.45455,0.36364,0.36364,0.45455,"V",180],[0.45455,0.36364,0.54545,0.45455,"V",180],[0.63636,0.36364,0.54545,0.45455,"V",180],[0.63636,0.36364,0.72727,0.45455,"V",180],[0.81818,0.36364,0.72727,0.45455,"V",180],[0.81818,0.36364,0.90909,0.45455,"V",180],[1,0.36364,0.90909,0.45455,"V",180],[0,0,0.09091,0.09091,"V",180],[0.18182,0,0.09091,0.09091,"V",180],[0.18182,0,0.27273,0.09091,"V",180],[0.36364,0,0.27273,0.09091,"V",180],[0.36364,0,0.45455,0.09091,"V",180],[0.54545,0,0.45455,0.09091,"V",180],[0.54545,0,0.63636,0.09091,"V",180],[0.72727,0,0.63636,0.09091,"V",180],[0.72727,0,0.81818,0.09091,"V",180],[0.90909,0,0.81818,0.09091,"V",180],[0.90909,0,1,0.09091,"V",180],[0.04545,0.09091,0,0.13636,"V",180],[0.04545,0.09091,0.09091,0.13636,"V",180],[0.18182,0.13636,0.13636,0.18182,"V",180],[0.09091,0.13636,0.13636,0.18182,"V",180],[0.22727,0.09091,0.27273,0.13636,"V",180],[0.22727,0.09091,0.18182,0.13636,"V",180],[0.36364,0.13636,0.31818,0.18182,"V",180],[0.27273,0.13636,0.31818,0.18182,"V",180],[0.40909,0.09091,0.45455,0.13636,"V",180],[0.40909,0.09091,0.36364,0.13636,"V",180],[0.54545,0.13636,0.5,0.18182,"V",180],[0.45455,0.13636,0.5,0.18182,"V",180],[0.59091,0.09091,0.63636,0.13636,"V",180],[0.59091,0.09091,0.54545,0.13636,"V",180],[0.72727,0.13636,0.68182,0.18182,"V",180],[0.63636,0.13636,0.68182,0.18182,"V",180],[0.77273,0.09091,0.81818,0.13636,"V",180],[0.77273,0.09091,0.72727,0.13636,"V",180],[0.90909,0.13636,0.86364,0.18182,"V",180],[0.81818,0.13636,0.86364,0.18182,"V",180],[0.95455,0.09091,0.90909,0.13636,"V",180],[0.95455,0.09091,1,0.13636,"V",180],[0,0.13636,0.04545,0.18182,"V",180],[0.09091,0.13636,0.04545,0.18182,"V",180],[0.13636,0.09091,0.18182,0.13636,"V",180],[0.13636,0.09091,0.09091,0.13636,"V",180],[0.27273,0.13636,0.22727,0.18182,"V",180],[0.18182,0.13636,0.22727,0.18182,"V",180],[0.31818,0.09091,0.36364,0.13636,"V",180],[0.31818,0.09091,0.27273,0.13636,"V",180],[0.45455,0.13636,0.40909,0.18182,"V",180],[0.36364,0.13636,0.40909,0.18182,"V",180],[0.5,0.09091,0.54545,0.13636,"V",180],[0.5,0.09091,0.45455,0.13636,"V",180],[0.63636,0.13636,0.59091,0.18182,"V",180],[0.54545,0.13636,0.59091,0.18182,"V",180],[0.68182,0.09091,0.72727,0.13636,"V",180],[0.68182,0.09091,0.63636,0.13636,"V",180],[0.81818,0.13636,0.77273,0.18182,"V",180],[0.72727,0.13636,0.77273,0.18182,"V",180],[0.86364,0.09091,0.90909,0.13636,"V",180],[0.86364,0.09091,0.81818,0.13636,"V",180],[0.90909,0.13636,0.95455,0.18182,"V",180],[1,0.13636,0.95455,0.18182,"V",180],[0.04545,0.27273,0,0.31818,"V",180],[0.04545,0.27273,0.09091,0.31818,"V",180],[0.18182,0.31818,0.13636,0.36364,"V",180],[0.09091,0.31818,0.13636,0.36364,"V",180],[0.22727,0.27273,0.27273,0.31818,"V",180],[0.22727,0.27273,0.18182,0.31818,"V",180],[0.36364,0.31818,0.31818,0.36364,"V",180],[0.27273,0.31818,0.31818,0.36364,"V",180],[0.40909,0.27273,0.45455,0.31818,"V",180],[0.40909,0.27273,0.36364,0.31818,"V",180],[0.54545,0.31818,0.5,0.36364,"V",180],[0.45455,0.31818,0.5,0.36364,"V",180],[0.59091,0.27273,0.63636,0.31818,"V",180],[0.59091,0.27273,0.54545,0.31818,"V",180],[0.72727,0.31818,0.68182,0.36364,"V",180],[0.63636,0.31818,0.68182,0.36364,"V",180],[0.77273,0.27273,0.81818,0.31818,"V",180],[0.77273,0.27273,0.72727,0.31818,"V",180],[0.90909,0.31818,0.86364,0.36364,"V",180],[0.81818,0.31818,0.86364,0.36364,"V",180],[0.95455,0.27273,0.90909,0.31818,"V",180],[0.95455,0.27273,1,0.31818,"V",180],[0,0.31818,0.04545,0.36364,"V",180],[0.09091,0.31818,0.04545,0.36364,"V",180],[0.13636,0.27273,0.18182,0.31818,"V",180],[0.13636,0.27273,0.09091,0.31818,"V",180],[0.27273,0.31818,0.22727,0.36364,"V",180],[0.18182,0.31818,0.22727,0.36364,"V",180],[0.31818,0.27273,0.36364,0.31818,"V",180],[0.31818,0.27273,0.27273,0.31818,"V",180],[0.45455,0.31818,0.40909,0.36364,"V",180],[0.36364,0.31818,0.40909,0.36364,"V",180],[0.5,0.27273,0.54545,0.31818,"V",180],[0.5,0.27273,0.45455,0.31818,"V",180],[0.63636,0.31818,0.59091,0.36364,"V",180],[0.54545,0.31818,0.59091,0.36364,"V",180],[0.68182,0.27273,0.72727,0.31818,"V",180],[0.68182,0.27273,0.63636,0.31818,"V",180],[0.81818,0.31818,0.77273,0.36364,"V",180],[0.72727,0.31818,0.77273,0.36364,"V",180],[0.86364,0.27273,0.90909,0.31818,"V",180],[0.86364,0.27273,0.81818,0.31818,"V",180],[0.90909,0.31818,0.95455,0.36364,"V",180],[1,0.31818,0.95455,0.36364,"V",180],[0,0.36364,0.09091,0.45455,"V",180],[0.18182,0.36364,0.09091,0.45455,"V",180],[0.18182,0.36364,0.27273,0.45455,"V",180],[0.36364,0.36364,0.27273,0.45455,"V",180],[0.36364,0.36364,0.45455,0.45455,"V",180],[0.54545,0.36364,0.45455,0.45455,"V",180],[0.54545,0.36364,0.63636,0.45455,"V",180],[0.72727,0.36364,0.63636,0.45455,"V",180],[0.72727,0.36364,0.81818,0.45455,"V",180],[0.90909,0.36364,0.81818,0.45455,"V",180],[0.90909,0.36364,1,0.45455,"V",180],[0,0.27273,1,0.27273,"M",-180],[0,0.18182,1,0.18182,"M",-180],[0,0.09091,1,0.09091,"M",-180],[0,0.36364,1,0.36364,"M",-180],[0.09091,0,0.09091,0.45455,"M",-180],[0.04545,0,0.04545,0.45455,"M",-180],[0.13636,0,0.13636,0.45455,"M",-180],[0.95455,0,0.95455,0.45455,"M",-180],[0.59091,0,0.59091,0.45455,"M",-180],[0.63636,0,0.63636,0.45455,"M",-180],[0.68182,0,0.68182,0.45455,"M",-180],[0.72727,0,0.72727,0.45455,"M",-180],[0.77273,0,0.77273,0.45455,"M",-180],[0.81818,0,0.81818,0.45455,"M",-180],[0.86364,0,0.86364,0.45455,"M",-180],[0.90909,0,0.90909,0.45455,"M",-180],[0.54545,0,0.54545,0.45455,"M",-180],[0.5,0,0.5,0.45455,"M",-180],[0.45455,0,0.45455,0.45455,"M",-180],[0.40909,0,0.40909,0.45455,"M",-180],[0.36364,0,0.36364,0.45455,"M",-180],[0.31818,0,0.31818,0.45455,"M",-180],[0.27273,0,0.27273,0.45455,"M",-180],[0.22727,0,0.22727,0.45455,"M",-180],[0.18182,0,0.18182,0.45455,"M",-180],[0,0.45455,1,0.45455,"B",null],[1,0.45455,1,0,"B",null],[1,0,0,0,"B",null],[0,0,0,0.45455,"B",null]],"miura":[[0.13378,1,0.14214,0.92308,"M",-180],[0.14214,0.92308,0.13378,0.84615,"M",-180],[0.13378,0.84615,0.14214,0.76923,"M",-180],[0.14214,0.76923,0.13378,0.69231,"M",-180],[0.13378,0.69231,0.14214,0.61539,"M",-180],[0.26756,1,0.27592,0.92308,"M",-180],[0.27592,0.92308,0.26756,0.84615,"M",-180],[0.26756,0.84615,0.27592,0.76923,"M",-180],[0.27592,0.76923,0.26756,0.69231,"M",-180],[0.26756,0.69231,0.27592,0.61539,"M",-180],[0.00836,0.92308,0.07525,0.92308,"M",-180],[0.14214,0.92308,0.20903,0.92308,"M",-180],[0.00836,0.76923,0.07525,0.76923,"M",-180],[0.14214,0.76923,0.20903,0.76923,"M",-180],[0.06689,0.84615,0.13378,0.84615,"M",-180],[0.20067,0.84615,0.26756,0.84615,"M",-180],[0.06689,0.69231,0.13378,0.69231,"M",-180],[0.20067,0.69231,0.26756,0.69231,"M",-180],[0.40134,1,0.4097,0.92308,"M",-180],[0.4097,0.92308,0.40134,0.84615,"M",-180],[0.40134,0.84615,0.4097,0.76923,"M",-180],[0.4097,0.76923,0.40134,0.69231,"M",-180],[0.40134,0.69231,0.4097,0.61539,"M",-180],[0.53512,1,0.54348,0.92308,"M",-180],[0.54348,0.92308,0.53512,0.84615,"M",-180],[0.53512,0.84615,0.54348,0.76923,"M",-180],[0.54348,0.76923,0.53512,0.69231,"M",-180],[0.53512,0.69231,0.54348,0.61539,"M",-180],[0.27592,0.92308,0.34281,0.92308,"M",-180],[0.4097,0.92308,0.47659,0.92308,"M",-180],[0.27592,0.76923,0.34281,0.76923,"M",-180],[0.4097,0.76923,0.47659,0.76923,"M",-180],[0.33445,0.84615,0.40134,0.84615,"M",-180],[0.46823,0.84615,0.53512,0.84615,"M",-180],[0.33445,0.69231,0.40134,0.69231,"M",-180],[0.46823,0.69231,0.53512,0.69231,"M",-180],[0.66889,1,0.67726,0.92308,"M",-180],[0.67726,0.92308,0.66889,0.84615,"M",-180],[0.66889,0.84615,0.67726,0.76923,"M",-180],[0.67726,0.76923,0.66889,0.69231,"M",-180],[0.66889,0.69231,0.67726,0.61539,"M",-180],[0.54348,0.92308,0.61037,0.92308,"M",-180],[0.67726,0.92308,0.74414,0.92308,"M",-180],[0.54348,0.76923,0.61037,0.76923,"M",-180],[0.67726,0.76923,0.74414,0.76923,"M",-180],[0.602,0.84615,0.66889,0.84615,"M",-180],[0.73578,0.84615,0.80267,0.84615,"M",-180],[0.602,0.69231,0.66889,0.69231,"M",-180],[0.73578,0.69231,0.80267,0.69231,"M",-180],[0.14214,0.61539,0.13378,0.53846,"M",-180],[0.13378,0.53846,0.14214,0.46154,"M",-180],[0.14214,0.46154,0.13378,0.38462,"M",-180],[0.13378,0.38462,0.14214,0.30769,"M",-180],[0.27592,0.61539,0.26756,0.53846,"M",-180],[0.26756,0.53846,0.27592,0.46154,"M",-180],[0.27592,0.46154,0.26756,0.38462,"M",-180],[0.26756,0.38462,0.27592,0.30769,"M",-180],[0.00836,0.61539,0.07525,0.61539,"M",-180],[0.14214,0.61539,0.20903,0.61539,"M",-180],[0.00836,0.46154,0.07525,0.46154,"M",-180],[0.14214,0.46154,0.20903,0.46154,"M",-180],[0.06689,0.53846,0.13378,0.53846,"M",-180],[0.20067,0.53846,0.26756,0.53846,"M",-180],[0.06689,0.38462,0.13378,0.38462,"M",-180],[0.20067,0.38462,0.26756,0.38462,"M",-180],[0.4097,0.61539,0.40134,0.53846,"M",-180],[0.40134,0.53846,0.4097,0.46154,"M",-180],[0.4097,0.46154,0.40134,0.38461,"M",-180],[0.40134,0.38461,0.4097,0.30769,"M",-180],[0.54348,0.61539,0.53512,0.53846,"M",-180],[0.53512,0.53846,0.54348,0.46154,"M",-180],[0.54348,0.46154,0.53512,0.38461,"M",-180],[0.53512,0.38461,0.54348,0.30769,"M",-180],[0.27592,0.61539,0.34281,0.61539,"M",-180],[0.4097,0.61539,0.47659,0.61539,"M",-180],[0.27592,0.46154,0.34281,0.46154,"M",-180],[0.4097,0.46154,0.47659,0.46154,"M",-180],[0.33445,0.53846,0.40134,0.53846,"M",-180],[0.46823,0.53846,0.53512,0.53846,"M",-180],[0.33445,0.38461,0.40134,0.38461,"M",-180],[0.46823,0.38461,0.53512,0.38461,"M",-180],[0.67726,0.61539,0.66889,0.53846,"M",-180],[0.66889,0.53846,0.67726,0.46154,"M",-180],[0.67726,0.46154,0.66889,0.38461,"M",-180],[0.66889,0.38461,0.67726,0.30769,"M",-180],[0.54348,0.61539,0.61037,0.61539,"M",-180],[0.67726,0.61539,0.74414,0.61539,"M",-180],[0.54348,0.46154,0.61037,0.46154,"M",-180],[0.67726,0.46154,0.74414,0.46154,"M",-180],[0.602,0.53846,0.66889,0.53846,"M",-180],[0.73578,0.53846,0.80267,0.53846,"M",-180],[0.602,0.38461,0.66889,0.38461,"M",-180],[0.73578,0.38461,0.80267,0.38461,"M",-180],[0.14214,0.30769,0.13378,0.23077,"M",-180],[0.13378,0.23077,0.14214,0.15385,"M",-180],[0.14214,0.15385,0.13378,0.07692,"M",-180],[0.13378,0.07692,0.14214,0,"M",-180],[0.27592,0.30769,0.26756,0.23077,"M",-180],[0.26756,0.23077,0.27592,0.15385,"M",-180],[0.27592,0.15385,0.26756,0.07692,"M",-180],[0.26756,0.07692,0.27592,0,"M",-180],[0.00836,0.30769,0.07525,0.30769,"M",-180],[0.14214,0.30769,0.20903,0.30769,"M",-180],[0.00836,0.15385,0.07525,0.15385,"M",-180],[0.14214,0.15385,0.20903,0.15385,"M",-180],[0.06689,0.23077,0.13378,0.23077,"M",-180],[0.20067,0.23077,0.26756,0.23077,"M",-180],[0.06689,0.07692,0.13378,0.07692,"M",-180],[0.20067,0.07692,0.26756,0.07692,"M",-180],[0.4097,0.30769,0.40134,0.23077,"M",-180],[0.40134,0.23077,0.4097,0.15385,"M",-180],[0.4097,0.15385,0.40134,0.07692,"M",-180],[0.40134,0.07692,0.4097,0,"M",-180],[0.54348,0.30769,0.53512,0.23077,"M",-180],[0.53512,0.23077,0.54348,0.15385,"M",-180],[0.54348,0.15385,0.53512,0.07692,"M",-180],[0.53512,0.07692,0.54348,0,"M",-180],[0.27592,0.30769,0.34281,0.30769,"M",-180],[0.4097,0.30769,0.47659,0.30769,"M",-180],[0.27592,0.15385,0.34281,0.15385,"M",-180],[0.4097,0.15385,0.47659,0.15385,"M",-180],[0.33445,0.23077,0.40134,0.23077,"M",-180],[0.46823,0.23077,0.53512,0.23077,"M",-180],[0.33445,0.07692,0.40134,0.07692,"M",-180],[0.46823,0.07692,0.53512,0.07692,"M",-180],[0.67726,0.30769,0.66889,0.23077,"M",-180],[0.66889,0.23077,0.67726,0.15385,"M",-180],[0.67726,0.15385,0.66889,0.07692,"M",-180],[0.66889,0.07692,0.67726,0,"M",-180],[0.54348,0.30769,0.61037,0.30769,"M",-180],[0.67726,0.30769,0.74414,0.30769,"M",-180],[0.54348,0.15385,0.61037,0.15385,"M",-180],[0.67726,0.15385,0.74414,0.15385,"M",-180],[0.602,0.23077,0.66889,0.23077,"M",-180],[0.73578,0.23077,0.80267,0.23077,"M",-180],[0.602,0.07692,0.66889,0.07692,"M",-180],[0.73578,0.07692,0.80267,0.07692,"M",-180],[0.06689,1,0.07525,0.92308,"V",180],[0.07525,0.92308,0.06689,0.84615,"V",180],[0.06689,0.84615,0.07525,0.76923,"V",180],[0.07525,0.76923,0.06689,0.69231,"V",180],[0.06689,0.69231,0.07525,0.61539,"V",180],[0.20067,1,0.20903,0.92308,"V",180],[0.20903,0.92308,0.20067,0.84615,"V",180],[0.20067,0.84615,0.20903,0.76923,"V",180],[0.20903,0.76923,0.20067,0.69231,"V",180],[0.20067,0.69231,0.20903,0.61539,"V",180],[0.07525,0.92308,0.14214,0.92308,"V",180],[0.20903,0.92308,0.27592,0.92308,"V",180],[0.07525,0.76923,0.14214,0.76923,"V",180],[0.20903,0.76923,0.27592,0.76923,"V",180],[0,0.84615,0.06689,0.84615,"V",180],[0.13378,0.84615,0.20067,0.84615,"V",180],[0,0.69231,0.06689,0.69231,"V",180],[0.13378,0.69231,0.20067,0.69231,"V",180],[0.33445,1,0.34281,0.92308,"V",180],[0.34281,0.92308,0.33445,0.84615,"V",180],[0.33445,0.84615,0.34281,0.76923,"V",180],[0.34281,0.76923,0.33445,0.69231,"V",180],[0.33445,0.69231,0.34281,0.61539,"V",180],[0.46823,1,0.47659,0.92308,"V",180],[0.47659,0.92308,0.46823,0.84615,"V",180],[0.46823,0.84615,0.47659,0.76923,"V",180],[0.47659,0.76923,0.46823,0.69231,"V",180],[0.46823,0.69231,0.47659,0.61539,"V",180],[0.34281,0.92308,0.4097,0.92308,"V",180],[0.47659,0.92308,0.54348,0.92308,"V",180],[0.34281,0.76923,0.4097,0.76923,"V",180],[0.47659,0.76923,0.54348,0.76923,"V",180],[0.26756,0.84615,0.33445,0.84615,"V",180],[0.40134,0.84615,0.46823,0.84615,"V",180],[0.26756,0.69231,0.33445,0.69231,"V",180],[0.40134,0.69231,0.46823,0.69231,"V",180],[0.602,1,0.61037,0.92308,"V",180],[0.61037,0.92308,0.602,0.84615,"V",180],[0.602,0.84615,0.61037,0.76923,"V",180],[0.61037,0.76923,0.602,0.69231,"V",180],[0.602,0.69231,0.61037,0.61539,"V",180],[0.73578,1,0.74414,0.92308,"V",180],[0.74414,0.92308,0.73578,0.84615,"V",180],[0.73578,0.84615,0.74414,0.76923,"V",180],[0.74414,0.76923,0.73578,0.69231,"V",180],[0.73578,0.69231,0.74414,0.61539,"V",180],[0.61037,0.92308,0.67726,0.92308,"V",180],[0.74414,0.92308,0.81103,0.92308,"V",180],[0.61037,0.76923,0.67726,0.76923,"V",180],[0.74414,0.76923,0.81103,0.76923,"V",180],[0.53512,0.84615,0.602,0.84615,"V",180],[0.66889,0.84615,0.73578,0.84615,"V",180],[0.53512,0.69231,0.602,0.69231,"V",180],[0.66889,0.69231,0.73578,0.69231,"V",180],[0.07525,0.61539,0.06689,0.53846,"V",180],[0.06689,0.53846,0.07525,0.46154,"V",180],[0.07525,0.46154,0.06689,0.38462,"V",180],[0.06689,0.38462,0.07525,0.30769,"V",180],[0.20903,0.61539,0.20067,0.53846,"V",180],[0.20067,0.53846,0.20903,0.46154,"V",180],[0.20903,0.46154,0.20067,0.38462,"V",180],[0.20067,0.38462,0.20903,0.30769,"V",180],[0.07525,0.61539,0.14214,0.61539,"V",180],[0.20903,0.61539,0.27592,0.61539,"V",180],[0.07525,0.46154,0.14214,0.46154,"V",180],[0.20903,0.46154,0.27592,0.46154,"V",180],[0,0.53846,0.06689,0.53846,"V",180],[0.13378,0.53846,0.20067,0.53846,"V",180],[0,0.38462,0.06689,0.38462,"V",180],[0.13378,0.38462,0.20067,0.38462,"V",180],[0.34281,0.61539,0.33445,0.53846,"V",180],[0.33445,0.53846,0.34281,0.46154,"V",180],[0.34281,0.46154,0.33445,0.38461,"V",180],[0.33445,0.38461,0.34281,0.30769,"V",180],[0.47659,0.61539,0.46823,0.53846,"V",180],[0.46823,0.53846,0.47659,0.46154,"V",180],[0.47659,0.46154,0.46823,0.38461,"V",180],[0.46823,0.38461,0.47659,0.30769,"V",180],[0.34281,0.61539,0.4097,0.61539,"V",180],[0.47659,0.61539,0.54348,0.61539,"V",180],[0.34281,0.46154,0.4097,0.46154,"V",180],[0.47659,0.46154,0.54348,0.46154,"V",180],[0.26756,0.53846,0.33445,0.53846,"V",180],[0.40134,0.53846,0.46823,0.53846,"V",180],[0.26756,0.38461,0.33445,0.38461,"V",180],[0.40134,0.38461,0.46823,0.38461,"V",180],[0.61037,0.61539,0.602,0.53846,"V",180],[0.602,0.53846,0.61037,0.46154,"V",180],[0.61037,0.46154,0.602,0.38461,"V",180],[0.602,0.38461,0.61037,0.30769,"V",180],[0.74414,0.61539,0.73578,0.53846,"V",180],[0.73578,0.53846,0.74414,0.46154,"V",180],[0.74414,0.46154,0.73578,0.38461,"V",180],[0.73578,0.38461,0.74414,0.30769,"V",180],[0.61037,0.61539,0.67726,0.61539,"V",180],[0.74414,0.61539,0.81103,0.61539,"V",180],[0.61037,0.46154,0.67726,0.46154,"V",180],[0.74414,0.46154,0.81103,0.46154,"V",180],[0.53512,0.53846,0.602,0.53846,"V",180],[0.66889,0.53846,0.73578,0.53846,"V",180],[0.53512,0.38461,0.602,0.38461,"V",180],[0.66889,0.38461,0.73578,0.38461,"V",180],[0.07525,0.30769,0.06689,0.23077,"V",180],[0.06689,0.23077,0.07525,0.15385,"V",180],[0.07525,0.15385,0.06689,0.07692,"V",180],[0.06689,0.07692,0.07525,0,"V",180],[0.20903,0.30769,0.20067,0.23077,"V",180],[0.20067,0.23077,0.20903,0.15385,"V",180],[0.20903,0.15385,0.20067,0.07692,"V",180],[0.20067,0.07692,0.20903,0,"V",180],[0.07525,0.30769,0.14214,0.30769,"V",180],[0.20903,0.30769,0.27592,0.30769,"V",180],[0.07525,0.15385,0.14214,0.15385,"V",180],[0.20903,0.15385,0.27592,0.15385,"V",180],[0,0.23077,0.06689,0.23077,"V",180],[0.13378,0.23077,0.20067,0.23077,"V",180],[0,0.07692,0.06689,0.07692,"V",180],[0.13378,0.07692,0.20067,0.07692,"V",180],[0.34281,0.30769,0.33445,0.23077,"V",180],[0.33445,0.23077,0.34281,0.15385,"V",180],[0.34281,0.15385,0.33445,0.07692,"V",180],[0.33445,0.07692,0.34281,0,"V",180],[0.47659,0.30769,0.46823,0.23077,"V",180],[0.46823,0.23077,0.47659,0.15385,"V",180],[0.47659,0.15385,0.46823,0.07692,"V",180],[0.46823,0.07692,0.47659,0,"V",180],[0.34281,0.30769,0.4097,0.30769,"V",180],[0.47659,0.30769,0.54348,0.30769,"V",180],[0.34281,0.15385,0.4097,0.15385,"V",180],[0.47659,0.15385,0.54348,0.15385,"V",180],[0.26756,0.23077,0.33445,0.23077,"V",180],[0.40134,0.23077,0.46823,0.23077,"V",180],[0.26756,0.07692,0.33445,0.07692,"V",180],[0.40134,0.07692,0.46823,0.07692,"V",180],[0.61037,0.30769,0.602,0.23077,"V",180],[0.602,0.23077,0.61037,0.15385,"V",180],[0.61037,0.15385,0.602,0.07692,"V",180],[0.602,0.07692,0.61037,0,"V",180],[0.74414,0.30769,0.73578,0.23077,"V",180],[0.73578,0.23077,0.74414,0.15385,"V",180],[0.74414,0.15385,0.73578,0.07692,"V",180],[0.73578,0.07692,0.74414,0,"V",180],[0.61037,0.30769,0.67726,0.30769,"V",180],[0.74414,0.30769,0.81103,0.30769,"V",180],[0.61037,0.15385,0.67726,0.15385,"V",180],[0.74414,0.15385,0.81103,0.15385,"V",180],[0.53512,0.23077,0.602,0.23077,"V",180],[0.66889,0.23077,0.73578,0.23077,"V",180],[0.53512,0.07692,0.602,0.07692,"V",180],[0.66889,0.07692,0.73578,0.07692,"V",180],[0.80267,1,0.81103,0.92308,"B",null],[0.81103,0.92308,0.80267,0.84615,"B",null],[0.80267,0.84615,0.81103,0.76923,"B",null],[0.81103,0.76923,0.80267,0.69231,"B",null],[0.80267,0.69231,0.81103,0.61539,"B",null],[0,1,0.00836,0.92308,"B",null],[0.00836,0.92308,0,0.84615,"B",null],[0,0.84615,0.00836,0.76923,"B",null],[0.00836,0.76923,0,0.69231,"B",null],[0,0.69231,0.00836,0.61538,"B",null],[0.81103,0.61539,0.80267,0.53846,"B",null],[0.80267,0.53846,0.81103,0.46154,"B",null],[0.81103,0.46154,0.80267,0.38461,"B",null],[0.80267,0.38461,0.81103,0.30769,"B",null],[0.00836,0.61539,0,0.53846,"B",null],[0,0.53846,0.00836,0.46154,"B",null],[0.00836,0.46154,0,0.38461,"B",null],[0,0.38461,0.00836,0.30769,"B",null],[0.81103,0.30769,0.80267,0.23077,"B",null],[0.80267,0.23077,0.81103,0.15385,"B",null],[0.81103,0.15385,0.80267,0.07692,"B",null],[0.80267,0.07692,0.81103,0,"B",null],[0.00836,0.30769,0,0.23077,"B",null],[0,0.23077,0.00836,0.15385,"B",null],[0.00836,0.15385,0,0.07692,"B",null],[0,0.07692,0.00836,0,"B",null],[0.00836,0,0.81103,0,"B",null],[0,1,0.80267,1,"B",null]],"hypar":[[1,1,0,1,"B",null],[0,1,0,0,"B",null],[0,0,1,0,"B",null],[1,0,1,1,"B",null],[0.60417,0.39583,0.39583,0.39583,"M",-180],[0.39583,0.39583,0.39583,0.60417,"M",-180],[0.39583,0.60417,0.60417,0.60417,"M",-180],[0.60417,0.60417,0.60417,0.39583,"M",-180],[0.97917,0.97917,0.02083,0.97917,"M",-180],[0.02083,0.97917,0.02083,0.02083,"M",-180],[0.02083,0.02083,0.97917,0.02083,"M",-180],[0.97917,0.02083,0.97917,0.97917,"M",-180],[0.9375,0.0625,0.0625,0.0625,"M",-180],[0.0625,0.0625,0.0625,0.9375,"M",-180],[0.0625,0.9375,0.9375,0.9375,"M",-180],[0.9375,0.9375,0.9375,0.0625,"M",-180],[0.89583,0.10417,0.10417,0.10417,"M",-180],[0.10417,0.10417,0.10417,0.89583,"M",-180],[0.10417,0.89583,0.89583,0.89583,"M",-180],[0.89583,0.89583,0.89583,0.10417,"M",-180],[0.8125,0.1875,0.1875,0.1875,"M",-180],[0.1875,0.1875,0.1875,0.8125,"M",-180],[0.1875,0.8125,0.8125,0.8125,"M",-180],[0.8125,0.8125,0.8125,0.1875,"M",-180],[0.85417,0.14583,0.14583,0.14583,"M",-180],[0.14583,0.14583,0.14583,0.85417,"M",-180],[0.14583,0.85417,0.85417,0.85417,"M",-180],[0.85417,0.85417,0.85417,0.14583,"M",-180],[0.77083,0.22917,0.22917,0.22917,"M",-180],[0.22917,0.22917,0.22917,0.77083,"M",-180],[0.22917,0.77083,0.77083,0.77083,"M",-180],[0.77083,0.77083,0.77083,0.22917,"M",-180],[0.72917,0.27083,0.27083,0.27083,"M",-180],[0.27083,0.27083,0.27083,0.72917,"M",-180],[0.27083,0.72917,0.72917,0.72917,"M",-180],[0.72917,0.72917,0.72917,0.27083,"M",-180],[0.6875,0.3125,0.3125,0.3125,"M",-180],[0.3125,0.3125,0.3125,0.6875,"M",-180],[0.3125,0.6875,0.6875,0.6875,"M",-180],[0.6875,0.6875,0.6875,0.3125,"M",-180],[0.64583,0.35417,0.35417,0.35417,"M",-180],[0.35417,0.35417,0.35417,0.64583,"M",-180],[0.35417,0.64583,0.64583,0.64583,"M",-180],[0.64583,0.64583,0.64583,0.35417,"M",-180],[1,1,0.97917,0.97917,"M",-180],[0.95833,0.95833,0.9375,0.9375,"M",-180],[0.91667,0.91667,0.89583,0.89583,"M",-180],[0.875,0.875,0.85417,0.85417,"M",-180],[0.83333,0.83333,0.8125,0.8125,"M",-180],[0.79167,0.79167,0.77083,0.77083,"M",-180],[0.75,0.75,0.72917,0.72917,"M",-180],[0.70833,0.70833,0.6875,0.6875,"M",-180],[0.66667,0.66667,0.64583,0.64583,"M",-180],[0.39583,0.39583,0.375,0.375,"M",-180],[0.35417,0.35417,0.33333,0.33333,"M",-180],[0.3125,0.3125,0.29167,0.29167,"M",-180],[0.27083,0.27083,0.25,0.25,"M",-180],[0.22917,0.22917,0.20833,0.20833,"M",-180],[0.1875,0.1875,0.16667,0.16667,"M",-180],[0.14583,0.14583,0.125,0.125,"M",-180],[0.10417,0.10417,0.08333,0.08333,"M",-180],[0.0625,0.0625,0.04167,0.04167,"M",-180],[0.02083,0.02083,0,0,"M",-180],[1,0,0.97917,0.02083,"M",-180],[0.95833,0.04167,0.9375,0.0625,"M",-180],[0.91667,0.08333,0.89583,0.10417,"M",-180],[0.875,0.125,0.85417,0.14583,"M",-180],[0.83333,0.16667,0.8125,0.1875,"M",-180],[0.79167,0.20833,0.77083,0.22917,"M",-180],[0.75,0.25,0.72917,0.27083,"M",-180],[0.70833,0.29167,0.6875,0.3125,"M",-180],[0.66667,0.33333,0.64583,0.35417,"M",-180],[0.625,0.375,0.60417,0.39583,"M",-180],[0,1,0.02083,0.97917,"M",-180],[0.04167,0.95833,0.0625,0.9375,"M",-180],[0.08333,0.91667,0.10417,0.89583,"M",-180],[0.125,0.875,0.14583,0.85417,"M",-180],[0.16667,0.83333,0.1875,0.8125,"M",-180],[0.20833,0.79167,0.22917,0.77083,"M",-180],[0.25,0.75,0.27083,0.72917,"M",-180],[0.29167,0.70833,0.3125,0.6875,"M",-180],[0.33333,0.66667,0.35417,0.64583,"M",-180],[0.375,0.625,0.39583,0.60417,"M",-180],[0.60417,0.60417,0.625,0.625,"M",-180],[0.5625,0.4375,0.4375,0.4375,"M",-180],[0.4375,0.4375,0.4375,0.5625,"M",-180],[0.4375,0.5625,0.5625,0.5625,"M",-180],[0.5625,0.5625,0.5625,0.4375,"M",-180],[0.52083,0.47917,0.47917,0.47917,"M",-180],[0.47917,0.47917,0.47917,0.52083,"M",-180],[0.47917,0.52083,0.52083,0.52083,"M",-180],[0.52083,0.52083,0.52083,0.47917,"M",-180],[0.58333,0.41667,0.5625,0.4375,"M",-180],[0.54167,0.45833,0.52083,0.47917,"M",-180],[0.58333,0.58333,0.5625,0.5625,"M",-180],[0.52083,0.52083,0.54167,0.54167,"M",-180],[0.47917,0.52083,0.45833,0.54167,"M",-180],[0.41667,0.58333,0.4375,0.5625,"M",-180],[0.41667,0.41667,0.4375,0.4375,"M",-180],[0.45833,0.45833,0.47917,0.47917,"M",-180],[0.95833,0.95833,0.04167,0.95833,"V",180],[0.04167,0.95833,0.04167,0.04167,"V",180],[0.04167,0.04167,0.95833,0.04167,"V",180],[0.95833,0.04167,0.95833,0.95833,"V",180],[0.91667,0.08333,0.08333,0.08333,"V",180],[0.08333,0.08333,0.08333,0.91667,"V",180],[0.08333,0.91667,0.91667,0.91667,"V",180],[0.91667,0.91667,0.91667,0.08333,"V",180],[0.875,0.125,0.125,0.125,"V",180],[0.125,0.125,0.125,0.875,"V",180],[0.125,0.875,0.875,0.875,"V",180],[0.875,0.875,0.875,0.125,"V",180],[0.83333,0.16667,0.16667,0.16667,"V",180],[0.16667,0.16667,0.16667,0.83333,"V",180],[0.16667,0.83333,0.83333,0.83333,"V",180],[0.83333,0.83333,0.83333,0.16667,"V",180],[0.79167,0.20833,0.20833,0.20833,"V",180],[0.20833,0.20833,0.20833,0.79167,"V",180],[0.20833,0.79167,0.79167,0.79167,"V",180],[0.79167,0.79167,0.79167,0.20833,"V",180],[0.75,0.25,0.25,0.25,"V",180],[0.25,0.25,0.25,0.75,"V",180],[0.25,0.75,0.75,0.75,"V",180],[0.75,0.75,0.75,0.25,"V",180],[0.70833,0.29167,0.29167,0.29167,"V",180],[0.29167,0.29167,0.29167,0.70833,"V",180],[0.29167,0.70833,0.70833,0.70833,"V",180],[0.70833,0.70833,0.70833,0.29167,"V",180],[0.66667,0.33333,0.33333,0.33333,"V",180],[0.33333,0.33333,0.33333,0.66667,"V",180],[0.33333,0.66667,0.66667,0.66667,"V",180],[0.66667,0.66667,0.66667,0.33333,"V",180],[0.625,0.375,0.375,0.375,"V",180],[0.375,0.375,0.375,0.625,"V",180],[0.375,0.625,0.625,0.625,"V",180],[0.625,0.625,0.625,0.375,"V",180],[0.97917,0.97917,0.95833,0.95833,"V",180],[0.9375,0.9375,0.91667,0.91667,"V",180],[0.89583,0.89583,0.875,0.875,"V",180],[0.85417,0.85417,0.83333,0.83333,"V",180],[0.8125,0.8125,0.79167,0.79167,"V",180],[0.77083,0.77083,0.75,0.75,"V",180],[0.72917,0.72917,0.70833,0.70833,"V",180],[0.6875,0.6875,0.66667,0.66667,"V",180],[0.64583,0.64583,0.625,0.625,"V",180],[0.375,0.375,0.35417,0.35417,"V",180],[0.33333,0.33333,0.3125,0.3125,"V",180],[0.29167,0.29167,0.27083,0.27083,"V",180],[0.25,0.25,0.22917,0.22917,"V",180],[0.20833,0.20833,0.1875,0.1875,"V",180],[0.16667,0.16667,0.14583,0.14583,"V",180],[0.125,0.125,0.10417,0.10417,"V",180],[0.08333,0.08333,0.0625,0.0625,"V",180],[0.04167,0.04167,0.02083,0.02083,"V",180],[0.97917,0.02083,0.95833,0.04167,"V",180],[0.9375,0.0625,0.91667,0.08333,"V",180],[0.89583,0.10417,0.875,0.125,"V",180],[0.85417,0.14583,0.83333,0.16667,"V",180],[0.8125,0.1875,0.79167,0.20833,"V",180],[0.77083,0.22917,0.75,0.25,"V",180],[0.72917,0.27083,0.70833,0.29167,"V",180],[0.6875,0.3125,0.66667,0.33333,"V",180],[0.64583,0.35417,0.625,0.375,"V",180],[0.02083,0.97917,0.04167,0.95833,"V",180],[0.0625,0.9375,0.08333,0.91667,"V",180],[0.10417,0.89583,0.125,0.875,"V",180],[0.14583,0.85417,0.16667,0.83333,"V",180],[0.1875,0.8125,0.20833,0.79167,"V",180],[0.22917,0.77083,0.25,0.75,"V",180],[0.27083,0.72917,0.29167,0.70833,"V",180],[0.3125,0.6875,0.33333,0.66667,"V",180],[0.35417,0.64583,0.375,0.625,"V",180],[0.58333,0.41667,0.41667,0.41667,"V",180],[0.41667,0.41667,0.41667,0.58333,"V",180],[0.41667,0.58333,0.58333,0.58333,"V",180],[0.58333,0.58333,0.58333,0.41667,"V",180],[0.54167,0.45833,0.45833,0.45833,"V",180],[0.45833,0.45833,0.45833,0.54167,"V",180],[0.45833,0.54167,0.54167,0.54167,"V",180],[0.54167,0.54167,0.54167,0.45833,"V",180],[0.60417,0.39583,0.58333,0.41667,"V",180],[0.5625,0.4375,0.54167,0.45833,"V",180],[0.60417,0.60417,0.58333,0.58333,"V",180],[0.5625,0.5625,0.54167,0.54167,"V",180],[0.39583,0.60417,0.41667,0.58333,"V",180],[0.4375,0.5625,0.45833,0.54167,"V",180],[0.39583,0.39583,0.41667,0.41667,"V",180],[0.4375,0.4375,0.45833,0.45833,"V",180],[0.47917,0.47917,0.52083,0.52083,"U",null],[0.47917,0.52083,0.52083,0.47917,"U",null],[0.02083,0.97917,0,0,"U",null],[0.95833,0.95833,0.02083,0.97917,"U",null],[0.0625,0.9375,0.04167,0.04167,"U",null],[0.91667,0.91667,0.0625,0.9375,"U",null],[0.10417,0.89583,0.08333,0.08333,"U",null],[0.875,0.875,0.10417,0.89583,"U",null],[0.14583,0.85417,0.125,0.125,"U",null],[0.83333,0.83333,0.14583,0.85417,"U",null],[0.1875,0.8125,0.16667,0.16667,"U",null],[0.79167,0.79167,0.1875,0.8125,"U",null],[0.22917,0.77083,0.20833,0.20833,"U",null],[0.75,0.75,0.22917,0.77083,"U",null],[0.27083,0.72917,0.25,0.25,"U",null],[0.70833,0.70833,0.27083,0.72917,"U",null],[0.3125,0.6875,0.29167,0.29167,"U",null],[0.66667,0.66667,0.3125,0.6875,"U",null],[0.35417,0.64583,0.33333,0.33333,"U",null],[0.625,0.625,0.35417,0.64583,"U",null],[0.39583,0.60417,0.375,0.375,"U",null],[0,0,0.97917,0.02083,"U",null],[0.02083,0.97917,0.04167,0.04167,"U",null],[0.04167,0.04167,0.9375,0.0625,"U",null],[0.0625,0.9375,0.08333,0.08333,"U",null],[0.08333,0.08333,0.89583,0.10417,"U",null],[0.10417,0.89583,0.125,0.125,"U",null],[0.125,0.125,0.85417,0.14583,"U",null],[0.14583,0.85417,0.16667,0.16667,"U",null],[0.16667,0.16667,0.8125,0.1875,"U",null],[0.1875,0.8125,0.20833,0.20833,"U",null],[0.20833,0.20833,0.77083,0.22917,"U",null],[0.22917,0.77083,0.25,0.25,"U",null],[0.25,0.25,0.72917,0.27083,"U",null],[0.27083,0.72917,0.29167,0.29167,"U",null],[0.29167,0.29167,0.6875,0.3125,"U",null],[0.3125,0.6875,0.33333,0.33333,"U",null],[0.33333,0.33333,0.64583,0.35417,"U",null],[0.35417,0.64583,0.375,0.375,"U",null],[0.375,0.375,0.60417,0.39583,"U",null],[0.97917,0.02083,1,1,"U",null],[0.04167,0.04167,0.97917,0.02083,"U",null],[0.9375,0.0625,0.95833,0.95833,"U",null],[0.08333,0.08333,0.9375,0.0625,"U",null],[0.89583,0.10417,0.91667,0.91667,"U",null],[0.125,0.125,0.89583,0.10417,"U",null],[0.85417,0.14583,0.875,0.875,"U",null],[0.16667,0.16667,0.85417,0.14583,"U",null],[0.8125,0.1875,0.83333,0.83333,"U",null],[0.20833,0.20833,0.8125,0.1875,"U",null],[0.77083,0.22917,0.79167,0.79167,"U",null],[0.25,0.25,0.77083,0.22917,"U",null],[0.72917,0.27083,0.75,0.75,"U",null],[0.29167,0.29167,0.72917,0.27083,"U",null],[0.6875,0.3125,0.70833,0.70833,"U",null],[0.33333,0.33333,0.6875,0.3125,"U",null],[0.64583,0.35417,0.66667,0.66667,"U",null],[0.375,0.375,0.64583,0.35417,"U",null],[0.60417,0.39583,0.625,0.625,"U",null],[1,1,0.02083,0.97917,"U",null],[0.97917,0.02083,0.95833,0.95833,"U",null],[0.95833,0.95833,0.0625,0.9375,"U",null],[0.9375,0.0625,0.91667,0.91667,"U",null],[0.91667,0.91667,0.10417,0.89583,"U",null],[0.89583,0.10417,0.875,0.875,"U",null],[0.875,0.875,0.14583,0.85417,"U",null],[0.85417,0.14583,0.83333,0.83333,"U",null],[0.83333,0.83333,0.1875,0.8125,"U",null],[0.8125,0.1875,0.79167,0.79167,"U",null],[0.79167,0.79167,0.22917,0.77083,"U",null],[0.77083,0.22917,0.75,0.75,"U",null],[0.75,0.75,0.27083,0.72917,"U",null],[0.72917,0.27083,0.70833,0.70833,"U",null],[0.70833,0.70833,0.3125,0.6875,"U",null],[0.6875,0.3125,0.66667,0.66667,"U",null],[0.66667,0.66667,0.35417,0.64583,"U",null],[0.64583,0.35417,0.625,0.625,"U",null],[0.625,0.625,0.39583,0.60417,"U",null],[0.60417,0.39583,0.41667,0.41667,"U",null],[0.41667,0.41667,0.39583,0.60417,"U",null],[0.39583,0.60417,0.58333,0.58333,"U",null],[0.58333,0.58333,0.60417,0.39583,"U",null],[0.41667,0.41667,0.5625,0.4375,"U",null],[0.5625,0.4375,0.58333,0.58333,"U",null],[0.58333,0.58333,0.4375,0.5625,"U",null],[0.4375,0.5625,0.41667,0.41667,"U",null],[0.4375,0.5625,0.45833,0.45833,"U",null],[0.45833,0.45833,0.5625,0.4375,"U",null],[0.56154,0.44078,0.54167,0.54167,"U",null],[0.54167,0.54167,0.4375,0.5625,"U",null],[0.45833,0.45833,0.47917,0.52083,"U",null],[0.47917,0.52083,0.54167,0.54167,"U",null],[0.54167,0.54167,0.52083,0.47917,"U",null],[0.52083,0.47917,0.45833,0.45833,"U",null]],"twist":[[0.27952,0,0.44091,0.27952,"V",180],[0.55908,0.72047,0.72047,1,"V",180],[0.72047,0.44091,1,0.27952,"V",180],[0.27952,0.55908,0,0.72047,"V",180],[0.44091,0.27952,0.72047,0.44091,"V",180],[0.44091,0.27952,0.27952,0.55908,"V",180],[0.55908,0.72047,0.72047,0.44091,"V",180],[0.55908,0.72047,0.27952,0.55908,"V",180],[0.16139,0.44091,0,0.16138,"B",null],[0.16139,0.44091,0,0.72046,"B",null],[0,0.72047,0.16139,1,"B",null],[0.27952,0,0,0.16139,"B",null],[0.27952,0,0.55908,0.16139,"B",null],[0.55908,0.16139,0.83861,0,"B",null],[0.8386,0,0.99999,0.27952,"B",null],[0.99999,0.27952,0.8386,0.55908,"B",null],[0.8386,0.55908,0.99999,0.83861,"B",null],[0.99999,0.8386,0.72046,0.99999,"B",null],[0.72047,0.99999,0.44091,0.8386,"B",null],[0.44091,0.8386,0.16139,0.99999,"B",null],[0.44091,0.27952,0.16139,0.44091,"M",-180],[0.55908,0.72047,0.83861,0.55908,"M",-180],[0.55908,0.16139,0.72047,0.44091,"M",-180],[0.27952,0.55908,0.44091,0.83861,"M",-180]],"map":[[1,0.73424,0,0.73424,"B",null],[0,0.73424,0,0,"B",null],[0,0,1,0,"B",null],[1,0,1,0.73424,"B",null],[1,0.73424,1,0.73424,"B",null],[0.25,0,0.25,0.73424,"V",180],[0.75,0,0.75,0.73424,"V",180],[0,0.36712,0.25,0.36712,"V",180],[0.5,0.36712,0.75,0.36712,"V",180],[0.5,0,0.5,0.73424,"M",-180],[0.25,0.36712,0.5,0.36712,"M",-180],[0.75,0.36712,1,0.36712,"M",-180]]};
+/* Crease-pattern pipeline + origami physics solver.
+   Algorithm and conventions adapted from Origami Simulator by Amanda Ghassaei (MIT License,
+   https://github.com/amandaghassaei/OrigamiSimulator) — CPU port, simplified. */
+const CPSim=(()=>{
+const TOL=1e-3;
+function build(segs){ // segs: [x1,y1,x2,y2,type,angleDeg] in 0..1 units
+  let V=[],E=[];
+  const key=new Map();
+  const addV=(x,y)=>{const k=Math.round(x/TOL)+','+Math.round(y/TOL);for(const dk of[k]){if(key.has(dk))return key.get(dk)}
+    for(let i=0;i<V.length;i++)if(Math.abs(V[i][0]-x)<TOL&&Math.abs(V[i][1]-y)<TOL)return i;V.push([x,y]);key.set(k,V.length-1);return V.length-1};
+  for(const s of segs){if(s[4]==='C')continue;const a=addV(s[0],s[1]),b=addV(s[2],s[3]);if(a!==b)E.push({v:[a,b],t:s[4],ang:s[5]})}
+  // dedupe
+  const seen=new Set();E=E.filter(e=>{const k=Math.min(...e.v)+'_'+Math.max(...e.v);if(seen.has(k))return false;seen.add(k);return true});
+  // intersections (split crossing / T-junction edges)
+  let changed=true,guard=0;
+  while(changed&&guard++<200000){changed=false;
+    outer:for(let i=0;i<E.length;i++)for(let j=i+1;j<E.length;j++){
+      const r=inter(V,E[i],E[j]);if(!r)continue;
+      let vi;if(r.mid1&&r.mid2){vi=V.findIndex(q=>Math.abs(q[0]-r.p[0])<TOL&&Math.abs(q[1]-r.p[1])<TOL);if(vi<0){V.push(r.p);vi=V.length-1}}else if(r.mid1){vi=r.end2}else{vi=r.end1}
+      const add=[];
+      if(r.mid1){const e=E[i];add.push({v:[e.v[0],vi],t:e.t,ang:e.ang},{v:[vi,e.v[1]],t:e.t,ang:e.ang})}else add.push(E[i]);
+      if(r.mid2){const e=E[j];add.push({v:[e.v[0],vi],t:e.t,ang:e.ang},{v:[vi,e.v[1]],t:e.t,ang:e.ang})}else add.push(E[j]);
+      E.splice(j,1);E.splice(i,1);for(const e of add){if(e.v[0]===e.v[1])continue;const k=Math.min(...e.v)+'_'+Math.max(...e.v);if(E.some(x=>Math.min(...x.v)+'_'+Math.max(...x.v)===k))continue;E.push(e)}changed=true;break outer;
+    }
+  }
+  // remove stray vertices
+  const deg=V.map(()=>0);E.forEach(e=>{deg[e.v[0]]++;deg[e.v[1]]++});
+  const map=[];let nv=[];V.forEach((p,i)=>{if(deg[i]){map[i]=nv.length;nv.push(p)}});V=nv;E.forEach(e=>{e.v=e.v.map(i=>map[i])});
+  // merge collinear degree-2 vertices with same assignment
+  for(let pass=0;pass<3;pass++){
+    const adj=V.map(()=>[]);E.forEach((e,k)=>{adj[e.v[0]].push(k);adj[e.v[1]].push(k)});
+    const kill=new Set();
+    for(let i=0;i<V.length;i++){if(adj[i].length!==2)continue;const[e1,e2]=adj[i].map(k=>E[k]);if(kill.has(e1)||kill.has(e2))continue;if(e1.t!==e2.t||e1.ang!==e2.ang)continue;
+      const a=e1.v[0]===i?e1.v[1]:e1.v[0],b=e2.v[0]===i?e2.v[1]:e2.v[0];const u=[V[a][0]-V[i][0],V[a][1]-V[i][1]],w=[V[b][0]-V[i][0],V[b][1]-V[i][1]];
+      const c=(u[0]*w[0]+u[1]*w[1])/Math.hypot(...u)/Math.hypot(...w);if(Math.abs(c+1)<1e-4){e1.v=[a,b];kill.add(e2);}}
+    if(!kill.size)break;E=E.filter(e=>!kill.has(e));
+    const d2=V.map(()=>0);E.forEach(e=>{d2[e.v[0]]++;d2[e.v[1]]++});const m2=[];const v2=[];V.forEach((p,i)=>{if(d2[i]){m2[i]=v2.length;v2.push(p)}});V=v2;E.forEach(e=>{e.v=e.v.map(i=>m2[i])});
+  }
+  // faces by planar walk
+  const nb=V.map(()=>[]);E.forEach(e=>{nb[e.v[0]].push(e.v[1]);nb[e.v[1]].push(e.v[0])});
+  nb.forEach((l,i)=>l.sort((a,b)=>Math.atan2(V[a][1]-V[i][1],V[a][0]-V[i][0])-Math.atan2(V[b][1]-V[i][1],V[b][0]-V[i][0])));
+  const used=new Set(),faces=[];
+  for(let i=0;i<V.length;i++)for(const j of nb[i]){if(used.has(i+'>'+j))continue;const f=[];let a=i,b=j,g=0;
+    while(!used.has(a+'>'+b)&&g++<1000){used.add(a+'>'+b);f.push(a);const l=nb[b],k=l.indexOf(a);const c=l[(k-1+l.length)%l.length];a=b;b=c}
+    faces.push(f)}
+  const area=f=>{let s=0;for(let k=0;k<f.length;k++){const p=V[f[k]],q=V[f[(k+1)%f.length]];s+=p[0]*q[1]-q[0]*p[1]}return s/2};
+  // interior faces have one orientation; outer boundary the other. keep the orientation of the majority-by-area-sign excluding the largest
+  let F=faces.filter(f=>f.length>=3);const areas=F.map(area);
+  const outerIdx=areas.reduce((bi,a,i)=>Math.abs(a)>Math.abs(areas[bi])?i:bi,0);const sign=-Math.sign(areas[outerIdx]);
+  F=F.filter((f,i)=>i!==outerIdx&&Math.sign(areas[i])===sign&&Math.abs(areas[i])>1e-9);
+  if(sign<0)F=F.map(f=>f.slice().reverse()); // make CCW in (x,y)
+  // triangulate (ear clipping), adding facet edges
+  const ekey=(a,b)=>Math.min(a,b)+'_'+Math.max(a,b);const eset=new Set(E.map(e=>ekey(...e.v)));
+  const tris=[];
+  for(const f of F){const t=earclip(V,f);for(const tri of t){tris.push(tri);for(let k=0;k<3;k++){const a=tri[k],b=tri[(k+1)%3];if(!eset.has(ekey(a,b))){eset.add(ekey(a,b));E.push({v:[a,b],t:'F',ang:0})}}}}
+  // creases: edge with two adjacent triangles
+  const efaces=new Map();tris.forEach((t,fi)=>{for(let k=0;k<3;k++){const kk=ekey(t[k],t[(k+1)%3]);if(!efaces.has(kk))efaces.set(kk,[]);efaces.get(kk).push(fi)}});
+  const C=[];
+  E.forEach((e,ei)=>{if(!(e.t==='M'||e.t==='V'||e.t==='F'))return;const fl=efaces.get(ekey(...e.v));if(!fl||fl.length!==2)return;
+    const [v1,v2]=e.v;let p=[];
+    for(const fi of fl){const fv=tris[fi].slice();const i1=fv.indexOf(v1),i2=fv.indexOf(v2);const opp=fv.find(x=>x!==v1&&x!==v2);p.push(fi,opp);
+      if(p.length===4){if(i2-i1===1||i2-i1===-2)p=[p[2],p[3],p[0],p[1]]}}
+    const ang=e.ang==null?(e.t==='M'?-180:e.t==='V'?180:0):e.ang;
+    C.push({f1:p[0],n1:p[1],f2:p[2],n2:p[3],e:ei,a:v1,b:v2,target:-ang*Math.PI/180,facet:e.t==='F'||ang===0});
+  });
+  return {V,E,T:tris,C};
+}
+function inter(V,e1,e2){
+  const[a,b]=e1.v,[c,d]=e2.v;if(a===c||a===d||b===c||b===d)return null;
+  const p1=V[a],p2=V[b],p3=V[c],p4=V[d];const den=(p4[1]-p3[1])*(p2[0]-p1[0])-(p4[0]-p3[0])*(p2[1]-p1[1]);if(Math.abs(den)<1e-12)return null;
+  const ua=((p4[0]-p3[0])*(p1[1]-p3[1])-(p4[1]-p3[1])*(p1[0]-p3[0]))/den,ub=((p2[0]-p1[0])*(p1[1]-p3[1])-(p2[1]-p1[1])*(p1[0]-p3[0]))/den;
+  const l1=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]),l2=Math.hypot(p4[0]-p3[0],p4[1]-p3[1]);const d1=ua*l1,d2=ub*l2;
+  if(d1<-TOL||d1>l1+TOL||d2<-TOL||d2>l2+TOL)return null;
+  const mid1=d1>TOL&&d1<l1-TOL,mid2=d2>TOL&&d2<l2-TOL;if(!mid1&&!mid2)return null;
+  return{p:[p1[0]+ua*(p2[0]-p1[0]),p1[1]+ua*(p2[1]-p1[1])],mid1,mid2,end1:d1<=TOL?a:b,end2:d2<=TOL?c:d};
+}
+function earclip(V,f){
+  const idx=f.slice(),out=[];let guard=0;
+  const cross=(o,a,b)=>(V[a][0]-V[o][0])*(V[b][1]-V[o][1])-(V[a][1]-V[o][1])*(V[b][0]-V[o][0]);
+  while(idx.length>3&&guard++<5000){let cut=false;
+    for(let i=0;i<idx.length;i++){const a=idx[(i-1+idx.length)%idx.length],b=idx[i],c=idx[(i+1)%idx.length];if(cross(a,b,c)<=1e-12)continue;
+      let ok=true;for(const p of idx){if(p===a||p===b||p===c)continue;if(cross(a,b,p)>=0&&cross(b,c,p)>=0&&cross(c,a,p)>=0){ok=false;break}}
+      if(ok){out.push([a,b,c]);idx.splice(i,1);cut=true;break}}
+    if(!cut){for(let i=1;i<idx.length-1;i++)out.push([idx[0],idx[i],idx[i+1]]);return out}}
+  out.push(idx);return out;
+}
+/* ---------------- solver ---------------- */
+function makeSim(M,opts={}){
+  const n=M.V.length;
+  // positions: paper in x/z plane (Origami Simulator convention), scaled to bounding radius 1
+  let cx=0,cy=0;M.V.forEach(p=>{cx+=p[0];cy+=p[1]});cx/=n;cy/=n;let r=0;M.V.forEach(p=>r=Math.max(r,Math.hypot(p[0]-cx,p[1]-cy)));
+  const X=new Float64Array(n*3),Vel=new Float64Array(n*3),O=new Float64Array(n*3),Fo=new Float64Array(n*3);
+  if(opts.pos3)O.set(opts.pos3);else M.V.forEach((p,i)=>{O[3*i]=(p[0]-cx)/r;O[3*i+1]=0;O[3*i+2]=(p[1]-cy)/r});X.set(O);
+  const D3=(a,b)=>Math.hypot(O[3*a]-O[3*b],O[3*a+1]-O[3*b+1],O[3*a+2]-O[3*b+2]);
+  const axial=opts.axial||20,creaseK=opts.crease||.7,panelK=opts.panel||.7,damp=opts.damping||.45;
+  const beams=M.E.map(e=>{const[a,b]=e.v;const L=D3(a,b);const k=axial/L;return{a,b,L,k,d:damp*2*Math.sqrt(k)}});
+  const cr=M.C.map(c=>{const L=D3(c.a,c.b);return{...c,k:(c.facet?panelK:creaseK)*L,theta:0}});
+  let maxF=0;beams.forEach(b=>{maxF=Math.max(maxF,Math.sqrt(b.k))});const dt=(1/(2*Math.PI*maxF))*.9;
+  const T=M.T,NF=new Float64Array(T.length*3);
+  let pct=0;const faceK=opts.face??.2;
+  const ang3=(A,B,C)=>{const ab=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],ac=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],bc=[C[0]-B[0],C[1]-B[1],C[2]-B[2]];const n=v=>{const l=Math.hypot(...v);return v.map(x=>x/l)};const AB=n(ab),AC=n(ac),BC=n(bc);const d=(u,v)=>u[0]*v[0]+u[1]*v[1]+u[2]*v[2];return[Math.acos(Math.max(-1,Math.min(1,d(AB,AC)))),Math.acos(Math.max(-1,Math.min(1,-d(AB,BC)))),Math.acos(Math.max(-1,Math.min(1,d(AC,BC))))]};
+  const P3=(arr,i)=>[arr[3*i],arr[3*i+1],arr[3*i+2]];
+  const nominal=T.map(t=>ang3(P3(O,t[0]),P3(O,t[1]),P3(O,t[2])));
+  function normals(){for(let f=0;f<T.length;f++){const[a,b,c]=T[f];const ux=X[3*b]-X[3*a],uy=X[3*b+1]-X[3*a+1],uz=X[3*b+2]-X[3*a+2],vx=X[3*c]-X[3*a],vy=X[3*c+1]-X[3*a+1],vz=X[3*c+2]-X[3*a+2];
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz)||1;NF[3*f]=nx/l;NF[3*f+1]=ny/l;NF[3*f+2]=nz/l}}
+  function step(){
+    normals();Fo.fill(0);
+    for(const b of beams){const a=b.a,c=b.b;let dx=X[3*c]-X[3*a],dy=X[3*c+1]-X[3*a+1],dz=X[3*c+2]-X[3*a+2];const l=Math.hypot(dx,dy,dz)||1e-9;const s=(l-b.L)/l;
+      const fx=dx*s*b.k+(Vel[3*c]-Vel[3*a])*b.d,fy=dy*s*b.k+(Vel[3*c+1]-Vel[3*a+1])*b.d,fz=dz*s*b.k+(Vel[3*c+2]-Vel[3*a+2])*b.d;
+      Fo[3*a]+=fx;Fo[3*a+1]+=fy;Fo[3*a+2]+=fz;Fo[3*c]-=fx;Fo[3*c+1]-=fy;Fo[3*c+2]-=fz}
+    for(let ci=0;ci<cr.length;ci++){const c=cr[ci];
+      const f1=3*c.f1,f2=3*c.f2,n1x=NF[f1],n1y=NF[f1+1],n1z=NF[f1+2],n2x=NF[f2],n2y=NF[f2+1],n2z=NF[f2+2];
+      const a3=3*c.a,b3=3*c.b,p3x=X[a3],p3y=X[a3+1],p3z=X[a3+2];let cvx=X[b3]-p3x,cvy=X[b3+1]-p3y,cvz=X[b3+2]-p3z;const cl=Math.sqrt(cvx*cvx+cvy*cvy+cvz*cvz);if(cl<1e-6)continue;cvx/=cl;cvy/=cl;cvz/=cl;
+      let dn=n1x*n2x+n1y*n2y+n1z*n2z;dn=dn>1?1:dn<-1?-1:dn;
+      const y=(n1y*cvz-n1z*cvy)*n2x+(n1z*cvx-n1x*cvz)*n2y+(n1x*cvy-n1y*cvx)*n2z;
+      let diff=Math.atan2(y,dn)-c.theta;if(diff<-5)diff+=6.283185307179586;else if(diff>5)diff-=6.283185307179586;c.theta+=diff;
+      const q1=3*c.n1,q2=3*c.n2,v1x=X[q1]-p3x,v1y=X[q1+1]-p3y,v1z=X[q1+2]-p3z,v2x=X[q2]-p3x,v2y=X[q2+1]-p3y,v2z=X[q2+2]-p3z;
+      const pr1=v1x*cvx+v1y*cvy+v1z*cvz,pr2=v2x*cvx+v2y*cvy+v2z*cvz;
+      const h1=Math.sqrt(Math.abs(v1x*v1x+v1y*v1y+v1z*v1z-pr1*pr1)),h2=Math.sqrt(Math.abs(v2x*v2x+v2y*v2y+v2z*v2z-pr2*pr2));if(h1<1e-6||h2<1e-6)continue;
+      const c1=pr1/cl,c2=pr2/cl,af=c.k*(c.target*pct-c.theta),a1=af/h1,a2=af/h2;
+      Fo[q1]+=a1*n1x;Fo[q1+1]+=a1*n1y;Fo[q1+2]+=a1*n1z;Fo[q2]+=a2*n2x;Fo[q2+1]+=a2*n2y;Fo[q2+2]+=a2*n2z;
+      const ea1=-(1-c1)*a1,ea2=-(1-c2)*a2,eb1=-c1*a1,eb2=-c2*a2;
+      Fo[a3]+=ea1*n1x+ea2*n2x;Fo[a3+1]+=ea1*n1y+ea2*n2y;Fo[a3+2]+=ea1*n1z+ea2*n2z;
+      Fo[b3]+=eb1*n1x+eb2*n2x;Fo[b3+1]+=eb1*n1y+eb2*n2y;Fo[b3+2]+=eb1*n1z+eb2*n2z;
+    }
+    if(faceK)for(let f=0;f<T.length;f++){const t=T[f],ia=3*t[0],ib=3*t[1],ic=3*t[2];
+      let abx=X[ib]-X[ia],aby=X[ib+1]-X[ia+1],abz=X[ib+2]-X[ia+2],acx=X[ic]-X[ia],acy=X[ic+1]-X[ia+1],acz=X[ic+2]-X[ia+2],bcx=X[ic]-X[ib],bcy=X[ic+1]-X[ib+1],bcz=X[ic+2]-X[ib+2];
+      const lab=Math.sqrt(abx*abx+aby*aby+abz*abz),lac=Math.sqrt(acx*acx+acy*acy+acz*acz),lbc=Math.sqrt(bcx*bcx+bcy*bcy+bcz*bcz);if(lab<1e-7||lac<1e-7||lbc<1e-7)continue;
+      abx/=lab;aby/=lab;abz/=lab;acx/=lac;acy/=lac;acz/=lac;bcx/=lbc;bcy/=lbc;bcz/=lbc;
+      const cl1=x=>x>1?1:x<-1?-1:x;const nm=nominal[f];
+      const d0=(nm[0]-Math.acos(cl1(abx*acx+aby*acy+abz*acz)))*faceK,d1=(nm[1]-Math.acos(cl1(-(abx*bcx+aby*bcy+abz*bcz))))*faceK,d2=(nm[2]-Math.acos(cl1(acx*bcx+acy*bcy+acz*bcz)))*faceK;
+      const nx=NF[3*f],ny=NF[3*f+1],nz=NF[3*f+2];
+      const nACx=(ny*acz-nz*acy)/lac,nACy=(nz*acx-nx*acz)/lac,nACz=(nx*acy-ny*acx)/lac,nABx=(ny*abz-nz*aby)/lab,nABy=(nz*abx-nx*abz)/lab,nABz=(nx*aby-ny*abx)/lab,nBCx=(ny*bcz-nz*bcy)/lbc,nBCy=(nz*bcx-nx*bcz)/lbc,nBCz=(nx*bcy-ny*bcx)/lbc;
+      Fo[ia]+=-d0*(nACx-nABx)-d1*nABx+d2*nACx;Fo[ia+1]+=-d0*(nACy-nABy)-d1*nABy+d2*nACy;Fo[ia+2]+=-d0*(nACz-nABz)-d1*nABz+d2*nACz;
+      Fo[ib]+=-d0*nABx+d1*(nABx+nBCx)-d2*nBCx;Fo[ib+1]+=-d0*nABy+d1*(nABy+nBCy)-d2*nBCy;Fo[ib+2]+=-d0*nABz+d1*(nABz+nBCz)-d2*nBCz;
+      Fo[ic]+=d0*nACx-d1*nBCx+d2*(nBCx-nACx);Fo[ic+1]+=d0*nACy-d1*nBCy+d2*(nBCy-nACy);Fo[ic+2]+=d0*nACz-d1*nBCz+d2*(nBCz-nACz);
+    }
+    if(opts.ext)opts.ext(X,Vel,Fo,pct);
+    for(let i=0;i<n*3;i++){Vel[i]+=Fo[i]*dt;X[i]+=Vel[i]*dt}
+  }
+  function strain(){let s=0;for(const b of beams){const a=b.a,c=b.b;s+=Math.abs(Math.hypot(X[3*c]-X[3*a],X[3*c+1]-X[3*a+1],X[3*c+2]-X[3*a+2])/b.L-1)}return s/beams.length}
+  function center(){let m=[0,0,0];for(let i=0;i<n;i++)for(let k=0;k<3;k++)m[k]+=X[3*i+k]/n;for(let i=0;i<n;i++)for(let k=0;k<3;k++)X[3*i+k]-=m[k]}
+  function reset(){X.set(O);Vel.fill(0);cr.forEach(c=>c.theta=0)}
+  return{X,O,T,n,dt,step,strain,center,reset,setPercent:p=>{pct=p},get percent(){return pct},creases:cr,beams,
+    err:()=>{let s=0,k=0;for(const c of cr){if(c.facet)continue;s+=Math.abs(c.target*pct-c.theta);k++}return k?s/k:0}};
+}
+return{build,makeSim};
+})();
+
+
+/* ======================= Fold Simulator (crease patterns) ======================= */
+const simGroup=new THREE.Group();simGroup.rotation.x=Math.PI/2;scene.add(simGroup);
+const wrapGroup=new THREE.Group();scene.add(wrapGroup);
+const SIMINFO=[
+ ['crane','Traditional Crane','The classic. Squash, petal and reverse folds all at once.',3],
+ ['flapbird','Flapping Bird','A bird base that folds into a bird.',2],
+ ['plane','Paper Airplane','The dart, from its real crease pattern.',1],
+ ['frogbase','Frog Base','The base a traditional frog is folded from.',3],
+ ['birdbase','Bird Base','Petal folds. The crane starts here.',2],
+ ['squarebase','Square Base','Also called the preliminary base.',1],
+ ['waterbombbase','Waterbomb Base','The inside-out version of the square base.',1],
+ ['boatbase','Boat Base','Squash folds into a little boat shape.',2],
+ ['pinwheel','Pinwheel','Four flaps that spin.',2],
+ ['sink','Open Sink','A sink fold: the tip pushes inside itself.',3],
+ ['twist','Square Twist','The square in the middle rotates as it folds.',2],
+ ['map','Map Fold','Fold a map the satisfying way.',1],
+ ['miura','Miura-ori','Folds flat in one motion. Used for space solar panels.',3],
+ ['waterbomb','Waterbomb Tessellation','A whole field of waterbomb bases.',3],
+ ['hypar','Hyperbolic Paraboloid','Pleats that twist into a saddle. Never goes flat.',3]
+];
+let sim=null,simM=null,simPct=0,simTarget=0,simRate=1/6000,simName='',simKey=null,simSegs=null,simShowLines=true;
+let simMeshF,simMeshB,simLines,simGeo,simLineGeo;
+function cpPreview(segs,size=56){const col={M:'#d7372f',V:'#2b5cad',B:'#231f1c',F:'#e0b100',U:'#bbb'};return `<svg viewBox="-0.05 -0.05 1.1 1.1" width="${size}" height="${size}"><rect x="0" y="0" width="1" height="1" fill="#fffdf8"/>${segs.map(s=>`<line x1="${s[0]}" y1="${s[1]}" x2="${s[2]}" y2="${s[3]}" stroke="${col[s[4]]||'#999'}" stroke-width="${s[4]==='B'?.025:.012}" stroke-opacity="${s[4]==='F'?.5:.9}"/>`).join('')}</svg>`}
+$('simPresets').innerHTML=SIMINFO.map(([k,n,d,l])=>`<button class="model" data-k="${k}">${cpPreview(CP_PRESETS[k])}<div><b>${n}<span class="dots">${[1,2,3].map(i=>`<i class="${i<=l?'on':''}"></i>`).join('')}</span></b><span>${d}</span></div></button>`).join('');
+$('simPresets').addEventListener('click',e=>{const b=e.target.closest('.model');if(!b)return;const k=b.dataset.k;loadCP(CP_PRESETS[k],SIMINFO.find(x=>x[0]===k)[1],k);setTimeout(()=>{simTarget=1;$('simPlay').textContent='Pause'},350)});
+function clearSim(){while(simGroup.children.length){const o=simGroup.children.pop();o.geometry&&o.geometry.dispose()}sim=null}
+function loadCP(segs,name,key){
+  clearSim();let M;try{M=CPSim.build(segs)}catch(err){toast('Could not read that crease pattern');return false}
+  if(!M.T.length||M.T.length>4000){toast(M.T.length?'That pattern is too big for this simulator':'No paper found in that file');return false}
+  simM=M;sim=CPSim.makeSim(M);simSegs=segs;simKey=key||null;simName=name;simPct=0;simTarget=0;
+  simRate=1/Math.min(20000,Math.max(3000,2500+M.C.filter(c=>!c.facet).length*70));
+  const n=M.T.length;simGeo=new THREE.BufferGeometry();simGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*9),3));
+  // uvs from the flat pattern
+  let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;M.V.forEach(p=>{mnx=Math.min(mnx,p[0]);mny=Math.min(mny,p[1]);mxx=Math.max(mxx,p[0]);mxy=Math.max(mxy,p[1])});const sc=Math.max(mxx-mnx,mxy-mny)||1;
+  const uv=new Float32Array(n*6);M.T.forEach((t,f)=>t.forEach((v,k)=>{uv[f*6+k*2]=(M.V[v][0]-mnx)/sc;uv[f*6+k*2+1]=1-(M.V[v][1]-mny)/sc}));simGeo.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  const st=styleById(state.style);
+  simMeshF=new THREE.Mesh(simGeo,new THREE.MeshStandardMaterial({map:styleTex(st),side:THREE.BackSide,roughness:.85,flatShading:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));
+  simMeshB=new THREE.Mesh(simGeo,new THREE.MeshStandardMaterial({color:st.back,side:THREE.FrontSide,roughness:.9,flatShading:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));
+  simMeshF.castShadow=simMeshB.castShadow=true;simGroup.add(simMeshF,simMeshB);
+  const ce=M.E.map((e,i)=>[e,i]).filter(([e])=>e.t==='M'||e.t==='V'||e.t==='B');
+  simLineGeo=new THREE.BufferGeometry();simLineGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(ce.length*6),3));
+  const colA=new Float32Array(ce.length*6);ce.forEach(([e],i)=>{const c=e.t==='M'?[.78,.19,.17]:e.t==='V'?[.17,.36,.68]:[.14,.12,.11];colA.set(c,i*6);colA.set(c,i*6+3)});simLineGeo.setAttribute('color',new THREE.BufferAttribute(colA,3));
+  simLines=new THREE.LineSegments(simLineGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.55}));simLines.userData.edges=ce.map(([e])=>e.v);simLines.visible=simShowLines;simGroup.add(simLines);
+  simGroup.scale.setScalar(1.25);simGroup.position.set(0,0,.9);
+  syncSim();$('simName').textContent=name;$('simInfo').textContent=`${M.C.filter(c=>!c.facet).length} creases`;
+  document.querySelectorAll('#simPresets .model').forEach(b=>b.classList.toggle('on',b.dataset.k===key));
+  $('simBar').classList.add('on');$('simPlay').textContent='Fold it';simUI();
+  camGoal={t:new THREE.Vector3(0,SPH(),.9),pos:new THREE.Vector3(2.2*AF(),-3.4*AF()+SPH(),3.6*AF())};
+  return true;
+}
+function syncSim(){
+  const X=sim.X,P=simGeo.attributes.position.array;simM.T.forEach((t,f)=>{for(let k=0;k<3;k++){const v=t[k];P[f*9+k*3]=X[3*v];P[f*9+k*3+1]=X[3*v+1];P[f*9+k*3+2]=X[3*v+2]}});
+  simGeo.attributes.position.needsUpdate=true;simGeo.computeVertexNormals();simGeo.computeBoundingSphere();
+  if(simLines){const L=simLineGeo.attributes.position.array;simLines.userData.edges.forEach(([a,b],i)=>{L.set([X[3*a],X[3*a+1],X[3*a+2]],i*6);L.set([X[3*b],X[3*b+1],X[3*b+2]],i*6+3)});simLineGeo.attributes.position.needsUpdate=true;simLineGeo.computeBoundingSphere()}
+}
+function simUI(){$('simPct').textContent=Math.round(simPct*100)+'%';if(document.activeElement!==$('simSlider'))$('simSlider').value=Math.round(simTarget*100)}
+function stepSim(){
+  if(!sim)return;const t0=performance.now();let k=0;
+  while(performance.now()-t0<9&&k<400){if(simPct<simTarget)simPct=Math.min(simTarget,simPct+simRate);else if(simPct>simTarget)simPct=Math.max(simTarget,simPct-simRate*2);sim.setPercent(simPct);sim.step();k++}
+  sim.center();syncSim();simUI();
+  if(simTarget===1&&simPct>=1&&$('simPlay').textContent==='Pause')$('simPlay').textContent='Fold it';
+}
+$('simSlider').addEventListener('input',e=>{if(mode==='wrap')wrapTarget=e.target.value/100;else simTarget=e.target.value/100;$('simPlay').textContent='Fold it'});
+$('simPlay').addEventListener('click',()=>{const w=mode==='wrap';if(w?!wrap:!sim)return;if($('simPlay').textContent==='Pause'){if(w)wrapTarget=wrapPct;else simTarget=simPct;$('simPlay').textContent='Fold it';return}if(w)wrapTarget=1;else simTarget=1;$('simPlay').textContent='Pause';sfx('fold')});
+$('simFlat').addEventListener('click',()=>{if(mode==='wrap'){if(wrap)wrapTarget=0}else if(sim)simTarget=0;$('simPlay').textContent='Fold it'});
+segInit('segLines',v=>{simShowLines=v==='1';if(simLines)simLines.visible=simShowLines});
+function drawPapers2(){$('papers2').innerHTML=$('papers').innerHTML||STYLES.map(s=>`<button class="pp${s.id===state.style?' on':''}" data-id="${s.id}" title="${s.name}" style="background-image:url(${styleTex(s).image.toDataURL('image/jpeg',.5)})"></button>`).join('');[...$('papers2').children].forEach(b=>b.classList.toggle('on',b.dataset.id===state.style))}
+$('papers2').addEventListener('click',e=>{const b=e.target.closest('.pp');if(!b)return;state.style=b.dataset.id;const st=styleById(state.style);[simMeshF,wrapMeshF].forEach(m=>{if(m){m.material.map=styleTex(st);m.material.needsUpdate=true}});[simMeshB,wrapMeshB].forEach(m=>{if(m)m.material.color.set(st.back)});drawPapers2()});
+$('simSave').addEventListener('click',()=>{
+  if(mode==='wrap'){if(!wrap){toast('Pick a model first');return}saveSimItem({kind:'wrap',key:wrap.key,name:'Paper '+wrap.name,pct:wrapPct});return}
+  if(!sim){toast('Pick a crease pattern first');return}saveSimItem({kind:'cp',key:simKey,segs:simKey?null:simSegs,name:simName,pct:simPct});
+});
+function saveSimItem(it){const g=loadG();const item={id:Date.now(),...it,style:state.style,steps:[],sheet:'square',thumb:snapshot(),date:new Date().toLocaleDateString()};g.unshift(item);while(g.length>40)g.pop();if(!saveG(g)){item.segs=null;g[0]=item;saveG(g)}toast('Saved to your gallery');sfx('save')}
+// upload crease pattern
+$('cpFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const txt=await f.text();e.target.value='';
+  let segs=null;try{segs=/\.fold$/i.test(f.name)||txt.trim().startsWith('{')?foldToSegs(JSON.parse(txt)):svgToSegs(txt)}catch(err){segs=null}
+  if(!segs||segs.length<3){toast('Could not find any creases in that file');return}
+  if(loadCP(segs,f.name.replace(/\.(svg|fold)$/i,''),null)){toast('Loaded! Press Fold it');}});
+function normSegs(segs){const xs=segs.flatMap(s=>[s[0],s[2]]),ys=segs.flatMap(s=>[s[1],s[3]]),mx=Math.min(...xs),my=Math.min(...ys),sc=Math.max(Math.max(...xs)-mx,Math.max(...ys)-my)||1;return segs.map(s=>[(s[0]-mx)/sc,(s[1]-my)/sc,(s[2]-mx)/sc,(s[3]-my)/sc,s[4],s[5]])}
+function foldToSegs(F){const fr=F.vertices_coords?F:(F.file_frames&&F.file_frames[0])||F;const V=fr.vertices_coords,E=fr.edges_vertices,A=fr.edges_assignment||[],G=fr.edges_foldAngle||[];
+  return normSegs(E.map((e,i)=>{const a=(A[i]||'U').toUpperCase();const t=a==='M'||a==='V'||a==='B'||a==='F'||a==='C'?a:'U';let ang=G[i];if(ang==null)ang=t==='M'?-180:t==='V'?180:t==='F'?0:null;return[V[e[0]][0],V[e[0]][1],V[e[1]][0],V[e[1]][1],t,ang]}))}
+function svgToSegs(txt){
+  const doc=new DOMParser().parseFromString(txt,'image/svg+xml');const svg=doc.querySelector('svg');if(!svg)return null;
+  const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:10px;height:10px;overflow:hidden';const node=document.importNode(svg,true);host.appendChild(node);document.body.appendChild(host);
+  const out=[];const typ=c=>{c=(c||'').replace(/\s/g,'').toLowerCase();const m=c.match(/^rgb\((\d+),(\d+),(\d+)\)$/);let hex=c;if(m)hex='#'+[m[1],m[2],m[3]].map(x=>(+x).toString(16).padStart(2,'0')).join('');if(hex.length===4)hex='#'+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3];
+    return {'#000000':'B','black':'B','#ff0000':'M','red':'M','#0000ff':'V','blue':'V','#ffff00':'F','yellow':'F','#ff00ff':'U','magenta':'U','#00ff00':'C','lime':'C'}[hex]};
+  for(const el of node.querySelectorAll('line,rect,polygon,polyline,path')){
+    const cs=getComputedStyle(el),t=typ(cs.stroke!=='none'?cs.stroke:el.getAttribute('stroke'));if(!t)continue;
+    let op=parseFloat(cs.opacity);if(isNaN(op))op=1;let so=parseFloat(cs.strokeOpacity);if(isNaN(so))so=1;op*=so;const ang=t==='M'?-op*180:t==='V'?op*180:t==='F'?0:null;
+    const M=el.getCTM?el.getCTM():null;const tp=(x,y)=>M?[M.a*x+M.c*y+M.e,M.b*x+M.d*y+M.f]:[x,y];let L=[];
+    const g=a=>parseFloat(el.getAttribute(a))||0;const tag=el.tagName.toLowerCase();
+    if(tag==='line')L=[[g('x1'),g('y1'),g('x2'),g('y2')]];
+    else if(tag==='rect'){const x=g('x'),y=g('y'),w=g('width'),h=g('height');L=[[x,y,x+w,y],[x+w,y,x+w,y+h],[x+w,y+h,x,y+h],[x,y+h,x,y]]}
+    else if(tag==='polygon'||tag==='polyline'){const p=(el.getAttribute('points')||'').match(/-?\d*\.?\d+(?:e-?\d+)?/gi).map(Number);for(let i=0;i+3<p.length;i+=2)L.push([p[i],p[i+1],p[i+2],p[i+3]]);if(tag==='polygon')L.push([p[p.length-2],p[p.length-1],p[0],p[1]])}
+    else L=pathSegs(el.getAttribute('d')||'');
+    for(const l of L){const a=tp(l[0],l[1]),b=tp(l[2],l[3]);out.push([a[0],a[1],b[0],b[1],t,ang])}}
+  host.remove();return out.length?normSegs(out):null;
+}
+function pathSegs(d){const out=[];let cx=0,cy=0,sx=0,sy=0;const re=/([MLHVZCSQTAmlhvzcsqta])([^MLHVZCSQTAmlhvzcsqta]*)/g;let m,first=true;const nums=s=>(s.match(/-?\d*\.?\d+(?:e-?\d+)?/gi)||[]).map(Number);
+  while((m=re.exec(d))){const c=m[1],n=nums(m[2]),rel=c===c.toLowerCase();let i=0;const C=c.toUpperCase();
+    if(C==='M'){let st=true;while(i+1<n.length){let x=n[i],y=n[i+1];if(rel&&!first){x+=cx;y+=cy}first=false;if(st){cx=x;cy=y;sx=x;sy=y;st=false}else{out.push([cx,cy,x,y]);cx=x;cy=y}i+=2}}
+    else if(C==='L'||C==='T'){while(i+1<n.length){let x=n[i],y=n[i+1];if(rel){x+=cx;y+=cy}out.push([cx,cy,x,y]);cx=x;cy=y;i+=2}}
+    else if(C==='H'){while(i<n.length){const x=rel?cx+n[i]:n[i];out.push([cx,cy,x,cy]);cx=x;i++}}
+    else if(C==='V'){while(i<n.length){const y=rel?cy+n[i]:n[i];out.push([cx,cy,cx,y]);cy=y;i++}}
+    else if(C==='Z'){if(cx!==sx||cy!==sy)out.push([cx,cy,sx,sy]);cx=sx;cy=sy}
+    else{const w={C:6,S:4,Q:4,A:7}[C];while(i+w-1<n.length){let x=n[i+w-2],y=n[i+w-1];if(rel){x+=cx;y+=cy}out.push([cx,cy,x,y]);cx=x;cy=y;i+=w}}
+    first=false}
+  return out}
+
+/* ======================= 3D model → paper (experimental wrap) ======================= */
+let wrap=null,wrapPct=0,wrapTarget=0,wrapMeshF,wrapMeshB,wrapGhost;
+const WRAPS=[['sphere','Ball','Round things wrap the cleanest.'],['teapot','Teapot','The famous computer-graphics teapot.'],['duck','Duck','Quack, but crumpled.'],['heart','Heart','A paper heart with lots of creases.'],['cube','Cube','Gift-wrapping, basically.'],['star','Star','Five points to cover.'],['donut','Donut','The hole gets papered over.'],['rocket','Rocket','Fins and a pointy nose.']];
+function wrapIcon(k){const ic={sphere:'<circle cx="28" cy="30" r="18"/>',teapot:'<path d="M14 26h26v12c0 6-5 10-13 10s-13-4-13-10z M40 30c8 0 8 10 0 10 M14 30l-8-6 M22 26c0-6 10-6 10 0"/>',duck:'<circle cx="24" cy="34" r="14"/><circle cx="38" cy="20" r="8"/><path d="M46 20l8 2-8 3z"/>',heart:'<path d="M28 48C10 36 8 24 16 18s12 2 12 6c0-4 4-12 12-6s6 18-12 30z"/>',cube:'<path d="M12 20l16-8 16 8v20l-16 8-16-8z M12 20l16 8 16-8 M28 28v20"/>',star:'<path d="M28 8l6 14 15 1-12 9 4 15-13-8-13 8 4-15-12-9 15-1z"/>',donut:'<circle cx="28" cy="30" r="18"/><circle cx="28" cy="30" r="6"/>',rocket:'<path d="M28 6c8 8 10 22 6 34h-12c-4-12-2-26 6-34z M22 34l-8 10h10 M34 34l8 10H32"/>'}[k];return `<svg viewBox="0 0 56 56"><g fill="#f3e9d8" stroke="#231f1c" stroke-width="2" stroke-linejoin="round">${ic}</g></svg>`}
+$('wrapPresets').innerHTML=WRAPS.map(([k,n,d])=>`<button class="model" data-k="${k}">${wrapIcon(k)}<div><b>${n}</b><span>${d}</span></div></button>`).join('');
+$('wrapPresets').addEventListener('click',e=>{const b=e.target.closest('.model');if(!b)return;const k=b.dataset.k;startWrap(presetGeo(k),WRAPS.find(w=>w[0]===k)[1],k)});
+function presetGeo(k){
+  let g;
+  if(k==='sphere')g=new THREE.IcosahedronGeometry(1,3);
+  else if(k==='cube')g=new THREE.BoxGeometry(1.5,1.5,1.5);
+  else if(k==='teapot')g=new TeapotGeometry(.8,6);
+  else if(k==='donut')g=new THREE.TorusGeometry(.9,.42,14,28);
+  else if(k==='heart'||k==='star'){const s=new THREE.Shape();if(k==='heart'){s.moveTo(0,-.9);s.bezierCurveTo(-1.6,.1,-.9,1.2,0,.5);s.bezierCurveTo(.9,1.2,1.6,.1,0,-.9)}else{for(let i=0;i<10;i++){const r=i%2?.45:1.05,a=Math.PI/2+i*Math.PI/5;i?s.lineTo(Math.cos(a)*r,Math.sin(a)*r):s.moveTo(Math.cos(a)*r,Math.sin(a)*r)}}
+    g=new THREE.ExtrudeGeometry(s,{depth:.5,bevelEnabled:true,bevelThickness:.18,bevelSize:.14,bevelSegments:3,curveSegments:16});g.center()}
+  else if(k==='duck'){const parts=[new THREE.SphereGeometry(.85,24,16).scale(1.15,.85,.9),new THREE.SphereGeometry(.48,20,14).translate(.75,.75,0),new THREE.ConeGeometry(.16,.42,12).rotateZ(-Math.PI/2).translate(1.3,.68,0),new THREE.ConeGeometry(.3,.6,12).rotateZ(Math.PI/2.4).translate(-1.05,.35,0)];g=mergeGeometries(parts.map(p=>{p=p.toNonIndexed();p.deleteAttribute('uv');p.deleteAttribute('normal');return p}))}
+  else if(k==='rocket'){const parts=[new THREE.CylinderGeometry(.42,.42,1.5,20),new THREE.ConeGeometry(.42,.7,20).translate(0,1.1,0),new THREE.BoxGeometry(.08,.6,.9).translate(0,-.55,0),new THREE.BoxGeometry(.9,.6,.08).translate(0,-.55,0)];g=mergeGeometries(parts.map(p=>{p=p.toNonIndexed();p.deleteAttribute('uv');p.deleteAttribute('normal');return p}))}
+  return g;
+}
+$('objFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';try{
+  let g;if(/\.stl$/i.test(f.name))g=new STLLoader().parse(await f.arrayBuffer());
+  else{const grp=new OBJLoader().parse(await f.text());const gs=[];grp.updateMatrixWorld(true);grp.traverse(o=>{if(o.isMesh){let q=o.geometry.clone().applyMatrix4(o.matrixWorld);q=q.index?q.toNonIndexed():q;for(const a of Object.keys(q.attributes))if(a!=='position')q.deleteAttribute(a);gs.push(q)}});g=gs.length>1?mergeGeometries(gs):gs[0]}
+  if(!g||!g.attributes.position||g.attributes.position.count<9)throw 0;startWrap(g,f.name.replace(/\.(obj|stl)$/i,''),null)}catch(err){toast('Could not read that model')}});
+function startWrap(geo,name,key){
+  clearWrap();geo=geo.index?geo.toNonIndexed():geo.clone();geo.computeBoundingBox();const bb=geo.boundingBox,c=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3());const s=1.7/Math.max(sz.x,sz.y,sz.z);
+  geo.translate(-c.x,-c.y,-c.z);geo.scale(s,s,s);geo.computeBoundingBox();geo.computeVertexNormals();
+  const P=geo.attributes.position.array,nt=P.length/9;
+  // surface samples (area weighted) + surface area
+  const areas=new Float64Array(nt);let A=0;const v=i=>[P[i],P[i+1],P[i+2]];
+  for(let t=0;t<nt;t++){const a=v(t*9),b=v(t*9+3),cc=v(t*9+6);const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],w=[cc[0]-a[0],cc[1]-a[1],cc[2]-a[2]];const ar=.5*Math.hypot(u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]);A+=ar;areas[t]=A}
+  const NS=9000,S=new Float32Array(NS*3);for(let i=0;i<NS;i++){const r=Math.random()*A;let lo=0,hi=nt-1;while(lo<hi){const m=(lo+hi)>>1;if(areas[m]<r)lo=m+1;else hi=m}let r1=Math.random(),r2=Math.random();if(r1+r2>1){r1=1-r1;r2=1-r2}const a=v(lo*9),b=v(lo*9+3),cc=v(lo*9+6);for(let k=0;k<3;k++)S[i*3+k]=a[k]+(b[k]-a[k])*r1+(cc[k]-a[k])*r2}
+  const sdf=buildSDF(S,geo.boundingBox);
+  // the sheet
+  const side=Math.sqrt(A*1.6),N=26,V=[],T=[],E=[];
+  for(let j=0;j<=N;j++)for(let i=0;i<=N;i++)V.push([i/N,j/N]);
+  const id=(i,j)=>j*(N+1)+i;for(let j=0;j<N;j++)for(let i=0;i<N;i++){const a=id(i,j),b=id(i+1,j),d=id(i,j+1),e=id(i+1,j+1);if((i+j)%2){T.push([a,b,e],[a,e,d])}else{T.push([a,b,d],[b,e,d])}}
+  const ek=new Map();T.forEach((t,f)=>{for(let k=0;k<3;k++){const a=t[k],b=t[(k+1)%3],key=Math.min(a,b)+'_'+Math.max(a,b);if(!ek.has(key)){ek.set(key,{v:[a,b],faces:[]});}ek.get(key).faces.push(f)}});
+  const C=[];[...ek.values()].forEach((e,ei)=>{E.push({v:e.v,t:e.faces.length===2?'F':'B',ang:0});if(e.faces.length===2){const[f1,f2]=e.faces;const o1=T[f1].find(x=>!e.v.includes(x)),o2=T[f2].find(x=>!e.v.includes(x));const t2=T[f2],i1=t2.indexOf(e.v[0]),i2=t2.indexOf(e.v[1]);let p=[f1,o1,f2,o2];if(i2-i1===1||i2-i1===-2)p=[f2,o2,f1,o1];C.push({f1:p[0],n1:p[1],f2:p[2],n2:p[3],e:ei,a:e.v[0],b:e.v[1],target:0,facet:true})}});
+  const top=geo.boundingBox.max.y+.18,pos3=new Float64Array(V.length*3);V.forEach((p,i)=>{pos3[3*i]=(p[0]-.5)*side;pos3[3*i+1]=top;pos3[3*i+2]=(p[1]-.5)*side});
+  const M={V,E,T,C};
+  const th=.035;
+  const s3=CPSim.makeSim(M,{pos3,panel:.012,face:.2,crease:.05,ext:(X,Vel,F,pct)=>{const k=pct*6;const g=[0,0,0];for(let i=0;i<V.length;i++){const sm=sdf.sample(X[3*i],X[3*i+1],X[3*i+2]);const d=sm[0];g[0]=sm[1];g[1]=sm[2];g[2]=sm[3];
+      if(d>th){const m=Math.min(d-th,.6)*k;F[3*i]-=g[0]*m;F[3*i+1]-=g[1]*m;F[3*i+2]-=g[2]*m}
+      else{const m=(th-d)*60;F[3*i]+=g[0]*m;F[3*i+1]+=g[1]*m;F[3*i+2]+=g[2]*m;const vn=Vel[3*i]*g[0]+Vel[3*i+1]*g[1]+Vel[3*i+2]*g[2];if(vn<0){Vel[3*i]-=vn*g[0];Vel[3*i+1]-=vn*g[1];Vel[3*i+2]-=vn*g[2]}}
+      Vel[3*i]*=.996;Vel[3*i+1]*=.996;Vel[3*i+2]*=.996}}});
+  wrap={sim:s3,M,name,key,geo,sdf};wrapPct=0;wrapTarget=0;
+  const n=T.length,g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*9),3));const uv=new Float32Array(n*6);T.forEach((t,f)=>t.forEach((vv,k)=>{uv[f*6+k*2]=V[vv][0];uv[f*6+k*2+1]=V[vv][1]}));g2.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  const st=styleById(state.style);
+  wrapMeshF=new THREE.Mesh(g2,new THREE.MeshStandardMaterial({map:styleTex(st),side:THREE.BackSide,roughness:.8,flatShading:true}));
+  wrapMeshB=new THREE.Mesh(g2,new THREE.MeshStandardMaterial({color:st.back,side:THREE.FrontSide,roughness:.85,flatShading:true}));
+  wrapMeshF.castShadow=wrapMeshB.castShadow=true;wrapGhost=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:'#bfb3a3',transparent:true,opacity:.35,roughness:1}));
+  wrapGroup.add(wrapGhost,wrapMeshF,wrapMeshB);wrapGroup.rotation.x=Math.PI/2;wrapGroup.position.set(0,0,1.2);wrap.g2=g2;syncWrap();
+  $('simName').textContent=name;$('simInfo').textContent='experimental';$('simBar').classList.add('on');$('simPlay').textContent='Pause';wrapTarget=1;
+  document.querySelectorAll('#wrapPresets .model').forEach(b=>b.classList.toggle('on',b.dataset.k===key));
+  camGoal={t:new THREE.Vector3(0,SPH(),1.1),pos:new THREE.Vector3(2.6*AF(),-3.8*AF()+SPH(),3.2*AF())};
+}
+function clearWrap(){while(wrapGroup.children.length){const o=wrapGroup.children.pop();if(o.geometry&&o!==wrapGhost)o.geometry.dispose()}wrap=null}
+function syncWrap(){const X=wrap.sim.X,P=wrap.g2.attributes.position.array;wrap.M.T.forEach((t,f)=>{for(let k=0;k<3;k++){const v=t[k];P[f*9+k*3]=X[3*v];P[f*9+k*3+1]=X[3*v+1];P[f*9+k*3+2]=X[3*v+2]}});wrap.g2.attributes.position.needsUpdate=true;wrap.g2.computeVertexNormals();wrap.g2.computeBoundingSphere();wrapGhost.material.opacity=.35*(1-Math.min(1,wrapPct*1.4))+.04}
+function stepWrap(){if(!wrap)return;const t0=performance.now();let k=0;while(performance.now()-t0<10&&k<120){if(wrapPct<wrapTarget)wrapPct=Math.min(wrapTarget,wrapPct+1/2600);else if(wrapPct>wrapTarget)wrapPct=Math.max(wrapTarget,wrapPct-1/800);wrap.sim.setPercent(wrapPct);wrap.sim.step();k++}
+  syncWrap();$('simPct').textContent=Math.round(wrapPct*100)+'%';if(document.activeElement!==$('simSlider'))$('simSlider').value=Math.round(wrapTarget*100);if(wrapTarget===1&&wrapPct>=1&&$('simPlay').textContent==='Pause')$('simPlay').textContent='Fold it'}
+function buildSDF(S,bb){
+  const pad=.6,mn=bb.min.clone().addScalar(-pad),mx=bb.max.clone().addScalar(pad),R=40,size=mx.clone().sub(mn),h=Math.max(size.x,size.y,size.z)/(R-1);
+  const nx=Math.ceil(size.x/h)+1,ny=Math.ceil(size.y/h)+1,nz=Math.ceil(size.z/h)+1,NN=nx*ny*nz,near=new Int32Array(NN).fill(-1),D=new Float32Array(NN).fill(1e9);
+  const ix=(i,j,k)=>(k*ny+j)*nx+i,ns=S.length/3;
+  for(let s=0;s<ns;s++){const i=Math.round((S[3*s]-mn.x)/h),j=Math.round((S[3*s+1]-mn.y)/h),k=Math.round((S[3*s+2]-mn.z)/h);for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const a=i+di,b=j+dj,c=k+dk;if(a<0||b<0||c<0||a>=nx||b>=ny||c>=nz)continue;const q=ix(a,b,c),d=Math.hypot(mn.x+a*h-S[3*s],mn.y+b*h-S[3*s+1],mn.z+c*h-S[3*s+2]);if(d<D[q]){D[q]=d;near[q]=s}}}
+  // propagate nearest-sample (two sweeps, a few passes)
+  for(let pass=0;pass<4;pass++)for(const dir of[1,-1]){const st=dir>0?0:NN-1;for(let q=st;q>=0&&q<NN;q+=dir){const i=q%nx,j=((q/nx)|0)%ny,k=(q/(nx*ny))|0;
+    for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const a=i+di,b=j+dj,c=k+dk;if(a<0||b<0||c<0||a>=nx||b>=ny||c>=nz)continue;const s=near[ix(a,b,c)];if(s<0)continue;const d=Math.hypot(mn.x+i*h-S[3*s],mn.y+j*h-S[3*s+1],mn.z+k*h-S[3*s+2]);if(d<D[q]){D[q]=d;near[q]=s}}}}
+  // inside/outside by flood fill from the border through voxels away from the surface
+  const out=new Uint8Array(NN),stack=[0];out[0]=1;const thr=h*.9;
+  while(stack.length){const q=stack.pop(),i=q%nx,j=((q/nx)|0)%ny,k=(q/(nx*ny))|0;for(const[di,dj,dk]of[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){const a=i+di,b=j+dj,c=k+dk;if(a<0||b<0||c<0||a>=nx||b>=ny||c>=nz)continue;const r=ix(a,b,c);if(out[r]||D[r]<thr)continue;out[r]=1;stack.push(r)}}
+  for(let q=0;q<NN;q++)if(!out[q]&&D[q]>=thr)D[q]=-D[q];
+  const val=(i,j,k)=>D[ix(Math.max(0,Math.min(nx-1,i)),Math.max(0,Math.min(ny-1,j)),Math.max(0,Math.min(nz-1,k)))];
+  const GX=new Float32Array(NN),GY=new Float32Array(NN),GZ=new Float32Array(NN);
+  for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const q=ix(i,j,k);GX[q]=val(i+1,j,k)-val(i-1,j,k);GY[q]=val(i,j+1,k)-val(i,j-1,k);GZ[q]=val(i,j,k+1)-val(i,j,k-1)}
+  const out4=new Float64Array(4);
+  function sample(x,y,z){const fx=(x-mn.x)/h,fy=(y-mn.y)/h,fz=(z-mn.z)/h;const cx=Math.max(0,Math.min(nx-1.001,fx)),cy=Math.max(0,Math.min(ny-1.001,fy)),cz=Math.max(0,Math.min(nz-1.001,fz));const extra=Math.hypot(fx-cx,fy-cy,fz-cz)*h;
+    const i=Math.floor(cx),j=Math.floor(cy),k=Math.floor(cz),u=cx-i,v=cy-j,w=cz-k;const q000=ix(i,j,k),q100=q000+1,q010=q000+nx,q110=q010+1,q001=q000+nx*ny,q101=q001+1,q011=q001+nx,q111=q011+1;
+    const w000=(1-u)*(1-v)*(1-w),w100=u*(1-v)*(1-w),w010=(1-u)*v*(1-w),w110=u*v*(1-w),w001=(1-u)*(1-v)*w,w101=u*(1-v)*w,w011=(1-u)*v*w,w111=u*v*w;
+    const L=A=>A[q000]*w000+A[q100]*w100+A[q010]*w010+A[q110]*w110+A[q001]*w001+A[q101]*w101+A[q011]*w011+A[q111]*w111;
+    out4[0]=L(D)+extra;let gx=L(GX),gy=L(GY),gz=L(GZ);if(extra>0){gx=fx-cx;gy=fy-cy;gz=fz-cz}const l=Math.hypot(gx,gy,gz)||1;out4[1]=gx/l;out4[2]=gy/l;out4[3]=gz/l;return out4}
+  function dist(x,y,z){let fx=(x-mn.x)/h,fy=(y-mn.y)/h,fz=(z-mn.z)/h;let extra=0;const cx=Math.max(0,Math.min(nx-1.001,fx)),cy=Math.max(0,Math.min(ny-1.001,fy)),cz=Math.max(0,Math.min(nz-1.001,fz));extra=Math.hypot(fx-cx,fy-cy,fz-cz)*h;
+    const i=Math.floor(cx),j=Math.floor(cy),k=Math.floor(cz),u=cx-i,v=cy-j,w=cz-k;const l=(a,b,t)=>a+(b-a)*t;
+    return extra+l(l(l(val(i,j,k),val(i+1,j,k),u),l(val(i,j+1,k),val(i+1,j+1,k),u),v),l(l(val(i,j,k+1),val(i+1,j,k+1),u),l(val(i,j+1,k+1),val(i+1,j+1,k+1),u),v),w)}
+  function grad(x,y,z){const e=h*.5;let g=[dist(x+e,y,z)-dist(x-e,y,z),dist(x,y+e,z)-dist(x,y-e,z),dist(x,y,z+e)-dist(x,y,z-e)];const l=Math.hypot(...g)||1;return g.map(a=>a/l)}
+  return{dist,grad,sample};
+}
+
+setMode('learn');loop();
+window.__O={camTop:()=>{camGoal=null;camera.position.set(0,-.01,6);controls.target.set(0,0,0);camera.lookAt(0,0,0)},state:()=>state,MODELS,startTut,setMode,replay,proj:(x,y)=>{const v=new THREE.Vector3(x,y,topZ()).project(camera);return[(v.x+1)/2*innerWidth,(1-v.y)/2*innerHeight]}};
+</script>
+</body>
+</html>
