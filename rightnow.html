@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="theme-color" content="#0e2a5c">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Right Now · Kai.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,500&family=Nunito:wght@700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14202b;--card:#fffdf6;--soft:#5d6873;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0e2a5c;font:700 14px/1.4 Nunito,system-ui,sans-serif;color:var(--ink);overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;display:block;touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.top{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 0;pointer-events:none;gap:8px}
+.top>*{pointer-events:auto}
+.pill{font:800 13px Nunito,sans-serif;color:var(--ink);text-decoration:none;background:var(--card);border-radius:999px;padding:7px 14px;box-shadow:0 2px 10px #0003;border:0}
+.clock{font:600 12px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.key{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));width:300px;max-width:calc(100vw - 28px);background:var(--card);border-radius:18px;box-shadow:0 8px 30px #0004;padding:14px 14px 12px}
+.key h1{font:700 26px/1 Fraunces,Georgia,serif;margin:0;letter-spacing:-.01em}
+.key h1 em{font-style:italic;font-weight:500;color:#5b7a3a}
+.key .s{color:var(--soft);font-size:12px;margin:3px 0 10px;font-weight:700}
+.row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 6px;border-radius:10px;cursor:pointer;user-select:none;width:100%;background:none;border:0;font:inherit;color:inherit;text-align:left}
+.row:hover{background:#0000000a}
+.row.off{opacity:.35}
+.sw{width:18px;height:18px;border-radius:50%;display:grid;place-items:center}
+.sw i{width:9px;height:9px;border-radius:50%;background:#fff}
+.row b{display:block;font-size:14px;line-height:1.15}
+.row small{display:block;color:var(--soft);font-size:11.5px;font-weight:700}
+.row .n{font:600 16px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.tick{margin-top:8px;padding-top:8px;border-top:1.5px dashed #d8d2c4;font-size:12.5px;min-height:38px;display:flex;gap:7px;align-items:flex-start}
+.tick .d{width:9px;height:9px;border-radius:50%;flex:none;margin-top:4px}
+.more{background:none;border:0;padding:0;margin-top:6px;font:800 11.5px Nunito,sans-serif;color:var(--soft);text-decoration:underline;cursor:pointer}
+.info{font-size:11.5px;color:var(--soft);line-height:1.45;margin-top:6px}
+.info a{color:var(--ink)}
+.tip{position:fixed;pointer-events:none;background:var(--card);border-radius:12px;padding:8px 11px;font-size:12.5px;line-height:1.35;box-shadow:0 6px 20px #0004;transform:translate(-50%,calc(-100% - 14px));white-space:nowrap;z-index:5}
+.tip b{font-size:14px}
+.load{position:fixed;inset:0;display:grid;place-items:center;color:#fff;font:800 16px Nunito,sans-serif}
+.hint{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));background:#0006;color:#fff;font:700 12px Nunito,sans-serif;border-radius:999px;padding:6px 12px;pointer-events:none;transition:opacity 1s}
+@media (max-width:560px){.key{width:auto;right:14px;padding:12px}.key h1{font-size:22px}.row{padding:4px}.row small{display:none}.hint{display:none}.key .s{display:none}.key .rows{display:grid;grid-template-columns:1fr 1fr;gap:2px 6px}.row .n{font-size:14px}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="load" id="load">Loading the planet…</div>
+<div class="top"><a class="pill" href="index.html">← Kai.fun</a><span class="pill clock" id="clock"></span></div>
+<div class="key" id="key">
+  <h1>Right <em>Now</em></h1>
+  <div class="s">Things happening on Earth at their real speed. Since you got here:</div>
+  <div class="rows" id="rows"></div>
+  <div class="tick" id="tick"><span class="d"></span><span>Watching the planet…</span></div>
+  <button class="more" id="more">Where does this come from?</button>
+  <div class="info" id="info" hidden></div>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="hint" id="hint">Drag to move the map · hover a country</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+(async()=>{
+const $=id=>document.getElementById(id);
+const T={
+ baby:{c:'#ff2e7e',name:'Babies born',rate:0},
+ bday:{c:'#b48bff',name:'Birthdays',rate:0},
+ bolt:{c:'#ffe14a',name:'Lightning flashes',rate:46},
+ quake:{c:'#ff5a36',name:'Earthquakes',rate:0}};
+const on={baby:true,bday:true,bolt:true,quake:true};
+/* Lightning: where it really happens, following NASA's LIS/OTD satellite lightning climatology.
+   [lon, lat, x-radius°, y-radius°, flashes per km² per year] */
+const BOLT_LAND=[[27,-1,6,5,60],[20,-2,6,5,40],[12,2,5,4,35],[9,8,6,4,30],[-10,10,6,3,25],[5,13,15,3,8],[38,9,4,4,20],[33,0,4,4,45],[28,-12,10,5,25],[28,-27,4,3,25],[47,-18,2,5,15],
+[-71.6,9.8,1,1,230],[-74.5,6,2.5,4,60],[-64,6,5,3,20],[-60,-5,12,7,15],[-50,-18,7,6,20],[-59,-25,5,4,35],[-64,-31,3,3,40],[-70,-13,3,5,25],
+[-87,13,6,4,35],[-97,18,5,3,25],[-105,24,3,5,15],[-79,22,4,1.3,30],[-81.5,27.5,2,3,30],[-87,32,6,4,18],[-98,38,6,6,15],
+[73,33,3,2,60],[82,25,8,4,25],[91,25,3,2.5,40],[99,17,5,5,25],[105,14,3,5,20],[110,24,8,4,15],[102.5,3,2,3,45],[101,0,4,4,35],[114,0,4,4,35],[110,-7.5,5,1.5,35],[142,-5,6,3,25],[123,11,3,6,15],
+[132,-15,10,4,25],[150,-28,3,5,10],[12,44,8,3,5],[40,40,6,3,6],[60,52,25,6,2],[113,38,7,5,6],[50,30,8,6,2]];
+const BOLT_SEA=[[-72,33,8,4,10],[-90,25,6,3,10],[130,30,8,4,8],[118,-2,12,8,12],[89,15,5,5,8],[-25,5,18,4,4],[160,5,20,5,4],[-100,8,15,3,4],[18,37,10,3,4],[-45,-30,8,5,6],[75,-5,15,5,3],[155,-15,8,5,3]];
+function boltTable(list,share){const w=list.map(h=>h[4]*h[2]*h[3]*Math.cos(h[1]*Math.PI/180));const s=w.reduce((a,b)=>a+b,0);return list.map((h,i)=>({h,w:w[i]/s*share}))}
+const BOLT=[...boltTable(BOLT_LAND,.81),...boltTable(BOLT_SEA,.19)];
+const SHORT=n=>({'the United States':'USA','DR Congo':'DR Congo','the United Kingdom':'UK','the Central African Republic':'CAR','the UAE':'UAE','the Republic of the Congo':'Congo'}[n]||n.replace(/^the /,''));
+
+/* ---------- load everything ---------- */
+let world,DATA;const img=new Image();
+const imgP=new Promise((res,rej)=>{img.onload=res;img.onerror=rej});img.src='rightnow-earth.jpg';
+try{[world,DATA]=await Promise.all([fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r=>r.json()),fetch('rightnow-data.json').then(r=>r.json()),imgP])}
+catch(e){$('load').textContent='Could not load the map. Check your internet and refresh.';return}
+const C=DATA.C,G=DATA.G;
+const feats=topojson.feature(world,world.objects.countries).features;
+const borders=topojson.mesh(world,world.objects.countries,(a,b)=>a!==b);
+const ALIAS={'Somaliland':706,'N. Cyprus':196};
+feats.forEach(f=>{const k=f.id!==undefined?+f.id:(ALIAS[f.properties.name]||f.properties.name);f.d=C[k]||null;f.alias=!!ALIAS[f.properties.name]});
+const yearS=365.25*86400;
+const list=Object.values(C).filter(c=>G[c.c2]);
+list.forEach(c=>{c.births=c.pop*c.cbr/1000});
+T.baby.rate=list.reduce((a,c)=>a+c.births,0)/yearS;T.bday.rate=list.reduce((a,c)=>a+c.pop,0)/yearS;
+function cum(arr,f){let s=0;return{arr:arr.map(x=>(s+=f(x))),total:s}}
+const Wt={baby:cum(list,c=>c.births),bday:cum(list,c=>c.pop)};
+const pickIdx=(w,r)=>{let lo=0,hi=w.arr.length-1;r*=w.total;while(lo<hi){const m=(lo+hi)>>1;if(w.arr[m]<r)lo=m+1;else hi=m}return lo};
+const cellW={};
+function placeIn(c){const cells=G[c.c2];const w=cellW[c.c2]||(cellW[c.c2]=cum(cells,x=>x[2]));const g=cells[pickIdx(w,Math.random())];return[g[0]/5+(Math.random()-.5)*.2,g[1]/5+(Math.random()-.5)*.2]}
+const boltW=cum(BOLT,b=>b.w);
+function placeBolt(){const h=BOLT[pickIdx(boltW,Math.random())].h;let gx,gy;do{gx=(Math.random()+Math.random()+Math.random()-1.5)/1.5*2;gy=(Math.random()+Math.random()+Math.random()-1.5)/1.5*2}while(gx*gx+gy*gy>4);return[h[0]+gx*h[2]/2,h[1]+gy*h[3]/2]}
+function countryAt(ll){const f=feats.find(f=>d3.geoContains(f,ll));return f}
+
+/* ---------- canvas + projection ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');
+let vw,vh,dpr,mapW,mapH,proj,ox=0,oy=0,base,night,firstLayout=true;
+function sunPos(){const now=new Date();const start=Date.UTC(now.getUTCFullYear(),0,0);const doy=(now-start)/864e5;const g=2*Math.PI/365*(doy-1+(now.getUTCHours()-12)/24);
+  const eot=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const dec=(0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g))*180/Math.PI;
+  const mins=now.getUTCHours()*60+now.getUTCMinutes()+now.getUTCSeconds()/60;return[-(mins+eot-720)/4,dec]}
+function layout(){
+  dpr=Math.min(2,window.devicePixelRatio||1);vw=innerWidth;vh=innerHeight;cv.width=vw*dpr;cv.height=vh*dpr;
+  const R=1.96;mapW=Math.ceil(Math.max(vw,vh*R));mapH=mapW/R;
+  proj=d3.geoNaturalEarth1().fitExtent([[0,0],[mapW,mapH]],{type:'Sphere'});
+  const q=Math.min(2,dpr);base=document.createElement('canvas');base.width=Math.round(mapW*q);base.height=Math.round(mapH*q);const b=base.getContext('2d');b.scale(q,q);
+  b.imageSmoothingQuality='high';b.filter='brightness(1.15) saturate(1.12)';b.drawImage(img,0,0,mapW,mapH);b.filter='none';
+  b.beginPath();d3.geoPath(proj,b)(borders);b.strokeStyle='rgba(255,255,255,.22)';b.lineWidth=.6;b.stroke();
+  buildNight();
+  if(firstLayout){const lon=Math.max(-150,Math.min(150,-new Date().getTimezoneOffset()/4));const p=proj([lon,20]);ox=vw/2-p[0];oy=vh/2-p[1];firstLayout=false}
+  clampPan();
+}
+function clampPan(){ox=Math.min(0,Math.max(vw-mapW,ox));oy=Math.min(0,Math.max(vh-mapH,oy))}
+function buildNight(){
+  const q=Math.min(1.5,dpr)/2;night=document.createElement('canvas');night.width=Math.round(mapW*q);night.height=Math.round(mapH*q);const n=night.getContext('2d');n.scale(q,q);const p=d3.geoPath(proj,n);
+  const s=sunPos();const anti=[s[0]+180,-s[1]];
+  // civil, nautical and astronomical twilight bands, then full night
+  for(const [r,a] of [[96,.06],[90,.07],[84,.06],[78,.06]]){n.beginPath();p(d3.geoCircle().center(anti).radius(r)());n.fillStyle=`rgba(0,6,24,${a})`;n.fill()}
+}
+layout();$('load').remove();
+let rT;addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(layout,200)});
+setInterval(buildNight,60e3);
+
+/* ---------- pan ---------- */
+let drag=null,moved=0;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,ox,oy};moved=0;cv.setPointerCapture(e.pointerId);cv.classList.add('drag')});
+cv.addEventListener('pointermove',e=>{if(drag){ox=drag.ox+e.clientX-drag.x;oy=drag.oy+e.clientY-drag.y;moved=Math.max(moved,Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y));clampPan();tip.hidden=true}else if(e.pointerType==='mouse')hover(e.clientX,e.clientY)});
+const endDrag=e=>{if(drag&&moved<6)hover(e.clientX,e.clientY,true);drag=null;cv.classList.remove('drag')};
+cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+setTimeout(()=>$('hint').style.opacity=0,6000);
+
+/* ---------- events ---------- */
+const counts={baby:0,bday:0,bolt:0,quake:0},dots=[],labels=[],quakes=new Map();
+let lastLabel={};
+function label(text,mx,my,col,k){const now=performance.now();if(now-(lastLabel[k]||0)<(k==='quake'?0:k==='baby'?1300:k==='bday'?2600:2400))return;lastLabel[k]=now;labels.push({text,x:mx,y:my,col,t:now});if(labels.length>14)labels.shift()}
+function tick(k,text){$('tick').innerHTML=`<span class="d" style="background:${T[k].c}"></span><span></span>`;$('tick').lastChild.textContent=text}
+let lastTick=0;
+/* age of the person having a birthday: weighted by the world's real age structure (UN WPP 2024, 5-year groups) */
+const AGEW=[8.1,8.3,8.5,8.0,7.6,7.5,7.5,7.1,6.5,5.9,5.5,4.9,4.2,3.6,2.7,1.7,1.0,.5,.2,.04,.007];
+const ageCum=cum(AGEW,x=>x);
+const randAge=()=>{const g=pickIdx(ageCum,Math.random());return g*5+1+Math.floor(Math.random()*5)};
+function spawn(k){
+  let ll,c=null;
+  if(k==='bolt')ll=placeBolt();else{c=list[pickIdx(Wt[k],Math.random())];ll=placeIn(c)}
+  const xy=proj(ll);if(!xy)return;
+  dots.push({k,x:xy[0],y:xy[1],t:performance.now()});counts[k]++;
+  const now=performance.now();
+  if(k==='baby'){label('👶 '+SHORT(c.n),xy[0],xy[1],T.baby.c,k);if(now-lastTick>900){lastTick=now;tick(k,`A baby was just born in ${c.n}`)}}
+  else if(k==='bday'){const a=randAge();label('🎂 '+a,xy[0],xy[1],T.bday.c,k);if(now-lastTick>2500&&Math.random()<.2){lastTick=now;tick(k,`Someone in ${c.n} just turned ${a}`)}}
+  else if(k==='bolt'){label('⚡',xy[0],xy[1],T.bolt.c,k);if(now-lastTick>3000&&Math.random()<.05){lastTick=now;const f=countryAt(ll);tick(k,f&&f.d?`Lightning just flashed over ${f.d.n}`:'Lightning just flashed over the ocean')}}
+}
+async function loadQuakes(first){
+  try{const r=await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',{cache:'no-store'});const j=await r.json();
+    const fresh=[];for(const q of j.features){if(!quakes.has(q.id)){const[lon,lat]=q.geometry.coordinates;const qq={id:q.id,lon,lat,mag:q.properties.mag==null?0:q.properties.mag,time:q.properties.time,place:q.properties.place||'somewhere',born:first?0:performance.now()};quakes.set(q.id,qq);fresh.push(qq)}}
+    for(const [id,q] of quakes)if(Date.now()-q.time>864e5)quakes.delete(id);
+    counts.quake=quakes.size;
+    if(!first)for(const q of fresh){const xy=proj([q.lon,q.lat]);if(xy)label(`M${q.mag.toFixed(1)}`,xy[0],xy[1],T.quake.c,'quake');tick('quake',`M${q.mag.toFixed(1)} earthquake, ${q.place}`)}
+    else{const big=[...quakes.values()].sort((a,b)=>b.time-a.time)[0];if(big)tick('quake',`Latest earthquake: M${big.mag.toFixed(1)}, ${big.place}`)}
+    T.quake.err=false;
+  }catch(e){T.quake.err=true}
+  drawRows();
+}
+loadQuakes(true);setInterval(()=>loadQuakes(false),60e3);
+
+/* ---------- key ---------- */
+function rateTxt(k){if(k==='quake')return T.quake.err?'feed unavailable right now':'real ones, last 24 hours';const r=T[k].rate;return r>=10?`${Math.round(r)} every second`:`${r.toFixed(2)} every second`}
+function drawRows(){$('rows').innerHTML=Object.keys(T).map(k=>`<button class="row${on[k]?'':' off'}" data-k="${k}" title="Show or hide"><span class="sw" style="background:${T[k].c}"><i></i></span><span><b>${T[k].name}</b><small>${rateTxt(k)}</small></span><span class="n" id="n_${k}" style="color:${T[k].c}">${counts[k].toLocaleString()}</span></button>`).join('')}
+drawRows();
+$('rows').addEventListener('click',e=>{const b=e.target.closest('.row');if(!b)return;const k=b.dataset.k;on[k]=!on[k];b.classList.toggle('off',!on[k])});
+$('more').onclick=()=>{const i=$('info');i.hidden=!i.hidden;$('more').textContent=i.hidden?'Where does this come from?':'Hide';
+  i.innerHTML=`<b>Map:</b> NASA Blue Marble satellite photo with real mountains and sea-floor depth. The dark side is real night right now.<br>
+  <b>Babies:</b> every country's real population (World Bank 2025) times its real birth rate (World Bank 2024): ${Math.round(T.baby.rate*yearS/1e6)} million a year.<br>
+  <b>Where dots appear:</b> in real towns and cities (GeoNames: every place with 1,000+ people), picked in proportion to how many people live there.<br>
+  <b>Birthdays:</b> ${(T.bday.rate*yearS/1e9).toFixed(2)} billion people ÷ 365¼ days. Ages follow the world's real age mix.<br>
+  <b>Lightning:</b> about 46 flashes a second, placed where NASA's lightning satellites see it most (Congo, Lake Maracaibo, the Himalaya foothills…). The exact flash spots are random, like real storms.<br>
+  <b>Earthquakes:</b> the real ones from the <a href="https://earthquake.usgs.gov/earthquakes/map/" target="_blank" rel="noopener">USGS</a>, checked every minute.<br>
+  Babies, birthdays and lightning are simulated at their true speed. Nobody can track every real baby live.`};
+
+/* ---------- hover ---------- */
+const tip=$('tip');
+function every(perSec){if(perSec<=0)return 'none';const s=1/perSec;if(s<1)return `${perSec>=10?Math.round(perSec):perSec.toFixed(1)} every second`;if(s<10)return `one every ${s.toFixed(1)} s`;if(s<90)return `one every ${Math.round(s)} s`;if(s<5400)return `one every ${Math.round(s/60)} min`;if(s<36*3600)return `one every ${Math.round(s/3600)} hours`;return `one every ${Math.round(s/86400)} days`}
+let tipT;
+function hover(cx,cy,tap){const ll=proj.invert([cx-ox,cy-oy]);const f=ll&&countryAt(ll);if(!f||!f.d){tip.hidden=true;return}const d=f.d;
+  tip.innerHTML=`<b>${f.properties.name}</b>${f.alias?` <span style="color:#888">(counted with ${d.n})</span>`:''}<br><span style="color:${T.baby.c}">●</span> Babies: ${every(d.pop*d.cbr/1000/yearS)}<br><span style="color:${T.bday.c}">●</span> Birthdays: ${every(d.pop/yearS)}<br><span style="color:#888;font-size:11px">${d.pop>=1e9?(d.pop/1e9).toFixed(2)+' billion':(d.pop/1e6).toFixed(d.pop<1e7?1:0)+' million'} people · ${d.cbr.toFixed(1)} births per 1,000</span>`;
+  tip.style.left=Math.max(120,Math.min(vw-120,cx))+'px';tip.style.top=cy+'px';tip.hidden=false;clearTimeout(tipT);if(tap)tipT=setTimeout(()=>tip.hidden=true,3500)}
+cv.addEventListener('mouseleave',()=>tip.hidden=true);
+
+/* ---------- loop ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.25,(now-last)/1000);last=now;
+  if(!document.hidden)for(const k of ['baby','bday','bolt'])if(on[k]){const n=T[k].rate*dt;let c=Math.floor(n);if(Math.random()<n-c)c++;for(let i=0;i<c;i++)spawn(k)}
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#0e2a5c';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.drawImage(base,ox,oy,mapW,mapH);ctx.drawImage(night,ox,oy,mapW,mapH);
+  ctx.translate(ox,oy);
+  const sc=Math.max(.8,Math.min(1.4,mapW/1500));
+  if(on.quake){const nowMs=Date.now();for(const q of quakes.values()){const xy=proj([q.lon,q.lat]);if(!xy)continue;const age=Math.min(1,(nowMs-q.time)/864e5);const r=(1.6+Math.max(0,q.mag)**2*.45)*sc;
+    ctx.beginPath();ctx.arc(xy[0],xy[1],r,0,7);ctx.fillStyle=`rgba(255,90,54,${.8-.5*age})`;ctx.fill();ctx.lineWidth=1;ctx.strokeStyle=`rgba(255,255,255,${.75-.5*age})`;ctx.stroke();
+    if(nowMs-q.time<36e5||(q.born&&now-q.born<8000)){const ph=(((now/1500+q.lat/23)%1)+1)%1;ctx.beginPath();ctx.arc(xy[0],xy[1],r+ph*24*sc,0,7);ctx.strokeStyle=`rgba(255,90,54,${.85*(1-ph)})`;ctx.lineWidth=2;ctx.stroke()}}}
+  for(let i=dots.length-1;i>=0;i--){const d=dots[i];const a=(now-d.t)/1000;const life=d.k==='baby'?5:d.k==='bday'?1.8:.8;if(a>life||!on[d.k]){dots.splice(i,1);continue}const u=a/life;
+    if(d.k==='baby'){ctx.beginPath();ctx.arc(d.x,d.y,(2.6+Math.min(1,a*4)*1.6)*sc,0,7);ctx.fillStyle=`rgba(255,46,126,${1-u})`;ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle=`rgba(255,255,255,${1-u})`;ctx.stroke();ctx.beginPath();ctx.arc(d.x,d.y,(4+u*18)*sc,0,7);ctx.strokeStyle=`rgba(255,46,126,${.75*(1-u)})`;ctx.lineWidth=1.5;ctx.stroke()}
+    else if(d.k==='bday'){ctx.beginPath();ctx.arc(d.x,d.y,1.8*sc,0,7);ctx.fillStyle=`rgba(190,155,255,${.95*(1-u)})`;ctx.fill()}
+    else{const R=11*sc;const g=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,R);g.addColorStop(0,`rgba(255,255,255,${1-u})`);g.addColorStop(.25,`rgba(255,235,120,${.9*(1-u)})`);g.addColorStop(1,'rgba(255,225,74,0)');ctx.fillStyle=g;ctx.fillRect(d.x-R,d.y-R,2*R,2*R)}}
+  ctx.font=`800 ${12*Math.min(1.15,sc)}px Nunito,sans-serif`;ctx.textAlign='center';ctx.lineJoin='round';
+  for(let i=labels.length-1;i>=0;i--){const L=labels[i];const a=(now-L.t)/1000;if(a>2.6){labels.splice(i,1);continue}const u=a/2.6;const y=L.y-12*sc-a*10;ctx.globalAlpha=u<.1?u*10:1-Math.max(0,(u-.6)/.4);ctx.lineWidth=3.5;ctx.strokeStyle='rgba(0,0,0,.75)';ctx.strokeText(L.text,L.x,y);ctx.fillStyle=L.col;ctx.fillText(L.text,L.x,y);ctx.globalAlpha=1}
+  ctx.setTransform(1,0,0,1,0,0);
+  for(const k in counts){const el=$('n_'+k);if(el)el.textContent=counts[k].toLocaleString()}
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+const clk=()=>{$('clock').textContent=new Date().toUTCString().slice(17,25)+' UTC'};clk();setInterval(clk,1000);
+window.__rn={T,counts,proj:()=>proj,off:()=>[ox,oy],hover};
+})();
+</script>
+</body>
+</html>
