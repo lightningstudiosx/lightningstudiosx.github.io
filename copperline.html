@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Copperline Circuit Lab</title>
+<meta name="description" content="Build circuits on a 3D board: logic gates, LEDs, chips, a tiny GPU and a playable Meteor Dodge game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one full-screen 3D bench; tool rail on the left, run controls top right, truth table and live readout at the bottom. Single dark workshop look by choice. */
+:root {
+  --bench: #0e1214;
+  --glass: rgba(20, 27, 30, .84);
+  --edge: #2b3a3f;
+  --ink: #e8efe9;
+  --muted: #8fa39c;
+  --copper: #e08a46;
+  --hot: #ffcf7a;
+  --display: "Chakra Petch", "Bahnschrift", sans-serif;
+  --body: "Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100% }
+body { background: var(--bench); color: var(--ink); font: 14px/1.45 var(--body); overflow: hidden; padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); padding-block: 0 }
+#stage { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; outline: none }
+.hud { position: fixed; z-index: 2; background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px) }
+.brand { top: calc(env(safe-area-inset-top, 0px) + 14px); left: max(16px, env(safe-area-inset-left, 0px)); padding: 10px 14px; display: flex; gap: 10px; align-items: center }
+.brand h1 { margin: 0; font: 700 1.25rem/1 var(--display); letter-spacing: .06em; text-transform: uppercase }
+.brand h1 b { color: var(--copper) }
+.brand small { color: var(--muted); font: 500 .7rem var(--mono); letter-spacing: .08em }
+.rail { top: calc(env(safe-area-inset-top, 0px) + 74px); left: max(16px, env(safe-area-inset-left, 0px)); padding: 10px; width: 206px; display: grid; gap: 8px; max-height: calc(100% - 160px - env(safe-area-inset-top, 0px)); overflow-y: auto; scrollbar-width: thin }
+.rail h2 { margin: 4px 4px 0; font: 600 .64rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted) }
+.grp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px }
+button { font: inherit; color: inherit; cursor: pointer }
+.t { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 5px; border-radius: 8px; border: 1px solid var(--edge); background: rgba(255, 255, 255, .02); font: 600 .68rem var(--body); min-width: 0 }
+.t:hover { border-color: var(--copper) }
+.t:focus-visible { outline: 2px solid var(--copper); outline-offset: 1px }
+.t.on { border-color: var(--copper); background: rgba(224, 138, 70, .16); box-shadow: inset 0 0 0 1px var(--copper) }
+.t canvas { width: 40px; height: 26px }
+.t kbd { font: 500 .58rem var(--mono); color: var(--muted) }
+.run { top: calc(env(safe-area-inset-top, 0px) + 14px); right: max(16px, env(safe-area-inset-right, 0px)); padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: end; max-width: calc(100% - 290px) }
+.b { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--edge); background: rgba(255, 255, 255, .03); font: 600 .76rem var(--body); white-space: nowrap }
+.b:hover { border-color: var(--copper) }
+.b:focus-visible { outline: 2px solid var(--copper); outline-offset: 1px }
+.b.primary { background: var(--copper); border-color: var(--copper); color: #1a0f06 }
+.b:disabled { opacity: .4; cursor: default }
+.menu { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 62px); right: max(16px, env(safe-area-inset-right, 0px)); padding: 8px; display: grid; gap: 4px; width: 260px }
+.menu button { text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; background: none }
+.menu button:hover, .menu button:focus-visible { border-color: var(--copper); outline: none }
+.menu b { display: block; font: 600 .82rem var(--body) }
+.menu span { color: var(--muted); font-size: .74rem }
+.status { bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%); padding: 9px 16px; display: flex; gap: 16px; align-items: center; max-width: calc(100% - 32px); font: .8rem var(--body) }
+.status .mode { font: 600 .72rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--copper); white-space: nowrap }
+.status .hint { color: var(--muted); min-width: 0 }
+.status .stats { font: .74rem var(--mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums }
+.truth { bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); right: max(16px, env(safe-area-inset-right, 0px)); padding: 10px 12px; min-width: 150px }
+.truth h3 { margin: 0 0 6px; font: 700 .9rem var(--display); letter-spacing: .06em }
+.truth h3 small { color: var(--muted); font: 500 .66rem var(--mono); margin-left: 6px }
+.truth table { border-collapse: collapse; font: .74rem var(--mono); font-variant-numeric: tabular-nums }
+.truth th { color: var(--muted); font-weight: 600; padding: 2px 8px; border-bottom: 1px solid var(--edge) }
+.truth td { padding: 2px 8px; text-align: center; color: var(--muted) }
+.truth tr.now td { color: #1a0f06; background: var(--hot); font-weight: 600 }
+.truth td.o { border-left: 1px solid var(--edge) }
+.toast { position: fixed; z-index: 3; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); left: 50%; transform: translateX(-50%); background: var(--copper); color: #1a0f06; font: 600 .8rem var(--body); padding: 7px 14px; border-radius: 999px; opacity: 0; transition: opacity .25s; pointer-events: none }
+.toast.show { opacity: 1 }
+.help { top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100% - 32px)); padding: 20px 22px; z-index: 6; max-height: calc(100% - 40px); overflow-y: auto }
+.help h3 { margin: 0 0 8px; font: 700 1.1rem var(--display); letter-spacing: .05em; text-transform: uppercase }
+.help ul { margin: 0 0 14px; padding-left: 18px; color: var(--muted); display: grid; gap: 4px }
+.help b { color: var(--ink) }
+.learn { top: calc(env(safe-area-inset-top, 0px) + 112px); right: max(16px, env(safe-area-inset-right, 0px)); width: 340px; max-height: calc(100% - 210px - env(safe-area-inset-top, 0px)); overflow-y: auto; padding: 14px 16px; z-index: 4; display: grid; gap: 10px; align-content: start }
+.learn h3 { margin: 0; font: 700 1.05rem var(--display); letter-spacing: .05em; text-transform: uppercase }
+.learn p { margin: 0; color: var(--muted); font-size: .84rem }
+.learn .lesson { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 2px 10px; text-align: left; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--edge); background: rgba(255, 255, 255, .02) }
+.learn .lesson:hover, .learn .lesson:focus-visible { border-color: var(--copper); outline: none }
+.learn .lesson .n { grid-row: span 2; font: 700 1.1rem var(--display); color: var(--copper); align-self: center; text-align: center }
+.learn .lesson.done .n { color: var(--hot) }
+.learn .lesson b { font: 600 .86rem var(--body) }
+.learn .lesson span { color: var(--muted); font-size: .76rem }
+.learn ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: s }
+.learn li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: .84rem; color: var(--muted); counter-increment: s }
+.learn li::before { content: counter(s); width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--edge); display: grid; place-items: center; font: 600 .7rem var(--mono); color: var(--muted) }
+.learn li.now { color: var(--ink) }
+.learn li.now::before { border-color: var(--copper); color: var(--copper) }
+.learn li.ok { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(143, 163, 156, .5) }
+.learn li.ok::before { content: "✓"; background: var(--hot); border-color: var(--hot); color: #1a0f06 }
+.learn .why { border-left: 3px solid var(--copper); padding: 6px 10px; background: rgba(224, 138, 70, .08); border-radius: 0 6px 6px 0; font-size: .82rem; color: var(--ink) }
+.learn .row { display: flex; gap: 6px; flex-wrap: wrap }
+.t.pulse { animation: pulse 1.1s ease-in-out infinite; border-color: var(--hot) }
+@keyframes pulse { 50% { box-shadow: 0 0 0 3px rgba(255, 207, 122, .55) } }
+@media (prefers-reduced-motion: reduce) { .t.pulse { animation: none; box-shadow: 0 0 0 2px var(--hot) } }
+@media (max-width: 760px) {
+  .learn { top: calc(env(safe-area-inset-top, 0px) + 150px); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: auto; max-height: 40% }
+  .rail { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 62px); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: auto; max-height: 170px }
+  .grp { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)) }
+  .run { max-width: calc(100% - 32px); top: calc(env(safe-area-inset-top, 0px) + 66px) }
+  .status .stats, .truth { display: none }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none } }
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<canvas id="stage" tabindex="0" aria-label="3D circuit board. Use the tools on the left to place parts and wire them."></canvas>
+
+<div class="hud brand"><h1>Copper<b>line</b></h1><small>REV B · 5 V LOGIC</small></div>
+
+<nav class="hud rail" aria-label="Tools and parts">
+  <h2>Tools</h2><div class="grp" id="g-tools"></div>
+  <h2>Inputs &amp; power</h2><div class="grp" id="g-in"></div>
+  <h2>Logic gates</h2><div class="grp" id="g-gates"></div>
+  <h2>Memory &amp; counting</h2><div class="grp" id="g-seq"></div>
+  <h2>Outputs</h2><div class="grp" id="g-out"></div>
+  <h2>Computer</h2><div class="grp" id="g-cpu"></div>
+  <h2>Game</h2><div class="grp" id="g-game"></div>
+</nav>
+
+<div class="hud run" role="group" aria-label="Board controls">
+  <button class="b" id="btn-undo" title="Ctrl+Z">Undo</button>
+  <button class="b" id="btn-redo" title="Ctrl+Y">Redo</button>
+  <button class="b" id="btn-run">Pause</button>
+  <button class="b" id="btn-clock">Clock 1 Hz</button>
+  <button class="b" id="btn-sound">Sound off</button>
+  <button class="b" id="btn-size">Board: Standard</button>
+  <button class="b" id="btn-view">Top view</button>
+  <button class="b primary" id="btn-learn" aria-expanded="false">Learn</button>
+  <button class="b" id="btn-examples" aria-expanded="false">Examples</button>
+  <button class="b" id="btn-clear">Clear board</button>
+  <button class="b" id="btn-help">Help</button>
+</div>
+<div class="hud menu" id="examples" hidden></div>
+<aside class="hud learn" id="learn" hidden aria-label="Lessons"></aside>
+
+<div class="hud truth" id="truth" hidden></div>
+<div class="hud status" role="status"><span class="mode" id="mode">Select</span><span class="hint" id="hint"></span><span class="stats" id="stats"></span></div>
+<div class="toast" id="toast"></div>
+
+<div class="hud help" id="help" hidden>
+  <h3>How to build</h3>
+  <ul>
+    <li><b>Place</b>: pick a part, click the board. <b>R</b> turns it.</li>
+    <li><b>Wire</b>: click a gold output pad (with a ring), then an input pad. Traces glow when they carry a 1.</li>
+    <li><b>Select</b>: flip switches, hold buttons, drag parts, click an LED to change its color. A selected gate shows its truth table.</li>
+    <li><b>Delete</b>: click a part or a trace. <b>Del</b> removes the selected part, <b>Ctrl+D</b> copies it.</li>
+    <li><b>Undo / redo</b>: Ctrl+Z and Ctrl+Y.</li>
+    <li><b>Flip-flops and the counter</b> change on the rising edge of CLK. The 7-segment display shows its 4 inputs as a hex digit.</li>
+    <li><b>Camera</b>: right-drag to orbit, wheel to zoom. Two fingers on touch.</li>
+    <li>The buzzer makes sound once you turn <b>Sound on</b>.</li>
+  </ul>
+  <button class="b primary" id="help-close">Start building</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+let BW = 30, BD = 20;
+const TOP = 0.09;
+const SIZES = { standard: [30, 20], huge: [64, 42] };
+const COLORS = { red: 0xff3b3b, green: 0x39ff7a, blue: 0x3fa4ff, yellow: 0xffd23f, white: 0xf3f6ff, orange: 0xff8a2a, pink: 0xff4fd8 };
+const LED_COLORS = Object.keys(COLORS);
+
+// ---------- part catalogue ----------
+const L2 = [[-1.05, -0.38], [-1.05, 0.38]];
+const gate = (name, chip, fn, key) => ({ name, chip, kind: 'gate', ins: L2, outs: [[1.05, 0]], w: 1.7, d: 1.15, fn, key, group: 'gates' });
+const TYPES = {
+  switch: { name: 'Switch', kind: 'in', ins: [], outs: [[0.95, 0]], key: 'S', group: 'in' },
+  button: { name: 'Button', kind: 'in', ins: [], outs: [[0.95, 0]], key: 'B', group: 'in' },
+  clock: { name: 'Clock', kind: 'in', ins: [], outs: [[0.95, 0]], key: 'C', group: 'in' },
+  vcc: { name: '+5V', kind: 'in', ins: [], outs: [[0.7, 0]], key: 'H', group: 'in' },
+  gnd: { name: 'GND', kind: 'in', ins: [], outs: [[0.7, 0]], key: 'G', group: 'in' },
+  not: { name: 'NOT', chip: '74HC04', kind: 'gate', ins: [[-1.05, 0]], outs: [[1.05, 0]], w: 1.7, d: 1.15, fn: a => !a[0], key: '1', group: 'gates' },
+  buf: { name: 'BUF', chip: '74HC125', kind: 'gate', ins: [[-1.05, 0]], outs: [[1.05, 0]], w: 1.7, d: 1.15, fn: a => a[0], key: '8', group: 'gates' },
+  and: gate('AND', '74HC08', a => a[0] && a[1], '2'),
+  or: gate('OR', '74HC32', a => a[0] || a[1], '3'),
+  xor: gate('XOR', '74HC86', a => a[0] !== a[1], '4'),
+  nand: gate('NAND', '74HC00', a => !(a[0] && a[1]), '5'),
+  nor: gate('NOR', '74HC02', a => !(a[0] || a[1]), '6'),
+  xnor: gate('XNOR', '74HC266', a => a[0] === a[1], '7'),
+  mux: { name: 'MUX', chip: '74HC157', kind: 'gate', ins: [[-1.05, -0.5], [-1.05, 0], [-1.05, 0.5]], inNames: ['A', 'B', 'S'], outs: [[1.05, 0]], w: 1.7, d: 1.35, fn: a => (a[2] ? a[1] : a[0]), key: '9', group: 'gates' },
+  sr: { name: 'SR', chip: '74HC279', kind: 'latch', ins: L2, inNames: ['S', 'R'], outs: [[1.05, 0]], outNames: ['Q'], w: 1.7, d: 1.15, key: 'Q', group: 'seq' },
+  dff: { name: 'D-FF', chip: '74HC74', kind: 'seq', ins: L2, inNames: ['D', 'CLK'], outs: [[1.05, -0.38], [1.05, 0.38]], outNames: ['Q', 'Q̄'], w: 1.7, d: 1.15, key: 'D', group: 'seq' },
+  tff: { name: 'T-FF', chip: '74HC73', kind: 'seq', ins: [[-1.05, 0]], inNames: ['CLK'], outs: [[1.05, -0.38], [1.05, 0.38]], outNames: ['Q', 'Q̄'], w: 1.7, d: 1.15, key: 'T', group: 'seq' },
+  counter: { name: 'COUNT', chip: '74HC161', kind: 'seq', ins: [[-1.05, -0.45], [-1.05, 0.45]], inNames: ['CLK', 'CLR'], outs: [[1.05, -0.66], [1.05, -0.22], [1.05, 0.22], [1.05, 0.66]], outNames: ['Q0', 'Q1', 'Q2', 'Q3'], w: 1.7, d: 1.7, key: 'K', group: 'seq' },
+  led: { name: 'LED', kind: 'out', ins: [[-0.75, 0]], outs: [], key: 'L', group: 'out' },
+  rgb: { name: 'RGB LED', kind: 'out', ins: [[-0.85, -0.42], [-0.85, 0], [-0.85, 0.42]], inNames: ['R', 'G', 'B'], outs: [], key: 'J', group: 'out' },
+  bulb: { name: 'Bulb', kind: 'out', ins: [[-0.95, 0]], outs: [], key: 'U', group: 'out' },
+  seg7: { name: '7-segment', kind: 'out', ins: [[-1.15, -0.66], [-1.15, -0.22], [-1.15, 0.22], [-1.15, 0.66]], inNames: ['1', '2', '4', '8'], outs: [], key: 'E', group: 'out' },
+  buzzer: { name: 'Buzzer', kind: 'out', ins: [[-0.85, 0]], outs: [], key: 'Z', group: 'out' },
+  motor: { name: 'Motor', kind: 'out', ins: [[-1.0, 0]], outs: [], key: 'M', group: 'out' },
+  // computer parts
+  hex: { name: 'Hex input', kind: 'in', ins: [], outs: col(4, 0.42, 0.95), outNames: ['1', '2', '4', '8'], key: 'N', group: 'cpu' },
+  adder: { name: 'ADD4', chip: '74HC283', kind: 'comb', ins: col(8, 0.4, -1.15), inNames: ['A0', 'A1', 'A2', 'A3', 'B0', 'B1', 'B2', 'B3'], outs: col(5, 0.5, 1.15), outNames: ['S0', 'S1', 'S2', 'S3', 'CO'], w: 1.9, d: 3.4, group: 'cpu',
+    fn: a => { const x = bits(a, 0, 4) + bits(a, 4, 4); return [0, 1, 2, 3, 4].map(i => !!((x >> i) & 1)); } },
+  reg: { name: 'REG4', chip: '74HC175', kind: 'seq', ins: col(5, 0.42, -1.15), inNames: ['D0', 'D1', 'D2', 'D3', 'CLK'], outs: col(4, 0.42, 1.15), outNames: ['Q0', 'Q1', 'Q2', 'Q3'], w: 1.9, d: 2.4, group: 'cpu' },
+  dec: { name: 'DEC', chip: '74HC139', kind: 'comb', ins: col(2, 0.76, -1.15), inNames: ['A0', 'A1'], outs: col(4, 0.42, 1.15), outNames: ['Y0', 'Y1', 'Y2', 'Y3'], w: 1.9, d: 2.0, group: 'cpu',
+    fn: a => { const n = bits(a, 0, 2); return [0, 1, 2, 3].map(i => i === n); } },
+  rom: { name: 'ROM', chip: '27C64', kind: 'comb', ins: col(6, 0.42, -1.15), inNames: ['X0', 'X1', 'X2', 'Y0', 'Y1', 'Y2'], outs: [[1.15, 0]], outNames: ['D'], w: 1.9, d: 2.8, group: 'cpu',
+    fn: (a, c) => [SPRITES[c.value % SPRITES.length].rows[bits(a, 3, 3)][bits(a, 0, 3)] === '1'] },
+  screen: { name: 'Screen', kind: 'out', ins: col(9, 0.42, -2.35), inNames: ['X0', 'X1', 'X2', 'Y0', 'Y1', 'Y2', 'D', 'WR', 'CLR'], outs: [], key: 'P', group: 'cpu' },
+  // game parts
+  dpad: { name: 'D-pad', kind: 'in', ins: [], outs: col(4, 0.42, 1.15), outNames: ['UP', 'DN', 'LT', 'RT'], group: 'game' },
+  updown: { name: 'UP/DN', chip: '74HC193', kind: 'seq', ins: col(3, 0.5, -1.15), inNames: ['UP', 'DN', 'CLR'], outs: col(4, 0.42, 1.15), outNames: ['Q0', 'Q1', 'Q2', 'Q3'], w: 1.9, d: 2.0, group: 'game' },
+  rand: { name: 'RAND', chip: 'LFSR-8', kind: 'seq', ins: [[-1.15, 0]], inNames: ['CLK'], outs: col(4, 0.42, 1.15), outNames: ['R0', 'R1', 'R2', 'R3'], w: 1.9, d: 2.0, group: 'game' },
+  cmp: { name: 'CMP', chip: '74HC85', kind: 'comb', ins: col(8, 0.4, -1.15), inNames: ['A0', 'A1', 'A2', 'A3', 'B0', 'B1', 'B2', 'B3'], outs: col(3, 0.6, 1.15), outNames: ['A=B', 'A>B', 'A<B'], w: 1.9, d: 3.4, group: 'game',
+    fn: a => { const x = bits(a, 0, 4), y = bits(a, 4, 4); return [x === y, x > y, x < y]; } },
+  lcd: { name: 'Sprite LCD', kind: 'out', ins: col(12, 0.4, -2.45), inNames: ['PX0', 'PX1', 'PX2', 'PY0', 'PY1', 'PY2', 'EX0', 'EX1', 'EX2', 'EY0', 'EY1', 'EY2'], outs: [], group: 'game' },
+};
+function col(n, gap, x) { return Array.from({ length: n }, (_, i) => [x, (i - (n - 1) / 2) * gap]); }
+function bits(a, from, n) { let v = 0; for (let i = 0; i < n; i++) if (a[from + i]) v |= 1 << i; return v; }
+const SPRITES = [
+  { name: 'Heart', rows: ['01100110', '11111111', '11111111', '11111111', '01111110', '00111100', '00011000', '00000000'] },
+  { name: 'Smiley', rows: ['00111100', '01000010', '10100101', '10000001', '10100101', '10011001', '01000010', '00111100'] },
+  { name: 'Invader', rows: ['00100100', '00011000', '00111100', '01011010', '11111111', '10111101', '10100101', '00100100'] },
+  { name: 'Checker', rows: ['10101010', '01010101', '10101010', '01010101', '10101010', '01010101', '10101010', '01010101'] },
+  { name: 'Arrow', rows: ['00011000', '00111100', '01111110', '11111111', '00011000', '00011000', '00011000', '00011000'] },
+];
+const FOOT = { switch: [1.4, 0.9], button: [1.2, 1.2], clock: [1.4, 1.0], vcc: [1.0, 0.8], gnd: [1.0, 0.8], led: [1.0, 0.9], rgb: [1.2, 1.1], bulb: [1.4, 1.2], seg7: [1.8, 2.0], buzzer: [1.2, 1.2], motor: [1.6, 1.4], hex: [1.6, 2.0], screen: [5.2, 4.4], dpad: [2.0, 2.0], lcd: [5.4, 5.0] };
+const footprint = t => FOOT[t] || [TYPES[t].w, TYPES[t].d];
+
+// ---------- renderer, scene, camera ----------
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1214);
+scene.fog = new THREE.Fog(0x0e1214, 42, 95);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+const HOME = new THREE.Vector3(0, 20, 18);
+camera.position.copy(HOME);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.target.set(0, 0, 0.5);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 6; controls.maxDistance = 50; controls.maxPolarAngle = 1.32;
+controls.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+controls.touches = { ONE: -1, TWO: THREE.TOUCH.DOLLY_ROTATE };
+
+scene.add(new THREE.HemisphereLight(0xdfeee8, 0x1a1410, 0.55));
+const key = new THREE.DirectionalLight(0xfff3e2, 1.25);
+key.position.set(9, 22, 12); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -19, right: 19, top: 15, bottom: -15, near: 1, far: 60 });
+key.shadow.bias = -0.0004;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x7fd6ff, 0.35); rim.position.set(-14, 9, -12); scene.add(rim);
+
+// ---------- canvas textures ----------
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const makeBoardTex = () => canvasTex(BW > 40 ? 4096 : 2048, Math.round((BW > 40 ? 4096 : 2048) * BD / BW), (g, w, h) => {
+  const u = w / BW;
+  const grd = g.createLinearGradient(0, 0, w, h); grd.addColorStop(0, '#0f7556'); grd.addColorStop(1, '#0a5a43');
+  g.fillStyle = grd; g.fillRect(0, 0, w, h);
+  g.globalAlpha = 0.07; g.strokeStyle = '#7dffcf'; g.lineWidth = 2;
+  for (let i = 0; i < 80; i++) { const y = Math.random() * h, x = Math.random() * w, L = 60 + Math.random() * 260; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L, y); g.lineTo(x + L + 40, y + 40); g.stroke(); }
+  g.globalAlpha = 1;
+  for (let x = 1; x < BW; x++) for (let z = 1; z < BD; z++) {
+    g.fillStyle = 'rgba(214,170,96,.55)'; g.beginPath(); g.arc(x * u, z * u, u * 0.09, 0, 7); g.fill();
+    g.fillStyle = '#06261d'; g.beginPath(); g.arc(x * u, z * u, u * 0.045, 0, 7); g.fill();
+  }
+  g.strokeStyle = 'rgba(240,248,244,.85)'; g.lineWidth = 3; g.strokeRect(u * 0.4, u * 0.4, w - u * 0.8, h - u * 0.8);
+  g.fillStyle = 'rgba(240,248,244,.9)'; g.font = `700 ${u * 0.42}px "Chakra Petch", sans-serif`;
+  g.fillText('COPPERLINE  LOGIC BENCH', u * 0.8, h - u * 0.75);
+  g.font = `500 ${u * 0.28}px "JetBrains Mono", monospace`;
+  g.fillText(`REV C   ${BW * 4} × ${BD * 4} mm   1.6 mm FR-4   5 V`, w - u * 9.6, h - u * 0.75);
+  g.fillText('+5V', u * 0.8, u * 1.05); g.fillText('GND', w - u * 1.8, u * 1.05);
+});
+const halo = canvasTex(128, 128, (g, w) => {
+  const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.25, 'rgba(255,255,255,.55)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, w, w);
+});
+const texCache = {};
+function chipLabel(t) {
+  return texCache['chip' + t.chip] || (texCache['chip' + t.chip] = canvasTex(512, Math.round(512 * (t.d - 0.2) / (t.w - 0.2)), (g, w, h) => {
+    g.fillStyle = '#16181a'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2a2d30'; g.beginPath(); g.arc(46, h - 46, 18, 0, 7); g.fill();
+    g.fillStyle = '#d9dcd6'; g.font = `700 ${t.name.length > 4 ? 92 : 118}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(t.name, w / 2, h * 0.42);
+    g.fillStyle = '#9ea39c'; g.font = '500 50px "JetBrains Mono", monospace';
+    g.fillText(t.chip + 'N', w / 2, h * 0.42 + 92);
+    // pin names along the edges
+    g.font = '600 38px "JetBrains Mono", monospace'; g.fillStyle = '#c9cdc6';
+    const sx = w / (t.w - 0.2), sz = h / (t.d - 0.2);
+    (t.inNames || []).forEach((n, i) => { g.textAlign = 'left'; g.fillText(n, 18, h / 2 + t.ins[i][1] * sz); });
+    (t.outNames || []).forEach((n, i) => { g.textAlign = 'right'; g.fillText(n, w - 18, h / 2 + t.outs[i][1] * sz); });
+  }));
+}
+function textPlane(text, size, color = '#eef4f0') {
+  const k = 'txt' + text + color;
+  const tex = texCache[k] || (texCache[k] = canvasTex(256, 128, (g, w, h) => { g.fillStyle = color; g.font = '700 84px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2); }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size * 2, size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  return m;
+}
+
+// ---------- materials ----------
+const M = {
+  board: new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.05 }),
+  edge: new THREE.MeshStandardMaterial({ color: 0xc9b47c, roughness: 0.6 }),
+  chip: new THREE.MeshStandardMaterial({ color: 0x17191b, roughness: 0.55 }),
+  pin: new THREE.MeshStandardMaterial({ color: 0xc7ccd1, roughness: 0.25, metalness: 0.9 }),
+  pad: new THREE.MeshStandardMaterial({ color: 0xd8a94e, roughness: 0.3, metalness: 1 }),
+  plastic: new THREE.MeshStandardMaterial({ color: 0x1f5fd6, roughness: 0.4 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xf1f1ec, roughness: 0.35 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }),
+  red: new THREE.MeshStandardMaterial({ color: 0xc8302d, roughness: 0.4 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xd9dde0, roughness: 0.2, metalness: 1 }),
+  wireOff: new THREE.MeshStandardMaterial({ color: 0xb8692f, roughness: 0.3, metalness: 0.85 }),
+  wireOn: new THREE.MeshStandardMaterial({ color: 0xffb35c, roughness: 0.25, metalness: 0.6, emissive: 0xff8a1e, emissiveIntensity: 1.1 }),
+  ghost: new THREE.MeshBasicMaterial({ color: 0xffcf7a, transparent: true, opacity: 0.25, depthWrite: false }),
+  select: new THREE.MeshBasicMaterial({ color: 0xffcf7a, transparent: true, opacity: 0.22, depthWrite: false }),
+};
+
+// ---------- the board ----------
+const bench = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x1b1f22, roughness: 0.92 }));
+bench.rotation.x = -Math.PI / 2; bench.position.y = -0.4; bench.receiveShadow = true; scene.add(bench);
+const boardRoot = new THREE.Group(); scene.add(boardRoot);
+let boardSize = 'standard';
+// Builds (or rebuilds) the board, its standoffs, the light's shadow area and the camera range for a size.
+function setBoard(size) {
+  boardSize = size; [BW, BD] = SIZES[size];
+  boardRoot.clear();
+  if (M.board.map) M.board.map.dispose();
+  M.board.map = makeBoardTex(); M.board.needsUpdate = true;
+  const board = new THREE.Mesh(new THREE.BoxGeometry(BW, 0.16, BD), [M.edge, M.edge, M.board, M.edge, M.edge, M.edge]);
+  board.position.y = TOP - 0.08; board.receiveShadow = true; boardRoot.add(board);
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.4, 20), M.steel); s.position.set(x * (BW / 2 - 0.5), -0.2, z * (BD / 2 - 0.5)); boardRoot.add(s);
+    const r = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 10, 24), M.pad); r.rotation.x = Math.PI / 2; r.position.set(x * (BW / 2 - 0.5), TOP + 0.005, z * (BD / 2 - 0.5)); boardRoot.add(r);
+  }
+  const k = BW / 30;
+  Object.assign(key.shadow.camera, { left: -BW * 0.64, right: BW * 0.64, top: BD * 0.75, bottom: -BD * 0.75, far: 60 * k });
+  key.position.set(9 * k, 22 * k, 12 * k);
+  key.shadow.camera.updateProjectionMatrix();
+  const ms = BW > 40 ? 4096 : 2048;
+  if (key.shadow.mapSize.x !== ms) { key.shadow.mapSize.set(ms, ms); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } }
+  controls.maxDistance = 50 * k;
+  scene.fog.near = 42 * k; scene.fog.far = 95 * k;
+  HOME.set(0, 20 * k, 18 * k);
+  const btn = document.getElementById('btn-size'); if (btn) btn.textContent = size === 'huge' ? 'Board: Huge' : 'Board: Standard';
+}
+setBoard('standard');
+
+// ---------- state ----------
+let comps = [], wires = [], nextId = 1;
+let running = true, clockHz = 1, clockT = 0, clockOn = false;
+const keyDirs = [false, false, false, false];   // arrow keys drive every D-pad: up, down, left, right
+const ARROWS = { arrowup: 0, arrowdown: 1, arrowleft: 2, arrowright: 3 };
+const compRoot = new THREE.Group(), wireRoot = new THREE.Group();
+scene.add(compRoot, wireRoot);
+const rotPt = (p, rot) => { const a = rot * Math.PI / 2, c = Math.cos(a), s = Math.sin(a); return [p[0] * c + p[1] * s, -p[0] * s + p[1] * c]; };
+function pinWorld(c, list, i) { const [x, z] = rotPt(TYPES[c.type][list][i], c.rot); return new THREE.Vector3(c.x + x, TOP, c.z + z); }
+
+// ---------- part meshes ----------
+const add = (g, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+function trace(g, from, to, z) { const len = Math.abs(to - from); if (len < 0.02) return; add(g, new THREE.BoxGeometry(len, 0.012, 0.07), M.pad, (from + to) / 2, 0.006, z); }
+function pads(g, t) {
+  for (const p of t.ins) add(g, new THREE.CylinderGeometry(0.17, 0.17, 0.03, 24), M.pad, p[0], 0.015, p[1]);
+  for (const p of t.outs) { add(g, new THREE.CylinderGeometry(0.17, 0.17, 0.03, 24), M.pad, p[0], 0.015, p[1]); const r = add(g, new THREE.TorusGeometry(0.2, 0.03, 8, 24), M.pad, p[0], 0.03, p[1]); r.rotation.x = Math.PI / 2; }
+}
+function chip(g, t) {
+  const bw = t.w - 0.2, bd = t.d - 0.2;
+  const body = add(g, new THREE.BoxGeometry(bw, 0.34, bd), [M.chip, M.chip, new THREE.MeshStandardMaterial({ map: chipLabel(t), roughness: 0.6 }), M.chip, M.chip, M.chip], 0, 0.27, 0);
+  const n = Math.round(bw / 0.2);
+  for (let i = 0; i < n; i++) for (const s of [-1, 1]) add(g, new THREE.BoxGeometry(0.07, 0.24, 0.12), M.pin, -bw / 2 + 0.1 + i * (bw - 0.2) / (n - 1), 0.13, s * (bd / 2 + 0.06));
+  for (const p of t.ins) trace(g, p[0], -bw / 2, p[1]);
+  for (const p of t.outs) trace(g, bw / 2, p[0], p[1]);
+  return body;
+}
+const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg', 5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', 10: 'abcefg', 11: 'cdefg', 12: 'adef', 13: 'bcdeg', 14: 'adefg', 15: 'aefg' };
+function buildMesh(c) {
+  const t = TYPES[c.type], g = new THREE.Group(), ud = g.userData;
+  ud.id = c.id;
+  pads(g, t);
+  if (t.chip) chip(g, t);
+  else if (c.type === 'switch') {
+    add(g, new THREE.BoxGeometry(1.0, 0.36, 0.6), M.plastic, 0, 0.2, 0);
+    add(g, new THREE.BoxGeometry(0.62, 0.02, 0.2), M.black, 0, 0.385, 0);
+    ud.knob = add(g, new THREE.BoxGeometry(0.24, 0.2, 0.22), M.white, c.on ? 0.17 : -0.17, 0.47, 0);
+    trace(g, 0.5, 0.95, 0);
+  } else if (c.type === 'button') {
+    add(g, new THREE.BoxGeometry(0.9, 0.28, 0.9), M.black, 0, 0.16, 0);
+    ud.cap = add(g, new THREE.CylinderGeometry(0.28, 0.3, 0.2, 28), M.red, 0, 0.4, 0);
+    for (const [x, z] of [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]]) add(g, new THREE.BoxGeometry(0.1, 0.1, 0.1), M.pin, x, 0.05, z);
+    trace(g, 0.45, 0.95, 0);
+  } else if (c.type === 'clock') {
+    add(g, new THREE.BoxGeometry(1.0, 0.3, 0.62), M.steel, 0, 0.17, 0);
+    const l = textPlane('CLK', 0.24, '#2b2f33'); l.position.set(0, 0.33, 0); g.add(l);
+    trace(g, 0.5, 0.95, 0);
+  } else if (c.type === 'vcc' || c.type === 'gnd') {
+    const hi = c.type === 'vcc';
+    add(g, new THREE.BoxGeometry(0.5, 0.26, 0.5), hi ? M.red : M.black, 0, 0.13, 0);
+    add(g, new THREE.BoxGeometry(0.1, 0.5, 0.1), M.pad, 0, 0.45, 0);
+    const l = textPlane(hi ? '+5V' : 'GND', 0.2); l.position.set(0, 0.005, 0.48); g.add(l);
+    trace(g, 0.25, 0.7, 0);
+  } else if (c.type === 'led' || c.type === 'rgb') {
+    const col = c.type === 'rgb' ? 0xffffff : (COLORS[c.color] || COLORS.red);
+    for (const z of [-0.12, 0.12]) add(g, new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), M.pin, 0, 0.15, z);
+    const domeMat = new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.08, clearcoat: 1, transparent: true, opacity: c.type === 'rgb' ? 0.55 : 0.82, emissive: col, emissiveIntensity: 0 });
+    add(g, new THREE.CylinderGeometry(0.33, 0.33, 0.08, 32), domeMat, 0, 0.32, 0);
+    add(g, new THREE.CylinderGeometry(0.28, 0.28, 0.42, 32), domeMat, 0, 0.55, 0);
+    add(g, new THREE.SphereGeometry(0.28, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), domeMat, 0, 0.76, 0);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.scale.set(2.6, 2.6, 1); glow.position.y = 0.7; g.add(glow);
+    const light = new THREE.PointLight(col, 0, 4.5, 2); light.position.y = 0.9; g.add(light);
+    ud.lamp = { mats: [domeMat], glow, light, max: 2.2 };
+    for (const p of t.ins) trace(g, p[0], -0.2, p[1]);
+    const mark = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.42, 32), new THREE.MeshBasicMaterial({ color: 0xe9f1ec })); mark.rotation.x = -Math.PI / 2; mark.position.y = 0.004; g.add(mark);
+    if (c.type === 'rgb') (t.inNames).forEach((n, i) => { const l = textPlane(n, 0.16); l.position.set(t.ins[i][0] + 0.3, 0.005, t.ins[i][1]); g.add(l); });
+  } else if (c.type === 'bulb') {
+    add(g, new THREE.CylinderGeometry(0.3, 0.34, 0.3, 24), M.steel, 0.1, 0.15, 0);
+    const glass = new THREE.MeshPhysicalMaterial({ color: 0xfff6e0, roughness: 0.05, transparent: true, opacity: 0.35, emissive: 0xffb04a, emissiveIntensity: 0 });
+    add(g, new THREE.SphereGeometry(0.5, 32, 24), glass, 0.1, 0.78, 0);
+    const fil = new THREE.MeshStandardMaterial({ color: 0x7a5530, emissive: 0xffa040, emissiveIntensity: 0 });
+    const f = add(g, new THREE.TorusGeometry(0.14, 0.018, 8, 24, Math.PI * 1.4), fil, 0.1, 0.78, 0); f.rotation.x = Math.PI / 2;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: 0xffb860, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.scale.set(4.2, 4.2, 1); glow.position.set(0.1, 0.8, 0); g.add(glow);
+    const light = new THREE.PointLight(0xffb060, 0, 9, 2); light.position.set(0.1, 1.2, 0); g.add(light);
+    ud.lamp = { mats: [glass, fil], glow, light, max: 4.5, slow: true };
+    trace(g, t.ins[0][0], -0.2, 0);
+  } else if (c.type === 'seg7') {
+    add(g, new THREE.BoxGeometry(1.4, 0.3, 1.8), M.black, 0.1, 0.17, 0);
+    for (let i = 0; i < 5; i++) for (const s of [-1, 1]) add(g, new THREE.BoxGeometry(0.07, 0.2, 0.1), M.pin, -0.45 + i * 0.27 + 0.1, 0.1, s * 0.95);
+    const segs = {};
+    const sm = () => new THREE.MeshStandardMaterial({ color: 0x3a0b0b, emissive: 0xff2a1a, emissiveIntensity: 0, roughness: 0.5 });
+    const H = (n, z) => { const m = add(g, new THREE.BoxGeometry(0.55, 0.03, 0.1), sm(), 0.12, 0.335, z); segs[n] = m; };
+    const V = (n, x, z) => { const m = add(g, new THREE.BoxGeometry(0.1, 0.03, 0.55), sm(), x, 0.335, z); segs[n] = m; };
+    H('a', -0.64); H('g', 0); H('d', 0.64);
+    V('f', -0.2, -0.32); V('b', 0.44, -0.32); V('e', -0.2, 0.32); V('c', 0.44, 0.32);
+    ud.segs = segs;
+    t.ins.forEach((p, i) => { trace(g, p[0], -0.6, p[1]); const l = textPlane(t.inNames[i], 0.15); l.position.set(p[0] - 0.02, 0.005, p[1] - 0.24); g.add(l); });
+  } else if (c.type === 'buzzer') {
+    const body = add(g, new THREE.CylinderGeometry(0.5, 0.5, 0.45, 32), M.black, 0.1, 0.25, 0);
+    add(g, new THREE.CylinderGeometry(0.08, 0.08, 0.02, 16), M.chip, 0.1, 0.48, 0);
+    const l = textPlane('+', 0.12); l.position.set(-0.25, 0.48, -0.25); g.add(l);
+    ud.body = body;
+    trace(g, t.ins[0][0], -0.4, 0);
+  } else if (c.type === 'motor') {
+    const can = add(g, new THREE.CylinderGeometry(0.42, 0.42, 0.9, 28), M.steel, 0.15, 0.45, 0); can.rotation.z = Math.PI / 2;
+    add(g, new THREE.BoxGeometry(0.2, 0.5, 0.7), M.black, -0.32, 0.25, 0);
+    const shaft = add(g, new THREE.CylinderGeometry(0.04, 0.04, 0.35, 10), M.steel, 0.75, 0.45, 0); shaft.rotation.z = Math.PI / 2;
+    const fan = new THREE.Group(); fan.position.set(0.95, 0.45, 0);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.08, 16), M.red); hub.rotation.z = Math.PI / 2; fan.add(hub);
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.42, 0.14), new THREE.MeshStandardMaterial({ color: 0xff6a2a, roughness: 0.4 })); b.position.y = 0.24; const arm = new THREE.Group(); arm.rotation.x = i * Math.PI * 2 / 3; b.rotation.y = 0.5; arm.add(b); fan.add(arm); }
+    g.add(fan); ud.fan = fan; ud.spin = 0;
+    trace(g, t.ins[0][0], -0.42, 0);
+  }
+  if (c.type === 'hex') {
+    add(g, new THREE.BoxGeometry(0.9, 0.3, 1.8), M.plastic, 0, 0.17, 0);
+    ud.hexKnobs = t.outs.map((p, i) => {
+      add(g, new THREE.BoxGeometry(0.5, 0.02, 0.2), M.black, 0, 0.325, p[1]);
+      trace(g, 0.45, p[0], p[1]);
+      return add(g, new THREE.BoxGeometry(0.2, 0.14, 0.18), M.white, ((c.value >> i) & 1) ? 0.13 : -0.13, 0.39, p[1]);
+    });
+    t.outNames.forEach((n, i) => { const l = textPlane(n, 0.13); l.position.set(0.68, 0.005, t.outs[i][1] - 0.2); g.add(l); });
+  } else if (c.type === 'screen') {
+    add(g, new THREE.BoxGeometry(4.0, 0.26, 4.0), M.black, 0.45, 0.14, 0);
+    add(g, new THREE.BoxGeometry(3.8, 0.02, 3.8), new THREE.MeshStandardMaterial({ color: 0x0b0d0c, roughness: 0.2, metalness: 0.3 }), 0.45, 0.28, 0);
+    ud.pixels = [];
+    const pg = new THREE.BoxGeometry(0.38, 0.05, 0.38);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      const m = new THREE.MeshStandardMaterial({ color: 0x0f1a12, emissive: 0x4dff88, emissiveIntensity: 0, roughness: 0.4 });
+      ud.pixels.push(add(g, pg, m, 0.45 + (x - 3.5) * 0.45, 0.31, (y - 3.5) * 0.45).material);
+    }
+    t.ins.forEach((p, i) => { trace(g, p[0], -1.55, p[1]); const l = textPlane(t.inNames[i], 0.13); l.position.set(p[0] + 0.42, 0.005, p[1] - 0.17); g.add(l); });
+    const lbl = textPlane('8×8 FRAMEBUFFER', 0.22); lbl.position.set(0.45, 0.005, 2.2); g.add(lbl);
+  } else if (c.type === 'rom') {
+    const sp = SPRITES[(c.value || 0) % SPRITES.length];
+    const tex = texCache['rom' + sp.name] || (texCache['rom' + sp.name] = canvasTex(128, 128, (x, w) => {
+      x.fillStyle = '#e8ece6'; x.fillRect(0, 0, w, w);
+      x.fillStyle = '#1b1e20';
+      sp.rows.forEach((r, j) => [...r].forEach((b, i) => { if (b === '1') x.fillRect(8 + i * 14, 8 + j * 14, 13, 13); }));
+    }));
+    const st = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+    st.rotation.x = -Math.PI / 2; st.position.set(0, 0.445, 0.85); g.add(st);
+  }
+  if (c.type === 'dpad') {
+    add(g, new THREE.BoxGeometry(1.6, 0.24, 1.6), M.black, -0.1, 0.13, 0);
+    const cross = new THREE.MeshStandardMaterial({ color: 0x2c3034, roughness: 0.5 });
+    add(g, new THREE.BoxGeometry(1.2, 0.1, 0.4), cross, -0.1, 0.3, 0);
+    add(g, new THREE.BoxGeometry(0.4, 0.1, 1.2), cross, -0.1, 0.3, 0);
+    const capM = new THREE.MeshStandardMaterial({ color: 0x3a4046, roughness: 0.45, emissive: 0xffcf7a, emissiveIntensity: 0 });
+    ud.caps = [[-0.1, -0.42], [-0.1, 0.42], [-0.52, 0], [0.32, 0]].map(([x, z]) => add(g, new THREE.BoxGeometry(0.32, 0.08, 0.32), capM.clone(), x, 0.39, z));
+    t.outs.forEach((p, i) => { trace(g, 0.7, p[0], p[1]); const l = textPlane(t.outNames[i], 0.12); l.position.set(p[0] - 0.42, 0.005, p[1] + 0.02); g.add(l); });
+  } else if (c.type === 'lcd') {
+    add(g, new THREE.BoxGeometry(4.3, 0.26, 4.6), new THREE.MeshStandardMaterial({ color: 0x2a2f45, roughness: 0.5 }), 0.55, 0.14, 0);
+    add(g, new THREE.BoxGeometry(3.9, 0.02, 3.9), new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.15, metalness: 0.3 }), 0.55, 0.28, -0.15);
+    ud.lcdPix = [];
+    const pg = new THREE.BoxGeometry(0.4, 0.05, 0.4);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++)
+      ud.lcdPix.push(add(g, pg, new THREE.MeshStandardMaterial({ color: 0x10141c, emissive: 0x000000, emissiveIntensity: 1.8, roughness: 0.4 }), 0.55 + (x - 3.5) * 0.47, 0.31, -0.15 + (y - 3.5) * 0.47).material);
+    t.ins.forEach((p, i) => { trace(g, p[0], -1.6, p[1]); const l = textPlane(t.inNames[i], 0.11); l.position.set(p[0] + 0.45, 0.005, p[1] - 0.15); g.add(l); });
+    const lbl = textPlane('SPRITE LCD', 0.24, '#cfd6ff'); lbl.position.set(0.55, 0.275, 2.05); g.add(lbl);
+  }
+  if (t.kind === 'in' && !['vcc', 'gnd', 'hex', 'dpad'].includes(c.type)) {
+    ud.dot = add(g, new THREE.SphereGeometry(0.07, 12, 8), new THREE.MeshStandardMaterial({ color: 0x3a0d0d, emissive: 0xff2a2a, emissiveIntensity: 0 }), 0.5, 0.06, -0.38);
+  }
+  g.position.set(c.x, TOP, c.z);
+  g.rotation.y = c.rot * Math.PI / 2;
+  g.traverse(m => { if (m.isMesh && !m.material.transparent) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
+function addComp(type, x, z, rot = 0, extra = {}) {
+  const t = TYPES[type];
+  const c = { id: nextId++, type, x, z, rot, on: false, pressed: false, outs: t.outs.map(() => false), state: 0, prev: [], color: 'red', value: 0, ...extra };
+  if (type === 'screen') { c.fb = new Array(64).fill(false); c.prevWr = false; }
+  if (type === 'dpad') c.dirs = [false, false, false, false];
+  if (type === 'rand') { c.lfsr = ((0xa5 ^ (c.id * 37)) & 255) || 1; c.state = c.lfsr & 15; }
+  if (type === 'led' && !extra.color) c.color = LED_COLORS[comps.filter(k => k.type === 'led').length % LED_COLORS.length];
+  c.mesh = buildMesh(c);
+  compRoot.add(c.mesh);
+  comps.push(c);
+  return c;
+}
+function rebuild(c) { compRoot.remove(c.mesh); c.mesh = buildMesh(c); compRoot.add(c.mesh); wires.filter(w => w.a === c || w.b === c).forEach(buildWire); }
+function removeComp(c) { wires.filter(w => w.a === c || w.b === c).forEach(removeWire); compRoot.remove(c.mesh); comps = comps.filter(k => k !== c); if (selected === c) selected = null; }
+
+// ---------- traces ----------
+function routePts(a, b) {
+  const y = TOP + 0.06, A = new THREE.Vector3(a.x, y, a.z), B = new THREE.Vector3(b.x, y, b.z);
+  if (b.x > a.x + 0.6) { const mx = Math.round((a.x + b.x) * 2) / 4; return [A, new THREE.Vector3(mx, y, a.z), new THREE.Vector3(mx, y, b.z), B]; }
+  const zm = Math.max(a.z, b.z) + 1.4;
+  return [A, new THREE.Vector3(a.x + 0.5, y, a.z), new THREE.Vector3(a.x + 0.5, y, zm), new THREE.Vector3(b.x - 0.5, y, zm), new THREE.Vector3(b.x - 0.5, y, b.z), B];
+}
+function tubeFor(pts, r) {
+  const path = new THREE.CurvePath(); let len = 0;
+  for (let i = 0; i < pts.length - 1; i++) { if (pts[i].distanceTo(pts[i + 1]) < 1e-3) continue; path.add(new THREE.LineCurve3(pts[i], pts[i + 1])); len += pts[i].distanceTo(pts[i + 1]); }
+  if (!path.curves.length) path.add(new THREE.LineCurve3(pts[0], pts[0].clone().add(new THREE.Vector3(0.01, 0, 0))));
+  return new THREE.TubeGeometry(path, Math.max(8, Math.ceil(len * 10)), r, 8, false);
+}
+const jointGeo = new THREE.SphereGeometry(0.12, 16, 10);
+function buildWire(w) {
+  if (w.mesh) { wireRoot.remove(w.mesh); w.mesh.geometry.dispose(); }
+  const pts = routePts(pinWorld(w.a, 'outs', w.ai), pinWorld(w.b, 'ins', w.bi));
+  w.mesh = new THREE.Mesh(tubeFor(pts, 0.06), w.val ? M.wireOn : M.wireOff);
+  w.mesh.castShadow = true; w.mesh.userData.wire = w;
+  for (const p of [pts[0], pts[pts.length - 1]]) { const j = new THREE.Mesh(jointGeo, M.steel); j.position.set(p.x, TOP + 0.04, p.z); j.scale.y = 0.6; w.mesh.add(j); }
+  wireRoot.add(w.mesh);
+}
+function addWire(a, ai, b, bi) { wires.filter(w => w.b === b && w.bi === bi).forEach(removeWire); const w = { a, ai, b, bi, val: false }; buildWire(w); wires.push(w); return w; }
+function removeWire(w) { wireRoot.remove(w.mesh); w.mesh.geometry.dispose(); wires = wires.filter(k => k !== w); }
+
+// ---------- simulation ----------
+function inputsOf(c) { return TYPES[c.type].ins.map((_, i) => { const w = wires.find(k => k.b === c && k.bi === i); return w ? !!w.a.outs[w.ai] : false; }); }
+const rising = (c, i, v) => v && !c.prev[i];
+function simulate() {
+  for (const c of comps) {
+    if (c.type === 'switch') c.outs[0] = c.on;
+    else if (c.type === 'button') c.outs[0] = c.pressed;
+    else if (c.type === 'clock') c.outs[0] = clockOn;
+    else if (c.type === 'vcc') c.outs[0] = true;
+    else if (c.type === 'gnd') c.outs[0] = false;
+    else if (c.type === 'hex') for (let i = 0; i < 4; i++) c.outs[i] = !!((c.value >> i) & 1);
+    else if (c.type === 'dpad') for (let i = 0; i < 4; i++) c.outs[i] = c.dirs[i] || keyDirs[i];
+  }
+  // edge-triggered parts: sample inputs as they stood after the last tick
+  for (const c of comps) {
+    const t = TYPES[c.type];
+    if (t.kind !== 'seq') continue;
+    const a = inputsOf(c);
+    if (c.type === 'dff' && rising(c, 1, a[1])) c.state = a[0] ? 1 : 0;
+    if (c.type === 'tff' && rising(c, 0, a[0])) c.state ^= 1;
+    if (c.type === 'counter') { if (a[1]) c.state = 0; else if (rising(c, 0, a[0])) c.state = (c.state + 1) & 15; }
+    if (c.type === 'reg' && rising(c, 4, a[4])) c.state = bits(a, 0, 4);
+    if (c.type === 'updown') { if (a[2]) c.state = 0; else { if (rising(c, 0, a[0])) c.state = (c.state + 1) & 15; if (rising(c, 1, a[1])) c.state = (c.state + 15) & 15; } }
+    if (c.type === 'rand' && rising(c, 0, a[0])) { const lsb = c.lfsr & 1; c.lfsr >>= 1; if (lsb) c.lfsr ^= 0xb8; c.state = c.lfsr & 15; }
+    c.prev = a;
+    if (['counter', 'reg', 'updown', 'rand'].includes(c.type)) for (let i = 0; i < 4; i++) c.outs[i] = !!((c.state >> i) & 1);
+    else { c.outs[0] = !!c.state; c.outs[1] = !c.state; }
+  }
+  for (let pass = 0; pass < 14; pass++) {
+    let changed = false;
+    for (const c of comps) {
+      const t = TYPES[c.type];
+      if (t.kind === 'gate') { const v = !!t.fn(inputsOf(c)); if (v !== c.outs[0]) { c.outs[0] = v; changed = true; } }
+      else if (t.kind === 'latch') { const [s, r] = inputsOf(c); const v = s && !r ? true : r && !s ? false : c.outs[0]; if (v !== c.outs[0]) { c.outs[0] = v; changed = true; } }
+      else if (t.kind === 'comb') { const v = t.fn(inputsOf(c), c); v.forEach((b, i) => { if (!!b !== c.outs[i]) { c.outs[i] = !!b; changed = true; } }); }
+    }
+    if (!changed) break;
+  }
+  for (const c of comps) if (TYPES[c.type].kind === 'out') c.ins = inputsOf(c);
+  for (const c of comps) if (c.type === 'screen') {
+    const a = c.ins;
+    if (a[8]) c.fb.fill(false);
+    else if (a[7] && !c.prevWr) c.fb[bits(a, 3, 3) * 8 + bits(a, 0, 3)] = a[6];
+    c.prevWr = a[7];
+  }
+  for (const w of wires) { const v = !!w.a.outs[w.ai]; if (v !== w.val) { w.val = v; w.mesh.material = v ? M.wireOn : M.wireOff; } }
+}
+
+// ---------- sound (buzzer) ----------
+let audio = null, soundOn = false;
+function ensureAudio() {
+  if (audio || !soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(), gain = ctx.createGain(), lp = ctx.createBiquadFilter();
+    osc.type = 'square'; osc.frequency.value = 2400; lp.type = 'lowpass'; lp.frequency.value = 3200; gain.gain.value = 0;
+    osc.connect(lp).connect(gain).connect(ctx.destination); osc.start();
+    audio = { ctx, gain };
+  } catch (e) { audio = null; }
+}
+
+function paint(dt, time) {
+  let buzzing = false;
+  for (const c of comps) {
+    const ud = c.mesh.userData, ins = c.ins || [];
+    if (ud.lamp) {
+      let on = ins[0] ? 1 : 0;
+      if (c.type === 'rgb') {
+        on = ins.some(Boolean) ? 1 : 0;
+        const col = new THREE.Color(ins[0] ? 1 : 0.02, ins[1] ? 1 : 0.02, ins[2] ? 1 : 0.02);
+        ud.lamp.mats[0].emissive.copy(col); ud.lamp.glow.material.color.copy(col); ud.lamp.light.color.copy(col);
+      }
+      ud.k = (ud.k || 0) + (on - (ud.k || 0)) * Math.min(1, dt * (ud.lamp.slow ? 5 : 14));
+      ud.lamp.mats.forEach(m => (m.emissiveIntensity = ud.k * (c.type === 'bulb' ? 3 : 2.4)));
+      ud.lamp.glow.material.opacity = ud.k * 0.85;
+      ud.lamp.light.intensity = ud.k * ud.lamp.max;
+    }
+    if (ud.segs) {
+      const n = (ins[0] ? 1 : 0) + (ins[1] ? 2 : 0) + (ins[2] ? 4 : 0) + (ins[3] ? 8 : 0);
+      for (const s in ud.segs) { const want = SEG[n].includes(s) ? 2.6 : 0; const m = ud.segs[s].material; m.emissiveIntensity += (want - m.emissiveIntensity) * Math.min(1, dt * 16); }
+    }
+    if (ud.fan) { ud.spin += ((ins[0] ? 22 : 0) - ud.spin) * Math.min(1, dt * (ins[0] ? 1.6 : 0.7)); ud.fan.rotation.x += ud.spin * dt; }
+    if (ud.body && c.type === 'buzzer') { if (ins[0]) buzzing = true; ud.body.scale.setScalar(ins[0] ? 1 + Math.sin(time * 90) * 0.012 : 1); }
+    if (ud.lcdPix && c.ins) {
+      const px = bits(c.ins, 0, 3), py = bits(c.ins, 3, 3), ex = bits(c.ins, 6, 3), ey = bits(c.ins, 9, 3);
+      ud.lcdPix.forEach((m, i) => {
+        const x = i % 8, y = (i / 8) | 0, p = x === px && y === py, e = x === ex && y === ey;
+        m.emissive.setHex(p && e ? 0xffe14a : p ? 0x3fd8ff : e ? 0xff4a2a : 0x000000);
+      });
+    }
+    if (ud.caps) ud.caps.forEach((k, i) => { const on = c.outs[i]; k.position.y += ((on ? 0.34 : 0.39) - k.position.y) * Math.min(1, dt * 24); k.material.emissiveIntensity = on ? 0.6 : 0; });
+    if (ud.pixels && c.fb) ud.pixels.forEach((m, i) => { const want = c.fb[i] ? 2.2 : 0; m.emissiveIntensity += (want - m.emissiveIntensity) * Math.min(1, dt * 20); });
+    if (ud.hexKnobs) ud.hexKnobs.forEach((k, i) => { k.position.x += ((((c.value >> i) & 1) ? 0.13 : -0.13) - k.position.x) * Math.min(1, dt * 18); });
+    if (ud.dot) ud.dot.material.emissiveIntensity = c.outs[0] ? 3 : 0;
+    if (ud.knob) ud.knob.position.x += ((c.on ? 0.17 : -0.17) - ud.knob.position.x) * Math.min(1, dt * 18);
+    if (ud.cap) ud.cap.position.y += ((c.pressed ? 0.31 : 0.4) - ud.cap.position.y) * Math.min(1, dt * 20);
+  }
+  if (audio) audio.gain.gain.setTargetAtTime(buzzing && soundOn && running ? 0.05 : 0, audio.ctx.currentTime, 0.01);
+  M.wireOn.emissiveIntensity = 0.95 + Math.sin(time * 6) * 0.15;
+}
+
+// ---------- tools & UI ----------
+let mode = 'select', placeType = null, placeRot = 0, selected = null;
+const ghostRoot = new THREE.Group(); scene.add(ghostRoot);
+let ghost = null;
+const hintFor = {
+  select: 'Flip switches, hold buttons, drag parts, click an LED to change its color. R turns, Ctrl+D copies.',
+  wire: 'Click an output pad (gold ring), then an input pad. Right-click or Esc cancels.',
+  delete: 'Click a part or a trace to remove it.',
+  place: 'Click the board to place. R turns it. Esc goes back to Select.',
+};
+function setMode(m, type) {
+  mode = m; placeType = type || null; wireStart = null; preview.visible = false;
+  if (ghost) { ghostRoot.remove(ghost); ghost = null; }
+  if (m === 'place') {
+    ghost = buildMesh({ id: -1, type, x: 0, z: 0, rot: placeRot, on: false, color: 'yellow', outs: [] });
+    ghost.traverse(o => { if (o.isMesh) { o.material = M.ghost; o.castShadow = false; } if (o.isPointLight) o.intensity = 0; if (o.isSprite) o.visible = false; });
+    ghostRoot.add(ghost);
+  }
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === (m === 'place' ? 'place:' + type : m)));
+  document.getElementById('mode').textContent = m === 'place' ? 'Place ' + TYPES[type].name : m[0].toUpperCase() + m.slice(1);
+  document.getElementById('hint').textContent = hintFor[m];
+  canvas.style.cursor = m === 'delete' ? 'not-allowed' : m === 'wire' ? 'crosshair' : 'default';
+}
+
+function icon(cv, type) {
+  const g = cv.getContext('2d'); cv.width = 92; cv.height = 60;
+  g.lineWidth = 4; g.strokeStyle = '#e08a46'; g.fillStyle = '#e08a46'; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.font = '700 22px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const andShape = () => { g.beginPath(); g.moveTo(28, 12); g.lineTo(46, 12); g.arc(46, 30, 18, -Math.PI / 2, Math.PI / 2); g.lineTo(28, 48); g.closePath(); g.stroke(); };
+  const orShape = () => { g.beginPath(); g.moveTo(24, 12); g.quadraticCurveTo(52, 12, 66, 30); g.quadraticCurveTo(52, 48, 24, 48); g.quadraticCurveTo(36, 30, 24, 12); g.stroke(); };
+  const legs = (n, outX) => { g.beginPath(); if (n === 2) { g.moveTo(8, 22); g.lineTo(30, 22); g.moveTo(8, 38); g.lineTo(30, 38); } else { g.moveTo(8, 30); g.lineTo(28, 30); } g.moveTo(outX, 30); g.lineTo(86, 30); g.stroke(); };
+  const bubble = x => { g.beginPath(); g.arc(x, 30, 5, 0, 7); g.stroke(); };
+  const xorBar = () => { g.beginPath(); g.moveTo(16, 12); g.quadraticCurveTo(28, 30, 16, 48); g.stroke(); };
+  const box = (txt) => { g.strokeRect(22, 8, 48, 44); g.fillText(txt, 46, 31); };
+  const tri = () => { g.beginPath(); g.moveTo(28, 14); g.lineTo(58, 30); g.lineTo(28, 46); g.closePath(); g.stroke(); };
+  switch (type) {
+    case 'and': andShape(); legs(2, 64); break;
+    case 'nand': andShape(); bubble(69); legs(2, 74); break;
+    case 'or': orShape(); legs(2, 66); break;
+    case 'nor': orShape(); bubble(71); legs(2, 76); break;
+    case 'xor': orShape(); xorBar(); legs(2, 66); break;
+    case 'xnor': orShape(); xorBar(); bubble(71); legs(2, 76); break;
+    case 'not': tri(); bubble(63); legs(1, 68); break;
+    case 'buf': tri(); legs(1, 58); break;
+    case 'mux': g.beginPath(); g.moveTo(30, 6); g.lineTo(60, 16); g.lineTo(60, 44); g.lineTo(30, 54); g.closePath(); g.stroke(); g.font = '700 16px "JetBrains Mono"'; g.fillText('MUX', 45, 31); break;
+    case 'sr': box('SR'); break;
+    case 'dff': box('D'); g.beginPath(); g.moveTo(22, 40); g.lineTo(29, 44); g.lineTo(22, 48); g.stroke(); break;
+    case 'tff': box('T'); g.beginPath(); g.moveTo(22, 40); g.lineTo(29, 44); g.lineTo(22, 48); g.stroke(); break;
+    case 'counter': box('0-F'); break;
+    case 'led': g.beginPath(); g.moveTo(30, 16); g.lineTo(54, 30); g.lineTo(30, 44); g.closePath(); g.fill(); g.beginPath(); g.moveTo(54, 14); g.lineTo(54, 46); g.moveTo(8, 30); g.lineTo(30, 30); g.moveTo(54, 30); g.lineTo(84, 30); g.moveTo(60, 12); g.lineTo(70, 2); g.moveTo(68, 18); g.lineTo(78, 8); g.stroke(); break;
+    case 'rgb': ['#ff4a4a', '#3dff7d', '#4aa8ff'].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(30 + i * 16, 30 + (i === 1 ? -8 : 4), 11, 0, 7); g.fill(); }); break;
+    case 'bulb': g.beginPath(); g.arc(46, 24, 16, 0, 7); g.stroke(); g.strokeRect(38, 40, 16, 12); g.beginPath(); g.moveTo(40, 26); g.lineTo(44, 20); g.lineTo(48, 28); g.lineTo(52, 22); g.stroke(); break;
+    case 'seg7': g.fillRect(36, 8, 22, 5); g.fillRect(36, 27, 22, 5); g.fillRect(36, 46, 22, 5); g.fillRect(31, 12, 5, 16); g.fillRect(58, 12, 5, 16); g.fillRect(31, 31, 5, 16); g.fillRect(58, 31, 5, 16); break;
+    case 'buzzer': g.beginPath(); g.arc(38, 30, 16, 0, 7); g.stroke(); g.beginPath(); g.arc(38, 30, 26, -0.6, 0.6); g.stroke(); g.beginPath(); g.arc(38, 30, 34, -0.6, 0.6); g.stroke(); break;
+    case 'motor': g.beginPath(); g.arc(46, 30, 20, 0, 7); g.stroke(); g.fillText('M', 46, 31); break;
+    case 'vcc': g.fillText('+5V', 46, 31); break;
+    case 'gnd': g.beginPath(); g.moveTo(46, 8); g.lineTo(46, 26); g.moveTo(28, 26); g.lineTo(64, 26); g.moveTo(34, 34); g.lineTo(58, 34); g.moveTo(40, 42); g.lineTo(52, 42); g.stroke(); break;
+    case 'dpad': g.fillRect(38, 6, 16, 48); g.fillRect(22, 22, 48, 16); break;
+    case 'updown': g.font = '700 20px "JetBrains Mono", monospace'; box('±1'); break;
+    case 'rand': g.font = '700 20px "JetBrains Mono", monospace'; box('?'); break;
+    case 'cmp': g.font = '700 20px "JetBrains Mono", monospace'; box('A=B'); break;
+    case 'lcd': g.strokeRect(24, 8, 44, 44); g.fillStyle = '#3fd8ff'; g.fillRect(40, 40, 9, 9); g.fillStyle = '#ff4a2a'; g.fillRect(52, 16, 9, 9); break;
+    case 'hex': box('0x'); break;
+    case 'adder': box('+'); break;
+    case 'reg': g.font = '700 15px "JetBrains Mono", monospace'; box('REG'); break;
+    case 'dec': g.font = '700 15px "JetBrains Mono", monospace'; box('DEC'); break;
+    case 'rom': g.font = '700 15px "JetBrains Mono", monospace'; box('ROM'); break;
+    case 'screen': for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.globalAlpha = (x + y) % 3 ? 0.35 : 1; g.fillRect(28 + x * 10, 10 + y * 10, 8, 8); } g.globalAlpha = 1; break;
+    case 'switch': g.beginPath(); g.moveTo(8, 34); g.lineTo(30, 34); g.lineTo(58, 18); g.moveTo(60, 34); g.lineTo(84, 34); g.stroke(); g.beginPath(); g.arc(30, 34, 4, 0, 7); g.arc(60, 34, 4, 0, 7); g.fill(); break;
+    case 'button': g.beginPath(); g.moveTo(8, 40); g.lineTo(30, 40); g.moveTo(62, 40); g.lineTo(84, 40); g.moveTo(26, 28); g.lineTo(66, 28); g.moveTo(46, 28); g.lineTo(46, 12); g.moveTo(36, 12); g.lineTo(56, 12); g.stroke(); break;
+    case 'clock': g.strokeRect(14, 14, 50, 32); g.beginPath(); g.moveTo(20, 38); g.lineTo(28, 38); g.lineTo(28, 22); g.lineTo(40, 22); g.lineTo(40, 38); g.lineTo(52, 38); g.lineTo(52, 22); g.lineTo(58, 22); g.moveTo(64, 30); g.lineTo(86, 30); g.stroke(); break;
+    case 'select': g.beginPath(); g.moveTo(36, 8); g.lineTo(36, 50); g.lineTo(46, 40); g.lineTo(54, 56); g.lineTo(60, 52); g.lineTo(52, 37); g.lineTo(66, 37); g.closePath(); g.fill(); break;
+    case 'wire': g.beginPath(); g.moveTo(12, 46); g.lineTo(40, 46); g.lineTo(40, 14); g.lineTo(80, 14); g.stroke(); g.beginPath(); g.arc(12, 46, 6, 0, 7); g.arc(80, 14, 6, 0, 7); g.fill(); break;
+    case 'delete': g.beginPath(); g.moveTo(30, 14); g.lineTo(62, 46); g.moveTo(62, 14); g.lineTo(30, 46); g.stroke(); break;
+  }
+}
+function railButton(parent, tool, label, kb, iconType) {
+  const b = document.createElement('button'); b.className = 't'; b.dataset.tool = tool; b.id = 'tool-' + tool.replace(':', '-'); b.title = label + (kb ? ' (' + kb + ')' : '');
+  const cv = document.createElement('canvas'); icon(cv, iconType);
+  b.append(cv, document.createTextNode(label));
+  const k = document.createElement('kbd'); k.textContent = kb || ''; b.append(k);
+  b.onclick = () => (tool.startsWith('place:') ? setMode('place', tool.slice(6)) : setMode(tool));
+  parent.append(b);
+}
+railButton(document.getElementById('g-tools'), 'select', 'Select', 'V', 'select');
+railButton(document.getElementById('g-tools'), 'wire', 'Wire', 'W', 'wire');
+railButton(document.getElementById('g-tools'), 'delete', 'Delete', 'X', 'delete');
+for (const [k, t] of Object.entries(TYPES)) railButton(document.getElementById('g-' + t.group), 'place:' + k, t.name.replace(' LED', ''), t.key, k);
+
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1400); }
+
+// ---------- truth table for the selected gate ----------
+let truthFor = null;
+function renderTruth() {
+  const box = document.getElementById('truth');
+  const c = selected, t = c && TYPES[c.type];
+  if (!t || (t.kind !== 'gate' && t.kind !== 'latch')) { box.hidden = true; truthFor = null; return; }
+  const ins = inputsOf(c).map(v => (v ? 1 : 0));
+  const key = c.id + ':' + ins.join('') + ':' + (c.outs[0] ? 1 : 0);
+  if (truthFor === key) return;
+  truthFor = key;
+  const names = t.inNames || (t.ins.length === 1 ? ['A'] : ['A', 'B']);
+  let rows = '';
+  const n = t.ins.length;
+  for (let r = 0; r < 1 << n; r++) {
+    const bits = Array.from({ length: n }, (_, i) => (r >> (n - 1 - i)) & 1);
+    let out;
+    if (t.kind === 'latch') out = bits[0] && !bits[1] ? '1' : bits[1] && !bits[0] ? '0' : bits[0] ? '?' : 'Q';
+    else out = t.fn(bits.map(Boolean)) ? '1' : '0';
+    rows += `<tr class="${bits.join('') === ins.join('') ? 'now' : ''}">${bits.map(b => `<td>${b}</td>`).join('')}<td class="o">${out}</td></tr>`;
+  }
+  box.innerHTML = `<h3>${t.name}<small>${t.chip}</small></h3><table><tr>${names.map(x => `<th>${x}</th>`).join('')}<th class="o">${t.outNames ? t.outNames[0] : 'Y'}</th></tr>${rows}</table>`;
+  box.hidden = false;
+}
+
+// ---------- picking ----------
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TOP);
+function pointer(e) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function boardPoint() { const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
+function hitComp() { const h = ray.intersectObjects(compRoot.children, true).find(x => !x.object.isSprite); if (!h) return null; let o = h.object; while (o && o.userData.id == null) o = o.parent; return comps.find(c => c.id === o?.userData.id) || null; }
+function hitWire() { const h = ray.intersectObjects(wireRoot.children, false)[0]; return h ? h.object.userData.wire : null; }
+function nearestPin(p, want) {
+  let best = null, bd = 0.45;
+  for (const c of comps) for (const list of want === 'any' ? ['outs', 'ins'] : [want]) TYPES[c.type][list].forEach((_, i) => {
+    const q = pinWorld(c, list, i), d = Math.hypot(q.x - p.x, q.z - p.z);
+    if (d < bd) { bd = d; best = { c, list, i, pos: q }; }
+  });
+  return best;
+}
+const snap = v => Math.round(v * 2) / 2;
+const inBoard = (x, z) => Math.abs(x) < BW / 2 - 1 && Math.abs(z) < BD / 2 - 1;
+function overlaps(type, x, z, rot, skip) {
+  const [w, d] = footprint(type), [ew, ed] = rot % 2 ? [d, w] : [w, d];
+  return comps.some(c => { if (c === skip) return false; const [cw, cd] = footprint(c.type), [aw, ad] = c.rot % 2 ? [cd, cw] : [cw, cd]; return Math.abs(c.x - x) < (ew + aw) / 2 - 0.05 && Math.abs(c.z - z) < (ed + ad) / 2 - 0.05; });
+}
+
+const preview = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0xffcf7a, transparent: true, opacity: 0.8 }));
+preview.visible = false; scene.add(preview);
+const selRing = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.27, 48), M.select); selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
+
+let wireStart = null, drag = null, pressedBtn = null;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  document.getElementById('examples').hidden = true;
+  if (e.button !== 0) { if (mode === 'wire' && wireStart && e.button === 2) { wireStart = null; preview.visible = false; } return; }
+  ensureAudio(); if (audio && audio.ctx.state === 'suspended') audio.ctx.resume();
+  canvas.focus(); pointer(e);
+  const p = boardPoint();
+  if (mode === 'select') {
+    const c = hitComp();
+    selected = c; truthFor = null;
+    if (c && c.type === 'switch') { c.on = !c.on; toast(`Switch ${c.on ? 'on (1)' : 'off (0)'}`); snapshot(); }
+    else if (c && c.type === 'button') { c.pressed = true; pressedBtn = c; }
+    if (c && c.type === 'dpad' && p) {
+      const [lx, lz] = rotPt([p.x - c.x + 0.1, p.z - c.z], (4 - c.rot) % 4);
+      const d = Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 3 : 2) : (lz < 0 ? 0 : 1);
+      c.dirs[d] = true; pressedPad = { c, d };
+      return;
+    }
+    if (c && p) { drag ={ c, dx: c.x - p.x, dz: c.z - p.z, moved: false }; canvas.setPointerCapture(e.pointerId); }
+  } else if (mode === 'place' && p) {
+    const x = snap(p.x), z = snap(p.z);
+    if (!inBoard(x, z)) toast('Keep parts on the board');
+    else if (overlaps(placeType, x, z, placeRot)) toast('Something is already there');
+    else { selected = addComp(placeType, x, z, placeRot); snapshot(); }
+  } else if (mode === 'wire' && p) {
+    const pin = nearestPin(p, 'any');
+    if (!wireStart) { if (pin) wireStart = pin; else toast('Start on a gold pad'); }
+    else if (pin && pin.c !== wireStart.c && pin.list !== wireStart.list) {
+      const [o, i] = wireStart.list === 'outs' ? [wireStart, pin] : [pin, wireStart];
+      addWire(o.c, o.i, i.c, i.i); wireStart = null; preview.visible = false; snapshot(); toast('Trace routed');
+    } else if (pin && pin.list === wireStart.list) toast(wireStart.list === 'outs' ? 'Now click an input pad' : 'Now click an output pad');
+  } else if (mode === 'delete') {
+    const c = hitComp();
+    if (c) { removeComp(c); snapshot(); toast(TYPES[c.type].name + ' removed'); }
+    else { const w = hitWire(); if (w) { removeWire(w); snapshot(); toast('Trace removed'); } }
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  pointer(e);
+  const p = boardPoint();
+  if (mode === 'place' && ghost && p) { const x = snap(p.x), z = snap(p.z); ghost.position.set(x, TOP, z); ghost.rotation.y = placeRot * Math.PI / 2; ghost.visible = inBoard(x, z); M.ghost.color.set(overlaps(placeType, x, z, placeRot) ? 0xff5040 : 0xffcf7a); }
+  if (drag && p) {
+    const x = snap(p.x + drag.dx), z = snap(p.z + drag.dz);
+    if ((x !== drag.c.x || z !== drag.c.z) && inBoard(x, z) && !overlaps(drag.c.type, x, z, drag.c.rot, drag.c)) {
+      drag.c.x = x; drag.c.z = z; drag.c.mesh.position.set(x, TOP, z); drag.moved = true;
+      wires.filter(w => w.a === drag.c || w.b === drag.c).forEach(buildWire);
+    }
+  }
+  if (mode === 'wire' && wireStart && p) {
+    const end = nearestPin(p, wireStart.list === 'outs' ? 'ins' : 'outs');
+    const target = end ? end.pos : new THREE.Vector3(p.x, TOP, p.z);
+    const [a, b] = wireStart.list === 'outs' ? [wireStart.pos, target] : [target, wireStart.pos];
+    preview.geometry.dispose(); preview.geometry = tubeFor(routePts(a, b), 0.045); preview.visible = true;
+  }
+  if (mode === 'wire') canvas.style.cursor = p && nearestPin(p, 'any') ? 'pointer' : 'crosshair';
+  if (mode === 'select' && !drag) canvas.style.cursor = hitComp() ? 'grab' : 'default';
+});
+let pressedPad = null;
+const up = () => {
+  if (pressedBtn) { pressedBtn.pressed = false; pressedBtn = null; }
+  if (pressedPad) { pressedPad.c.dirs[pressedPad.d] = false; pressedPad = null; }
+  if (drag) {
+    if (drag.moved) snapshot();
+    else if (drag.c.type === 'led') { drag.c.color = LED_COLORS[(LED_COLORS.indexOf(drag.c.color) + 1) % LED_COLORS.length]; rebuild(drag.c); snapshot(); toast('LED: ' + drag.c.color); }
+    else if (drag.c.type === 'hex') { drag.c.value = (drag.c.value + 1) & 15; snapshot(); toast('Hex input: ' + drag.c.value.toString(16).toUpperCase() + ' (' + drag.c.value.toString(2).padStart(4, '0') + ')'); }
+    else if (drag.c.type === 'rom') { drag.c.value = (drag.c.value + 1) % SPRITES.length; rebuild(drag.c); snapshot(); toast('ROM image: ' + SPRITES[drag.c.value].name); }
+    else if (drag.c.type === 'screen') { drag.c.fb.fill(false); toast('Screen cleared'); }
+    drag = null;
+  }
+};
+canvas.addEventListener('pointerup', up);
+canvas.addEventListener('pointercancel', up);
+
+function duplicate(c) {
+  for (const [dx, dz] of [[2, 0], [0, 2], [-2, 0], [0, -2], [2, 2], [-2, 2], [3, 0], [0, 3]]) {
+    const x = c.x + dx, z = c.z + dz;
+    if (inBoard(x, z) && !overlaps(c.type, x, z, c.rot)) { selected = addComp(c.type, x, z, c.rot, { on: c.on, color: c.color }); snapshot(); toast(TYPES[c.type].name + ' copied'); return; }
+  }
+  toast('No room next to it');
+}
+
+addEventListener('keyup', e => { const d = ARROWS[e.key.toLowerCase()]; if (d != null) keyDirs[d] = false; });
+addEventListener('blur', () => keyDirs.fill(false));
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (ARROWS[k] != null) { keyDirs[ARROWS[k]] = true; e.preventDefault(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); if (selected) duplicate(selected); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === 'escape') { if (wireStart) { wireStart = null; preview.visible = false; } else setMode('select'); document.getElementById('help').hidden = true; document.getElementById('examples').hidden = true; }
+  else if (k === 'v') setMode('select');
+  else if (k === 'w') setMode('wire');
+  else if (k === 'x') setMode('delete');
+  else if (k === 'r') {
+    if (mode === 'place') { placeRot = (placeRot + 1) % 4; if (ghost) ghost.rotation.y = placeRot * Math.PI / 2; }
+    else if (selected) { const r = (selected.rot + 1) % 4; if (!overlaps(selected.type, selected.x, selected.z, r, selected)) { selected.rot = r; rebuild(selected); snapshot(); } else toast('No room to turn it'); }
+  }
+  else if ((k === 'delete' || k === 'backspace') && selected) { removeComp(selected); snapshot(); }
+  else if (k === ' ') { running = !running; syncRun(); e.preventDefault(); }
+  else { const t = Object.keys(TYPES).find(n => TYPES[n].key && TYPES[n].key.toLowerCase() === k); if (t) setMode('place', t); }
+});
+
+// ---------- undo / redo / save ----------
+function clearAll() { [...wires].forEach(removeWire); [...comps].forEach(removeComp); selected = null; }
+function serialize() { return { size: boardSize, comps: comps.map(c => ({ id: c.id, type: c.type, x: c.x, z: c.z, rot: c.rot, on: c.on, color: c.color, state: c.state, value: c.value })), wires: wires.map(w => [w.a.id, w.ai, w.b.id, w.bi]) }; }
+function restore(s) {
+  clearAll();
+  const size = SIZES[s.size] ? s.size : 'standard';
+  if (size !== boardSize) setBoard(size);
+  const map = {};
+  for (const c of s.comps) if (TYPES[c.type]) map[c.id] = addComp(c.type, c.x, c.z, c.rot, { on: c.on, color: c.color, state: c.state || 0, value: c.value || 0 });
+  for (const [a, ai, b, bi] of s.wires) if (map[a] && map[b] && TYPES[map[a].type].outs[ai] && TYPES[map[b].type].ins[bi]) addWire(map[a], ai, map[b], bi);
+}
+let history = [], future = [];
+function snapshot() {
+  const s = JSON.stringify(serialize());
+  if (history[history.length - 1] !== s) { history.push(s); if (history.length > 120) history.shift(); future = []; }
+  try { localStorage.setItem('copperline-board', s); } catch (e) {}
+  syncUndo();
+}
+function undo() { if (history.length < 2) return; future.push(history.pop()); restore(JSON.parse(history[history.length - 1])); persist(); syncUndo(); toast('Undone'); }
+function redo() { if (!future.length) return; const s = future.pop(); history.push(s); restore(JSON.parse(s)); persist(); syncUndo(); toast('Redone'); }
+function persist() { try { localStorage.setItem('copperline-board', history[history.length - 1]); } catch (e) {} }
+function syncUndo() { document.getElementById('btn-undo').disabled = history.length < 2; document.getElementById('btn-redo').disabled = !future.length; }
+
+// ---------- examples ----------
+const EXAMPLES = {
+  game: { name: 'Meteor Dodge (game)', about: 'A playable game on the huge board. Arrow keys move your ship; dodge the falling meteors. Every meteor you dodge scores a point.', build() {
+    setBoard('huge');
+    // controls: the D-pad steps an up/down counter, which is your ship's X position
+    const Pad = addComp('dpad', -27, 4), PX = addComp('updown', -20, 4), V = addComp('vcc', -20, 9);
+    addWire(Pad, 3, PX, 0); addWire(Pad, 2, PX, 1);
+    // the meteor: a gated clock drops it one row per tick; a random chip picks its column each time it wraps
+    const K = addComp('clock', -28, -10), Gate = addComp('and', -22, -10), MY = addComp('counter', -15, -10);
+    addWire(K, 0, Gate, 0); addWire(Gate, 0, MY, 0);
+    const Wrap = addComp('not', -9, -15), RX = addComp('rand', -3, -15);
+    addWire(MY, 2, Wrap, 0); addWire(Wrap, 0, RX, 0);
+    // the screen: ship sprite (blue) on the bottom row, meteor sprite (red)
+    const LCD = addComp('lcd', 9, -4);
+    for (let i = 0; i < 3; i++) { addWire(PX, i, LCD, i); addWire(V, 0, LCD, 3 + i); addWire(RX, i, LCD, 6 + i); addWire(MY, i, LCD, 9 + i); }
+    // collision: meteor on row 7 (all three Y bits) AND in the ship's column (comparator A=B)
+    const Cmp = addComp('cmp', -3, -4);
+    for (let i = 0; i < 3; i++) { addWire(PX, i, Cmp, i); addWire(RX, i, Cmp, 4 + i); }
+    const Y01 = addComp('and', -9, -6), Row7 = addComp('and', -9, -2), Hit = addComp('and', 3, 5);
+    addWire(MY, 0, Y01, 0); addWire(MY, 1, Y01, 1); addWire(Y01, 0, Row7, 0); addWire(MY, 2, Row7, 1);
+    addWire(Row7, 0, Hit, 0); addWire(Cmp, 0, Hit, 1);
+    // game over: a latch freezes the meteor clock and sounds the alarm until RESET
+    const Over = addComp('sr', 10, 6), Live = addComp('not', 16, 6), Reset = addComp('button', -27, 12);
+    addWire(Hit, 0, Over, 0); addWire(Reset, 0, Over, 1); addWire(Over, 0, Live, 0); addWire(Live, 0, Gate, 1);
+    addWire(Reset, 0, PX, 2); addWire(Reset, 0, MY, 1);
+    const Alarm = addComp('bulb', 22, 6), Bz = addComp('buzzer', 22, 10), Ok = addComp('led', 22, 2, 0, { color: 'green' });
+    addWire(Over, 0, Alarm, 0); addWire(Over, 0, Bz, 0); addWire(Live, 0, Ok, 0);
+    // score: counts every meteor that falls past you
+    const Score = addComp('counter', 9, -15), Disp = addComp('seg7', 15, -15);
+    addWire(Wrap, 0, Score, 0); addWire(Reset, 0, Score, 1);
+    for (let i = 0; i < 4; i++) addWire(Score, i, Disp, i);
+    clockHz = 4; document.getElementById('btn-clock').textContent = 'Clock 4 Hz';
+    camTarget = new THREE.Vector3(0, 34, 30); controls.target.set(0, 0, 0);
+  } },
+  gpu: { name: 'Tiny GPU', about: 'A raster GPU: counters scan X and Y, a sprite ROM supplies each pixel, and the 8×8 framebuffer screen draws the picture.', build() {
+    const K = addComp('clock', -12.5, -6.5), G0 = addComp('gnd', -12.5, -3.5);
+    const CX = addComp('counter', -8.5, -5), CY = addComp('counter', -8.5, 0.5);
+    addWire(K, 0, CX, 0); addWire(G0, 0, CX, 1); addWire(CX, 3, CY, 0); addWire(G0, 0, CY, 1);
+    const R = addComp('rom', -3, -3);
+    for (let i = 0; i < 4; i++) addWire(CX, i, R, i);
+    addWire(CY, 0, R, 4); addWire(CY, 1, R, 5);
+    const Inv = addComp('switch', -3, 1.5), X = addComp('xor', 1.5, -3);
+    addWire(R, 0, X, 0); addWire(Inv, 0, X, 1);
+    const W = addComp('not', 1.5, 2.5); addWire(K, 0, W, 0);
+    const S = addComp('screen', 9, 0);
+    for (let i = 0; i < 4; i++) addWire(CX, i, S, i);
+    addWire(CY, 0, S, 4); addWire(CY, 1, S, 5); addWire(X, 0, S, 6); addWire(W, 0, S, 7);
+    const Cl = addComp('button', 1.5, 6.5); addWire(Cl, 0, S, 8);
+    const Px = addComp('led', 1.5, -6.5, 0, { color: 'green' }); addWire(X, 0, Px, 0);
+    const D = addComp('seg7', -3, 6.5); for (let i = 0; i < 4; i++) addWire(CX, i, D, i);
+  } },
+  cpu: { name: 'CPU core (accumulator)', about: 'An ALU and a register: every STEP adds the hex input to the register, like the heart of a tiny CPU.', build() {
+    const H = addComp('hex', -11, -2, 0, { value: 3 }), St = addComp('button', -11, 4.5);
+    const A = addComp('adder', -5, 0), Rg = addComp('reg', 1, 0);
+    for (let i = 0; i < 4; i++) { addWire(H, i, A, i); addWire(Rg, i, A, 4 + i); addWire(A, i, Rg, i); }
+    addWire(St, 0, Rg, 4);
+    const D = addComp('seg7', 6, 0); for (let i = 0; i < 4; i++) addWire(Rg, i, D, i);
+    const Co = addComp('led', 1, 4.5, 0, { color: 'red' }); addWire(A, 4, Co, 0);
+    ['green', 'green', 'green', 'green'].forEach((col, i) => { const l = addComp('led', 11, -3 + i * 2, 0, { color: col }); addWire(Rg, i, l, 0); });
+  } },
+  traffic: { name: 'Traffic light controller', about: 'A full board: a counter state machine runs green, yellow, red; press WALK and the crossing light, WAIT lamp and beeper join in.', build() {
+    // timing: clock into a 74HC161; Q2 and Q3 are the light phase, the 7-segment shows the count
+    const K = addComp('clock', -12, -6), G0 = addComp('gnd', -12, -3.5), Cn = addComp('counter', -7, -5);
+    addWire(K, 0, Cn, 0); addWire(G0, 0, Cn, 1);
+    const D = addComp('seg7', -2, -7);
+    for (let i = 0; i < 4; i++) addWire(Cn, i, D, i);
+    // decoder: green = NOR(Q2, Q3), yellow = Q2 AND NOT Q3, red = Q3
+    const N3 = addComp('not', -2, -2.5), Gn = addComp('nor', 3, -4), Yl = addComp('and', 3, -1);
+    addWire(Cn, 3, N3, 0); addWire(Cn, 2, Gn, 0); addWire(Cn, 3, Gn, 1); addWire(Cn, 2, Yl, 0); addWire(N3, 0, Yl, 1);
+    const R = addComp('led', 8, -6.5, 0, { color: 'red' }), Y = addComp('led', 8, -4, 0, { color: 'yellow' }), Gr = addComp('led', 8, -1.5, 0, { color: 'green' });
+    addWire(Cn, 3, R, 0); addWire(Yl, 0, Y, 0); addWire(Gn, 0, Gr, 0);
+    const Mo = addComp('motor', 12, -1.5); addWire(Gn, 0, Mo, 0);
+    // pedestrian request: the button sets a latch (WAIT lamp) that clears when green comes back
+    const Bt = addComp('button', -12, 3), Lt = addComp('sr', -7, 3), Wb = addComp('bulb', -2, 3.5);
+    addWire(Bt, 0, Lt, 0); addWire(Gn, 0, Lt, 1); addWire(Lt, 0, Wb, 0);
+    // crossing light: WALK (green) while red and requested, DON'T WALK (red) otherwise; beeps while walking
+    const Wk = addComp('and', 3, 3), Nw = addComp('not', 3, 6), Rg = addComp('rgb', 8, 4);
+    addWire(Cn, 3, Wk, 0); addWire(Lt, 0, Wk, 1); addWire(Wk, 0, Rg, 1); addWire(Wk, 0, Nw, 0); addWire(Nw, 0, Rg, 0);
+    const Bp = addComp('and', 8, 7.5), Bz = addComp('buzzer', 12, 7.5), V = addComp('vcc', 12, 4);
+    addWire(Wk, 0, Bp, 0); addWire(K, 0, Bp, 1); addWire(Bp, 0, Bz, 0);
+    const Pw = addComp('led', -12, 7, 0, { color: 'white' }); addWire(V, 0, Pw, 0);
+  } },
+  half: { name: 'Half adder + blinker', about: 'XOR and AND add two bits; a clock blinks LEDs through a NOT gate.', build() {
+    const A = addComp('switch', -11, -5, 0, { on: true }), B = addComp('switch', -11, -2);
+    const X = addComp('xor', -5, -5), N = addComp('and', -5, -1);
+    const S = addComp('led', 1.5, -5, 0, { color: 'green' }), Cy = addComp('led', 1.5, -1, 0, { color: 'red' });
+    addWire(A, 0, X, 0); addWire(B, 0, X, 1); addWire(A, 0, N, 0); addWire(B, 0, N, 1); addWire(X, 0, S, 0); addWire(N, 0, Cy, 0);
+    const K = addComp('clock', -11, 4), I = addComp('not', -5, 4);
+    const L1 = addComp('led', 1.5, 4, 0, { color: 'blue' }), L2 = addComp('led', 1.5, 6.5, 0, { color: 'yellow' });
+    addWire(K, 0, I, 0); addWire(I, 0, L1, 0); addWire(K, 0, L2, 0);
+    const P = addComp('button', 5.5, -3), O = addComp('or', 9, -3), Bl = addComp('bulb', 13, -3);
+    addWire(P, 0, O, 0); addWire(X, 0, O, 1); addWire(O, 0, Bl, 0);
+  } },
+  full: { name: 'Full adder', about: 'Three switches (A, B, carry in) through two XORs, two ANDs and an OR.', build() {
+    const A = addComp('switch', -12, -5, 0, { on: true }), B = addComp('switch', -12, -2, 0, { on: true }), Ci = addComp('switch', -12, 2);
+    const X1 = addComp('xor', -6, -4), X2 = addComp('xor', 0, -2), A1 = addComp('and', -6, 2), A2 = addComp('and', 0, 3), O = addComp('or', 6, 3);
+    const S = addComp('led', 6, -2, 0, { color: 'green' }), C = addComp('led', 11, 3, 0, { color: 'red' });
+    addWire(A, 0, X1, 0); addWire(B, 0, X1, 1); addWire(X1, 0, X2, 0); addWire(Ci, 0, X2, 1); addWire(X2, 0, S, 0);
+    addWire(A, 0, A1, 0); addWire(B, 0, A1, 1); addWire(X1, 0, A2, 0); addWire(Ci, 0, A2, 1); addWire(A1, 0, O, 0); addWire(A2, 0, O, 1); addWire(O, 0, C, 0);
+  } },
+  counter: { name: 'Hex counter', about: 'A clock drives a 74HC161 counter onto a 7-segment display and four LEDs. The button clears it.', build() {
+    const K = addComp('clock', -11, -2), R = addComp('button', -11, 2), Cn = addComp('counter', -5, 0);
+    addWire(K, 0, Cn, 0); addWire(R, 0, Cn, 1);
+    const D = addComp('seg7', 2, 0);
+    for (let i = 0; i < 4; i++) addWire(Cn, i, D, i);
+    ['green', 'yellow', 'orange', 'red'].forEach((col, i) => { const l = addComp('led', 7, -3 + i * 2, 0, { color: col }); addWire(Cn, i, l, 0); });
+    const T = addComp('tff', -5, 6), F = addComp('motor', 2, 6);
+    addWire(Cn, 3, T, 0); addWire(T, 0, F, 0);
+  } },
+  alarm: { name: 'Alarm latch', about: 'Press ARM to set an SR latch: the buzzer, a red bulb and an RGB LED stay on until you press RESET.', build() {
+    const S = addComp('button', -11, -3), R = addComp('button', -11, 1), L = addComp('sr', -5, -1);
+    addWire(S, 0, L, 0); addWire(R, 0, L, 1);
+    const Z = addComp('buzzer', 2, -4), Bl = addComp('bulb', 2, 0.5);
+    addWire(L, 0, Z, 0); addWire(L, 0, Bl, 0);
+    const K = addComp('clock', -11, 5), A = addComp('and', -5, 5), G = addComp('vcc', -5, 8.5), RG = addComp('rgb', 3, 6);
+    addWire(K, 0, A, 0); addWire(L, 0, A, 1); addWire(A, 0, RG, 0); addWire(L, 0, RG, 2); addWire(G, 0, RG, 1);
+  } },
+  mux: { name: 'Data selector', about: 'A MUX picks between a slow clock and a switch; a D flip-flop samples it on each button press.', build() {
+    const K = addComp('clock', -11, -4), Sw = addComp('switch', -11, -1), Sel = addComp('switch', -11, 2, 0, { on: true });
+    const Mx = addComp('mux', -5, -1);
+    addWire(K, 0, Mx, 0); addWire(Sw, 0, Mx, 1); addWire(Sel, 0, Mx, 2);
+    const Bt = addComp('button', -5, 4), D = addComp('dff', 1, 1);
+    addWire(Mx, 0, D, 0); addWire(Bt, 0, D, 1);
+    const Lq = addComp('led', 6, 0, 0, { color: 'green' }), Ln = addComp('led', 6, 2.5, 0, { color: 'red' }), Lm = addComp('led', 1, -3.5, 0, { color: 'yellow' });
+    addWire(D, 0, Lq, 0); addWire(D, 1, Ln, 0); addWire(Mx, 0, Lm, 0);
+  } },
+};
+const exMenu = document.getElementById('examples');
+for (const [k, ex] of Object.entries(EXAMPLES)) {
+  const b = document.createElement('button'); b.id = 'ex-' + k; b.innerHTML = `<b>${ex.name}</b><span>${ex.about}</span>`;
+  b.onclick = () => { clearAll(); ex.build(); snapshot(); exMenu.hidden = true; document.getElementById('btn-examples').setAttribute('aria-expanded', 'false'); toast('Loaded: ' + ex.name); };
+  exMenu.append(b);
+}
+
+// ---------- controls row ----------
+function syncRun() { document.getElementById('btn-run').textContent = running ? 'Pause' : 'Run'; }
+document.getElementById('btn-run').onclick = () => { running = !running; syncRun(); toast(running ? 'Simulation running' : 'Simulation paused'); };
+const HZ = [0.5, 1, 2, 4, 8, 16, 32];
+document.getElementById('btn-clock').onclick = e => { clockHz = HZ[(HZ.indexOf(clockHz) + 1) % HZ.length]; e.target.textContent = `Clock ${clockHz} Hz`; };
+document.getElementById('btn-sound').onclick = e => { soundOn = !soundOn; e.target.textContent = soundOn ? 'Sound on' : 'Sound off'; ensureAudio(); if (audio && audio.ctx.state === 'suspended') audio.ctx.resume(); };
+let topView = false, camTarget = null;
+document.getElementById('btn-view').onclick = e => { topView = !topView; e.target.textContent = topView ? '3D view' : 'Top view'; camTarget = topView ? new THREE.Vector3(0, 30, 0.01) : HOME.clone(); controls.target.set(0, 0, topView ? 0 : 0.5); };
+document.getElementById('btn-examples').onclick = e => { exMenu.hidden = !exMenu.hidden; e.target.setAttribute('aria-expanded', String(!exMenu.hidden)); };
+document.getElementById('btn-undo').onclick = undo;
+document.getElementById('btn-redo').onclick = redo;
+const clearBtn = document.getElementById('btn-clear');
+clearBtn.onclick = () => {
+  if (clearBtn.dataset.armed) { clearAll(); snapshot(); clearBtn.textContent = 'Clear board'; delete clearBtn.dataset.armed; toast('Board cleared'); return; }
+  clearBtn.dataset.armed = '1'; clearBtn.textContent = 'Click again to clear';
+  setTimeout(() => { delete clearBtn.dataset.armed; clearBtn.textContent = 'Clear board'; }, 2500);
+};
+document.getElementById('btn-size').onclick = () => {
+  const next = boardSize === 'huge' ? 'standard' : 'huge';
+  const [w, d] = SIZES[next];
+  if (comps.some(c => Math.abs(c.x) > w / 2 - 1 || Math.abs(c.z) > d / 2 - 1)) { toast('Move parts into the middle first: some would fall off the standard board'); return; }
+  setBoard(next); camTarget = HOME.clone(); snapshot(); toast(next === 'huge' ? 'Huge board: 256 × 168 mm, room for big builds' : 'Standard board');
+};
+document.getElementById('btn-help').onclick = () => (document.getElementById('help').hidden = false);
+document.getElementById('help-close').onclick = () => (document.getElementById('help').hidden = true);
+
+// ---------- Learn: guided lessons that check your board as you build ----------
+const of = type => comps.filter(c => c.type === type);
+const has = (type, n = 1) => of(type).length >= n;
+const wiresInto = type => wires.filter(w => w.b.type === type);
+const wired = (from, to, bi) => wires.some(w => w.a.type === from && w.b.type === to && (bi == null || w.b.bi === bi));
+const ledFrom = (from, lit) => wires.some(w => w.a.type === from && w.b.type === 'led' && (lit == null || !!(w.b.ins && w.b.ins[0]) === lit));
+const LESSONS = [
+  { name: 'Light an LED', about: 'Inputs, outputs and your first copper trace.', start: () => {}, steps: [
+    { text: 'Pick <b>Switch</b> on the left, then click the board to place it.', tool: 'place:switch', ok: () => has('switch') },
+    { text: 'Place an <b>LED</b> a few squares to the right of the switch.', tool: 'place:led', ok: () => has('led') },
+    { text: 'Pick <b>Wire</b>. Click the switch\'s gold pad with the ring (its output), then the LED\'s pad (its input).', tool: 'wire', ok: () => wired('switch', 'led') },
+    { text: 'Pick <b>Select</b> and click the switch to flip it on.', tool: 'select', ok: () => ledFrom('switch', true) },
+  ], why: 'A switch outputs 1 (5 volts) when it\'s on and 0 when it\'s off. The trace carries that signal to the LED, and it glows orange while it carries a 1.' },
+  { name: 'Your first logic gate', about: 'An AND gate only says 1 when both inputs are 1.', start: () => {}, steps: [
+    { text: 'Place <b>two switches</b>, one above the other.', tool: 'place:switch', ok: () => has('switch', 2) },
+    { text: 'Place an <b>AND</b> gate to their right (key 2).', tool: 'place:and', ok: () => has('and') },
+    { text: 'Wire each switch into one of the AND gate\'s two input pads.', tool: 'wire', ok: () => wiresInto('and').filter(w => w.a.type === 'switch').length >= 2 },
+    { text: 'Place an <b>LED</b> and wire the AND gate\'s output to it.', tool: 'place:led', ok: () => ledFrom('and') },
+    { text: 'With <b>Select</b>, turn on both switches. Click the AND chip to see its truth table.', tool: 'select', ok: () => ledFrom('and', true) },
+  ], why: 'Every computer is built from gates like this. AND, OR and NOT are enough to build any logic at all, including adders, memory and graphics cards.' },
+  { name: 'Adding numbers', about: 'Build a half adder: the part of a CPU that adds bits.', start: () => { addComp('switch', -9, -3, 0, { on: true }); addComp('switch', -9, 1); }, steps: [
+    { text: 'Two switches are ready: they are the bits A and B. Place an <b>XOR</b> gate (key 4).', tool: 'place:xor', ok: () => has('xor') },
+    { text: 'Wire both switches into the XOR gate.', tool: 'wire', ok: () => wiresInto('xor').filter(w => w.a.type === 'switch').length >= 2 },
+    { text: 'Place an <b>AND</b> gate and wire both switches into it too.', tool: 'place:and', ok: () => wiresInto('and').filter(w => w.a.type === 'switch').length >= 2 },
+    { text: 'Give each gate an <b>LED</b>: XOR is the sum, AND is the carry.', tool: 'place:led', ok: () => ledFrom('xor') && ledFrom('and') },
+    { text: 'Turn <b>both switches on</b>. 1 + 1 = 10 in binary: carry lights, sum goes dark.', tool: 'select', ok: () => ledFrom('and', true) && ledFrom('xor', false) && of('switch').filter(s => s.on).length >= 2 },
+  ], why: 'XOR gives the 1s column and AND gives the carry. Chain these and you get the 74HC283 4-bit adder in the Computer section.' },
+  { name: 'Memory', about: 'A D flip-flop remembers one bit when its clock ticks.', start: () => {}, steps: [
+    { text: 'Place a <b>D-FF</b> (key D) from Memory & counting.', tool: 'place:dff', ok: () => has('dff') },
+    { text: 'Place a <b>switch</b> and wire it to the flip-flop\'s <b>D</b> pad (top input).', tool: 'place:switch', ok: () => wired('switch', 'dff', 0) },
+    { text: 'Place a <b>button</b> and wire it to <b>CLK</b> (bottom input).', tool: 'place:button', ok: () => wired('button', 'dff', 1) },
+    { text: 'Wire the <b>Q</b> output (top right) to an <b>LED</b>.', tool: 'wire', ok: () => wires.some(w => w.a.type === 'dff' && w.ai === 0 && w.b.type === 'led') },
+    { text: 'Turn the switch on, then press and release the button. The LED stores the 1.', tool: 'select', ok: () => of('dff').some(d => d.state === 1) },
+    { text: 'Now turn the switch <b>off</b>. The LED stays on until the next press: that\'s one bit of memory.', tool: 'select', ok: () => of('dff').some(d => d.state === 1 && d.prev && !d.prev[0]) },
+  ], why: 'RAM, registers and a GPU\'s framebuffer are all huge grids of bits like this one, each waiting for its clock.' },
+  { name: 'Counting', about: 'A clock and a counter: the heartbeat of a computer.', start: () => {}, steps: [
+    { text: 'Place a <b>Clock</b> (key C).', tool: 'place:clock', ok: () => has('clock') },
+    { text: 'Place a <b>COUNT</b> chip (key K) and wire the clock to its <b>CLK</b> pad.', tool: 'place:counter', ok: () => wired('clock', 'counter', 0) },
+    { text: 'Place a <b>7-segment</b> display (key E) and wire the counter\'s Q0, Q1, Q2 and Q3 to its 1, 2, 4 and 8 pads.', tool: 'place:seg7', ok: () => wires.filter(w => w.a.type === 'counter' && w.b.type === 'seg7' && w.ai === w.bi).length >= 4 },
+    { text: 'Watch it count from 0 to F. Press the <b>Clock</b> button at the top to speed it up.', tool: null, ok: () => clockHz >= 4 && of('counter').some(c => c.state >= 3) },
+  ], why: 'Q0 to Q3 are the counter\'s value in binary, worth 1, 2, 4 and 8. A CPU uses a counter like this as its program counter, to step through its instructions.' },
+  { name: 'How a GPU draws', about: 'Explore the Tiny GPU: scanning, memory and pixels.', start: () => EXAMPLES.gpu.build(), steps: [
+    { text: 'This is the Tiny GPU. The top counter scans <b>X</b> across a row; the second counter steps <b>Y</b> down the rows. Watch the screen fill in.', tool: null, ok: () => of('screen').some(s => s.fb.filter(Boolean).length >= 10) },
+    { text: 'Each pixel\'s color comes from the <b>ROM</b> (sprite memory). With Select, click the ROM chip to swap the picture.', tool: 'select', ok: () => of('rom').some(r => r.value > 0) },
+    { text: 'Flip the <b>INVERT</b> switch (under the ROM). The XOR gate flips every pixel as it\'s written: a tiny shader.', tool: 'select', ok: () => of('switch').some(s => s.on) },
+    { text: 'Press the button by the screen to <b>clear</b> the framebuffer, and turn the Clock up to <b>16 Hz</b> or more to redraw faster.', tool: null, ok: () => clockHz >= 16 },
+  ], why: 'Real GPUs do exactly this: scan through every pixel, look up its color in memory, run a little math on it (the shader), and write it into a framebuffer that the screen shows, millions of times a second.' },
+  { name: 'Inside a CPU', about: 'An adder and a register make an accumulator.', start: () => EXAMPLES.cpu.build(), steps: [
+    { text: 'The blue <b>Hex input</b> holds a number (3). With Select, press the red <b>STEP</b> button a few times. Each press adds 3 to the register.', tool: 'select', ok: () => of('reg').some(r => r.state >= 9) },
+    { text: 'Keep stepping until the sum passes F. The red <b>carry</b> LED lights when the answer is too big for 4 bits.', tool: 'select', ok: () => ledFrom('adder', true) },
+    { text: 'Click the Hex input to change the number you add, then step again.', tool: 'select', ok: () => of('hex').some(h => h.value !== 3) },
+  ], why: 'The adder is the CPU\'s ALU, the register is its accumulator, and STEP is its clock. Add a counter that fetches instructions from a ROM and you have a real (tiny) computer.' },
+  { name: 'A game made of chips', about: 'Play Meteor Dodge and see how a console works.', start: () => EXAMPLES.game.build(), steps: [
+    { text: 'Press the <b>arrow keys</b> (or click the D-pad) to move your blue ship. Each press is a clock pulse into the <b>UP/DN</b> counter, which holds your X position.', tool: null, ok: () => of('updown').some(u => u.state !== 0) },
+    { text: 'Dodge <b>3 meteors</b>. The <b>RAND</b> chip picks each new meteor\'s column, and the score counter ticks when one falls past you.', tool: null, ok: () => of('counter').some(c => c.outs.length === 4 && wires.some(w => w.a === c && w.b.type === 'seg7') && c.state >= 3) },
+    { text: 'Let a meteor hit you. The <b>CMP</b> chip sees your columns match on row 7, and the latch shuts the meteor clock off: game over.', tool: null, ok: () => of('sr').some(s => s.outs[0]) },
+    { text: 'Press the red <b>RESET</b> button (bottom left) to play again. Turn the Clock up for hard mode.', tool: 'select', ok: () => of('sr').every(s => !s.outs[0]) },
+  ], why: 'Early consoles worked just like this: counters for positions, a random-number circuit, comparators for collisions, and sprite hardware that draws the player and enemies without a framebuffer. There is no software anywhere on this board.' },
+];
+let lesson = null, progress = [], doneLessons = {};
+try { doneLessons = JSON.parse(localStorage.getItem('copperline-learned') || '{}') || {}; } catch (e) {}
+const learnBox = document.getElementById('learn');
+function openLearn(show) {
+  learnBox.hidden = !show;
+  document.getElementById('btn-learn').setAttribute('aria-expanded', String(show));
+  if (show) renderLearn(true);
+  else markTool(null);
+}
+function markTool(tool) { document.querySelectorAll('.t.pulse').forEach(b => b.classList.remove('pulse')); if (tool) document.querySelector(`[data-tool="${tool}"]`)?.classList.add('pulse'); }
+function renderLearn(force) {
+  if (learnBox.hidden) return;
+  if (!lesson) {
+    if (!force) return;
+    learnBox.innerHTML = '<h3>Learn electronics</h3><p>Eight short lessons, from your first LED to a game built entirely out of chips. Each one checks your board as you build.</p>' +
+      '' + LESSONS.map((l, i) =>`<button class="lesson${doneLessons[l.name] ? ' done' : ''}" id="lesson-${i}"><span class="n">${doneLessons[l.name] ? '✓' : i + 1}</span><b>${l.name}</b><span>${l.about}</span></button>`).join('') +
+      '<button class="b" id="learn-close">Close</button>';
+    LESSONS.forEach((l, i) => (document.getElementById('lesson-' + i).onclick = () => startLesson(i)));
+    document.getElementById('learn-close').onclick = () => openLearn(false);
+    markTool(null);
+    return;
+  }
+  const L = LESSONS[lesson];
+  let now = progress.findIndex(p => !p);
+  const finished = now < 0;
+  const html = `<h3>${lesson + 1}. ${L.name}</h3>` +
+    `<ol>${L.steps.map((s, i) => `<li class="${progress[i] ? 'ok' : i === now ? 'now' : ''}"><span>${s.text}</span></li>`).join('')}</ol>` +
+    (finished ? `<div class="why"><b>Lesson complete.</b> ${L.why}</div>` : '') +
+    `<div class="row">${finished && lesson + 1 < LESSONS.length ? `<button class="b primary" id="learn-next">Next: ${LESSONS[lesson + 1].name}</button>` : ''}<button class="b" id="learn-back">All lessons</button><button class="b" id="learn-restart">Restart lesson</button></div>`;
+  if (learnBox.dataset.html !== html) {
+    learnBox.innerHTML = html; learnBox.dataset.html = html;
+    document.getElementById('learn-back').onclick = () => { lesson = null; renderLearn(true); };
+    document.getElementById('learn-restart').onclick = () => startLesson(lesson);
+    const nx = document.getElementById('learn-next'); if (nx) nx.onclick = () => startLesson(lesson + 1);
+  }
+  markTool(finished ? null : L.steps[now].tool);
+}
+function startLesson(i) {
+  lesson = i; progress = LESSONS[i].steps.map(() => false);
+  clearAll(); clockHz = 1; document.getElementById('btn-clock').textContent = 'Clock 1 Hz';
+  LESSONS[i].start(); snapshot();
+  delete learnBox.dataset.html;
+  setMode('select');
+  toast('Lesson ' + (i + 1) + ': ' + LESSONS[i].name + ' (Ctrl+Z brings your old board back)');
+  renderLearn(true);
+}
+function checkLesson() {
+  if (lesson == null) return;
+  const L = LESSONS[lesson];
+  const now = progress.findIndex(p => !p);
+  if (now < 0) return;
+  let ok = false;
+  try { ok = L.steps[now].ok(); } catch (e) {}
+  if (ok) {
+    progress[now] = true;
+    if (progress.every(Boolean)) { doneLessons[L.name] = true; try { localStorage.setItem('copperline-learned', JSON.stringify(doneLessons)); } catch (e) {} toast('Lesson complete: ' + L.name); }
+    else toast('Nice. Step ' + (now + 2) + ' of ' + L.steps.length);
+  }
+  renderLearn();
+}
+document.getElementById('btn-learn').onclick = () => openLearn(learnBox.hidden);
+
+let loaded = false;
+try {
+  const s = JSON.parse(localStorage.getItem('copperline-board') || 'null');
+  // an untouched traffic-light board from the last update gets swapped for the new GPU; anything you built is kept
+  const untouched = s && s.comps && s.comps.length === 22 && s.comps.some(c => c.type === 'sr') && s.comps.some(c => c.type === 'motor');
+  const untouchedGpu = s && s.comps && s.comps.length === 12 && s.comps.some(c => c.type === 'rom') && s.comps.some(c => c.type === 'screen');
+  if (s && s.comps && s.comps.length && !untouched && !untouchedGpu) { restore(s); loaded = true; toast('New: Meteor Dodge game and the huge board. Find them in Examples'); }
+} catch (e) {}
+if (!loaded) { EXAMPLES.game.build(); toast('Meteor Dodge: arrow keys to move, dodge the red meteors'); }
+snapshot();
+setMode('select');
+
+// ---------- loop ----------
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+const clock = new THREE.Clock();
+let frameNo = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (running) { clockT += dt; if (clockT >= 0.5 / clockHz) { clockT = 0; clockOn = !clockOn; } simulate(); }
+  paint(dt, t);
+  if (camTarget) { camera.position.lerp(camTarget, Math.min(1, dt * 4)); if (camera.position.distanceTo(camTarget) < 0.05) camTarget = null; }
+  if (selected && mode === 'select') { selRing.visible = true; selRing.position.set(selected.x, TOP + 0.01, selected.z); } else selRing.visible = false;
+  renderTruth();
+  if ((frameNo = (frameNo + 1) % 12) === 0) checkLesson();
+  controls.update();
+  renderer.render(scene, camera);
+  const lit = comps.filter(c => c.mesh.userData.lamp && (c.mesh.userData.k || 0) > 0.5).length;
+  document.getElementById('stats').textContent = `${comps.length} parts · ${wires.length} traces · ${lit} lights on${running ? '' : ' · paused'}`;
+  requestAnimationFrame(frame);
+}
+frame();
+})();
+</script>
+
+</body>
+</html>
