@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Stackopolis</title>
+<meta name="description" content="Build the tallest tower in the world, one floor at a time. Tap to drop each floor; whatever hangs over falls off. Climb past the clouds, the Eiffel Tower, Everest and into space.">
+<meta name="theme-color" content="#7cc6f2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lilita+One&display=swap">
+<style>
+/* Stackopolis: a one-tap tower builder. The sky changes as you climb (day, sunset, night, space);
+   the HUD is chunky cream-on-ink like the rest of kai.fun. */
+:root { --ink: #1b1530; --paper: #fff7e6; --sun: #ffd23f; --coral: #ff6b5e; --teal: #3fd7c3; --muted: #6f6a86; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: #7cc6f2; touch-action: none; user-select: none; -webkit-user-select: none; }
+body { font-family: "Fredoka", system-ui, sans-serif; color: var(--ink); }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: max(14px, env(safe-area-inset-top)) 16px 0; pointer-events: none; }
+.pill { pointer-events: auto; background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); padding: 6px 14px; font-weight: 700; font-size: 15px; }
+.score { text-align: center; position: fixed; top: max(18px, env(safe-area-inset-top)); left: 0; right: 0; pointer-events: none; }
+.score .n { font-family: "Lilita One", sans-serif; font-size: 72px; line-height: 1; color: var(--paper); -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); }
+.score .h { margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--paper); text-shadow: 0 2px 0 var(--ink), 0 0 6px rgba(0,0,0,.35); }
+.btn { pointer-events: auto; cursor: pointer; font: inherit; font-weight: 700; background: var(--paper); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 var(--ink); padding: 6px 12px; font-size: 18px; line-height: 1; }
+.btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+.toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; font-family: "Lilita One", sans-serif; font-size: 44px; color: var(--sun); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 5px 0 var(--ink); transition: transform .25s cubic-bezier(.3,1.7,.5,1), opacity .25s; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.fact { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); opacity: 0; transition: .35s; pointer-events: none; background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); padding: 10px 16px; font-weight: 600; font-size: 16px; text-align: center; max-width: min(92vw, 440px); }
+.fact.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.fact b { color: var(--coral); }
+.screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(27, 21, 48, .35); }
+.screen.hide { display: none; }
+.card { background: var(--paper); border: 4px solid var(--ink); border-radius: 26px; box-shadow: 0 9px 0 var(--ink); padding: 26px 24px 22px; width: min(100%, 400px); text-align: center; }
+.card h1 { font-family: "Lilita One", sans-serif; font-size: 54px; line-height: .95; letter-spacing: 1px; color: var(--sun); -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); }
+.card h1 span { color: var(--paper); }
+.card p { margin-top: 14px; font-size: 17px; color: var(--muted); line-height: 1.4; }
+.card .big { font-family: "Lilita One", sans-serif; font-size: 64px; color: var(--ink); line-height: 1; margin-top: 10px; }
+.card .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+.card .go { font-size: 22px; padding: 12px 22px; background: var(--sun); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.stat { border: 3px solid var(--ink); border-radius: 14px; padding: 8px; background: #fff; }
+.stat small { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat b { font-size: 22px; }
+.hint { margin-top: 12px; font-size: 14px; color: var(--muted); }
+a.back { color: var(--paper); text-decoration: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <a class="pill back" href="index.html" style="background:var(--ink);color:var(--paper)">← kai.fun</a>
+  <button class="btn" id="mute" aria-label="Sound on or off">🔊</button>
+</div>
+<div class="score" id="scoreBox"><div class="n" id="score">0</div><div class="h" id="height">0 m</div></div>
+<div class="toast" id="toast">PERFECT!</div>
+<div class="fact" id="fact"></div>
+
+<div class="screen" id="start">
+  <div class="card">
+    <h1>Stack<span>opolis</span></h1>
+    <p>Build the tallest tower in the world.<br>Tap (or press Space) to drop each floor. Whatever hangs over the edge falls off, so line them up.</p>
+    <p>Land three <b>perfect</b> floors in a row and your floor grows back.</p>
+    <div class="row"><button class="btn go" id="play">Start building</button></div>
+    <div class="hint" id="bestLine"></div>
+  </div>
+</div>
+<div class="screen hide" id="over">
+  <div class="card">
+    <h1>Topple<span>d!</span></h1>
+    <div class="big" id="final">0</div>
+    <p id="finalWords">floors</p>
+    <div class="stats">
+      <div class="stat"><small>Height</small><b id="finalH">0 m</b></div>
+      <div class="stat"><small>Best</small><b id="finalBest">0</b></div>
+      <div class="stat"><small>Perfects</small><b id="finalPerf">0</b></div>
+      <div class="stat"><small>Taller than</small><b id="finalThan">a house</b></div>
+    </div>
+    <div class="row"><button class="btn go" id="again">Build again</button><button class="btn" id="share">Share</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+addEventListener('resize', resize); resize();
+
+// ---------------------------------------------------------------- sound: tiny synth blips
+let AC = null, muted = false;
+try { muted = localStorage.getItem('stackopolis.muted') === '1'; } catch (e) {}
+const muteBtn = document.getElementById('mute');
+muteBtn.textContent = muted ? '🔇' : '🔊';
+muteBtn.onclick = e => { e.stopPropagation(); muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('stackopolis.muted', muted ? '1' : '0'); } catch (er) {} };
+function tone(freq, dur = .12, type = 'triangle', vol = .18, slide = 0) {
+  if (muted) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * slide), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + .02);
+  } catch (e) {}
+}
+const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+function chime(step) { const n = SCALE[Math.min(step, SCALE.length - 1)]; tone(523.25 * Math.pow(2, n / 12), .22, 'sine', .2); tone(1046.5 * Math.pow(2, n / 12), .12, 'triangle', .06); }
+
+// ---------------------------------------------------------------- the world
+const FLOOR_H = 34;            // pixels per floor at zoom 1
+const METRES = 3.6;            // metres per floor
+const START_W = 230;
+// [floors, name, what we say] at 3.6 m a floor
+const LANDMARKS = [
+  [2, 'a giraffe', 'Taller than <b>a giraffe</b> (5.5 m).'],
+  [9, 'a blue whale', 'Taller than <b>a blue whale</b> standing on its tail (30 m).'],
+  [16, 'the Leaning Tower of Pisa', 'Taller than <b>the Leaning Tower of Pisa</b> (56 m), and yours is straighter.'],
+  [26, 'the Statue of Liberty', 'You just passed <b>the Statue of Liberty</b> (93 m).'],
+  [39, 'the Great Pyramid', 'Taller than <b>the Great Pyramid</b> (139 m)!'],
+  [47, 'the Washington Monument', 'Above <b>the Washington Monument</b> (169 m).'],
+  [92, 'the Eiffel Tower', 'You passed <b>the Eiffel Tower</b> (330 m). Bonjour!'],
+  [124, 'the Empire State Building', 'Above <b>the Empire State Building</b> (443 m with its spire).'],
+  [142, 'Taipei 101', 'Higher than <b>Taipei 101</b> (508 m).'],
+  [231, 'the Burj Khalifa', 'You beat <b>the Burj Khalifa</b> (828 m). World record!'],
+  [556, 'the clouds', 'You are above <b>the clouds</b> (2 km).'],
+  [2459, 'Mount Everest', 'Higher than <b>Mount Everest</b> (8,849 m). It gets cold up here.'],
+  [2778, 'airliners', 'Airliners fly <b>under</b> your tower now (10 km).'],
+  [27778, 'the edge of space', 'Welcome to <b>space</b> (100 km).'],
+];
+let tower, mover, falling, particles, clouds, birds, stars, camY, camTarget, state, score, perfects, streak, best, speed, dir, shake, landmarkAt, zoom, hue0;
+try { best = +localStorage.getItem('stackopolis.best') || 0; } catch (e) { best = 0; }
+document.getElementById('bestLine').textContent = best ? 'Your best: ' + best + ' floors (' + Math.round(best * METRES) + ' m)' : '';
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function palette(i) {
+  // a new district every 12 floors: each with its own colours
+  const sets = [
+    ['#ff8a5c', '#ffd0a8'], ['#4aa9d8', '#bde3f6'], ['#6fb85c', '#cfeec3'], ['#9b7fd4', '#ddd0f5'], ['#f5b829', '#fde8b0'],
+    ['#ff5f8f', '#ffc7d8'], ['#3fd7c3', '#c4f5ee'], ['#e8573f', '#f8c3b8'], ['#5c6bd6', '#cfd4f7'], ['#e0a34a', '#f6deb4'],
+  ];
+  return sets[Math.floor(i / 12) % sets.length];
+}
+
+function reset() {
+  tower = [{ x: -START_W / 2, w: START_W, y: 0, pal: palette(0), roof: false, i: 0, wob: 0 }];
+  falling = []; particles = [];
+  score = 0; perfects = 0; streak = 0; speed = 2.6; dir = 1; shake = 0; landmarkAt = 0; zoom = 1;
+  camY = 0; camTarget = 0;
+  clouds = []; birds = []; stars = [];
+  for (let i = 0; i < 160; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + .3, t: Math.random() * 6 });
+  for (let i = 0; i < 9; i++) spawnCloud(rand(-200, 1400));
+  newMover();
+  updateHud();
+}
+
+// how far either side of the tower a floor swings (centre to centre)
+function swing(top) { return top.w * .5 + Math.min(280, Math.max(W, 360) / zoom * .5 - top.w * .5 - 10); }
+
+function newMover() {
+  const top = tower[tower.length - 1];
+  const i = tower.length;
+  dir = i % 2 ? 1 : -1;
+  // start just beside the tower, swinging in, alternating sides
+  const c = top.x + top.w / 2 - dir * Math.min(swing(top), top.w * .8 + 70);
+  mover = { x: c - top.w / 2, w: top.w, y: i * FLOOR_H, pal: palette(i), i, wob: 0 };
+}
+window.__stack = () => ({ mx: mover ? mover.x : null, tx: tower[tower.length - 1].x, tw: tower[tower.length - 1].w, score, state });
+
+function spawnCloud(y) {
+  clouds.push({ x: rand(-700, 700), y: y, s: rand(.6, 1.5), v: rand(.08, .3) * (Math.random() < .5 ? -1 : 1) });
+}
+
+// ---------------------------------------------------------------- dropping a floor
+function drop() {
+  if (state !== 'play' || !mover) return;
+  const top = tower[tower.length - 1];
+  const m = mover;
+  const left = Math.max(m.x, top.x), right = Math.min(m.x + m.w, top.x + top.w);
+  const overlap = right - left;
+  if (overlap <= 0) {
+    // missed entirely: it tumbles off, and that's the end
+    falling.push({ x: m.x, y: m.y, w: m.w, h: FLOOR_H, vx: dir * 2, vy: 0, rot: 0, vr: dir * .04, pal: m.pal });
+    mover = null;
+    tone(160, .5, 'sawtooth', .15, .3);
+    shake = 14;
+    setTimeout(gameOver, 900);
+    return;
+  }
+  const tol = Math.max(3, 6 - score * .02);
+  let placed;
+  if (Math.abs(m.x - top.x) <= tol) {
+    // perfect: snap it on, and after three in a row the floor grows back a little
+    streak++; perfects++;
+    let w = top.w, x = top.x;
+    if (streak >= 3 && w < START_W) { const grow = Math.min(START_W - w, 14); w += grow; x -= grow / 2; }
+    placed = { x, w, y: m.y, pal: m.pal, i: m.i, wob: 1 };
+    toast(streak >= 3 ? 'PERFECT x' + streak + '!' : 'PERFECT!');
+    chime(Math.min(streak - 1, 10));
+    for (let k = 0; k < 18; k++) particles.push({ x: x + Math.random() * w, y: m.y + FLOOR_H, vx: rand(-2, 2), vy: rand(1, 4), life: 1, c: Math.random() < .5 ? '#ffd23f' : '#fff7e6' });
+  } else {
+    streak = 0;
+    placed = { x: left, w: overlap, y: m.y, pal: m.pal, i: m.i, wob: .6 };
+    // the overhang falls away
+    const cutX = m.x < top.x ? m.x : right, cutW = m.w - overlap;
+    falling.push({ x: cutX, y: m.y, w: cutW, h: FLOOR_H, vx: (m.x < top.x ? -1 : 1) * rand(1, 2.5), vy: 1, rot: 0, vr: (m.x < top.x ? -1 : 1) * rand(.02, .06), pal: m.pal });
+    tone(330 + Math.min(score, 60) * 4, .1, 'square', .08);
+    tone(110, .15, 'triangle', .14, .5);
+    shake = 4;
+  }
+  tower.push(placed);
+  for (let k = 0; k < tower.length; k++) tower[k].wob = Math.max(tower[k].wob, placed.wob * Math.max(0, 1 - (tower.length - k) / 6));
+  score++;
+  speed = Math.min(2.6 + score * .045, 7.5);
+  camTarget = Math.max(0, score * FLOOR_H - H * .35 / zoom);
+  checkLandmark();
+  updateHud();
+  newMover();
+}
+
+let toastT = 0;
+function toast(t) {
+  const el = document.getElementById('toast');
+  el.textContent = t;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 700);
+}
+let factT = 0;
+function fact(html) {
+  const el = document.getElementById('fact');
+  el.innerHTML = html;
+  el.classList.add('show');
+  clearTimeout(factT);
+  factT = setTimeout(() => el.classList.remove('show'), 3600);
+}
+function checkLandmark() {
+  while (landmarkAt < LANDMARKS.length && score >= LANDMARKS[landmarkAt][0]) {
+    fact(LANDMARKS[landmarkAt][2]);
+    tone(784, .3, 'sine', .15); setTimeout(() => tone(1175, .4, 'sine', .12), 120);
+    landmarkAt++;
+  }
+}
+function tallerThan() {
+  let t = 'a garden shed';
+  for (const l of LANDMARKS) if (score >= l[0]) t = l[1];
+  return t;
+}
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  const m = Math.round(score * METRES);
+  document.getElementById('height').textContent = m >= 1000 ? (m / 1000).toFixed(m >= 10000 ? 0 : 1) + ' km' : m + ' m';
+}
+
+function gameOver() {
+  state = 'over';
+  if (score > best) { best = score; try { localStorage.setItem('stackopolis.best', best); } catch (e) {} }
+  document.getElementById('final').textContent = score;
+  document.getElementById('finalWords').textContent = score === 1 ? 'floor' : 'floors';
+  document.getElementById('finalH').textContent = document.getElementById('height').textContent;
+  document.getElementById('finalBest').textContent = best;
+  document.getElementById('finalPerf').textContent = perfects;
+  document.getElementById('finalThan').textContent = tallerThan();
+  document.getElementById('over').classList.remove('hide');
+}
+
+function start() {
+  reset();
+  state = 'play';
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('over').classList.add('hide');
+  tone(440, .1); setTimeout(() => tone(660, .12), 80);
+}
+document.getElementById('play').onclick = e => { e.stopPropagation(); start(); };
+document.getElementById('again').onclick = e => { e.stopPropagation(); start(); };
+document.getElementById('share').onclick = e => {
+  e.stopPropagation();
+  const text = 'I built a ' + score + '-floor tower in Stackopolis (' + document.getElementById('height').textContent + ', taller than ' + tallerThan() + '). Beat it!';
+  const url = location.href;
+  if (navigator.share) navigator.share({ title: 'Stackopolis', text, url }).catch(() => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + url).then(() => fact('Copied! Paste it to a friend.'));
+};
+addEventListener('pointerdown', e => {
+  if (e.target.closest('button, a')) return;
+  if (state === 'play') drop();
+});
+addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowDown') {
+    e.preventDefault();
+    if (state === 'play') drop();
+    else if (state === 'over' || state === 'menu') start();
+  }
+});
+
+// ---------------------------------------------------------------- drawing
+function lerp(a, b, t) { return a + (b - a) * t; }
+function mix(c1, c2, t) {
+  const a = c1.match(/\w\w/g).map(h => parseInt(h, 16)), b = c2.match(/\w\w/g).map(h => parseInt(h, 16));
+  return 'rgb(' + a.map((v, i) => Math.round(lerp(v, b[i], t))).join(',') + ')';
+}
+// sky keys by height in floors: day, golden, sunset, dusk, night, deep space
+const SKY = [[0, '7cc6f2', 'd7f0ff'], [40, '6aa8e8', 'ffe2b0'], [90, '5b5fb8', 'ff9f7a'], [150, '2a2a6b', '8a5fa8'], [230, '10123a', '2b2560'], [400, '05050f', '0d0b24']];
+function skyAt(f) {
+  for (let i = 0; i < SKY.length - 1; i++) {
+    const a = SKY[i], b = SKY[i + 1];
+    if (f <= b[0]) { const t = (f - a[0]) / (b[0] - a[0]); return [mix(a[1], b[1], t), mix(a[2], b[2], t), i + t]; }
+  }
+  const l = SKY[SKY.length - 1];
+  return ['#' + l[1], '#' + l[2], SKY.length - 1];
+}
+
+function rr(x, y, w, h, r) {
+  cx.beginPath();
+  cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
+}
+
+function drawFloor(f, sx, sy, night, cut) {
+  // a floor: a coloured band, a row of windows, ink outline
+  const w = f.w, h = FLOOR_H;
+  const [main, light] = f.pal;
+  cx.fillStyle = main;
+  cx.fillRect(sx, sy - h, w, h);
+  cx.fillStyle = 'rgba(255,255,255,.18)';
+  cx.fillRect(sx, sy - h, w, 5);
+  const n = Math.max(1, Math.floor(w / 26));
+  const gap = w / n;
+  for (let k = 0; k < n; k++) {
+    const wx = sx + k * gap + gap * .2, ww = gap * .6;
+    const lit = night > .3 && ((f.i * 7 + k * 13) % 5 !== 0);
+    cx.fillStyle = lit ? 'rgba(255, 220, 120,' + (.5 + .5 * night) + ')' : light;
+    rr(wx, sy - h + 9, ww, h - 17, 3); cx.fill();
+  }
+  cx.strokeStyle = '#1b1530';
+  cx.lineWidth = 3;
+  cx.strokeRect(sx + 1.5, sy - h + 1.5, w - 3, h - 3);
+  if (cut) { cx.fillStyle = 'rgba(0,0,0,.12)'; cx.fillRect(sx, sy - h, w, h); }
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(2.5, (now - last) / 16.67);
+  last = now;
+  step(dt);
+  draw(now / 1000);
+  requestAnimationFrame(frame);
+}
+
+function step(dt) {
+  if (state === 'play' && mover) {
+    mover.x += dir * speed * dt;
+    const top = tower[tower.length - 1];
+    const c = top.x + top.w / 2, span = swing(top);
+    if (mover.x + mover.w / 2 > c + span) { mover.x = c + span - mover.w / 2; dir = -1; }
+    if (mover.x + mover.w / 2 < c - span) { mover.x = c - span - mover.w / 2; dir = 1; }
+  }
+  camY += (camTarget - camY) * Math.min(1, .08 * dt);
+  // zoom out a little on small screens so the swing still fits
+  zoom = Math.min(1, W / 560);
+  for (const f of falling) { f.vy -= .45 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt; }
+  falling = falling.filter(f => f.y > camY - H);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= .12 * dt; p.life -= .025 * dt; }
+  particles = particles.filter(p => p.life > 0);
+  for (const t of tower) t.wob *= Math.pow(.9, dt);
+  shake *= Math.pow(.85, dt);
+  for (const c of clouds) { c.x += c.v * dt; if (c.x > 900) c.x = -900; if (c.x < -900) c.x = 900; }
+  const topY = camY + H / zoom;
+  if (clouds.length < 14 && Math.random() < .02) spawnCloud(topY + rand(0, 400));
+  clouds = clouds.filter(c => c.y > camY - 300);
+  if (Math.random() < .004 && score < 300) birds.push({ x: -700, y: camY + rand(H * .3, H * .9) / zoom, v: rand(1.2, 2.2), f: Math.random() * 6 });
+  for (const b of birds) { b.x += b.v * dt; b.f += .25 * dt; }
+  birds = birds.filter(b => b.x < 800);
+}
+
+function draw(t) {
+  const floors = camY / FLOOR_H + H / FLOOR_H * .4;
+  const [top, bottom, phase] = skyAt(floors);
+  const g = cx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, top); g.addColorStop(1, bottom);
+  cx.fillStyle = g;
+  cx.fillRect(0, 0, W, H);
+  const night = Math.min(1, Math.max(0, (phase - 2.6) / 1.4));
+  // stars come out at dusk
+  if (night > 0) {
+    for (const s of stars) {
+      const a = night * (.55 + .45 * Math.sin(t * 2 + s.t));
+      cx.fillStyle = 'rgba(255,255,255,' + a + ')';
+      cx.beginPath(); cx.arc(s.x * W, s.y * H, s.r, 0, 7); cx.fill();
+    }
+  }
+  // the sun sets as you climb; the moon and earthshine take over in space
+  const sunY = H * (.18 + Math.min(1.2, phase / 3.2) * .7);
+  if (phase < 3.6) {
+    cx.fillStyle = 'rgba(255, 230, 150, .9)';
+    cx.beginPath(); cx.arc(W * .8, sunY, 46, 0, 7); cx.fill();
+    cx.fillStyle = 'rgba(255, 230, 150, .25)';
+    cx.beginPath(); cx.arc(W * .8, sunY, 80, 0, 7); cx.fill();
+  }
+  if (phase > 3.2) {
+    cx.fillStyle = 'rgba(240, 240, 255,' + Math.min(1, phase - 3.2) + ')';
+    cx.beginPath(); cx.arc(W * .2, H * .2, 30, 0, 7); cx.fill();
+    cx.fillStyle = top;
+    cx.beginPath(); cx.arc(W * .2 + 12, H * .2 - 6, 26, 0, 7); cx.fill();
+  }
+  const sh = shake > .3 ? (Math.random() - .5) * shake : 0;
+  cx.save();
+  cx.translate(W / 2 + sh, H - 80 + camY * zoom);
+  cx.scale(zoom, zoom);
+  // ground and a little skyline
+  if (camY * zoom < 300) {
+    cx.fillStyle = '#7fbf6a';
+    cx.fillRect(-2000, 0, 4000, 400);
+    cx.fillStyle = '#5f9a4e';
+    cx.fillRect(-2000, 0, 4000, 6);
+    const sky = ['#9fb7d6', '#a9c0dc', '#8fa9cc'];
+    for (let k = -14; k < 14; k++) {
+      const bw = 60 + (k * 37 % 50 + 50) % 50, bh = 50 + ((k * 53) % 120 + 120) % 120;
+      cx.fillStyle = sky[(k + 14) % 3];
+      cx.fillRect(k * 90, -bh, bw, bh);
+    }
+    cx.fillStyle = '#7fbf6a'; cx.fillRect(-400, -4, 800, 4);
+  }
+  // clouds and birds behind the tower
+  for (const c of clouds) {
+    const y = -c.y;
+    cx.fillStyle = night > .5 ? 'rgba(200, 200, 255, .18)' : 'rgba(255,255,255,.85)';
+    for (const [dx, dy, r] of [[0, 0, 34], [36, 8, 26], [-34, 10, 24], [10, -16, 26]]) { cx.beginPath(); cx.arc(c.x + dx * c.s, y + dy * c.s, r * c.s, 0, 7); cx.fill(); }
+  }
+  cx.strokeStyle = '#1b1530'; cx.lineWidth = 2.5;
+  for (const b of birds) {
+    const y = -b.y, f = Math.sin(b.f) * 6;
+    cx.beginPath(); cx.moveTo(b.x - 9, y - f); cx.quadraticCurveTo(b.x - 4, y - 4, b.x, y); cx.quadraticCurveTo(b.x + 4, y - 4, b.x + 9, y - f); cx.stroke();
+  }
+  // the tower, wobbling a little after each landing
+  const visFrom = Math.max(0, Math.floor(camY / FLOOR_H) - 2), visTo = Math.min(tower.length, visFrom + Math.ceil(H / zoom / FLOOR_H) + 4);
+  for (let k = visFrom; k < visTo; k++) {
+    const f = tower[k];
+    const wob = Math.sin(t * 22 + k) * f.wob * 2.5;
+    if (k === 0) {
+      // the foundation: a stone base wider than the first floor
+      cx.fillStyle = '#9a8f86';
+      cx.fillRect(f.x - 20, -FLOOR_H, f.w + 40, FLOOR_H);
+      cx.strokeStyle = '#1b1530'; cx.lineWidth = 3; cx.strokeRect(f.x - 18.5, -FLOOR_H + 1.5, f.w + 37, FLOOR_H - 3);
+      cx.fillStyle = '#fff7e6'; cx.font = '700 16px Fredoka, sans-serif'; cx.textAlign = 'center';
+      cx.fillText('STACKOPOLIS', f.x + f.w / 2, -10);
+      continue;
+    }
+    drawFloor(f, f.x + wob, -f.y, night);
+  }
+  // the roof crane on top (a little flag that marks the summit)
+  const topF = tower[tower.length - 1];
+  if (topF) {
+    const fx = topF.x + topF.w / 2, fy = -topF.y - FLOOR_H;
+    cx.strokeStyle = '#1b1530'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(fx, fy); cx.lineTo(fx, fy - 34); cx.stroke();
+    cx.fillStyle = '#ff6b5e';
+    cx.beginPath(); cx.moveTo(fx, fy - 34); cx.lineTo(fx + 22 + Math.sin(t * 6) * 3, fy - 28); cx.lineTo(fx, fy - 21); cx.closePath(); cx.fill(); cx.stroke();
+  }
+  // the floor being swung across, with a guide shadow
+  if (mover && state === 'play') {
+    const top2 = tower[tower.length - 1];
+    cx.fillStyle = 'rgba(27,21,48,.12)';
+    cx.fillRect(top2.x, -top2.y - FLOOR_H - 3, top2.w, 3);
+    drawFloor(mover, mover.x, -mover.y, night);
+    cx.strokeStyle = 'rgba(27,21,48,.35)'; cx.lineWidth = 2; cx.setLineDash([6, 6]);
+    cx.beginPath(); cx.moveTo(mover.x + mover.w / 2, -mover.y - FLOOR_H); cx.lineTo(mover.x + mover.w / 2, -mover.y - FLOOR_H - 400); cx.stroke();
+    cx.setLineDash([]);
+  }
+  for (const f of falling) {
+    cx.save();
+    cx.translate(f.x + f.w / 2, -f.y - f.h / 2);
+    cx.rotate(f.rot);
+    drawFloor({ w: f.w, pal: f.pal, i: 3 }, -f.w / 2, f.h / 2, night, true);
+    cx.restore();
+  }
+  for (const p of particles) {
+    cx.globalAlpha = Math.max(0, p.life);
+    cx.fillStyle = p.c;
+    cx.fillRect(p.x - 3, -p.y - 3, 6, 6);
+  }
+  cx.globalAlpha = 1;
+  cx.restore();
+}
+
+state = 'menu';
+reset();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

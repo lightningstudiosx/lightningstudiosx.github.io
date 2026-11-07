@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fresh Cat</title>
+<meta name="description" content="A brand-new cat, drawn from pure noise by a small AI model running right in your browser. Every reload is a cat that never existed before.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Caveat:wght@600;700&family=DM+Mono:wght@500&display=swap">
+<style>
+/* Layout: one polaroid in the middle of a warm kitchen-table page. The cat develops in the photo while
+   the model denoises; controls sit under it. Single warm light look by choice. */
+:root {
+  --table: #f6ead8;
+  --table2: #efdcc2;
+  --ink: #3a2a1f;
+  --muted: #8a735e;
+  --paper: #fffdf8;
+  --tomato: #e8573f;
+  --butter: #ffd36b;
+  color-scheme: light;
+}
+* { box-sizing: border-box }
+html, body { margin: 0; min-height: 100%; background: var(--table); color: var(--ink); font: 16px/1.45 "Fredoka", system-ui, sans-serif }
+body { background: radial-gradient(circle at 20% 10%, #fff6e8 0, transparent 40%), repeating-linear-gradient(45deg, var(--table) 0 22px, var(--table2) 22px 44px); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 18px 16px 40px }
+.home { align-self: flex-start; font: 600 13px "Fredoka", sans-serif; color: var(--ink); text-decoration: none; padding: 5px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); box-shadow: 3px 3px 0 var(--ink) }
+h1 { margin: 18px 0 2px; font: 700 clamp(40px, 9vw, 64px)/1 "Fredoka", sans-serif; letter-spacing: -1px; text-align: center }
+h1 span { color: var(--tomato) }
+.sub { margin: 0 0 22px; color: var(--muted); text-align: center; max-width: 30em }
+.polaroid { background: var(--paper); padding: 16px 16px 10px; border-radius: 6px; box-shadow: 0 2px 0 rgba(0,0,0,.05), 0 18px 40px rgba(80,50,20,.22); transform: rotate(-1.6deg); width: min(420px, 100%) }
+.photo { position: relative; aspect-ratio: 1; background: #2a211b; border-radius: 3px; overflow: hidden }
+.photo canvas { width: 100%; height: 100%; display: block; image-rendering: auto }
+.photo .veil { position: absolute; inset: 0; display: grid; place-items: center; color: #f6ead8; font: 600 15px "DM Mono", monospace; text-align: center; padding: 20px; background: rgba(42,33,27,.55); transition: opacity .4s }
+.photo .veil.gone { opacity: 0; pointer-events: none }
+.photo .veil { line-height: 1.5 }
+.photo .veil .btn { display: inline-block; margin: 16px 0 10px; font-size: 15px; line-height: 1.2 }
+.photo .veil input { display: none }
+.caption { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 4px 2px; font: 700 28px "Caveat", cursive }
+.caption small { font: 500 12px "DM Mono", monospace; color: var(--muted) }
+.progress { height: 6px; background: #eadbc6; border-radius: 9px; overflow: hidden; margin: 6px 4px 4px }
+.progress i { display: block; height: 100%; width: 0; background: var(--tomato); transition: width .15s }
+.row { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; justify-content: center }
+.btn { border: 2px solid var(--ink); background: var(--butter); color: var(--ink); font: 600 16px "Fredoka", sans-serif; border-radius: 12px; padding: 9px 18px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink) }
+.btn.alt { background: var(--paper) }
+a.btn { text-decoration: none; display: inline-block }
+.btn:disabled { opacity: .5; cursor: default }
+.facts { margin-top: 26px; max-width: 34em; color: var(--muted); font-size: 14px; text-align: center }
+.facts b { color: var(--ink) }
+.facts code { font: 500 12px "DM Mono", monospace }
+</style>
+</head>
+<body>
+<a class="home" href="index.html">← kaifun</a>
+<h1>Fresh <span>Cat</span></h1>
+<p class="sub">Every time you load this page, a tiny AI model draws a cat that has never existed before, starting from pure static. It runs in your browser, right now.</p>
+
+<div class="polaroid">
+  <div class="photo"><canvas id="cat" width="512" height="512" aria-label="A newly generated cat"></canvas><div class="veil" id="veil">warming up the oven…</div></div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="caption"><span id="name">cat #…</span><small id="stat"></small></div>
+</div>
+
+<div class="row">
+  <button class="btn" id="again" disabled>Another cat</button>
+  <button class="btn alt" id="save" disabled>Save this cat</button>
+  <a class="btn alt" id="dl" href="cat_unet.onnx" download="cat_unet.onnx">Download the cat brain (46 MB)</a>
+</div>
+<p class="facts">The model is a 23-million-parameter diffusion network trained from scratch on 5,653 cat photos. It removes noise in <b>20 steps</b>; you can watch the cat develop like a photo. The first visit downloads the model (about 46&nbsp;MB) once; after that it's instant.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
+<script>
+'use strict';
+const MODEL_URL = 'cat_unet.onnx', STEPS = 20, RES = 64;
+const $ = s => document.querySelector(s);
+const cv = $('#cat'), g = cv.getContext('2d');
+const small = document.createElement('canvas'); small.width = small.height = RES;
+const sg = small.getContext('2d'), img = sg.createImageData(RES, RES);
+
+// cosine noise schedule, identical to the one the model was trained with
+const AC = (() => {
+  const T = 1000, s = 0.008, f = i => Math.cos(((i / T) + s) / (1 + s) * Math.PI / 2) ** 2;
+  const ac = []; for (let i = 0; i <= T; i++) ac.push(f(i) / f(0));
+  const out = new Float64Array(T); let prod = 1;
+  for (let i = 0; i < T; i++) { prod *= 1 - Math.min(0.999, 1 - ac[i + 1] / ac[i]); out[i] = Math.fround(prod); }
+  return out;
+})();
+const START = (() => { let k = 0; for (let i = 0; i < AC.length; i++) if (AC[i] >= 1e-2) k = i; return k; })();
+const TS = Array.from({ length: STEPS }, (_, i) => Math.trunc(START + (0 - START) * i / (STEPS - 1)));
+
+// seeded randomness so each cat has a number you could get again
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function randn(n, rand) { const o = new Float32Array(n); for (let i = 0; i < n; i += 2) { const u = Math.max(1e-12, rand()), v = rand(), r = Math.sqrt(-2 * Math.log(u)); o[i] = r * Math.cos(2 * Math.PI * v); if (i + 1 < n) o[i + 1] = r * Math.sin(2 * Math.PI * v); } return o; }
+
+function draw(x0) {   // x0 is [3,64,64] in -1..1
+  const n = RES * RES;
+  for (let i = 0; i < n; i++) for (let c = 0; c < 3; c++) img.data[i * 4 + c] = Math.max(0, Math.min(255, (x0[c * n + i] + 1) * 127.5));
+  for (let i = 0; i < n; i++) img.data[i * 4 + 3] = 255;
+  sg.putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(small, 0, 0, cv.width, cv.height);
+}
+
+// opened straight from a folder (file://), the browser won't let the page fetch the model, so ask for it once
+function pickModel() {
+  return new Promise(resolve => {
+    const v = $('#veil');
+    v.innerHTML = `<div>Opened from your computer, so the browser needs you to hand over the cat brain.<br><label class="btn">Choose cat_unet.onnx<input type="file" accept=".onnx"></label><br><small>it's in the same folder as this page</small></div>`;
+    v.querySelector('input').onchange = async e => { const f = e.target.files[0]; if (!f) return; v.textContent = 'reading the cat brain…'; resolve(new Uint8Array(await f.arrayBuffer())); };
+  });
+}
+
+async function fetchModel() {
+  if (location.protocol === 'file:') return pickModel();
+  // keep a copy in the Cache API so repeat visits don't download it again
+  let cache = null;
+  try { cache = await caches.open('freshcat-v1'); const hit = await cache.match(MODEL_URL); if (hit) return new Uint8Array(await hit.arrayBuffer()); } catch (e) { cache = null; }
+  const res = await fetch(MODEL_URL); if (!res.ok) throw new Error('model download failed (' + res.status + ')');
+  const total = +res.headers.get('content-length') || 46e6, reader = res.body.getReader(), chunks = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; $('#veil').textContent = `downloading the cat brain… ${Math.min(100, Math.round(got / total * 100))}%`; $('#bar').style.width = Math.min(100, got / total * 100) + '%'; }
+  const buf = new Uint8Array(got); let o = 0; for (const c of chunks) { buf.set(c, o); o += c.length; }
+  try { if (cache) await cache.put(MODEL_URL, new Response(buf.slice(), { headers: { 'content-type': 'application/octet-stream' } })); } catch (e) {}
+  return buf;
+}
+
+let session = null, busy = false;
+async function load() {
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+  ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+  const bytes = await fetchModel();
+  $('#veil').textContent = 'setting up the oven…';
+  session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+}
+
+async function makeCat(seed) {
+  if (busy) return; busy = true; $('#again').disabled = $('#save').disabled = true;
+  $('#name').textContent = `cat #${seed}`; $('#stat').textContent = 'developing…'; $('#veil').classList.add('gone');
+  const rand = mulberry(seed), n = 3 * RES * RES, t0 = performance.now();
+  let x = randn(n, rand); const x0 = new Float32Array(n);
+  draw(x.map(v => v * 0.5));
+  for (let i = 0; i < TS.length; i++) {
+    const t = TS[i], a = AC[t], ap = i + 1 < TS.length ? AC[TS[i + 1]] : 1;
+    const out = await session.run({ x: new ort.Tensor('float32', x, [1, 3, RES, RES]), t: new ort.Tensor('float32', new Float32Array([t]), [1]) });
+    const eps = out.eps.data, sa = Math.sqrt(a), s1 = Math.sqrt(1 - a), sap = Math.sqrt(ap), s1p = Math.sqrt(Math.max(0, 1 - ap));
+    const nx = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      const p = Math.max(-1, Math.min(1, (x[k] - s1 * eps[k]) / sa));   // predicted clean cat, clipped
+      const e = (x[k] - sa * p) / s1;                                   // noise implied by that prediction
+      x0[k] = p; nx[k] = sap * p + s1p * e;
+    }
+    x = nx;
+    draw(x0);
+    $('#bar').style.width = ((i + 1) / TS.length * 100) + '%';
+    await new Promise(r => requestAnimationFrame(r));
+  }
+  draw(x0);
+  $('#stat').textContent = `${STEPS} steps · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+  busy = false; $('#again').disabled = $('#save').disabled = false;
+}
+
+const newSeed = () => (crypto.getRandomValues(new Uint32Array(1))[0] % 999999) + 1;
+$('#again').onclick = () => makeCat(newSeed());
+$('#save').onclick = () => { const a = document.createElement('a'); a.download = $('#name').textContent.replace(/[^a-z0-9]+/gi, '-') + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
+
+(async () => {
+  try {
+    if (!window.ort) throw new Error('could not load the AI runtime');
+    await load();
+    const fromHash = parseInt(location.hash.slice(1), 10);
+    await makeCat(fromHash > 0 && fromHash < 1e6 ? fromHash : newSeed());
+  } catch (e) {
+    $('#veil').textContent = 'the oven broke: ' + e.message + '. try reloading.';
+    $('#veil').classList.remove('gone');
+  }
+})();
+</script>
+</body>
+</html>

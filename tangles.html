@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Tangles</title>
+<meta name="description" content="A knot of strings and beads. Drag the beads until no two strings cross. Twelve levels from easy to fiendish, then endless tangles.">
+<meta name="theme-color" content="#f6eedd">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lilita+One&display=swap">
+<style>
+/* Tangles: an untangling puzzle on warm paper. Ink strings, bright beads; crossing strings turn coral,
+   free ones turn teal. Chunky cream-on-ink controls like the rest of kai.fun. */
+:root { --ink: #2a1d14; --paper: #f6eedd; --card: #fffaf0; --coral: #ff6b5e; --teal: #1fb5a3; --sun: #ffc93c; --muted: #8b7a68; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: var(--paper); touch-action: none; user-select: none; -webkit-user-select: none; }
+body { font-family: "Fredoka", system-ui, sans-serif; color: var(--ink); }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+canvas.drag { cursor: grabbing; }
+.bar { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: max(12px, env(safe-area-inset-top)) 14px 0; pointer-events: none; }
+.bar > * { pointer-events: auto; }
+.pill { background: var(--card); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); padding: 6px 12px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+.pill.ink { background: var(--ink); color: var(--card); text-decoration: none; }
+.pill .x { color: var(--coral); }
+.pill.good .x { color: var(--teal); }
+.grow { flex: 1; }
+.btn { cursor: pointer; font: inherit; font-weight: 700; background: var(--card); color: var(--ink); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); padding: 6px 12px; font-size: 15px; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn.sun { background: var(--sun); }
+.screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(42, 29, 20, .28); }
+.screen.hide { display: none; }
+.card { background: var(--card); border: 4px solid var(--ink); border-radius: 26px; box-shadow: 0 9px 0 var(--ink); padding: 24px 22px 20px; width: min(100%, 460px); text-align: center; max-height: 92vh; overflow: auto; }
+.card h1 { font-family: "Lilita One", sans-serif; font-size: 58px; line-height: .95; letter-spacing: 1px; color: var(--sun); -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); }
+.card h2 { font-family: "Lilita One", sans-serif; font-size: 40px; color: var(--teal); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 5px 0 var(--ink); }
+.card p { margin-top: 12px; font-size: 17px; color: var(--muted); line-height: 1.4; }
+.stars { font-size: 46px; margin-top: 8px; letter-spacing: 6px; }
+.stars .off { filter: grayscale(1); opacity: .25; }
+.row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+.lv { cursor: pointer; font: inherit; border: 3px solid var(--ink); border-radius: 16px; background: #fff; box-shadow: 0 4px 0 var(--ink); padding: 10px 0 6px; }
+.lv b { display: block; font-family: "Lilita One", sans-serif; font-size: 26px; }
+.lv small { font-size: 13px; letter-spacing: 1px; }
+.lv.locked { opacity: .35; cursor: default; }
+.lv.done { background: #e7f8f4; }
+.lv.endless { grid-column: span 4; background: var(--sun); }
+.big { font-size: 21px !important; padding: 11px 20px !important; }
+.howto { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); pointer-events: none; color: var(--muted); font-weight: 600; font-size: 15px; text-align: center; transition: opacity .5s; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="bar">
+  <a class="pill ink" href="index.html">← kai.fun</a>
+  <div class="pill" id="lvl">Level 1</div>
+  <div class="pill" id="cross"><span class="x" id="crossN">0</span> crossings</div>
+  <div class="grow"></div>
+  <div class="pill" id="clock">0:00</div>
+  <button class="btn" id="hint">💡 Hint</button>
+  <button class="btn" id="redo">↺</button>
+  <button class="btn" id="menu">▦</button>
+</div>
+<div class="howto" id="howto">Drag the beads until no strings cross.</div>
+
+<div class="screen" id="title">
+  <div class="card">
+    <h1>Tangles</h1>
+    <p>Somebody knotted all the strings.<br>Drag the beads around until <b>no two strings cross</b>. Strings turn <b style="color:var(--coral)">coral</b> while they cross and <b style="color:var(--teal)">teal</b> when they're free.</p>
+    <div class="levels" id="levels"></div>
+  </div>
+</div>
+<div class="screen hide" id="win">
+  <div class="card">
+    <h2 id="winTitle">Untangled!</h2>
+    <div class="stars" id="winStars"></div>
+    <p id="winLine"></p>
+    <div class="row"><button class="btn" id="winMenu">Levels</button><button class="btn sun big" id="next">Next tangle →</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (nodes) fitInside();
+}
+
+// ---------------------------------------------------------------- sound
+let AC = null;
+function tone(f, d = .1, type = 'sine', v = .15) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02);
+  } catch (e) {}
+}
+
+// ---------------------------------------------------------------- levels: how many lines make each tangle
+const LEVELS = [4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11];
+let progress;
+try { progress = JSON.parse(localStorage.getItem('tangles.stars') || '[]'); } catch (e) { progress = []; }
+function save() { try { localStorage.setItem('tangles.stars', JSON.stringify(progress)); } catch (e) {} }
+
+// a seeded random, so a level is the same tangle every time you play it
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+let nodes = null, edges = [], solution = [], level = 0, endless = false, crossings = 0, crossFlags = [], moves = 0, hints = 0, started = 0, won = false, drag = -1, hover = -1, burst = [];
+const PALETTE = ['#ff6b5e', '#ffc93c', '#1fb5a3', '#4aa9d8', '#9b7fd4', '#ff8fb1', '#6fb85c', '#f08a3c'];
+
+/**
+ * Build a tangle that's sure to have an answer: draw n straight lines in general position; every crossing of two
+ * lines is a bead, and consecutive beads along each line are joined by a string. That drawing has no crossings
+ * (it's the answer); then the beads are scattered round a circle.
+ */
+function build(nLines, seed) {
+  const R = rng(seed);
+  let lines;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    lines = [];
+    for (let i = 0; i < nLines; i++) {
+      const a = R() * Math.PI, o = (R() - .5) * .9;
+      lines.push({ nx: Math.cos(a), ny: Math.sin(a), d: o });
+    }
+    // general position: no two nearly parallel
+    let ok = true;
+    for (let i = 0; i < nLines && ok; i++) for (let j = i + 1; j < nLines; j++) {
+      const det = lines[i].nx * lines[j].ny - lines[i].ny * lines[j].nx;
+      if (Math.abs(det) < .12) { ok = false; break; }
+    }
+    if (ok) break;
+  }
+  const pts = [], onLine = lines.map(() => []);
+  for (let i = 0; i < nLines; i++) for (let j = i + 1; j < nLines; j++) {
+    const a = lines[i], b = lines[j], det = a.nx * b.ny - a.ny * b.nx;
+    const x = (a.d * b.ny - a.ny * b.d) / det, y = (a.nx * b.d - a.d * b.nx) / det;
+    const id = pts.length;
+    pts.push({ x, y });
+    onLine[i].push(id); onLine[j].push(id);
+  }
+  const es = [];
+  lines.forEach((l, i) => {
+    // along the line's direction (-ny, nx)
+    const ids = onLine[i].sort((p, q) => (pts[p].x * -l.ny + pts[p].y * l.nx) - (pts[q].x * -l.ny + pts[q].y * l.nx));
+    for (let k = 1; k < ids.length; k++) es.push([ids[k - 1], ids[k]]);
+  });
+  // normalise the answer into a unit box
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const s = Math.max(x1 - x0, y1 - y0) || 1;
+  const sol = pts.map(p => ({ x: (p.x - x0) / s - (x1 - x0) / s / 2, y: (p.y - y0) / s - (y1 - y0) / s / 2 }));
+  // scatter: round a circle, in a shuffled order
+  const order = pts.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const ns = pts.map(() => ({ x: 0, y: 0, c: PALETTE[Math.floor(R() * PALETTE.length)], pop: 0 }));
+  order.forEach((id, k) => { const a = k / order.length * Math.PI * 2 - Math.PI / 2; ns[id].x = Math.cos(a) * .42; ns[id].y = Math.sin(a) * .42; });
+  return { ns, es, sol };
+}
+
+// world: beads live in a unit square centred on 0; the view maps it into the free part of the screen
+let view = { cx: 0, cy: 0, s: 1 };
+function fitInside() {
+  const top = 70, bottom = 50;
+  const s = Math.min(W - 40, H - top - bottom - 20);
+  view = { cx: W / 2, cy: top + (H - top - bottom) / 2, s: Math.max(200, s) };
+}
+const toScreen = p => ({ x: view.cx + p.x * view.s, y: view.cy + p.y * view.s });
+const toWorld = (x, y) => ({ x: (x - view.cx) / view.s, y: (y - view.cy) / view.s });
+
+function startLevel(i, isEndless) {
+  level = i; endless = !!isEndless;
+  const nLines = endless ? 8 + Math.floor(Math.random() * 4) : LEVELS[i];
+  const seed = endless ? (Math.random() * 1e9) | 0 : 1000 + i * 7919;
+  // (on the rare scramble that comes out already untangled, scramble again)
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const t = build(nLines, seed + attempt * 104729);
+    nodes = t.ns; edges = t.es; solution = t.sol;
+    count();
+    if (crossings > 0) break;
+  }
+  moves = 0; hints = 0; won = false; drag = -1; hover = -1; burst = [];
+  started = performance.now();
+  fitInside();
+  document.getElementById('lvl').textContent = endless ? 'Endless' : 'Level ' + (i + 1);
+  document.getElementById('title').classList.add('hide');
+  document.getElementById('win').classList.add('hide');
+  document.getElementById('howto').style.opacity = i === 0 && !endless ? 1 : 0;
+}
+
+// ---------------------------------------------------------------- crossings
+function cross(a, b, c, d) {
+  const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const d1 = o(c, d, a), d2 = o(c, d, b), d3 = o(a, b, c), d4 = o(a, b, d);
+  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0)) && d1 !== 0 && d2 !== 0 && d3 !== 0 && d4 !== 0;
+}
+function count() {
+  crossings = 0;
+  crossFlags = edges.map(() => false);
+  for (let i = 0; i < edges.length; i++) {
+    const [a, b] = edges[i];
+    for (let j = i + 1; j < edges.length; j++) {
+      const [c, d] = edges[j];
+      if (a === c || a === d || b === c || b === d) continue;
+      if (cross(nodes[a], nodes[b], nodes[c], nodes[d])) { crossings++; crossFlags[i] = crossFlags[j] = true; }
+    }
+  }
+  document.getElementById('crossN').textContent = crossings;
+  document.getElementById('cross').classList.toggle('good', crossings === 0);
+}
+
+function solved() {
+  won = true;
+  const secs = (performance.now() - started) / 1000;
+  const par = nodes.length * 1.2;
+  let stars = 3;
+  if (hints > 0) stars--;
+  if (moves > par * 2 || hints > 2) stars--;
+  stars = Math.max(1, stars);
+  if (!endless) { progress[level] = Math.max(progress[level] || 0, stars); save(); }
+  for (let k = 0; k < 90; k++) burst.push({ x: W / 2, y: H / 2, vx: (Math.random() - .5) * 16, vy: (Math.random() - 1) * 14, r: Math.random() * 6 + 3, c: PALETTE[k % PALETTE.length], life: 1 });
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, .25, 'triangle', .16), i * 90));
+  setTimeout(() => {
+    document.getElementById('winTitle').textContent = ['Untangled!', 'Smooth!', 'Free!', 'Knot no more!'][Math.floor(Math.random() * 4)];
+    document.getElementById('winStars').innerHTML = [0, 1, 2].map(i => '<span class="' + (i < stars ? '' : 'off') + '">⭐</span>').join('');
+    const m = Math.floor(secs / 60), s = Math.floor(secs % 60);
+    document.getElementById('winLine').textContent = nodes.length + ' beads, ' + edges.length + ' strings · ' + moves + ' moves · ' + m + ':' + String(s).padStart(2, '0') + (hints ? ' · ' + hints + (hints === 1 ? ' hint' : ' hints') : '');
+    document.getElementById('next').textContent = endless || level === LEVELS.length - 1 ? 'Another tangle →' : 'Next tangle →';
+    document.getElementById('win').classList.remove('hide');
+  }, 900);
+}
+
+// ---------------------------------------------------------------- input
+function pick(x, y) {
+  let best = -1, bd = (matchMedia('(pointer: coarse)').matches ? 30 : 20) ** 2;
+  nodes.forEach((n, i) => { const p = toScreen(n); const d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+cv.addEventListener('pointerdown', e => {
+  if (!nodes || won) return;
+  const i = pick(e.clientX, e.clientY);
+  if (i < 0) return;
+  drag = i;
+  cv.setPointerCapture(e.pointerId);
+  cv.classList.add('drag');
+  nodes[i].pop = 1;
+  tone(440 + (i % 8) * 40, .06, 'triangle', .08);
+  document.getElementById('howto').style.opacity = 0;
+});
+cv.addEventListener('pointermove', e => {
+  if (!nodes) return;
+  if (drag >= 0) {
+    const w = toWorld(e.clientX, e.clientY);
+    nodes[drag].x = Math.max(-.5, Math.min(.5, w.x));
+    nodes[drag].y = Math.max(-.5, Math.min(.5, w.y));
+    const before = crossings;
+    count();
+    if (crossings < before) tone(660 + Math.max(0, 20 - crossings) * 20, .05, 'sine', .07);
+  } else hover = pick(e.clientX, e.clientY);
+});
+function release() {
+  if (drag < 0) return;
+  drag = -1;
+  moves++;
+  cv.classList.remove('drag');
+  if (crossings === 0 && !won) solved();
+}
+cv.addEventListener('pointerup', release);
+cv.addEventListener('pointercancel', release);
+
+document.getElementById('hint').onclick = () => {
+  if (!nodes || won) return;
+  // put back one bead whose strings still cross, at its place in the answer (fitted to where the others are)
+  const bad = new Set();
+  edges.forEach((e, i) => { if (crossFlags[i]) { bad.add(e[0]); bad.add(e[1]); } });
+  const list = [...bad];
+  if (!list.length) return;
+  const i = list[Math.floor(Math.random() * list.length)];
+  // the answer, scaled to fill most of the board
+  const target = { x: solution[i].x * .9, y: solution[i].y * .9 };
+  animateTo(i, target);
+  hints++;
+  tone(880, .15, 'sine', .12);
+};
+function animateTo(i, t) {
+  const from = { x: nodes[i].x, y: nodes[i].y }, t0 = performance.now();
+  (function go(now) {
+    const k = Math.min(1, (now - t0) / 350), e = 1 - Math.pow(1 - k, 3);
+    nodes[i].x = from.x + (t.x - from.x) * e; nodes[i].y = from.y + (t.y - from.y) * e;
+    nodes[i].pop = 1;
+    count();
+    if (k < 1) requestAnimationFrame(go);
+    else if (crossings === 0 && !won) solved();
+  })(t0);
+}
+document.getElementById('redo').onclick = () => { if (nodes) startLevel(level, endless); };
+document.getElementById('menu').onclick = showLevels;
+document.getElementById('winMenu').onclick = showLevels;
+document.getElementById('next').onclick = () => {
+  if (endless || level === LEVELS.length - 1) startLevel(0, true);
+  else startLevel(level + 1, false);
+};
+
+function showLevels() {
+  const box = document.getElementById('levels');
+  box.innerHTML = '';
+  LEVELS.forEach((n, i) => {
+    const unlocked = i === 0 || (progress[i - 1] || 0) > 0;
+    const b = document.createElement('button');
+    b.className = 'lv' + (unlocked ? '' : ' locked') + (progress[i] ? ' done' : '');
+    const st = progress[i] || 0;
+    b.innerHTML = '<b>' + (i + 1) + '</b><small>' + (unlocked ? '★'.repeat(st) + '☆'.repeat(3 - st) : '🔒') + '</small>';
+    if (unlocked) b.onclick = () => startLevel(i, false);
+    box.appendChild(b);
+  });
+  const allDone = LEVELS.every((_, i) => progress[i]);
+  const e = document.createElement('button');
+  e.className = 'lv endless' + (allDone ? '' : ' locked');
+  e.innerHTML = '<b>∞ Endless</b><small>' + (allDone ? 'a new tangle every time' : 'finish all twelve to unlock') + '</small>';
+  if (allDone) e.onclick = () => startLevel(0, true);
+  box.appendChild(e);
+  document.getElementById('win').classList.add('hide');
+  document.getElementById('title').classList.remove('hide');
+}
+
+// ---------------------------------------------------------------- drawing
+function draw(now) {
+  cx.fillStyle = '#f6eedd';
+  cx.fillRect(0, 0, W, H);
+  // paper dots
+  cx.fillStyle = 'rgba(42,29,20,.06)';
+  for (let y = 18; y < H; y += 28) for (let x = 18 + (y / 28 % 2) * 14; x < W; x += 28) cx.fillRect(x, y, 2, 2);
+  if (nodes) {
+    // the board
+    const tl = toScreen({ x: -.5, y: -.5 });
+    cx.strokeStyle = 'rgba(42,29,20,.12)'; cx.lineWidth = 2; cx.setLineDash([8, 8]);
+    cx.strokeRect(tl.x, tl.y, view.s, view.s);
+    cx.setLineDash([]);
+    const active = drag >= 0 ? drag : hover;
+    // strings: soft shadow, then colour by state
+    cx.lineCap = 'round';
+    for (let pass = 0; pass < 2; pass++) {
+      edges.forEach((e, i) => {
+        const a = toScreen(nodes[e[0]]), b = toScreen(nodes[e[1]]);
+        const near = active >= 0 && (e[0] === active || e[1] === active);
+        if (pass === 0) { cx.strokeStyle = 'rgba(42,29,20,.18)'; cx.lineWidth = 7; cx.beginPath(); cx.moveTo(a.x + 2, a.y + 3); cx.lineTo(b.x + 2, b.y + 3); cx.stroke(); return; }
+        cx.strokeStyle = won ? '#1fb5a3' : crossFlags[i] ? '#ff6b5e' : '#1fb5a3';
+        cx.lineWidth = near ? 5.5 : 4;
+        cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+      });
+    }
+    // beads
+    nodes.forEach((n, i) => {
+      const p = toScreen(n);
+      n.pop *= .9;
+      const r = (nodes.length > 40 ? 10 : 13) * (1 + n.pop * .35 + (i === active ? .2 : 0)) + (won ? Math.sin(now / 120 + i) * 1.5 : 0);
+      cx.fillStyle = 'rgba(42,29,20,.25)';
+      cx.beginPath(); cx.arc(p.x + 2, p.y + 4, r, 0, 7); cx.fill();
+      cx.fillStyle = n.c;
+      cx.beginPath(); cx.arc(p.x, p.y, r, 0, 7); cx.fill();
+      cx.lineWidth = 3.5; cx.strokeStyle = '#2a1d14'; cx.stroke();
+      cx.fillStyle = 'rgba(255,255,255,.55)';
+      cx.beginPath(); cx.arc(p.x - r * .32, p.y - r * .35, r * .3, 0, 7); cx.fill();
+    });
+    if (!won) {
+      const secs = (now - started) / 1000;
+      document.getElementById('clock').textContent = Math.floor(secs / 60) + ':' + String(Math.floor(secs % 60)).padStart(2, '0');
+    }
+  }
+  for (const b of burst) {
+    b.x += b.vx; b.y += b.vy; b.vy += .35; b.life -= .012;
+    cx.globalAlpha = Math.max(0, b.life);
+    cx.fillStyle = b.c;
+    cx.beginPath(); cx.arc(b.x, b.y, b.r, 0, 7); cx.fill();
+  }
+  cx.globalAlpha = 1;
+  burst = burst.filter(b => b.life > 0);
+  requestAnimationFrame(draw);
+}
+
+addEventListener('resize', resize);
+resize();
+// a tangle behind the title screen, so it isn't empty
+startLevel(0, false);
+showLevels();
+requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

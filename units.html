@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit Universe</title>
+<meta name="description" content="A unit converter that also shows how big things are: type “3 litres” and see it next to soda cans, bathtubs and swimming pools, drawn to scale.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,900;1,9..144,700;1,9..144,900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Unit Universe: a stationery-drawer look. Graph paper, a yellow tape measure, ink outlines. */
+:root {
+  --paper: #f3ead6; --grid: rgba(60, 44, 24, .07); --card: #fffaf0; --field: #ffffff;
+  --ink: #2a2118; --muted: #74644d; --rule: #dccdaa; --edge: #2a2118; --shade: #2a2118;
+  --tape: #f2c230; --tape-ink: #2a2118; --red: #d6492f; --blue: #2f6fb8; --green: #3f8a4a;
+  --wood: #b07a45; --wood2: #7b4d26; --stage: #f8f1e1; --stage-grid: rgba(60, 44, 24, .06);
+  --line: #2a2118; --focus: #2f6fb8; --chip: #f6ecd5; --hl: #fff2b8;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "DM Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #18130f; --grid: rgba(242, 226, 196, .045); --card: #241d17; --field: #1c1712;
+    --ink: #f2e7d2; --muted: #b9a88c; --rule: #43372b; --edge: #4e4032; --shade: #050302;
+    --tape: #e9b92b; --tape-ink: #241a10; --red: #f07a5f; --blue: #86b4ee; --green: #8cc98f;
+    --wood: #8a5a30; --wood2: #4f321a; --stage: #2a221b; --stage-grid: rgba(242, 226, 196, .05);
+    --line: #1c140d; --focus: #f2c230; --chip: #2f271f; --hl: #4a3b17;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; overflow-x: hidden; color: var(--ink); font: 400 16px/1.5 var(--body);
+  background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+kbd { font: 500 12px var(--mono); border: 1.5px solid var(--rule); border-bottom-width: 3px; border-radius: 5px; padding: 0 5px; background: var(--card); }
+
+.home { position: fixed; z-index: 30; left: max(16px, env(safe-area-inset-left)); top: calc(env(safe-area-inset-top, 0px) + 14px); font: 600 12px var(--body); color: var(--ink); text-decoration: none; padding: 5px 12px; border: 2px solid var(--edge); border-radius: 999px; background: var(--card); box-shadow: 3px 3px 0 var(--shade); }
+.home:hover { background: var(--chip); }
+
+/* the tape measure running across the top */
+.tapebar { height: 34px; background: var(--tape); border-bottom: 2px solid var(--tape-ink); position: relative; overflow: hidden; }
+.tapebar::before { content: ""; position: absolute; inset: auto 0 0 0; height: 16px;
+  background: repeating-linear-gradient(90deg, var(--tape-ink) 0 1.5px, transparent 1.5px 48px) 0 0 / 100% 16px no-repeat,
+              repeating-linear-gradient(90deg, var(--tape-ink) 0 1px, transparent 1px 24px) 0 6px / 100% 10px no-repeat,
+              repeating-linear-gradient(90deg, var(--tape-ink) 0 1px, transparent 1px 4.8px) 0 11px / 100% 5px no-repeat; opacity: .8; }
+.tapebar .nums { position: absolute; left: 0; top: 2px; display: flex; font: 500 11px var(--mono); color: var(--tape-ink); white-space: nowrap; }
+.tapebar .nums span { width: 48px; flex: 0 0 48px; padding-left: 3px; }
+.tapebar .nums span:nth-child(5n) { color: #b3301c; font-weight: 700; }
+
+header.top { max-width: 1160px; margin: 0 auto; padding: 46px 16px 6px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 24px; }
+h1 { font-family: var(--display); font-weight: 900; font-size: clamp(46px, 9vw, 96px); line-height: .9; letter-spacing: -.025em; margin: 0; font-variation-settings: "opsz" 144; }
+h1 em { font-style: italic; color: var(--red); }
+.tagline { margin: 0 0 8px; font: italic 600 clamp(17px, 2.2vw, 21px)/1.3 var(--display); color: var(--muted); max-width: 30ch; }
+
+main { max-width: 1160px; margin: 0 auto; padding: 14px 16px 56px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.col, .side { display: grid; gap: 20px; min-width: 0; }
+@media (max-width: 920px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+.card { background: var(--card); border: 2px solid var(--edge); border-radius: 16px; box-shadow: 4px 4px 0 var(--shade); padding: 18px; min-width: 0; }
+@media (max-width: 520px) { .card { padding: 14px; border-radius: 14px; } }
+.card h2 { margin: 0; font: 900 22px/1.1 var(--display); letter-spacing: -.01em; }
+.kicker { display: block; font: 700 12px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+
+/* search */
+.search { display: flex; align-items: center; gap: 8px; border: 2.5px solid var(--edge); border-radius: 14px; background: var(--field); padding: 4px 6px 4px 14px; box-shadow: inset 0 -4px 0 var(--tape); }
+.search:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.search svg { flex: 0 0 auto; color: var(--muted); }
+#q { flex: 1; min-width: 0; border: 0; background: transparent; font: 500 clamp(20px, 3.4vw, 30px)/1.2 var(--body); padding: 12px 0 14px; outline: none; }
+#q::placeholder { color: var(--muted); opacity: .75; }
+.iconbtn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 10px; border: 0; background: transparent; display: grid; place-items: center; color: var(--muted); }
+.iconbtn:hover { background: var(--chip); color: var(--ink); }
+.hint { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { border: 1.5px solid var(--edge); background: var(--chip); border-radius: 999px; padding: 4px 11px; font: 500 13.5px var(--body); white-space: nowrap; }
+.chip:hover { background: var(--hl); }
+.linkbtn { margin-top: 14px; border: 0; background: none; padding: 2px 0; font: 600 14px var(--body); color: var(--blue); text-decoration: underline; text-underline-offset: 3px; display: inline-flex; gap: 6px; align-items: center; }
+.linkbtn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.chev { transition: transform .2s; }
+.pick { margin-top: 12px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px 12px; padding: 14px; border: 1.5px dashed var(--rule); border-radius: 12px; background: var(--paper); }
+.pick label { display: grid; gap: 4px; font: 600 12.5px var(--body); color: var(--muted); min-width: 0; }
+.pick select, .pick input { width: 100%; min-width: 0; padding: 9px 10px; border: 2px solid var(--edge); border-radius: 10px; background: var(--field); font: 500 15px var(--body); color: var(--ink); }
+.pick .fromto { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: end; }
+@media (max-width: 520px) { .pick { grid-template-columns: 1fr; } }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 2px solid var(--edge); background: var(--card); border-radius: 999px; padding: 7px 14px; font: 600 14px var(--body); box-shadow: 2px 2px 0 var(--shade); min-height: 40px; }
+.btn:hover { background: var(--chip); }
+.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--shade); }
+.btn.round { width: 42px; height: 42px; padding: 0; }
+.btn[aria-pressed="true"] { background: var(--tape); color: var(--tape-ink); }
+.btn svg { flex: 0 0 auto; }
+
+/* answer */
+.answer { position: relative; overflow: hidden; }
+.answer::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: repeating-linear-gradient(180deg, var(--tape) 0 10px, var(--tape-ink) 10px 11.5px); border-right: 2px solid var(--edge); }
+.answer .inner { padding-left: 12px; }
+.lhs { margin: 0; font: 500 18px/1.35 var(--body); color: var(--muted); overflow-wrap: anywhere; }
+.rhs { margin: 2px 0 0; font: 900 clamp(34px, 6.2vw, 62px)/1.06 var(--display); letter-spacing: -.02em; overflow-wrap: anywhere; font-variation-settings: "opsz" 144; }
+.rhs .u { font: 600 .44em var(--body); letter-spacing: 0; color: var(--ink); }
+.rhs.msg { font: 700 clamp(20px, 3vw, 26px)/1.3 var(--body); letter-spacing: 0; color: var(--red); }
+.alt { margin: 6px 0 0; font: 500 16px var(--mono); color: var(--muted); min-height: 1.4em; overflow-wrap: anywhere; }
+.alt b { color: var(--ink); font-weight: 500; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* shelf */
+.cardhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.scalecap { font: 500 12.5px var(--mono); color: var(--muted); }
+.sentence { margin: 10px 0 0; font: 700 clamp(19px, 2.6vw, 25px)/1.3 var(--display); }
+.sentence .soft { font-weight: 600; color: var(--muted); font-style: italic; }
+.picto { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 3px; margin-top: 8px; min-height: 0; }
+.picto .pc { height: 30px; overflow: hidden; flex: 0 0 auto; }
+.picto .pc svg { height: 30px; width: auto; display: block; }
+.picto .cap { font: 500 13px var(--mono); color: var(--muted); margin-left: 8px; align-self: center; }
+.stage { position: relative; margin-top: 14px; border: 2px solid var(--edge); border-radius: 12px; overflow: hidden;
+  background-color: var(--stage); background-image: linear-gradient(var(--stage-grid) 1px, transparent 1px), linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px); background-size: 16px 16px; }
+.stage.stale, .stale { opacity: .45; transition: opacity .3s; }
+.shelf { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 10px; padding: 16px 10px 0; min-height: 318px; }
+.plank { position: absolute; left: 0; right: 0; bottom: 64px; height: 14px; background: var(--wood); border-top: 2px solid var(--edge); border-bottom: 2px solid var(--edge);
+  background-image: repeating-linear-gradient(90deg, transparent 0 90px, rgba(0,0,0,.12) 90px 92px); }
+.plank::after { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 5px; background: rgba(0,0,0,.12); }
+.it { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; transition: width .65s cubic-bezier(.3,.9,.25,1), opacity .4s, transform .5s cubic-bezier(.3,1.4,.4,1); transform-origin: 50% 100%; }
+.it.enter { opacity: 0; transform: scale(.4); }
+.fig { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; transition: width .65s cubic-bezier(.3,.9,.25,1), height .65s cubic-bezier(.3,.9,.25,1); }
+.fig > svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.foot { height: 14px; flex: 0 0 auto; }
+.lab { height: 64px; width: 100%; padding-top: 6px; text-align: center; font: 500 11.5px/1.2 var(--body); color: var(--ink); overflow: hidden; }
+.lab .nm { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lab .vv { display: block; font: 500 11px/1.2 var(--mono); color: var(--muted); margin-top: 2px; }
+.it.you .lab .nm { font-weight: 700; color: var(--red); }
+.it.you .lab .vv { color: var(--ink); font-weight: 500; }
+.tiny-flag { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font: 700 10px var(--mono); color: var(--red); white-space: nowrap; margin-bottom: 2px; }
+/* the user's own amount, per mode */
+.tape { width: 100%; height: 100%; border: 2px solid var(--line); border-radius: 3px; background-color: var(--tape);
+  background-image: repeating-linear-gradient(0deg, var(--tape-ink) 0 1px, transparent 1px 10px), repeating-linear-gradient(0deg, var(--tape-ink) 0 1px, transparent 1px 5px);
+  background-size: 55% 100%, 30% 100%; background-repeat: no-repeat; background-position: left bottom, left bottom; }
+.tape::before { content: ""; position: absolute; top: -5px; left: -3px; right: -3px; height: 6px; background: #9aa3a8; border: 2px solid var(--line); border-radius: 2px; }
+.tile { width: 100%; height: 100%; border: 2px solid var(--line); border-radius: 2px; background-color: rgba(242,194,48,.55);
+  background-image: linear-gradient(rgba(42,33,24,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(42,33,24,.25) 1px, transparent 1px); background-size: 10% 10%; }
+.cube { width: 100%; height: 100%; border: 2px solid var(--line); border-radius: 3px; background: linear-gradient(rgba(255,255,255,.65), rgba(255,255,255,.35)); position: relative; overflow: hidden; }
+.cube::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 82%; background: #6fb9e8; border-top: 2px solid var(--line); }
+.bar { width: 100%; border: 2px solid var(--line); border-bottom: 0; border-radius: 4px 4px 0 0; transition: height .65s cubic-bezier(.3,.9,.25,1); }
+.bar.youbar { background-color: var(--tape); background-image: repeating-linear-gradient(0deg, var(--tape-ink) 0 1px, transparent 1px 8px); background-size: 35% 100%; background-repeat: no-repeat; }
+.bic { width: 34px; height: 34px; margin-bottom: 6px; flex: 0 0 auto; display: grid; place-items: end center; }
+.bic svg { max-width: 34px; max-height: 34px; overflow: visible; }
+.brk { position: relative; z-index: 1; align-self: stretch; flex: 0 0 auto; width: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 78px; }
+.brk::before { content: ""; position: absolute; top: 4px; bottom: 64px; left: 50%; width: 12px; margin-left: -6px;
+  background: linear-gradient(135deg, transparent 35%, var(--muted) 35% 50%, transparent 50%) 0 0 / 12px 12px repeat-y, linear-gradient(45deg, transparent 35%, var(--muted) 35% 50%, transparent 50%) 0 6px / 12px 12px repeat-y; opacity: .5; }
+.brk .tag { position: relative; background: var(--card); border: 2px solid var(--edge); border-radius: 10px; padding: 4px 5px; text-align: center; font: 500 10px/1.15 var(--body); color: var(--muted); box-shadow: 2px 2px 0 var(--shade); }
+.brk .tag b { display: block; font: 700 12px var(--mono); color: var(--ink); white-space: nowrap; }
+.empty-stage { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); font: 600 15px var(--body); z-index: 2; }
+.ic * { stroke: var(--line); stroke-width: var(--sw, 2px); vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.ic .ns { stroke: none; }
+.ic .hl { stroke: rgba(255,255,255,.8); fill: none; }
+.ic .th { stroke-width: calc(var(--sw, 2px) * .6); }
+.ic .tk { stroke-width: calc(var(--sw, 2px) * 2.2); }
+.ic .dash { stroke-dasharray: 5 5; }
+@media (prefers-color-scheme: dark) { .fig > svg, .bic svg, .picto svg, .lad-ref svg { filter: drop-shadow(0 0 1.2px rgba(255, 238, 210, .55)); } }
+
+/* ladder */
+.ladderwrap { margin-top: 14px; }
+.ladderhead { display: flex; justify-content: space-between; gap: 10px; font: 600 12.5px var(--body); color: var(--muted); }
+.ladder { position: relative; height: 146px; margin: 8px 14px 0; }
+.lad-axis { position: absolute; left: 0; right: 0; top: 84px; height: 2px; background: var(--edge); }
+.lad-tick { position: absolute; top: 78px; width: 2px; height: 14px; background: var(--edge); margin-left: -1px; }
+.lad-tl { position: absolute; top: 94px; transform: translateX(-50%); font: 500 10.5px var(--mono); color: var(--muted); white-space: nowrap; }
+.lad-ref { position: absolute; transform: translateX(-50%); width: 24px; height: 24px; padding: 0; border: 0; background: none; display: grid; place-items: end center; --sw: 1.2px; }
+.lad-ref svg { max-width: 24px; max-height: 24px; overflow: visible; }
+.ladder.narrow .lad-ref { width: 19px; height: 19px; } .ladder.narrow .lad-ref svg { max-width: 19px; max-height: 19px; }
+.lad-ref::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; background: var(--muted); opacity: .45; }
+.lad-ref.r0 { top: 2px; } .lad-ref.r0::after { height: 58px; }
+.lad-ref.r1 { top: 28px; } .lad-ref.r1::after { height: 32px; }
+.lad-ref.r2 { top: 54px; } .lad-ref.r2::after { height: 6px; }
+.lad-ref:hover, .lad-ref:focus-visible { transform: translateX(-50%) scale(1.35); z-index: 3; }
+.lad-tip { position: absolute; z-index: 5; top: -6px; transform: translate(-50%, -100%); background: var(--ink); color: var(--card); font: 600 12px var(--body); padding: 4px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.lad-tip.on { opacity: 1; }
+.lad-you { position: absolute; top: 74px; width: 0; transition: left .7s cubic-bezier(.3,.9,.25,1); z-index: 2; }
+.lad-you .pin { position: absolute; left: -7px; top: 2px; width: 14px; height: 14px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--red); border: 2px solid var(--edge); }
+.lad-you .yl { position: absolute; top: 40px; transform: translateX(-50%); background: var(--tape); color: var(--tape-ink); border: 2px solid var(--edge); border-radius: 999px; padding: 1px 8px; font: 700 11.5px var(--mono); white-space: nowrap; }
+.lad-you.off .yl::before { content: "off the chart "; font-weight: 500; }
+
+/* thermometer + dial */
+.thermo { display: block; width: 100%; max-width: 560px; margin: 0 auto; }
+.thermo text { font-family: var(--body); }
+.t-lab { fill: var(--ink); font-size: 12.5px; }
+.t-lab.near { font-weight: 700; fill: var(--red); }
+.t-val { fill: var(--muted); font: 500 11px var(--mono); }
+.t-lead { stroke: var(--muted); stroke-width: 1; opacity: .6; fill: none; }
+.merc { transition: transform .8s cubic-bezier(.3,.9,.25,1); }
+.t-pin { transition: transform .8s cubic-bezier(.3,.9,.25,1); }
+.dial { display: block; width: 100%; max-width: 360px; margin: 6px auto 0; }
+.anglerefs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 6px 12px 14px; }
+
+/* results */
+.groups { display: grid; gap: 16px; margin-top: 12px; }
+.grp h3 { margin: 0 0 6px; font: 700 12px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 6px; }
+@media (max-width: 520px) { .rows { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rowbtn { padding: 6px 8px; } .rowbtn .rv { font-size: 14.5px; } .cp { width: 32px; } }
+.row { display: flex; align-items: stretch; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); min-width: 0; }
+.row.on { border-color: var(--edge); background: var(--hl); box-shadow: 2px 2px 0 var(--shade); }
+.rowbtn { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 9px 0 0 9px; }
+.rowbtn .rv { display: block; font: 500 16px var(--mono); overflow-wrap: anywhere; }
+.rowbtn .ru { display: block; font: 500 12.5px var(--body); color: var(--muted); }
+.rowbtn .rf { font: 500 12px var(--mono); color: var(--green); margin-left: 6px; }
+.cp { flex: 0 0 auto; width: 40px; border: 0; border-left: 1.5px solid var(--rule); background: none; color: var(--muted); border-radius: 0 9px 9px 0; display: grid; place-items: center; }
+.cp:hover, .rowbtn:hover { background: var(--chip); color: var(--ink); }
+details.more { margin-top: 14px; }
+details.more summary { cursor: pointer; font: 600 14px var(--body); color: var(--blue); }
+details.more .groups { margin-top: 10px; }
+.notes { margin-top: 16px; display: grid; gap: 8px; }
+.note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--chip); border-left: 5px solid var(--tape); font-size: 14px; }
+
+/* side */
+.side h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.side h2 button { font: 600 12px var(--body); border: 0; background: none; color: var(--blue); text-decoration: underline; padding: 4px; }
+.hlist { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.hlist li { display: flex; align-items: stretch; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); min-width: 0; }
+.hlist .hb { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 9px 0 0 9px; }
+.hlist .hb b { display: block; font: 600 14px var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hlist .hb small { display: block; font: 500 12px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hlist .st { flex: 0 0 auto; width: 38px; border: 0; background: none; color: var(--muted); border-radius: 0 9px 9px 0; font-size: 18px; }
+.hlist .st[aria-pressed="true"] { color: #d99a00; }
+.hlist .hb:hover, .hlist .st:hover { background: var(--chip); }
+.emptymsg { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+.about p { margin: 10px 0 0; font-size: 14px; }
+.about ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.storewarn { margin: 10px 0 0; font-size: 12.5px; color: var(--red); }
+
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 30px); opacity: 0; pointer-events: none; z-index: 50; background: var(--ink); color: var(--card); font: 600 14px var(--body); padding: 9px 16px; border-radius: 999px; transition: opacity .2s, transform .25s; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+footer { max-width: 1160px; margin: 0 auto; padding: 0 16px 40px; font-size: 13px; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<a class="home" href="index.html">← kaifun</a>
+<div class="tapebar" aria-hidden="true"><div class="nums" id="tapeNums"></div></div>
+
+<header class="top">
+  <h1>Unit <em>Universe</em></h1>
+  <p class="tagline">Convert anything, then see how big it really is.</p>
+</header>
+
+<main>
+  <div class="col">
+    <section class="card" aria-label="Conversion input">
+      <label class="kicker" for="q">Type a quantity</label>
+      <div class="search">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+        <input id="q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="3 litres, 5′11″, 72 kg in lbs…" aria-describedby="qHint">
+        <button class="iconbtn" id="clearBtn" type="button" aria-label="Clear the box"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <p class="hint" id="qHint">Add “in cups” or “to km” to pick the answer’s unit. <kbd>/</kbd> jumps here, <kbd>Enter</kbd> saves to history, <kbd>Esc</kbd> clears.</p>
+      <div class="examples" role="group" aria-label="Examples to try" id="examples"></div>
+      <button class="linkbtn" id="pickToggle" type="button" aria-expanded="false" aria-controls="pick">Prefer menus? Pick units from lists <svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      <div class="pick" id="pick" hidden>
+        <label>Category <select id="selCat"></select></label>
+        <label>Amount <input id="selVal" type="text" inputmode="decimal" autocomplete="off"></label>
+        <div class="fromto">
+          <label>From <select id="selFrom"></select></label>
+          <button class="btn round" id="swap2" type="button" aria-label="Swap from and to units" title="Swap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg></button>
+          <label>To <select id="selTo"></select></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card answer" aria-labelledby="ansTitle">
+      <h2 class="vh" id="ansTitle">Answer</h2>
+      <div class="inner">
+        <p class="lhs" id="lhs">&nbsp;</p>
+        <p class="rhs" id="rhs">&nbsp;</p>
+        <p class="alt" id="alt"></p>
+        <div class="actions">
+          <button class="btn" id="copyBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Copy answer</button>
+          <button class="btn" id="swapBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>Swap</button>
+          <button class="btn" id="favBtn" type="button" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17l-5.7 3.1 1.2-6.3L2.9 9.4l6.3-.8z"/></svg><span>Favourite</span></button>
+          <button class="btn" id="shareBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Copy link</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="shelfCard" aria-labelledby="shelfTitle">
+      <div class="cardhead"><h2 id="shelfTitle">The Size Shelf</h2><span class="scalecap" id="scaleCap"></span></div>
+      <p class="sentence" id="sentence"></p>
+      <div class="picto" id="picto" aria-hidden="true"></div>
+      <div class="stage" id="stage" role="img" aria-label="Size comparison"></div>
+      <div class="ladderwrap" id="ladderWrap">
+        <div class="ladderhead"><span>Where it sits among everything · each tick is ×1,000</span><span id="ladderHint">tap an icon to try it</span></div>
+        <div class="ladder" id="ladder"></div>
+      </div>
+    </section>
+
+    <section class="card" id="allCard" aria-labelledby="allTitle">
+      <h2 id="allTitle">Every sensible unit</h2>
+      <div class="groups" id="groups"></div>
+      <details class="more" id="more"><summary>More units (very big or very small numbers)</summary><div class="groups" id="moreGroups"></div></details>
+      <div class="notes" id="notes"></div>
+    </section>
+  </div>
+
+  <aside class="side">
+    <section class="card" aria-labelledby="favTitle">
+      <h2 id="favTitle">Favourites</h2>
+      <ul class="hlist" id="favList"></ul>
+      <p class="emptymsg" id="favEmpty">Tap ★ Favourite to pin a conversion here.</p>
+    </section>
+    <section class="card" aria-labelledby="histTitle">
+      <h2 id="histTitle">Recent <button type="button" id="clearHist">Clear</button></h2>
+      <ul class="hlist" id="histList"></ul>
+      <p class="emptymsg" id="histEmpty">Conversions you settle on show up here.</p>
+      <p class="storewarn" id="storeWarn" hidden>Your browser is blocking storage, so history and favourites last only until you close this tab.</p>
+    </section>
+    <section class="card about" aria-labelledby="aboutTitle">
+      <h2 id="aboutTitle">Things to try</h2>
+      <ul>
+        <li><b>Mixed units:</b> 5 ft 11 in, 1 lb 4 oz, 2 h 30 min</li>
+        <li><b>Words:</b> half a mile, two and a half cups</li>
+        <li><b>Questions:</b> how many cups in a gallon?</li>
+        <li><b>Big &amp; small:</b> 1e6 m, 3 x 10^8 m/s, 0.5 nm</li>
+        <li><b>Silly units:</b> 1 km in bananas, 1 acre in tennis courts, 500 kcal in cups of coffee</li>
+      </ul>
+      <p>Everything runs in your browser. No exchange rates, no network calls.</p>
+    </section>
+  </aside>
+</main>
+<footer>Unit Universe · factors from the SI brochure and NIST Handbook 44 · comparisons are typical sizes, rounded.</footer>
+<div class="vh" id="live" aria-live="polite" aria-atomic="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+(function () {
+const $ = (s, r = document) => r.querySelector(s);
+
+/* =====================================================================
+   1. UNITS
+   ===================================================================== */
+const CAT_ORDER = ['length', 'area', 'volume', 'mass', 'temperature', 'speed', 'time', 'data', 'energy', 'power', 'pressure', 'angle', 'frequency', 'fuel', 'money'];
+const CATS = {
+  length: { name: 'Length', mode: 'len' }, area: { name: 'Area', mode: 'area' }, volume: { name: 'Volume', mode: 'vol' },
+  mass: { name: 'Mass / weight', mode: 'mass' }, temperature: { name: 'Temperature', mode: 'thermo' }, speed: { name: 'Speed', mode: 'bar' },
+  time: { name: 'Time', mode: 'bar' }, data: { name: 'Data', mode: 'bar' }, energy: { name: 'Energy', mode: 'bar' },
+  power: { name: 'Power', mode: 'bar' }, pressure: { name: 'Pressure', mode: 'bar' }, angle: { name: 'Angle', mode: 'angle' },
+  frequency: { name: 'Frequency', mode: 'bar' }, fuel: { name: 'Fuel economy', mode: 'bar' }, money: { name: 'US money (no exchange rates)', mode: 'bar' }
+};
+const GRP = { metric: 'Metric', us: 'US customary', imp: 'Imperial (UK)', common: 'Everyday', sci: 'Science', other: 'Traditional & nautical', fun: 'For fun', dec: 'Decimal bytes (SI)', bin: 'Binary bytes (IEC)', bits: 'Bits' };
+const UNITS = {}, BYCAT = {};
+// row: [id, symbol, singular, plural, factor-or-{to,from}, aliases ('=' prefix = case-sensitive), group, options]
+function U(cat, rows) {
+  for (const [id, sym, one, many, f, al, grp, opt] of rows) {
+    const u = Object.assign({ key: cat + ':' + id, cat, id, sym, one, many, grp: grp || 'metric', al: al ? al.split('|').filter(Boolean) : [] }, opt || {});
+    if (typeof f === 'number') { u.f = f; u.toB = v => v * f; u.fromB = b => b / f; }
+    else { u.toB = f.to; u.fromB = f.from; }
+    UNITS[u.key] = u; (BYCAT[cat] = BYCAT[cat] || []).push(u);
+  }
+}
+const IN = 0.0254, FT = 0.3048, MI = 1609.344, USGAL = 3.785411784, UKGAL = 4.54609, YEAR = 31556952;
+U('length', [
+  ['nm', 'nm', 'nanometre', 'nanometres', 1e-9, 'nanometer|nanometers', 'metric'],
+  ['um', 'µm', 'micrometre', 'micrometres', 1e-6, 'micrometer|micrometers|micron|microns|um|μm', 'metric'],
+  ['mm', 'mm', 'millimetre', 'millimetres', 1e-3, 'millimeter|millimeters', 'metric'],
+  ['cm', 'cm', 'centimetre', 'centimetres', 0.01, 'centimeter|centimeters|cms', 'metric'],
+  ['m', 'm', 'metre', 'metres', 1, 'meter|meters|mtr|mtrs', 'metric'],
+  ['km', 'km', 'kilometre', 'kilometres', 1000, 'kilometer|kilometers|kms|klick|klicks', 'metric'],
+  ['in', 'in', 'inch', 'inches', IN, '"|inchs|ins', 'us'],
+  ['ft', 'ft', 'foot', 'feet', FT, "'|feets|foots", 'us'],
+  ['yd', 'yd', 'yard', 'yards', 0.9144, 'yds', 'us'],
+  ['mi', 'mi', 'mile', 'miles', MI, 'statute mile|statute miles', 'us'],
+  ['thou', 'thou', 'thou (mil)', 'thou (mils)', 2.54e-5, 'mil|mils|thous', 'us'],
+  ['nmi', 'nmi', 'nautical mile', 'nautical miles', 1852, 'nautical mile|nautical miles|nmiles', 'other'],
+  ['fathom', 'ftm', 'fathom', 'fathoms', 1.8288, '', 'other'],
+  ['furlong', 'fur', 'furlong', 'furlongs', 201.168, '', 'other'],
+  ['hand', 'hh', 'hand', 'hands', 0.1016, '', 'other'],
+  ['league', 'lea', 'league', 'leagues', 4828.032, '', 'other'],
+  ['ang', 'Å', 'ångström', 'ångströms', 1e-10, 'angstrom|angstroms|å', 'sci'],
+  ['au', 'au', 'astronomical unit', 'astronomical units', 149597870700, 'a.u.', 'sci'],
+  ['ly', 'ly', 'light-year', 'light-years', 9460730472580800, 'lightyear|lightyears|light year|light years|light-yr', 'sci'],
+  ['pc', 'pc', 'parsec', 'parsecs', 3.0856775814913673e16, '', 'sci'],
+  ['f_banana', 'bananas', 'banana', 'bananas', 0.18, 'banana for scale|bananas for scale', 'fun'],
+  ['f_bus', 'school buses', 'school bus', 'school buses', 12.2, 'bus|buses|busses|schoolbus', 'fun'],
+  ['f_whale', 'blue whales', 'blue whale', 'blue whales', 25, 'whale|whales', 'fun'],
+  ['f_field', 'football fields', 'football field', 'football fields', 91.44, 'american football field|american football fields', 'fun'],
+  ['f_eiffel', 'Eiffel Towers', 'Eiffel Tower', 'Eiffel Towers', 330, 'eiffel|eiffels', 'fun'],
+  ['f_giraffe', 'giraffes', 'giraffe', 'giraffes', 5.5, '', 'fun'],
+  ['f_poollen', 'pool lengths', 'Olympic pool length', 'Olympic pool lengths', 50, 'pool length|olympic pool lengths', 'fun'],
+  ['f_smoot', 'smoots', 'smoot', 'smoots', 1.7018, '', 'fun']
+]);
+U('area', [
+  ['mm2', 'mm²', 'square millimetre', 'square millimetres', 1e-6, '', 'metric', { sq: 'mm' }],
+  ['cm2', 'cm²', 'square centimetre', 'square centimetres', 1e-4, '', 'metric', { sq: 'cm' }],
+  ['m2', 'm²', 'square metre', 'square metres', 1, '', 'metric', { sq: 'm' }],
+  ['are', 'a', 'are', 'ares', 100, '', 'metric', { noSym: true }],
+  ['ha', 'ha', 'hectare', 'hectares', 1e4, '', 'metric'],
+  ['km2', 'km²', 'square kilometre', 'square kilometres', 1e6, '', 'metric', { sq: 'km' }],
+  ['in2', 'in²', 'square inch', 'square inches', IN * IN, '', 'us', { sq: 'in' }],
+  ['ft2', 'ft²', 'square foot', 'square feet', FT * FT, '', 'us', { sq: 'ft' }],
+  ['yd2', 'yd²', 'square yard', 'square yards', 0.83612736, '', 'us', { sq: 'yd' }],
+  ['acre', 'ac', 'acre', 'acres', 4046.8564224, '', 'us'],
+  ['mi2', 'mi²', 'square mile', 'square miles', MI * MI, '', 'us', { sq: 'mi' }],
+  ['f_a4', 'A4 sheets', 'A4 sheet', 'A4 sheets', 0.06237, 'a4|a4 paper|sheet of paper|sheets of paper', 'fun'],
+  ['f_tennis', 'tennis courts', 'tennis court', 'tennis courts', 260.87, '', 'fun'],
+  ['f_fieldA', 'football fields (area)', 'football field (area)', 'football fields (area)', 5351.2, 'football field|football fields|american football field|american football fields', 'fun'],
+  ['f_pitch', 'soccer pitches', 'soccer pitch', 'soccer pitches', 7140, 'soccer field|soccer fields|football pitch|football pitches', 'fun'],
+  ['f_wales', 'Waleses', 'Wales', 'Waleses', 2.0779e10, 'wales|size of wales|walses', 'fun']
+]);
+U('volume', [
+  ['ml', 'mL', 'millilitre', 'millilitres', 1e-3, 'ml|milliliter|milliliters|mls', 'metric'],
+  ['cl', 'cL', 'centilitre', 'centilitres', 0.01, 'cl|centiliter|centiliters', 'metric'],
+  ['dl', 'dL', 'decilitre', 'decilitres', 0.1, 'dl|deciliter|deciliters', 'metric'],
+  ['l', 'L', 'litre', 'litres', 1, 'l|liter|liters|ltr|ltrs|lt', 'metric'],
+  ['mcup', 'metric cup', 'metric cup', 'metric cups', 0.25, '', 'metric', { cook: true }],
+  ['m3', 'm³', 'cubic metre', 'cubic metres', 1000, 'kilolitre|kiloliter|kilolitres|kiloliters|kl', 'metric', { cu: 'm' }],
+  ['cm3', 'cm³', 'cubic centimetre', 'cubic centimetres', 1e-3, 'cc|ccs', 'metric', { cu: 'cm' }],
+  ['mm3', 'mm³', 'cubic millimetre', 'cubic millimetres', 1e-6, '', 'metric', { cu: 'mm' }],
+  ['megal', 'ML', 'megalitre', 'megalitres', 1e6, '=ML|megaliter|megaliters', 'metric', { cs: true }],
+  ['gigal', 'GL', 'gigalitre', 'gigalitres', 1e9, '=GL|gigaliter|gigaliters', 'metric', { cs: true }],
+  ['km3', 'km³', 'cubic kilometre', 'cubic kilometres', 1e12, '', 'metric', { cu: 'km' }],
+  ['tsp', 'tsp', 'teaspoon', 'teaspoons', 0.00492892159375, 'tsps|teaspoonful|teaspoonfuls|tea spoon|tea spoons', 'us', { cook: true }],
+  ['tbsp', 'tbsp', 'tablespoon', 'tablespoons', 0.01478676478125, 'tbs|tbl|tbsps|tablespoonful|tablespoonfuls|=T|=Tbsp', 'us', { cook: true }],
+  ['floz', 'fl oz', 'US fluid ounce', 'US fluid ounces', 0.0295735295625, 'floz|fl. oz|fl.oz|fl oz.|fluid ounce|fluid ounces|us fl oz|oz fl|fl ozs', 'us', { cook: true }],
+  ['cup', 'cup', 'US cup', 'US cups', 0.2365882365, 'cups|us cup|us cups|c.', 'us', { cook: true }],
+  ['pt', 'pt', 'US pint', 'US pints', 0.473176473, 'pint|pints|pts|us pint|us pints', 'us', { cook: true }],
+  ['qt', 'qt', 'US quart', 'US quarts', 0.946352946, 'quart|quarts|qts|us quart|us quarts', 'us', { cook: true }],
+  ['gal', 'gal', 'US gallon', 'US gallons', USGAL, 'gallon|gallons|gals|us gal|us gallon|us gallons', 'us', { cook: true }],
+  ['in3', 'in³', 'cubic inch', 'cubic inches', 0.016387064, '', 'us', { cu: 'in' }],
+  ['ft3', 'ft³', 'cubic foot', 'cubic feet', 28.316846592, '', 'us', { cu: 'ft' }],
+  ['yd3', 'yd³', 'cubic yard', 'cubic yards', 764.554857984, '', 'us', { cu: 'yd' }],
+  ['bbl', 'bbl', 'oil barrel', 'oil barrels', 158.987294928, 'barrel|barrels|bbls', 'us'],
+  ['ukfloz', 'UK fl oz', 'imperial fluid ounce', 'imperial fluid ounces', 0.0284130625, 'uk floz|imperial fl oz|imp fl oz|uk fluid ounce|uk fluid ounces', 'imp', { cook: true }],
+  ['ukpt', 'UK pt', 'imperial pint', 'imperial pints', 0.56826125, 'uk pint|uk pints|imperial pint|imp pint|imp pints|british pint|british pints', 'imp', { cook: true }],
+  ['ukqt', 'UK qt', 'imperial quart', 'imperial quarts', 1.1365225, 'uk quart|uk quarts|imp quart|imp quarts', 'imp', { cook: true }],
+  ['ukgal', 'UK gal', 'imperial gallon', 'imperial gallons', UKGAL, 'uk gallon|uk gallons|imp gal|imperial gal|british gallon|british gallons', 'imp', { cook: true }],
+  ['f_drop', 'drops', 'drop', 'drops', 0.00005, 'drop of water|drops of water', 'fun'],
+  ['f_can', 'soda cans', 'soda can', 'soda cans', 0.355, 'can|cans|can of soda|cans of soda|coke can|coke cans', 'fun'],
+  ['f_tub', 'bathtubs', 'bathtub', 'bathtubs', 150, 'bath|baths|bath tub|bath tubs|tub|tubs|bathtubs full', 'fun'],
+  ['f_pool', 'Olympic pools', 'Olympic pool', 'Olympic pools', 2.5e6, 'olympic swimming pool|olympic swimming pools|swimming pool|swimming pools|pool|pools', 'fun'],
+  ['f_sydharb', 'Sydney Harbours', 'Sydney Harbour', 'Sydney Harbours', 5.62e11, 'sydharb|sydharbs|sydney harbor|sydney harbors', 'fun']
+]);
+U('mass', [
+  ['ug', 'µg', 'microgram', 'micrograms', 1e-9, 'ug|mcg|μg', 'metric'],
+  ['mg', 'mg', 'milligram', 'milligrams', 1e-6, 'milligramme|milligrammes', 'metric'],
+  ['g', 'g', 'gram', 'grams', 1e-3, 'gm|gms|gr|gramme|grammes', 'metric'],
+  ['kg', 'kg', 'kilogram', 'kilograms', 1, 'kilo|kilos|kgs|kilogramme|kilogrammes', 'metric'],
+  ['t', 't', 'tonne', 'tonnes', 1000, 'metric ton|metric tons|metric tonne', 'metric'],
+  ['oz', 'oz', 'ounce', 'ounces', 0.028349523125, 'ozs', 'us'],
+  ['lb', 'lb', 'pound', 'pounds', 0.45359237, 'lbs|lbm|pound mass', 'us'],
+  ['ston', 'ton', 'US ton', 'US tons', 907.18474, 'tons|short ton|short tons|us ton|us tons', 'us'],
+  ['st', 'st', 'stone', 'stone', 6.35029318, 'stones', 'imp'],
+  ['lton', 'long ton', 'long ton', 'long tons', 1016.0469088, 'uk ton|uk tons|imperial ton|imperial tons', 'imp'],
+  ['ct', 'ct', 'carat', 'carats', 0.0002, '', 'other'],
+  ['grain', 'gr', 'grain', 'grains', 6.479891e-5, '', 'other', { noSym: true }],
+  ['ozt', 'oz t', 'troy ounce', 'troy ounces', 0.0311034768, 'ozt|troy oz', 'other'],
+  ['f_bananaM', 'bananas (weight)', 'banana (by weight)', 'bananas (by weight)', 0.12, 'banana|bananas', 'fun'],
+  ['f_apple', 'apples', 'apple', 'apples', 0.18, '', 'fun'],
+  ['f_cat', 'house cats', 'house cat', 'house cats', 4.5, 'cat|cats', 'fun'],
+  ['f_elephant', 'elephants', 'elephant', 'elephants', 6000, '', 'fun'],
+  ['f_busM', 'school buses (weight)', 'school bus (by weight)', 'school buses (by weight)', 11000, 'school bus|school buses|bus|buses', 'fun'],
+  ['f_whaleM', 'blue whales (weight)', 'blue whale (by weight)', 'blue whales (by weight)', 150000, 'blue whale|blue whales|whale|whales', 'fun'],
+  ['f_eiffelM', 'Eiffel Towers (weight)', 'Eiffel Tower (by weight)', 'Eiffel Towers (by weight)', 1.01e7, 'eiffel tower|eiffel towers', 'fun']
+]);
+U('temperature', [
+  ['c', '°C', 'degree Celsius', 'degrees Celsius', { to: v => v + 273.15, from: k => k - 273.15 }, 'c|°c|celsius|centigrade|degc|deg c|degrees c|degree c|º c|ºc', 'metric'],
+  ['f', '°F', 'degree Fahrenheit', 'degrees Fahrenheit', { to: v => (v - 32) * 5 / 9 + 273.15, from: k => (k - 273.15) * 9 / 5 + 32 }, 'f|°f|fahrenheit|farenheit|fahrenheight|degf|deg f|degrees f|degree f|ºf', 'us'],
+  ['k', 'K', 'kelvin', 'kelvin', { to: v => v, from: k => k }, 'k|°k|kelvins', 'sci'],
+  ['r', '°R', 'degree Rankine', 'degrees Rankine', { to: v => v * 5 / 9, from: k => k * 9 / 5 }, '°r|rankine|degr', 'sci']
+]);
+U('speed', [
+  ['mps', 'm/s', 'metre per second', 'metres per second', 1, 'mps|m/sec|meter per second|meters per second|metres/second|meters/second', 'metric'],
+  ['kmh', 'km/h', 'kilometre per hour', 'kilometres per hour', 1 / 3.6, 'kmh|kph|kmph|km/hr|km per hour|kilometer per hour|kilometers per hour|kilometres/hour|kilometers/hour', 'metric'],
+  ['kms', 'km/s', 'kilometre per second', 'kilometres per second', 1000, 'kps|km/sec|kilometers per second', 'metric'],
+  ['mph', 'mph', 'mile per hour', 'miles per hour', 0.44704, 'mi/h|mi/hr|miles/hour|mile/hour|miles an hour', 'us'],
+  ['fps', 'ft/s', 'foot per second', 'feet per second', FT, 'fps|ft/sec|feet/second', 'us'],
+  ['kn', 'kn', 'knot', 'knots', 1852 / 3600, 'kt|kts', 'other'],
+  ['mach', 'Mach', 'Mach', 'Mach', 340.29, 'mach number', 'sci'],
+  ['light', 'c', 'speed of light', '× speed of light', 299792458, 'speed of light|speeds of light|lightspeed|light speed', 'sci', { noSym: true }]
+]);
+U('time', [
+  ['ns', 'ns', 'nanosecond', 'nanoseconds', 1e-9, 'nsec|nsecs', 'sci'],
+  ['us', 'µs', 'microsecond', 'microseconds', 1e-6, 'μs|us|usec|usecs', 'sci'],
+  ['ms', 'ms', 'millisecond', 'milliseconds', 1e-3, 'msec|msecs|millisec|millisecs', 'metric'],
+  ['s', 's', 'second', 'seconds', 1, 'sec|secs|sec.', 'metric'],
+  ['min', 'min', 'minute', 'minutes', 60, 'mins|minutes', 'common'],
+  ['h', 'h', 'hour', 'hours', 3600, 'hr|hrs|hours|hour', 'common'],
+  ['d', 'd', 'day', 'days', 86400, '', 'common'],
+  ['wk', 'wk', 'week', 'weeks', 604800, 'wks', 'common'],
+  ['fortnight', 'fortnight', 'fortnight', 'fortnights', 1209600, '', 'other'],
+  ['mo', 'mo', 'month', 'months', YEAR / 12, 'mos|mth|mths|mon', 'common'],
+  ['yr', 'yr', 'year', 'years', YEAR, 'yrs|y|annum', 'common'],
+  ['decade', 'decade', 'decade', 'decades', YEAR * 10, '', 'common'],
+  ['century', 'century', 'century', 'centuries', YEAR * 100, '', 'common'],
+  ['millennium', 'millennium', 'millennium', 'millennia', YEAR * 1000, 'millenniums', 'common'],
+  ['f_blink', 'blinks', 'blink', 'blinks', 0.3, '', 'fun'],
+  ['f_song', 'songs', 'song', 'songs', 210, 'pop song|pop songs', 'fun'],
+  ['f_micro', 'microcenturies', 'microcentury', 'microcenturies', YEAR * 1e-4, '', 'fun'],
+  ['f_movie', 'movies', 'movie', 'movies', 7200, 'film|films|feature film|feature films', 'fun'],
+  ['f_life', 'human lifespans', 'human lifespan', 'human lifespans', 73.4 * YEAR, 'lifespan|lifespans|lifetime|lifetimes', 'fun']
+]);
+U('data', [
+  ['bit', 'bit', 'bit', 'bits', 0.125, '=b', 'bits', { noSym: true }],
+  ['kbit', 'kbit', 'kilobit', 'kilobits', 125, '=Kb|kbits', 'bits'],
+  ['mbit', 'Mbit', 'megabit', 'megabits', 125000, '=Mb|mbits', 'bits'],
+  ['gbit', 'Gbit', 'gigabit', 'gigabits', 1.25e8, '=Gb|gbits', 'bits'],
+  ['tbit', 'Tbit', 'terabit', 'terabits', 1.25e11, '=Tb|tbits', 'bits'],
+  ['byte', 'B', 'byte', 'bytes', 1, '=B|octet|octets', 'dec', { noSym: true }],
+  ['kb', 'kB', 'kilobyte', 'kilobytes', 1e3, 'kbyte|kbytes|k', 'dec'],
+  ['mb', 'MB', 'megabyte', 'megabytes', 1e6, 'mbyte|mbytes|meg|megs', 'dec'],
+  ['gb', 'GB', 'gigabyte', 'gigabytes', 1e9, 'gig|gigs|gbyte|gbytes', 'dec'],
+  ['tb', 'TB', 'terabyte', 'terabytes', 1e12, 'tbyte|tbytes', 'dec'],
+  ['pb', 'PB', 'petabyte', 'petabytes', 1e15, '', 'dec'],
+  ['eb', 'EB', 'exabyte', 'exabytes', 1e18, '', 'dec'],
+  ['zb', 'ZB', 'zettabyte', 'zettabytes', 1e21, '', 'dec'],
+  ['kib', 'KiB', 'kibibyte', 'kibibytes', 1024, '', 'bin'],
+  ['mib', 'MiB', 'mebibyte', 'mebibytes', 1048576, '', 'bin'],
+  ['gib', 'GiB', 'gibibyte', 'gibibytes', 1073741824, '', 'bin'],
+  ['tib', 'TiB', 'tebibyte', 'tebibytes', 1099511627776, '', 'bin'],
+  ['pib', 'PiB', 'pebibyte', 'pebibytes', 1125899906842624, '', 'bin'],
+  ['f_floppy', 'floppy disks', 'floppy disk', 'floppy disks', 1474560, 'floppy|floppies', 'fun'],
+  ['f_photo', 'phone photos', 'phone photo', 'phone photos', 3e6, 'photo|photos', 'fun'],
+  ['f_mp3', 'MP3 songs', 'MP3 song', 'MP3 songs', 4e6, 'mp3|mp3s', 'fun'],
+  ['f_cd', 'CDs', 'CD', 'CDs', 734003200, 'cd|cds|compact disc|compact discs', 'fun'],
+  ['f_dvd', 'DVDs', 'DVD', 'DVDs', 4.7e9, 'dvd|dvds', 'fun']
+]);
+// "k" alone as data is silly; drop that alias again (it would shadow kelvin)
+UNITS['data:kb'].al = UNITS['data:kb'].al.filter(a => a !== 'k');
+U('energy', [
+  ['ev', 'eV', 'electronvolt', 'electronvolts', 1.602176634e-19, 'electron volt|electron volts', 'sci'],
+  ['erg', 'erg', 'erg', 'ergs', 1e-7, '', 'sci'],
+  ['j', 'J', 'joule', 'joules', 1, '', 'metric'],
+  ['kj', 'kJ', 'kilojoule', 'kilojoules', 1e3, '', 'metric'],
+  ['mj', 'MJ', 'megajoule', 'megajoules', 1e6, '', 'metric'],
+  ['gj', 'GJ', 'gigajoule', 'gigajoules', 1e9, '', 'metric'],
+  ['wh', 'Wh', 'watt-hour', 'watt-hours', 3600, 'watt hour|watt hours', 'metric'],
+  ['kwh', 'kWh', 'kilowatt-hour', 'kilowatt-hours', 3.6e6, 'kilowatt hour|kilowatt hours|kw h|kw·h|kw-h', 'metric'],
+  ['mwh', 'MWh', 'megawatt-hour', 'megawatt-hours', 3.6e9, 'megawatt hour|megawatt hours', 'metric'],
+  ['cal', 'cal', 'calorie (small)', 'calories (small)', 4.184, 'small calorie|small calories|gram calorie|gram calories', 'sci'],
+  ['kcal', 'kcal', 'kilocalorie', 'kilocalories', 4184, '=Cal|=Cals|calorie|calories|food calorie|food calories|kcals|cals', 'metric'],
+  ['btu', 'BTU', 'British thermal unit', 'British thermal units', 1055.05585262, 'btus|british thermal unit|british thermal units', 'us'],
+  ['therm', 'thm', 'therm', 'therms', 105505585.262, '', 'us'],
+  ['ftlbf', 'ft·lbf', 'foot-pound', 'foot-pounds', 1.3558179483314004, 'ft-lb|ft lb|ftlb|ft·lb|ft-lbf|ft lbf|foot pound|foot pounds|ft-lbs|ft lbs', 'us'],
+  ['tnt', 't TNT', 'tonne of TNT', 'tonnes of TNT', 4.184e9, 'ton of tnt|tons of tnt|tonne of tnt|tonnes of tnt|t tnt', 'sci'],
+  ['f_aa', 'AA batteries', 'AA battery', 'AA batteries', 10800, 'aa|aa battery|aa batteries', 'fun'],
+  ['f_phone', 'phone charges', 'phone charge', 'phone charges', 54000, 'smartphone charge|smartphone charges', 'fun'],
+  ['f_coffee', 'cups of coffee', 'cup of coffee', 'cups of coffee', 83680, 'coffee|coffees|cup of coffee|cups of coffee', 'fun'],
+  ['f_bananaE', 'bananas (eaten)', 'banana (eaten)', 'bananas (eaten)', 439320, 'banana|bananas', 'fun'],
+  ['f_lightning', 'lightning bolts', 'lightning bolt', 'lightning bolts', 1e9, 'lightning|lightnings', 'fun']
+]);
+U('power', [
+  ['mlw', 'mW', 'milliwatt', 'milliwatts', 1e-3, '=mW|milliwatt|milliwatts', 'metric', { cs: true }],
+  ['w', 'W', 'watt', 'watts', 1, '', 'metric'],
+  ['kw', 'kW', 'kilowatt', 'kilowatts', 1e3, '', 'metric'],
+  ['mw', 'MW', 'megawatt', 'megawatts', 1e6, '', 'metric'],
+  ['gw', 'GW', 'gigawatt', 'gigawatts', 1e9, '', 'metric'],
+  ['tw', 'TW', 'terawatt', 'terawatts', 1e12, '', 'metric'],
+  ['hp', 'hp', 'horsepower', 'horsepower', 745.69987158227, 'bhp|horse power|mechanical horsepower', 'us'],
+  ['ps', 'PS', 'metric horsepower', 'metric horsepower', 735.49875, 'metric hp|cv', 'metric'],
+  ['btuh', 'BTU/h', 'BTU per hour', 'BTU per hour', 0.29307107017, 'btu/hr|btuh|btu per hour', 'us'],
+  ['kcalh', 'kcal/h', 'kilocalorie per hour', 'kilocalories per hour', 4184 / 3600, 'kcal/hr|calories per hour', 'metric'],
+  ['ftlbfs', 'ft·lbf/s', 'foot-pound per second', 'foot-pounds per second', 1.3558179483314004, 'ft-lb/s|ft lb/s|ft·lb/s', 'us']
+]);
+U('pressure', [
+  ['pa', 'Pa', 'pascal', 'pascals', 1, '', 'metric'],
+  ['hpa', 'hPa', 'hectopascal', 'hectopascals', 100, '', 'metric'],
+  ['mbar', 'mbar', 'millibar', 'millibars', 100, '', 'metric'],
+  ['kpa', 'kPa', 'kilopascal', 'kilopascals', 1000, '', 'metric'],
+  ['bar', 'bar', 'bar', 'bar', 1e5, 'bars', 'metric'],
+  ['mpa', 'MPa', 'megapascal', 'megapascals', 1e6, '', 'metric'],
+  ['gpa', 'GPa', 'gigapascal', 'gigapascals', 1e9, '', 'metric'],
+  ['psi', 'psi', 'pound per square inch', 'pounds per square inch', 6894.757293168, 'lb/in2|lb/in²|lbf/in2|lbf/in²|psig', 'us'],
+  ['inhg', 'inHg', 'inch of mercury', 'inches of mercury', 3386.389, 'in hg', 'us'],
+  ['atm', 'atm', 'atmosphere', 'atmospheres', 101325, 'atms', 'sci'],
+  ['mmhg', 'mmHg', 'millimetre of mercury', 'millimetres of mercury', 133.322387415, 'mm hg|millimeters of mercury', 'sci'],
+  ['torr', 'Torr', 'torr', 'torr', 101325 / 760, '', 'sci']
+]);
+U('angle', [
+  ['deg', '°', 'degree', 'degrees', 1, 'deg|degs', 'common'],
+  ['turn', 'turn', 'turn', 'turns', 360, 'rev|revs|revolution|revolutions|rotation|rotations|full turn|full turns|circle|circles', 'common'],
+  ['rad', 'rad', 'radian', 'radians', 180 / Math.PI, 'rads', 'sci'],
+  ['mrad', 'mrad', 'milliradian', 'milliradians', 0.18 / Math.PI, '', 'sci'],
+  ['arcmin', '′', 'arcminute', 'arcminutes', 1 / 60, 'arcmin|arc minute|arc minutes|moa', 'sci'],
+  ['arcsec', '″', 'arcsecond', 'arcseconds', 1 / 3600, 'arcsec|arc second|arc seconds', 'sci'],
+  ['grad', 'gon', 'gradian', 'gradians', 0.9, 'grad|grads|gons', 'other'],
+  ['f_right', 'right angles', 'right angle', 'right angles', 90, '', 'fun'],
+  ['f_pizza', 'pizza slices', 'pizza slice (⅛)', 'pizza slices (⅛)', 45, 'pizza slice|pizza slices|slice of pizza|slices of pizza', 'fun'],
+  ['f_clock', 'clock hours', 'hour on a clock face', 'hours on a clock face', 30, 'clock hour|clock hours|hours on a clock', 'fun']
+]);
+U('frequency', [
+  ['hz', 'Hz', 'hertz', 'hertz', 1, 'cps|cycles per second|per second|/s', 'metric'],
+  ['khz', 'kHz', 'kilohertz', 'kilohertz', 1e3, '', 'metric'],
+  ['mhz', 'MHz', 'megahertz', 'megahertz', 1e6, '', 'metric'],
+  ['ghz', 'GHz', 'gigahertz', 'gigahertz', 1e9, '', 'metric'],
+  ['thz', 'THz', 'terahertz', 'terahertz', 1e12, '', 'metric'],
+  ['rpm', 'rpm', 'revolution per minute', 'revolutions per minute', 1 / 60, 'rev/min|revs per minute|r/min', 'common'],
+  ['bpm', 'bpm', 'beat per minute', 'beats per minute', 1 / 60, '', 'common'],
+  ['perday', '/day', 'time per day', 'times per day', 1 / 86400, 'per day|times a day|times per day', 'common'],
+  ['radps', 'rad/s', 'radian per second', 'radians per second', 1 / (2 * Math.PI), 'rad/sec', 'sci']
+]);
+const KML_MPG = MI / 1000 / USGAL, KML_MPGUK = MI / 1000 / UKGAL, GAL100 = 100 * MI / 1000 / USGAL;
+U('fuel', [
+  ['kml', 'km/L', 'kilometre per litre', 'kilometres per litre', 1, 'km/l|kmpl|km per litre|km per liter|kilometers per liter|kilometres per litre', 'metric'],
+  ['l100', 'L/100 km', 'litre per 100 km', 'litres per 100 km', { to: x => 100 / x, from: b => 100 / b }, 'l/100km|l/100 km|l per 100km|l per 100 km|liters per 100 km|litres per 100 km|liters per 100km|litres per 100km|lp100km|l/100', 'metric', { inv: true }],
+  ['mpg', 'mpg (US)', 'mile per US gallon', 'miles per US gallon', KML_MPG, 'mpg|us mpg|mpg us|mpgus|miles per gallon|mi/gal|miles/gallon', 'us', { short: 'mpg' }],
+  ['mpguk', 'mpg (UK)', 'mile per UK gallon', 'miles per UK gallon', KML_MPGUK, 'uk mpg|mpg uk|imperial mpg|mpg imperial|mpg imp|miles per imperial gallon', 'imp', { short: 'UK mpg' }],
+  ['mpl', 'mi/L', 'mile per litre', 'miles per litre', MI / 1000, 'miles per litre|miles per liter', 'other'],
+  ['gal100', 'gal/100 mi', 'US gallon per 100 miles', 'US gallons per 100 miles', { to: x => GAL100 / x, from: b => GAL100 / b }, 'gal/100mi|gallons per 100 miles', 'us', { inv: true }]
+]);
+U('money', [
+  ['usd', '$', 'dollar', 'dollars', 1, 'usd|buck|bucks|us dollar|us dollars', 'us'],
+  ['cent', '¢', 'cent', 'cents', 0.01, 'penny|pennies', 'us'],
+  ['nickel', 'nickels', 'nickel', 'nickels', 0.05, '', 'us'],
+  ['dime', 'dimes', 'dime', 'dimes', 0.1, '', 'us'],
+  ['quarter', 'quarters', 'quarter', 'quarters', 0.25, '', 'us'],
+  ['halfd', 'half dollars', 'half dollar', 'half dollars', 0.5, 'half-dollar|half-dollars', 'us'],
+  ['benjamin', '$100 bills', 'hundred-dollar bill', 'hundred-dollar bills', 100, 'benjamin|benjamins|$100 bill|hundred dollar bill|hundred dollar bills|c-note|c-notes', 'fun'],
+  ['grand', 'grand', 'grand', 'grand', 1000, '', 'fun']
+]);
+
+/* alias tables */
+const AL_EXACT = new Map(), AL = new Map();
+function addAl(map, k, u) { if (!k) return; const a = map.get(k); if (a) { if (!a.includes(u)) a.push(u); } else map.set(k, [u]); }
+const LEN_NAMES = { mm: ['mm', 'millimetre', 'millimetres', 'millimeter', 'millimeters'], cm: ['cm', 'centimetre', 'centimetres', 'centimeter', 'centimeters'], m: ['m', 'metre', 'metres', 'meter', 'meters'], km: ['km', 'kilometre', 'kilometres', 'kilometer', 'kilometers'], in: ['in', 'inch', 'inches'], ft: ['ft', 'foot', 'feet'], yd: ['yd', 'yard', 'yards'], mi: ['mi', 'mile', 'miles'] };
+for (const cat of CAT_ORDER) for (const u of BYCAT[cat]) {
+  if (!u.noSym) { if (u.cs) addAl(AL_EXACT, u.sym, u); else addAl(AL, u.sym.toLowerCase(), u); }
+  addAl(AL, u.one.toLowerCase(), u); addAl(AL, u.many.toLowerCase(), u);
+  for (const a of u.al) { if (a[0] === '=') addAl(AL_EXACT, a.slice(1), u); else addAl(AL, a.toLowerCase(), u); }
+  if (u.sq) for (const n of LEN_NAMES[u.sq]) for (const k of ['square ' + n, 'sq ' + n, 'sq. ' + n, 'sq' + n, n + '²', n + '^2', n + '2', n + ' squared', n + ' sq']) addAl(AL, k, u);
+  if (u.cu) for (const n of LEN_NAMES[u.cu]) for (const k of ['cubic ' + n, 'cu ' + n, 'cu. ' + n, n + '³', n + '^3', n + '3', n + ' cubed', 'cu' + n]) addAl(AL, k, u);
+}
+
+function lookupUnit(text) {
+  let t = String(text || '').trim().replace(/\s+/g, ' ').replace(/[.?!,;:]+$/, '');
+  t = t.replace(/^(?:of\s+)?(?:an?|the)\s+(?=\S)/i, '').trim();
+  if (!t) return [];
+  const ex = AL_EXACT.get(t); if (ex) return ex;
+  let low = t.toLowerCase();
+  const tries = [low];
+  const deg = low.replace(/^(?:degrees?|degs?|°|º)\s*(?=(?:c|f|k|r|celsius|centigrade|fahrenheit|kelvin|rankine)$)/, '°');
+  if (deg !== low) tries.push(deg);
+  tries.push(low.replace(/\s*\bper\b\s*/g, '/'));
+  tries.push(low.replace(/\s*\/\s*/g, '/'));
+  tries.push(low.replace(/[()]/g, '').replace(/\s+/g, ' '));
+  for (const k of tries) { const r = AL.get(k); if (r) return r; }
+  if (/s$/.test(low) && low.length > 2) { const r = AL.get(low.slice(0, -1)) || (/es$/.test(low) ? AL.get(low.slice(0, -2)) : null); if (r) return r; }
+  return [];
+}
+
+/* =====================================================================
+   2. NUMBER + QUERY PARSING
+   ===================================================================== */
+const SMALL = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const SCALEW = { hundred: 100, thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12, quadrillion: 1e15, dozen: 12 };
+const FRACW = { half: 1 / 2, halves: 1 / 2, third: 1 / 3, thirds: 1 / 3, quarter: 1 / 4, quarters: 1 / 4, fourth: 1 / 4, fourths: 1 / 4, fifth: 1 / 5, fifths: 1 / 5, eighth: 1 / 8, eighths: 1 / 8, tenth: 1 / 10, tenths: 1 / 10 };
+const VULG = { '½': .5, '⅓': 1 / 3, '⅔': 2 / 3, '¼': .25, '¾': .75, '⅕': .2, '⅖': .4, '⅗': .6, '⅘': .8, '⅙': 1 / 6, '⅚': 5 / 6, '⅛': .125, '⅜': .375, '⅝': .625, '⅞': .875 };
+const VCH = '½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞';
+
+function parseWords(s) {
+  const toks = s.split(/\s+/).filter(Boolean); const low = toks.map(t => t.toLowerCase().replace(/,$/, ''));
+  let i = 0, total = 0, cur = 0, got = false;
+  while (i < low.length) {
+    const w = low[i];
+    if (/^[a-z]+-[a-z]+$/.test(w) && w.split('-').every(p => p in SMALL)) { cur += w.split('-').reduce((a, p) => a + SMALL[p], 0); got = true; i++; continue; }
+    if (w in SMALL) { cur += SMALL[w]; got = true; i++; continue; }
+    if ((w === 'a' || w === 'an') && !got) { if (i + 1 < low.length) { cur = 1; got = true; i++; continue; } break; }
+    if (w in SCALEW) { if (!got) { cur = 1; got = true; } const sc = SCALEW[w]; if (sc >= 1000) { total += cur * sc; cur = 0; } else cur *= sc; i++; continue; }
+    if (w in FRACW) {
+      cur = (got ? (cur || 1) : 1) * FRACW[w]; got = true; i++;
+      if (low[i] === 'of') i++;
+      if (low[i] === 'a' || low[i] === 'an' || low[i] === 'the') i++;
+      break;
+    }
+    if (w === 'and' && got) {
+      if ((low[i + 1] === 'a' || low[i + 1] === 'an') && low[i + 2] in FRACW) { cur += FRACW[low[i + 2]]; i += 3; break; }
+      if (low[i + 1] in SMALL) { i++; continue; }
+      break;
+    }
+    break;
+  }
+  if (!got) return null;
+  return { v: total + cur, rest: toks.slice(i).join(' ') };
+}
+
+function parseNum(s) {
+  let rest = s, neg = false, m, v;
+  if ((m = /^(?:minus|negative)\s+/i.exec(rest))) { neg = true; rest = rest.slice(m[0].length); }
+  if ((m = /^([-+]?)\s*(\d+\.?\d*|\.\d+)(?:e([-+]?\d+))?/i.exec(rest))) {
+    v = parseFloat(m[2] + (m[3] ? 'e' + m[3] : '')); const sign = m[1] === '-' ? -1 : 1;
+    rest = rest.slice(m[0].length);
+    let k;
+    if ((k = /^\s*\^\s*([-+]?\d+(?:\.\d+)?)/.exec(rest))) { v = Math.pow(v, parseFloat(k[1])); rest = rest.slice(k[0].length); }
+    if ((k = /^\s*[x*]\s*10\s*\^\s*([-+]?\d+)/i.exec(rest))) { v *= Math.pow(10, parseInt(k[1], 10)); rest = rest.slice(k[0].length); }
+    if (Number.isInteger(v) && (k = /^\s+(\d+)\s*\/\s*(\d+)(?![\d.])/.exec(rest)) && +k[2] > 0) { v += +k[1] / +k[2]; rest = rest.slice(k[0].length); }
+    else if ((k = /^\s*\/\s*(\d+(?:\.\d+)?)(?![\d.])/.exec(rest)) && +k[1] > 0) { v /= +k[1]; rest = rest.slice(k[0].length); }
+    if ((k = new RegExp('^\\s*([' + VCH + '])').exec(rest))) { v += VULG[k[1]]; rest = rest.slice(k[0].length); }
+    while ((k = /^\s*(hundred|thousand|million|billion|trillion|quadrillion|dozen)\b/i.exec(rest))) { v *= SCALEW[k[1].toLowerCase()]; rest = rest.slice(k[0].length); }
+    if ((k = /^\s+and\s+an?\s+(half|third|quarter)\b/i.exec(rest))) { v += FRACW[k[1].toLowerCase()]; rest = rest.slice(k[0].length); }
+    rest = rest.replace(/^\s+of\s+(?:an?|the)\s+/i, ' ');
+    v *= sign;
+    return { v: neg ? -v : v, rest: rest.trim() };
+  }
+  if ((m = new RegExp('^([' + VCH + '])').exec(rest))) {
+    v = VULG[m[1]]; rest = rest.slice(1).replace(/^\s+of\s+(?:an?|the)\s+/i, ' ');
+    return { v: neg ? -v : v, rest: rest.trim() };
+  }
+  const w = parseWords(rest);
+  if (w) return { v: neg ? -w.v : w.v, rest: w.rest.trim() };
+  return null;
+}
+
+const DIGIT_START = new RegExp('[0-9' + VCH + ']');
+function takeUnit(s) {
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (i > 0 && DIGIT_START.test(ch)) {
+      const prev = s[i - 1];
+      if (prev === '/' || prev === '^') { const m = /^[\d.]+/.exec(s.slice(i)); i += m ? m[0].length : 1; continue; }
+      if (/[a-zA-Zµ°]/.test(prev)) {
+        const m = /^\d+/.exec(s.slice(i));
+        if (m && lookupUnit(s.slice(0, i) + m[0]).length) { i += m[0].length; continue; }
+      }
+      break;
+    }
+    if (ch === ' ' && i > 0 && /^ (?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|an? half)\b/i.test(s.slice(i))) break;
+    i++;
+  }
+  const unit = s.slice(0, i).trim().replace(/\s+and$/i, '').replace(/,$/, '').trim();
+  return [unit, s.slice(i)];
+}
+
+const SUBUNIT = { 'length:ft': 'length:in', 'length:yd': 'length:ft', 'mass:lb': 'mass:oz', 'mass:st': 'mass:lb', 'time:h': 'time:min', 'time:min': 'time:s', 'time:d': 'time:h' };
+
+function normalize(raw) {
+  let s = String(raw == null ? '' : raw);
+  s = s.replace(/[‘’′´`]/g, "'").replace(/[“”″]/g, '"').replace(/[−–—]/g, '-')
+       .replace(/×/g, 'x').replace(/μ/g, 'µ').replace(/ | | /g, ' ').replace(/[\u0000-\u001F\u007F]/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+  s = s.replace(/(\d)[,_](?=\d{3}(?!\d))/g, '$1');
+  s = s.replace(/(\d),(\d)/g, '$1.$2');
+  s = s.replace(/\s*(?:->|→|=>)\s*/g, ' to ');
+  return s;
+}
+
+function parseQuantity(text) {
+  let s = text.trim();
+  if (!s) return { error: 'empty' };
+  // feet and inches marks: 5'11", 5' 11, 6'
+  s = s.replace(/(\d(?:\.\d+)?)\s*'\s*(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?)\s*(?:"|'')?(?=\s|$)/g, '$1 ft $2 in ');
+  s = s.replace(/(\d)\s*(?:''|")/g, '$1 in ').replace(/(\d)\s*'/g, '$1 ft ').replace(/\s+/g, ' ').trim();
+  // dollars: $20, $1.5 million
+  let dollar = false;
+  if (/^\$\s*\d/.test(s)) { s = s.replace(/^\$\s*/, ''); dollar = true; }
+  const segs = [];
+  let guard = 0;
+  while (s && guard++ < 6) {
+    const num = parseNum(s);
+    let v = null, rest = s;
+    if (num) { v = num.v; rest = num.rest; }
+    let [unit, after] = takeUnit(rest);
+    if (dollar && segs.length === 0 && !unit) unit = '$';
+    if (!unit && v === null) return { error: 'unknown', bad: s };
+    segs.push({ v: v === null ? 1 : v, unit, explicit: v !== null });
+    s = after.trim();
+  }
+  if (s) return { error: 'unknown', bad: s };
+  // a lone word that parsed as a number ("quarter") → treat as a unit
+  if (segs.length === 1 && !segs[0].unit && !/\d/.test(text)) {
+    const c = lookupUnit(text); if (c.length) return { v: 1, cands: c, segs: [{ v: 1, unit: text, cands: c }] };
+  }
+  // resolve units for each segment
+  for (let i = 0; i < segs.length; i++) {
+    const sg = segs[i];
+    if (!sg.unit) {
+      if (i === 0) return { error: 'nounit', v: sg.v };
+      const prev = segs[i - 1];
+      const sub = prev.cands && prev.cands.map(u => SUBUNIT[u.key]).find(Boolean);
+      if (sub) { sg.cands = [UNITS[sub]]; sg.unit = UNITS[sub].sym; }
+      else if (Math.abs(sg.v) < 1) { prev.v += sg.v; segs.splice(i, 1); i--; continue; }
+      else return { error: 'nounit', v: sg.v };
+    } else {
+      sg.cands = lookupUnit(sg.unit);
+      if (!sg.cands.length) return { error: 'badunit', unit: sg.unit };
+    }
+  }
+  if (segs.length === 1) return { v: segs[0].v, cands: segs[0].cands, segs };
+  // compound: all parts must share a category; sum in base units, express in the last part's unit
+  const cats = segs[0].cands.map(u => u.cat).filter(c => segs.every(sg => sg.cands.some(u => u.cat === c)));
+  if (!cats.length) return { error: 'mixed', segs };
+  const cat = cats[0];
+  if (cat === 'temperature' || cat === 'fuel') return { error: 'mixed', segs };
+  let base = 0; const parts = [];
+  for (const sg of segs) { const u = sg.cands.find(x => x.cat === cat); base += u.toB(sg.v); parts.push({ v: sg.v, u }); }
+  const last = parts[parts.length - 1].u;
+  return { v: last.fromB(base), cands: [last], segs, compound: parts };
+}
+
+const CATNAME = c => CATS[c].name.toLowerCase();
+function interpret(raw) {
+  let s = normalize(raw);
+  if (!s) return { empty: true };
+  if (s.length > 200) return { error: 'That’s a bit long. Try something like “3 litres in cups”.' };
+  if (/[€£¥₹₩₽]|\b(?:euros?|eur|gbp|yen|jpy|rupees?|pesos?|yuan|bitcoins?|btc|sterling)\b/i.test(s))
+    return { error: 'No exchange rates here: Unit Universe works offline, so money is limited to splitting US dollars into cents, dimes, quarters and bills.' };
+  s = s.replace(/^(?:please\s+)?(?:what(?:'s| is| are)|whats|convert|how much is|how much are|how (?:far|long|big|heavy|hot|cold|fast|tall|wide|deep) is)\s+/i, '').replace(/\s*[?!.]+$/, '').trim();
+  let target = null, qtext = s;
+  let m = /^how\s+many\s+(.+?)\s+(?:are\s+(?:there\s+)?)?(?:in|per|make|make\s+up|fit\s+in|fit\s+into|to)\s+(.+)$/i.exec(s);
+  if (m) { target = m[1]; qtext = m[2]; }
+  let q = null, tc = null;
+  if (target === null) {
+    const re = /\s+(?:into|to|in|as|=)(?=\s)/gi; const cuts = [];
+    let mm; while ((mm = re.exec(s))) cuts.push([mm.index, mm.index + mm[0].length]);
+    for (let i = cuts.length - 1; i >= 0; i--) {
+      const left = s.slice(0, cuts[i][0]).trim(), right = s.slice(cuts[i][1]).trim();
+      const rc = lookupUnit(right); if (!rc.length) continue;
+      const lq = parseQuantity(left); if (lq.error) continue;
+      q = lq; tc = rc; break;
+    }
+    if (!q) {
+      q = parseQuantity(s);
+      if (q.error && cuts.length) {
+        // maybe the right side is the problem: report that
+        const right = s.slice(cuts[cuts.length - 1][1]).trim(), left = s.slice(0, cuts[cuts.length - 1][0]).trim();
+        const lq = parseQuantity(left);
+        if (!lq.error && !lookupUnit(right).length) return { error: `I know “${left}”, but not the unit “${right}”.` };
+      }
+    }
+  } else {
+    q = parseQuantity(qtext); tc = lookupUnit(target);
+    if (!tc.length && !q.error) return { error: `I don’t know the unit “${target}”.` };
+  }
+  if (q.error) {
+    if (q.error === 'empty') return { empty: true };
+    if (q.error === 'nounit') return { error: `Add a unit after the number, like “${fmtPlain(q.v)} km” or “${fmtPlain(q.v)} cups”.` };
+    if (q.error === 'badunit') return { error: `I don’t know the unit “${q.unit}”. Try names like km, cups, lb, °F, mph or GB.` };
+    if (q.error === 'mixed') return { error: 'Those parts measure different things, so they can’t be added together.' };
+    return { error: `I couldn’t read “${s}”. Try “3 litres”, “72 kg in lbs” or “5'11"”.` };
+  }
+  let from = null, to = null;
+  if (tc) {
+    for (const su of q.cands) { const t = tc.find(x => x.cat === su.cat); if (t) { from = su; to = t; break; } }
+    if (!from) {
+      const a = q.cands[0].cat, b = tc[0].cat;
+      let msg = `Can’t turn ${CATNAME(a)} into ${CATNAME(b)}: they measure different things.`;
+      if ((a === 'volume' && b === 'mass') || (a === 'mass' && b === 'volume')) {
+        const su = q.cands[0], base = su.toB(q.v);
+        msg += a === 'volume' ? ` (If it’s water, ${fmt(q.v)} ${su.sym} weighs about ${fmt(base)} kg.)` : ` (If it’s water, ${fmt(q.v)} ${su.sym} is about ${fmt(base)} L.)`;
+      }
+      return { error: msg };
+    }
+  } else {
+    from = q.cands[0];
+    to = defaultTarget(from, q.v);
+  }
+  const value = q.v, base = from.toB(value), result = to.fromB(base);
+  let srcText;
+  if (q.compound) srcText = q.compound.map(p => `${fmt(p.v)} ${p.u.sym}`).join(' ');
+  else srcText = `${fmt(value)} ${unitName(from, value)}`;
+  return { ok: true, cat: from.cat, from, to, value, base, result, explicitTo: !!tc, compound: !!q.compound, srcText };
+}
+
+/* default "other side" of a conversion */
+const PAIR = {
+  length: { m: 'ft', cm: 'in', mm: 'in', km: 'mi', um: 'mm', nm: 'um', in: 'cm', ft: 'm', yd: 'm', mi: 'km', thou: 'mm', nmi: 'km', fathom: 'm', furlong: 'm', hand: 'cm', league: 'km', ang: 'nm', au: 'km', ly: 'km', pc: 'ly' },
+  area: { m2: 'ft2', ft2: 'm2', cm2: 'in2', in2: 'cm2', mm2: 'in2', km2: 'mi2', mi2: 'km2', ha: 'acre', acre: 'ha', yd2: 'm2', are: 'm2' },
+  volume: { l: 'gal', ml: 'floz', cl: 'floz', dl: 'cup', m3: 'ft3', cm3: 'ml', mm3: 'ml', km3: 'gigal', megal: 'f_pool', gigal: 'km3', tsp: 'ml', tbsp: 'ml', floz: 'ml', cup: 'ml', pt: 'ml', qt: 'l', gal: 'l', in3: 'cm3', ft3: 'l', yd3: 'm3', bbl: 'l', ukfloz: 'ml', ukpt: 'ml', ukqt: 'l', ukgal: 'l', mcup: 'cup' },
+  mass: { kg: 'lb', lb: 'kg', g: 'oz', oz: 'g', mg: 'g', ug: 'mg', t: 'ston', ston: 't', st: 'kg', lton: 't', ct: 'g', grain: 'mg', ozt: 'g' },
+  temperature: { c: 'f', f: 'c', k: 'c', r: 'f' },
+  speed: { kmh: 'mph', mph: 'kmh', mps: 'kmh', kms: 'mph', fps: 'mps', kn: 'kmh', mach: 'kmh', light: 'kms' },
+  data: { tb: 'tib', gb: 'gib', mb: 'mib', kb: 'kib', pb: 'pib', eb: 'pb', zb: 'eb', tib: 'tb', gib: 'gb', mib: 'mb', kib: 'kb', pib: 'pb', byte: 'bit', bit: 'byte', kbit: 'kb', mbit: 'mb', gbit: 'mb', tbit: 'gb' },
+  energy: { j: 'cal', kj: 'kcal', kcal: 'kj', cal: 'j', mj: 'kwh', gj: 'kwh', wh: 'kj', kwh: 'mj', mwh: 'gj', btu: 'kj', therm: 'kwh', ftlbf: 'j', ev: 'j', erg: 'j', tnt: 'gj' },
+  power: { w: 'hp', kw: 'hp', mw: 'hp', gw: 'mw', tw: 'gw', mlw: 'w', hp: 'kw', ps: 'kw', btuh: 'w', kcalh: 'w', ftlbfs: 'w' },
+  pressure: { psi: 'bar', bar: 'psi', kpa: 'psi', pa: 'psi', hpa: 'inhg', mbar: 'inhg', inhg: 'hpa', atm: 'kpa', mmhg: 'kpa', torr: 'pa', mpa: 'psi', gpa: 'atm' },
+  angle: { deg: 'rad', rad: 'deg', turn: 'deg', grad: 'deg', arcmin: 'deg', arcsec: 'deg', mrad: 'deg' },
+  frequency: { hz: 'rpm', rpm: 'hz', bpm: 'hz', khz: 'hz', mhz: 'khz', ghz: 'mhz', thz: 'ghz', radps: 'hz', perday: 'hz' },
+  fuel: { mpg: 'l100', l100: 'mpg', kml: 'l100', mpguk: 'l100', mpl: 'mpg', gal100: 'l100' },
+  money: { usd: 'cent', cent: 'usd' }
+};
+const TIME_STEPS = ['ns', 'us', 'ms', 's', 'min', 'h', 'd', 'yr'];
+function defaultTarget(from, v) {
+  const cat = from.cat, base = from.toB(v);
+  const pid = PAIR[cat] && PAIR[cat][from.id];
+  if (pid && UNITS[cat + ':' + pid]) return UNITS[cat + ':' + pid];
+  if (cat === 'time' || from.grp === 'fun' || cat === 'money') {
+    // the biggest everyday unit that still gives a number >= 1
+    const list = (cat === 'time' ? TIME_STEPS.map(i => UNITS['time:' + i]) : NICE[cat].map(i => UNITS[cat + ':' + i])).filter(u => u !== from);
+    let best = null;
+    for (const u of list) if (Math.abs(u.fromB(base)) >= 1 - 1e-9) best = u;
+    return best || list[0];
+  }
+  return BYCAT[cat].find(u => u !== from && u.grp !== 'fun') || from;
+}
+
+/* =====================================================================
+   3. FORMATTING
+   ===================================================================== */
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
+function trimZeros(s) { return s.indexOf('.') >= 0 ? s.replace(/0+$/, '').replace(/\.$/, '') : s; }
+function sci(a, sig) {
+  const [m, e] = a.toExponential(Math.max(0, sig - 1)).split('e');
+  return `${trimZeros(m)} × 10${sup(parseInt(e, 10))}`;
+}
+function fmt(n, sig = 6) {
+  if (typeof n !== 'number' || isNaN(n)) return '—';
+  if (!isFinite(n)) return n > 0 ? '∞' : '−∞';
+  if (n === 0) return '0';
+  const neg = n < 0, a = Math.abs(n);
+  let s;
+  if (a >= 1e15 || a < 1e-6) s = sci(a, sig);
+  else if (a >= Math.pow(10, sig)) s = Math.round(a).toLocaleString('en-US');
+  else { const r = Number(a.toPrecision(sig)); s = r.toLocaleString('en-US', { maximumFractionDigits: 12 }); }
+  if (s === '0') s = sci(a, sig);
+  return (neg ? '−' : '') + s;
+}
+const WORDS = [[1e12, 'trillion'], [1e9, 'billion'], [1e6, 'million']];
+function fmtShort(n) {
+  const a = Math.abs(n);
+  if (a >= 1e6 && a < 1e15) { const w = WORDS.find(([d]) => a >= d); return (n < 0 ? '−' : '') + trimZeros((a / w[0]).toPrecision(3)) + ' ' + w[1]; }
+  return fmt(n, 3);
+}
+function fmtWords(n) { const a = Math.abs(n); if (a >= 1e6 && a < 1e15) return fmtShort(n); return null; }
+function fmtPlain(n) { if (!isFinite(n)) return String(n); return String(Number(n.toPrecision(10))); }
+function unitName(u, v) { return Math.abs(v) === 1 ? u.one : u.many; }
+const VG = { '1/2': '½', '1/3': '⅓', '2/3': '⅔', '1/4': '¼', '3/4': '¾', '1/5': '⅕', '2/5': '⅖', '3/5': '⅗', '4/5': '⅘', '1/6': '⅙', '5/6': '⅚', '1/8': '⅛', '3/8': '⅜', '5/8': '⅝', '7/8': '⅞' };
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+const vulgar = (n, d) => { const g = gcd(n, d); n /= g; d /= g; return VG[n + '/' + d] || `${n}⁄${d}`; };
+function mixedFrac(v, dens = [2, 3, 4, 8], tol = 0.012) {
+  if (!(v > 0) || v >= 1e5) return null;
+  const w = Math.floor(v), f = v - w;
+  if (f < 1e-9 || 1 - f < 1e-9) return null;
+  for (const d of dens) {
+    const n = Math.round(f * d); if (n === 0 || n === d) continue;
+    if (Math.abs(w + n / d - v) / v <= tol) return (w ? w + ' ' : '') + vulgar(n, d);
+  }
+  return null;
+}
+function feetInches(feet) {
+  if (!(feet > 0) || feet > 1e5) return null;
+  let totalIn = feet * 12, ft = Math.floor(totalIn / 12), n16 = Math.round((totalIn - ft * 12) * 16);
+  if (n16 >= 192) { ft += 1; n16 -= 192; }
+  const whole = Math.floor(n16 / 16), fr = n16 % 16;
+  const inch = (whole || !fr ? whole : '') + (fr ? (whole ? ' ' : '') + vulgar(fr, 16) : '');
+  return ft ? `${ft.toLocaleString('en-US')} ft ${inch || 0} in` : `${inch} in`;
+}
+function mixedPair(v, bigSym, smallSym, ratio) {
+  if (!(v > 0) || v > 1e7) return null;
+  let big = Math.floor(v), small = Math.round((v - big) * ratio * 10) / 10;
+  if (small >= ratio) { big += 1; small = 0; }
+  return big ? `${big.toLocaleString('en-US')} ${bigSym} ${fmt(small, 3)} ${smallSym}` : null;
+}
+function dhms(sec) {
+  if (!(sec >= 60) || sec > 1e13) return null;
+  const parts = []; let r = sec;
+  for (const [n, s] of [[YEAR, 'yr'], [86400, 'd'], [3600, 'h'], [60, 'min'], [1, 's']]) {
+    if (r >= n * 0.9999999) { const k = Math.floor(r / n + 1e-9); parts.push(k.toLocaleString('en-US') + ' ' + s); r -= k * n; }
+    if (parts.length === 3) break;
+  }
+  if (parts.length < 3 && r > 0.05 && r < 60 && sec < 86400) parts.push(fmt(r, 3) + ' s');
+  return parts.length > 1 ? parts.join(' ') : null;
+}
+function rowExtra(u, v) {
+  if (u.cook) return v < 100 ? mixedFrac(v) : null;
+  if (u.key === 'length:ft' && v < 1e5) return feetInches(v);
+  if (u.key === 'length:in' && v >= 12 && v < 1.2e6) return feetInches(v / 12);
+  if (u.key === 'mass:lb') return mixedPair(v, 'lb', 'oz', 16);
+  if (u.key === 'mass:st') return mixedPair(v, 'st', 'lb', 14);
+  return null;
+}
+
+/* =====================================================================
+   4. ICONS (one hand-drawn family: flat fills, ink outlines)
+   ===================================================================== */
+const K = { ink: '#2a2118', cream: '#fbf3e1', white: '#ffffff', y: '#f2c230', y2: '#f6d23c', r: '#e2553b', r2: '#b8322b', b: '#3f7fd8', b2: '#9fd3f0', g: '#5daa58', g2: '#3d7a43', br: '#a8713f', br2: '#7b4d26', gr: '#9aa3a8', gr2: '#c9cfd4', dk: '#3b3530', skin: '#f0c49a', or: '#f08a3c', pu: '#8a6bd1', sand: '#e8cf98', navy: '#3a2f5c', pk: '#f2a7a0', w2: '#eef1f3' };
+const P = (d, f, c) => `<path d="${d}" fill="${f}"${c ? ` class="${c}"` : ''}/>`;
+const C = (x, y, r, f, c) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${f}"${c ? ` class="${c}"` : ''}/>`;
+const R = (x, y, w, h, rx, f, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${f}"${c ? ` class="${c}"` : ''}/>`;
+const E = (x, y, rx, ry, f, c) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${f}"${c ? ` class="${c}"` : ''}/>`;
+const L = (d, c) => `<path d="${d}" fill="none"${c ? ` class="${c}"` : ''}/>`;
+const rot = (s, a, x, y) => `<g transform="rotate(${a} ${x} ${y})">${s}</g>`;
+function ring(n, r0, fn) { let s = ''; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; s += fn(Math.cos(a), Math.sin(a), i); } return s; }
+const planet = (c, extra = '') => [100, 100, C(50, 50, 46, c) + extra];
+const car = c => [200, 80, P('M8 60 Q4 42 24 39 L54 36 L76 15 Q81 11 90 11 H130 Q140 11 147 18 L168 38 Q192 40 194 56 L194 62 H8 Z', c) + P('M82 19 H108 V36 H64 Z M116 19 H134 L152 36 H116 Z', K.b2) + C(50, 64, 14, K.dk) + C(156, 64, 14, K.dk) + C(50, 64, 5, K.gr2) + C(156, 64, 5, K.gr2) + R(184, 44, 10, 6, 2, K.y2)];
+const coin = (c, c2) => [100, 100, C(50, 50, 46, c) + C(50, 50, 34, c2, 'th') + L('M38 40 Q50 28 62 40 Q68 52 56 62 L44 62', 'th')];
+const span = (a, ar, b, br) => [240, 60, L('M26 30 H214', 'dash') + L('M30 30 l10 -6 M30 30 l10 6 M210 30 l-10 -6 M210 30 l-10 6') + C(14, 30, ar, a) + C(226, 30, br, b)];
+const IC = {
+  person: [40, 100, L('M9 32 L4 58 M31 32 L36 58') + P('M8 60 V32 Q8 24 16 24 H24 Q32 24 32 32 V60 Z', K.b) + P('M10 58 H30 L28.5 98 H21.5 L20 70 L18.5 98 H11.5 Z', K.dk) + C(20, 12, 10, K.skin) + P('M10.5 10 Q12 1.5 20 2 Q28.5 2 29.5 10 Q23 6 10.5 10 Z', '#5a3b1c')],
+  runner: [80, 100, L('M36 30 L22 42 L14 34 M48 30 L60 40 L72 32') + P('M32 52 L44 56 L58 76 L74 76 L74 86 L54 84 Z', K.dk) + P('M32 54 L42 58 L30 80 L16 96 L8 90 L20 76 Z', K.dk) + P('M36 24 L52 26 L46 56 L30 54 Z', K.r) + C(48, 13, 9, K.skin)],
+  ant: [64, 32, L('M24 19 L14 30 M28 20 L28 31 M32 19 L42 30 M11 8 Q7 2 2 4 M14 7 Q13 1 8 0') + E(48, 16, 13, 9, '#5a2e1c') + E(29, 16, 7, 5, '#5a2e1c') + C(14, 13, 6.5, '#5a2e1c')],
+  phone: [50, 100, R(3, 2, 44, 96, 8, K.dk) + R(8, 11, 34, 76, 2, K.b2, 'ns') + C(25, 92, 2.5, K.gr, 'ns')],
+  banana: [100, 40, P('M5 10 Q11 6 15 10 Q40 33 91 14 Q97 12 97 17 Q80 39 45 37 Q17 35 5 10 Z', K.y2) + L('M20 18 Q44 30 82 22', 'th') + P('M91 14 L97 11 L98 16 Z', '#5a3b1c') + P('M3 8 L9 4 L11 9 Z', '#5a3b1c')],
+  cat: [130, 90, L('M104 46 Q126 32 118 10') + R(34, 58, 9, 30, 4, K.or) + R(90, 58, 9, 30, 4, K.or) + E(70, 50, 40, 20, K.or) + R(48, 60, 9, 28, 4, K.or) + R(78, 60, 9, 28, 4, K.or) + P('M14 26 L16 10 L26 20 Z M32 20 L40 9 L42 26 Z', K.or) + C(28, 34, 16, K.or) + L('M54 34 L58 46 M66 32 L68 46 M78 34 L76 46', 'th') + C(22, 32, 2, K.ink, 'ns') + C(32, 32, 2, K.ink, 'ns')],
+  door: [50, 100, R(4, 3, 42, 95, 2, K.br) + R(11, 12, 28, 30, 2, '#c08850') + R(11, 52, 28, 36, 2, '#c08850') + C(38, 51, 3, K.y)],
+  giraffe: [90, 150, R(24, 98, 7, 48, 3, '#f2b84c') + R(36, 98, 7, 48, 3, '#f2b84c') + R(66, 98, 7, 48, 3, '#f2b84c') + R(78, 98, 7, 48, 3, '#f2b84c') + P('M20 92 Q20 76 36 76 H72 Q86 76 86 92 V102 H20 Z', '#f2b84c') + P('M62 80 L50 22 L62 17 L80 78 Z', '#f2b84c') + P('M46 24 Q40 12 56 9 L72 13 Q76 20 66 25 Z', '#f2b84c') + L('M55 10 V3 M62 11 V4') + C(36, 86, 4, '#b5752a', 'ns') + C(54, 88, 5, '#b5752a', 'ns') + C(72, 86, 4, '#b5752a', 'ns') + C(60, 50, 3.5, '#b5752a', 'ns') + C(66, 66, 4, '#b5752a', 'ns') + C(56, 34, 3, '#b5752a', 'ns') + C(58, 17, 1.8, K.ink, 'ns')],
+  bus: [240, 100, R(4, 10, 232, 70, 10, '#f2b81c') + [16, 50, 84, 118, 152].map(x => R(x, 20, 26, 22, 3, '#cfe8f7')).join('') + R(190, 20, 22, 46, 3, '#cfe8f7') + R(216, 20, 16, 22, 3, '#cfe8f7') + L('M4 54 H186 M4 62 H186', 'th') + C(52, 82, 14, K.dk) + C(196, 82, 14, K.dk) + C(52, 82, 5, K.gr2) + C(196, 82, 5, K.gr2)],
+  whale: [260, 90, P('M10 50 Q14 20 70 18 Q150 16 205 42 Q220 50 233 44 L250 24 Q256 22 254 30 L244 54 L256 74 Q256 80 250 78 L232 60 Q198 78 130 80 Q40 84 10 50 Z', '#4f79a8') + L('M22 58 Q60 76 130 76 Q176 74 206 60', 'hl') + P('M88 66 Q98 90 120 86 Q112 74 106 66 Z', '#3e6390') + C(48, 44, 3, K.ink, 'ns')],
+  jet: [240, 80, P('M6 46 Q6 36 30 34 H200 L228 10 H238 L232 40 Q236 50 222 52 H30 Q6 54 6 46 Z', K.w2) + P('M96 46 L148 78 H162 L134 44 Z', K.gr2) + P('M206 34 L232 34 L230 22 Z', K.r, 'ns') + L('M44 42 H190', 'th') + [50, 64, 78, 92, 106, 120, 134, 148, 162, 176].map(x => C(x, 41, 2, K.b, 'ns')).join('')],
+  fieldside: [300, 60, R(2, 40, 296, 18, 3, K.g) + L('M32 42 V56 M62 42 V56 M92 42 V56 M122 42 V56 M150 42 V56 M178 42 V56 M208 42 V56 M238 42 V56 M268 42 V56', 'hl') + L('M8 40 V22 M2 22 H14 M2 22 V4 M14 22 V4 M292 40 V22 M286 22 H298 M286 22 V4 M298 22 V4', 'tk')],
+  liberty: [70, 170, P('M14 168 L18 112 H52 L56 168 Z', '#c9b79a') + L('M18 130 H52', 'th') + P('M24 112 L28 54 Q35 44 44 54 L48 112 Z', '#6fb5a0') + P('M42 58 L50 22 L55 23 L48 62 Z', '#6fb5a0') + C(36, 42, 7, '#6fb5a0') + L('M29 38 L24 31 M32 35 L31 27 M36 34 V26 M40 35 L41 27 M43 38 L48 31') + R(22, 64, 8, 15, 1, '#5d9c88') + P('M47 22 L57 22 L54 15 Z', K.y) + P('M52 15 Q47 9 53 2 Q59 9 53 15 Z', K.or)],
+  pyramid: [230, 139, P('M4 136 L115 4 L226 136 Z', '#e3bd6e') + P('M115 4 L226 136 H146 Z', '#c99a48', 'ns') + L('M4 136 L115 4 L226 136 Z M115 4 L146 136') + L('M34 100 H196 M64 64 H166 M90 34 H140', 'th')],
+  eiffel: [100, 210, P('M50 4 L54 30 L60 70 L70 110 L96 206 H72 Q50 150 28 206 H4 L30 110 L40 70 L46 30 Z', '#9a6a3f') + L('M36 70 H64 M26 110 H74 M44 30 H56 M48 12 H52') + L('M41 72 L59 108 M59 72 L41 108 M33 112 L22 160 M67 112 L78 160', 'th')],
+  tower: [60, 260, P('M30 2 L32 40 H36 L38 90 H44 L46 150 H52 L54 256 H6 L8 150 H14 L16 90 H22 L24 40 H28 Z', '#a9c3d6') + L('M30 40 V256', 'th') + L('M14 200 H46 M16 120 H44', 'th')],
+  mountain: [240, 130, P('M4 126 L96 20 L130 56 L150 34 L236 126 Z', '#8a7f74') + P('M96 20 L76 43 L86 40 L96 48 L106 40 L116 40 Z', '#fbf7ee') + P('M150 34 L140 46 L150 44 L160 46 Z', '#fbf7ee') + L('M96 20 V6 L108 10 L96 14', '')],
+  road: [300, 50, R(2, 20, 296, 22, 4, '#6b6762') + L('M14 31 H280', 'hl dash') + L('M290 20 V2') + P('M290 2 L278 6 L290 10 Z', K.r)],
+  earth: planet(K.b, P('M22 30 Q34 16 50 26 Q54 40 40 46 Q28 52 22 42 Z M58 56 Q72 50 80 62 Q78 80 64 84 Q56 72 58 56 Z M60 14 Q72 12 80 22 Q70 26 60 14 Z', K.g)),
+  moon: planet('#c9c3b8', C(34, 36, 9, '#aea79b', 'th') + C(62, 60, 12, '#aea79b', 'th') + C(64, 28, 5, '#aea79b', 'th')),
+  sun: planet('#f6b733', C(36, 40, 6, '#f8cf5e', 'ns') + C(64, 62, 9, '#f8cf5e', 'ns') + C(60, 30, 4, '#e89a1e', 'ns')),
+  mars: planet('#d0603a', C(36, 40, 7, '#b54c2b', 'ns') + C(62, 64, 10, '#b54c2b', 'ns') + P('M30 10 Q50 4 70 10 Q50 16 30 10 Z', K.white, 'ns')),
+  spanMoon: span(K.b, 13, '#c9c3b8', 8),
+  spanSun: span(K.b, 7, '#f6b733', 14),
+  spanStar: span('#f6b733', 9, '#ffe9a8', 9),
+  spanGal: span(K.navy, 13, K.pu, 13),
+  galaxy: [160, 100, E(80, 50, 76, 32, K.navy) + L('M80 50 Q120 24 146 46 M80 50 Q40 76 14 54 M80 50 Q110 70 132 64 M80 50 Q50 30 28 36', 'hl') + C(80, 50, 10, '#f6e3a0') + C(40, 38, 1.6, K.white, 'ns') + C(118, 62, 1.6, K.white, 'ns') + C(100, 30, 1.2, K.white, 'ns')],
+  atom: [100, 100, L('M4 50 A46 16 0 1 0 96 50 A46 16 0 1 0 4 50') + rot(L('M4 50 A46 16 0 1 0 96 50 A46 16 0 1 0 4 50'), 60, 50, 50) + rot(L('M4 50 A46 16 0 1 0 96 50 A46 16 0 1 0 4 50'), -60, 50, 50) + C(50, 50, 9, K.r) + C(96, 50, 4, K.b) + C(27, 90, 4, K.b) + C(27, 10, 4, K.b)],
+  virus: [100, 100, ring(8, 0, (c, s) => L(`M${50 + c * 34} ${50 + s * 34} L${50 + c * 44} ${50 + s * 44}`) + C(50 + c * 46, 50 + s * 46, 4, '#d96aa0')) + C(50, 50, 34, '#d96aa0') + C(40, 42, 5, '#b84f84', 'ns') + C(60, 58, 6, '#b84f84', 'ns') + C(58, 36, 3, '#b84f84', 'ns')],
+  bacteria: [110, 44, L('M22 22 Q14 12 8 20 Q2 28 -4 20', 'th') + R(20, 7, 88, 30, 15, '#8fc46a') + C(50, 20, 3, '#5f9a3e', 'ns') + C(76, 26, 4, '#5f9a3e', 'ns')],
+  cell: [100, 100, C(50, 50, 46, '#d6453a') + C(50, 50, 20, '#b8322b', 'ns') + L('M24 30 Q34 18 50 16', 'hl')],
+  hair: [100, 100, C(50, 50, 46, '#6b4428') + C(50, 50, 24, '#8a5a36', 'ns') + C(50, 50, 8, '#5a3b1c', 'ns')],
+  sand: [100, 80, P('M10 50 Q4 20 34 10 Q70 0 88 24 Q100 50 78 68 Q44 82 10 50 Z', K.sand) + C(40, 34, 3, '#c9ad72', 'ns') + C(64, 50, 4, '#c9ad72', 'ns') + C(30, 54, 2, '#c9ad72', 'ns')],
+  coin: coin('#c9ccd1', '#dfe2e6'),
+  coinCu: coin('#c87a42', '#d99560'),
+  coinAg: coin('#c9ccd1', '#dfe2e6'),
+  stamp: [80, 96, R(2, 2, 76, 92, 2, K.cream) + R(11, 11, 58, 74, 1, K.r) + P('M40 64 Q22 50 24 40 Q26 30 36 32 Q40 34 40 40 Q40 34 44 32 Q54 30 56 40 Q58 50 40 64 Z', K.cream, 'ns')],
+  card: [86, 54, R(1, 1, 84, 52, 6, K.b) + R(10, 16, 14, 11, 2, K.y) + L('M10 38 H40 M46 38 H60', 'hl')],
+  pizza: [100, 100, C(50, 50, 47, '#e3a24c') + C(50, 50, 39, '#f6cf57', 'ns') + L('M50 11 V89 M11 50 H89 M22 22 L78 78 M78 22 L22 78', 'th') + [[34, 30], [66, 34], [30, 64], [62, 68], [50, 50]].map(([x, y]) => C(x, y, 6, K.r)).join('')],
+  sheet: [210, 297, R(2, 2, 206, 293, 4, K.white) + L('M24 40 H186 M24 64 H186 M24 88 H186 M24 112 H150 M24 150 H186 M24 174 H186 M24 198 H120', 'th')],
+  bed: [190, 200, R(2, 2, 186, 196, 8, K.br) + R(12, 12, 166, 180, 6, K.white) + R(24, 20, 62, 30, 10, '#f6ead2') + R(104, 20, 62, 30, 10, '#f6ead2') + R(12, 70, 166, 122, 6, K.b) + L('M12 92 H178', 'hl')],
+  parking: [120, 240, R(0, 0, 120, 240, 0, '#6b6762') + R(4, 0, 4, 240, 0, K.white, 'ns') + R(112, 0, 4, 240, 0, K.white, 'ns') + P('M30 40 Q30 22 60 22 Q90 22 90 40 V200 Q90 218 60 218 Q30 218 30 200 Z', K.r) + R(38, 60, 44, 30, 6, K.b2) + R(38, 160, 44, 24, 6, K.b2)],
+  tennis: [220, 100, R(2, 2, 216, 96, 2, '#4c8a5a') + L('M14 12 H206 V88 H14 Z M14 22 H206 M14 78 H206 M60 22 V78 M160 22 V78 M60 50 H160', 'hl') + L('M110 6 V94', 'tk')],
+  bball: [280, 150, R(2, 2, 276, 146, 2, '#d9a35b') + L('M140 2 V148', 'th') + C(140, 75, 22, 'none', 'th') + L('M2 52 H52 V98 H2 M278 52 H228 V98 H278 M2 18 Q100 75 2 132 M278 18 Q180 75 278 132', 'th')],
+  fieldtop: [225, 100, R(2, 2, 221, 96, 2, K.g) + R(2, 2, 20, 96, 0, K.g2) + R(203, 2, 20, 96, 0, K.g2) + L('M42 4 V96 M62 4 V96 M82 4 V96 M102 4 V96 M122 4 V96 M142 4 V96 M162 4 V96 M182 4 V96', 'hl') + L('M2 2 H223 V98 H2 Z')],
+  pitch: [210, 136, R(2, 2, 206, 132, 2, '#5aa65a') + L('M105 2 V134 M2 40 H32 V96 H2 M208 40 H178 V96 H208', 'hl') + C(105, 68, 18, 'none', 'hl')],
+  vatican: [100, 100, P('M14 40 Q10 14 40 10 Q76 6 90 30 Q98 60 80 84 Q50 98 24 84 Q8 66 14 40 Z', '#e9dcc0') + P('M34 62 Q34 40 50 40 Q66 40 66 62 Z', '#9aa3a8') + R(30, 62, 40, 10, 2, '#c9b79a') + L('M50 40 V32')],
+  park: [250, 60, R(2, 2, 246, 56, 4, '#7cc36b') + E(150, 30, 26, 12, K.b2) + [[24, 18], [40, 40], [62, 22], [90, 40], [110, 16], [196, 20], [214, 42], [232, 16]].map(([x, y]) => C(x, y, 8, K.g2)).join('') + L('M4 50 Q90 34 246 46', 'hl')],
+  island: [70, 250, P('M30 4 Q46 6 50 30 L64 200 Q66 240 44 246 Q26 248 20 210 L6 60 Q4 10 30 4 Z', '#c9b79a') + R(30, 56, 14, 44, 2, '#7cc36b') + L('M12 120 L58 116 M14 150 L60 146 M16 180 L62 176', 'th')],
+  wales: [100, 110, P('M30 6 Q50 2 60 14 Q74 10 80 24 Q70 40 82 52 Q96 60 92 80 Q86 100 64 104 Q42 108 28 96 Q14 100 6 88 Q12 74 24 72 Q12 60 18 44 Q8 30 30 6 Z', K.g) + C(54, 56, 6, K.r)],
+  texas: [110, 100, P('M18 4 H44 V34 H92 Q104 48 104 62 Q94 66 84 82 L72 98 Q58 92 52 76 Q40 62 26 66 Q14 58 4 40 L18 40 Z', '#e8a33a') + C(70, 54, 4, K.r)],
+  drop: [60, 80, P('M30 4 Q44 30 54 46 Q60 74 30 76 Q0 74 6 46 Q16 30 30 4 Z', '#7fc3ef') + L('M18 50 Q18 62 28 66', 'hl')],
+  spoon: [120, 40, E(26, 20, 22, 14, K.gr2) + E(26, 20, 15, 8, '#e4e8ea', 'ns') + P('M47 17 L116 14 Q120 19 116 24 L47 23 Z', K.gr2)],
+  shot: [50, 60, P('M4 4 H46 L40 56 H10 Z', '#e6f2f8') + P('M8 22 H42 L38 52 H12 Z', '#e9a23b', 'ns') + L('M4 4 H46 L40 56 H10 Z')],
+  can: [60, 110, R(6, 10, 48, 94, 8, K.r) + E(30, 10, 24, 6, K.gr2) + L('M6 30 H54 M6 84 H54') + L('M14 56 Q30 44 46 60', 'hl')],
+  wine: [40, 140, P('M14 4 H26 V40 Q36 50 36 64 V134 Q36 138 32 138 H8 Q4 138 4 134 V64 Q4 50 14 40 Z', '#3d6b45') + R(4, 80, 32, 32, 0, K.cream) + R(14, 4, 12, 12, 2, '#8a2f3a')],
+  bottle: [50, 150, P('M18 12 H32 V22 Q46 34 46 54 V140 Q46 146 40 146 H10 Q4 146 4 140 V54 Q4 34 18 22 Z', '#cfe8f7') + P('M6 60 H44 V140 Q44 144 40 144 H10 Q6 144 6 140 Z', '#6c4a2e', 'ns') + R(4, 74, 42, 30, 0, K.r) + R(16, 2, 18, 12, 3, K.r) + L('M4 54 Q4 34 18 22 V12 H32 V22 Q46 34 46 54 V140 Q46 146 40 146 H10 Q4 146 4 140 Z')],
+  bucket: [90, 90, L('M10 26 Q45 -8 80 26') + P('M8 26 H82 L74 86 H16 Z', K.b) + R(4, 20, 82, 10, 4, '#2f6fb8') + L('M14 50 H76', 'hl')],
+  jerry: [80, 100, P('M6 26 Q6 16 16 16 H52 L74 30 V90 Q74 96 68 96 H12 Q6 96 6 90 Z', K.r) + R(16, 6, 30, 14, 4, K.r) + R(24, 10, 14, 6, 2, '#b8322b', 'ns') + L('M18 40 L60 82 M60 40 L18 82', 'th')],
+  tub: [180, 100, P('M10 34 H170 Q170 84 130 86 H50 Q10 84 10 34 Z', K.white) + P('M16 40 H164 Q160 54 150 58 H30 Q20 54 16 40 Z', K.b2, 'ns') + R(4, 26, 172, 10, 5, K.cream) + C(40, 92, 6, K.y) + C(140, 92, 6, K.y) + L('M150 26 V8 Q150 2 158 2 H166 Q172 2 172 10')],
+  hottub: [160, 80, R(6, 22, 148, 54, 8, K.br) + L('M30 22 V76 M54 22 V76 M78 22 V76 M102 22 V76 M126 22 V76', 'th') + E(80, 22, 74, 9, '#7fc3ef') + C(50, 20, 3, K.white) + C(90, 24, 2.5, K.white) + C(116, 19, 2, K.white)],
+  container: [240, 100, R(4, 8, 232, 88, 3, '#e0703a') + L('M26 12 V92 M48 12 V92 M70 12 V92 M92 12 V92 M114 12 V92 M136 12 V92 M158 12 V92 M180 12 V92', 'th') + R(196, 12, 36, 80, 0, '#c95e2a') + L('M214 12 V92 M206 40 V64 M222 40 V64')],
+  pool: [250, 80, P('M22 18 H228 L246 72 H4 Z', '#5fb8e8') + L('M56 22 L44 68 M90 22 L84 68 M125 22 V68 M160 22 L166 68 M194 22 L206 68', 'hl') + L('M22 18 H228 L246 72 H4 Z') + L('M236 8 V30 M244 8 V30 M236 14 H244 M236 22 H244', 'th')],
+  loch: [260, 80, P('M0 52 Q30 14 74 40 Q110 4 160 36 Q200 12 260 46 V56 H0 Z', '#5d9a5a') + P('M4 60 Q40 44 130 46 Q220 44 256 60 Q220 78 130 76 Q40 78 4 60 Z', '#4f79a8') + P('M150 60 Q156 48 164 56 Q170 46 178 56 Q184 50 190 58 L186 60 Z', '#3d7a43')],
+  lake: [260, 80, P('M0 54 Q50 26 100 44 Q160 20 260 50 V58 H0 Z', '#7fae6a') + P('M4 62 Q40 46 130 48 Q220 46 256 62 Q220 78 130 76 Q40 78 4 62 Z', '#3f7fd8') + L('M60 62 H90 M150 66 H190', 'hl')],
+  rice: [80, 30, E(40, 15, 36, 11, '#f5efe0')],
+  clip: [40, 100, L('M14 30 V82 Q14 94 24 94 Q34 94 34 82 V18 Q34 6 22 6 Q8 6 8 18 V76', 'tk')],
+  battery: [40, 100, R(4, 10, 32, 86, 5, K.dk) + R(4, 10, 32, 28, 5, '#c87a42') + R(13, 3, 14, 8, 2, K.gr)],
+  egg: [70, 90, P('M35 4 Q64 4 66 52 Q66 86 35 86 Q4 86 4 52 Q6 4 35 4 Z', '#f6ead2') + L('M18 30 Q22 18 30 14', 'hl')],
+  apple: [90, 90, L('M45 22 Q44 10 50 4') + P('M45 22 Q60 10 76 22 Q90 40 80 66 Q70 88 52 82 Q45 80 38 82 Q20 88 10 66 Q0 40 14 22 Q30 10 45 22 Z', K.r) + P('M49 12 Q60 2 70 8 Q60 18 49 12 Z', K.g) + L('M20 36 Q22 28 30 24', 'hl')],
+  bowling: [100, 100, C(50, 50, 46, '#3a5f9e') + C(40, 32, 6, K.ink, 'ns') + C(56, 28, 6, K.ink, 'ns') + C(52, 46, 6, K.ink, 'ns') + L('M18 60 Q24 80 44 88', 'hl')],
+  dog: [140, 100, L('M114 42 Q132 30 128 16') + R(36, 56, 10, 40, 4, '#d9a35b') + R(98, 56, 10, 40, 4, '#d9a35b') + E(76, 48, 44, 18, '#d9a35b') + R(50, 58, 10, 38, 4, '#d9a35b') + R(84, 58, 10, 38, 4, '#d9a35b') + C(30, 34, 16, '#d9a35b') + P('M10 34 Q4 40 6 46 Q14 50 22 44 Z', '#d9a35b') + P('M30 22 Q42 18 42 34 Q38 42 32 38 Z', '#b9823c') + C(4.5, 39, 3, K.ink, 'ns') + C(24, 30, 2, K.ink, 'ns')],
+  piano: [180, 120, R(30, 74, 8, 42, 2, K.dk) + R(150, 74, 8, 42, 2, K.dk) + P('M6 48 H120 Q150 48 162 34 Q174 22 176 46 Q176 76 150 76 H6 Z', K.dk) + R(6, 48, 50, 10, 1, K.white) + L('M14 48 V58 M22 48 V58 M30 48 V58 M38 48 V58 M46 48 V58', 'th') + L('M60 46 L120 8', '')],
+  elephant: [180, 140, R(54, 96, 20, 40, 6, K.gr) + R(132, 96, 20, 40, 6, K.gr) + L('M156 62 Q170 76 164 92') + E(100, 70, 62, 40, K.gr) + R(76, 96, 20, 40, 6, K.gr) + R(112, 96, 20, 40, 6, K.gr) + P('M22 72 Q8 100 16 126 L28 124 Q22 100 36 80 Z', K.gr) + C(42, 62, 30, K.gr) + P('M44 34 Q70 30 72 60 Q70 84 52 84 Q46 70 44 34 Z', '#b8bfc4') + P('M26 78 Q20 92 8 92 Q16 84 22 74 Z', K.white) + C(30, 56, 3, K.ink, 'ns')],
+  dino: [180, 140, P('M60 70 Q50 40 74 30 L110 22 Q140 16 150 26 Q160 40 146 44 L128 46 Q118 70 120 90 L170 120 Q174 126 166 126 L100 104 L96 134 H84 L86 106 L74 104 L70 134 H58 L62 100 Q54 90 60 70 Z', '#6fae5a') + L('M118 58 L132 64 L128 72', '') + C(136, 30, 3, K.ink, 'ns') + L('M140 42 H150', 'th')],
+  iss: [200, 100, R(14, 14, 32, 72, 2, '#3a5f9e') + R(50, 14, 32, 72, 2, '#3a5f9e') + R(118, 14, 32, 72, 2, '#3a5f9e') + R(154, 14, 32, 72, 2, '#3a5f9e') + R(8, 46, 184, 8, 2, K.gr2) + R(80, 36, 40, 28, 6, K.w2) + L('M30 14 V86 M66 14 V86 M134 14 V86 M170 14 V86', 'hl')],
+  ship: [260, 90, R(70, 6, 16, 30, 0, '#e8a33a') + R(110, 6, 16, 30, 0, '#e8a33a') + R(150, 6, 16, 30, 0, '#e8a33a') + R(190, 6, 16, 30, 0, '#e8a33a') + R(70, 6, 16, 8, 0, K.dk) + R(110, 6, 16, 8, 0, K.dk) + R(150, 6, 16, 8, 0, K.dk) + R(190, 6, 16, 8, 0, K.dk) + R(50, 34, 170, 18, 2, K.cream) + P('M4 50 H256 L238 86 H24 Z', K.dk) + P('M14 70 H246 L238 86 H24 Z', '#b8322b') + L('M30 58 H230', 'hl')],
+  bolt: [60, 100, P('M36 2 L6 58 H28 L20 98 L56 38 H34 L44 2 Z', K.y)],
+  bird: [100, 70, L('M76 28 L98 24') + P('M22 44 L4 62 L12 40 Z', '#2f8a6d') + E(44, 42, 24, 12, '#3fae8a') + C(68, 30, 10, '#3fae8a') + P('M40 34 Q30 0 62 4 Q54 26 50 36 Z', '#9fd3c0') + C(70, 28, 2, K.ink, 'ns') + P('M58 36 Q66 44 62 50 Q54 44 54 40 Z', K.r, 'ns')],
+  eye: [100, 60, P('M4 30 Q50 -14 96 30 Q50 74 4 30 Z', K.white) + C(50, 30, 16, K.b) + C(50, 30, 7, K.ink, 'ns') + C(55, 25, 3, K.white, 'ns')],
+  heart: [100, 90, P('M50 86 Q8 56 6 30 Q6 6 28 6 Q44 6 50 22 Q56 6 72 6 Q94 6 94 30 Q92 56 50 86 Z', K.r) + L('M20 28 Q22 18 30 16', 'hl')],
+  tv: [100, 90, L('M36 2 L50 12 L64 2 M30 76 L24 88 M70 76 L76 88') + R(4, 12, 92, 64, 8, K.dk) + R(12, 20, 76, 48, 4, K.b2, 'ns') + L('M20 30 L32 42', 'hl')],
+  note: [70, 100, R(22, 16, 6, 66, 0, K.dk) + R(58, 8, 6, 64, 0, K.dk) + P('M22 16 L64 6 V20 L22 30 Z', K.dk) + E(14, 82, 12, 9, K.dk) + E(50, 74, 12, 9, K.dk)],
+  film: [100, 100, R(6, 36, 88, 58, 4, K.dk) + P('M6 22 L90 8 L93 22 L9 36 Z', K.white) + P('M20 20 L34 18 L26 32 L12 34 Z M48 15 L62 13 L54 27 L40 29 Z M76 11 L90 9 L82 23 L68 25 Z', K.dk, 'ns') + L('M18 56 H82 M18 72 H60', 'hl')],
+  school: [120, 110, R(48, 2, 24, 22, 0, K.r) + P('M60 2 L46 14 H74 Z', K.br2) + P('M10 52 L60 14 L110 52 V106 H10 Z', K.r) + P('M4 54 L60 12 L116 54', 'none') + R(48, 72, 24, 34, 0, K.br2) + R(20, 60, 18, 16, 1, K.b2) + R(82, 60, 18, 16, 1, K.b2) + C(60, 40, 7, K.white)],
+  daynight: [100, 100, C(50, 50, 46, '#f6c445') + P('M50 4 A46 46 0 0 1 50 96 Z', K.navy) + P('M70 30 Q60 40 66 54 Q74 64 86 58 Q76 62 70 52 Q64 40 70 30 Z', '#f6e3a0', 'ns') + C(28, 44, 9, '#f8d872', 'ns')],
+  cal: [100, 100, R(6, 14, 88, 82, 8, K.white) + R(6, 14, 88, 22, 0, K.r) + R(26, 4, 8, 18, 3, K.gr) + R(66, 4, 8, 18, 3, K.gr) + [0, 1, 2, 3].map(r => [0, 1, 2, 3, 4].map(c => R(16 + c * 15, 44 + r * 12, 8, 6, 1, '#d9cbb0', 'ns')).join('')).join('')],
+  orbit: [140, 100, E(70, 50, 64, 34, 'none', 'dash') + C(70, 50, 16, '#f6c445') + C(128, 64, 9, K.b)],
+  cake: [100, 100, R(10, 46, 80, 48, 6, K.pk) + P('M10 52 Q10 46 16 46 H84 Q90 46 90 52 V58 Q82 66 76 58 Q68 68 60 58 Q52 68 44 58 Q36 68 28 58 Q20 66 10 58 Z', K.white) + R(28, 22, 6, 24, 1, K.b) + R(47, 22, 6, 24, 1, K.y) + R(66, 22, 6, 24, 1, K.g) + P('M31 20 Q26 12 31 6 Q36 12 31 20 Z M50 20 Q45 12 50 6 Q55 12 50 20 Z M69 20 Q64 12 69 6 Q74 12 69 20 Z', K.or)],
+  fire: [100, 90, rot(R(14, 70, 72, 14, 7, K.br), 10, 50, 77) + rot(R(14, 70, 72, 14, 7, K.br2), -10, 50, 77) + P('M50 6 Q74 30 70 54 Q66 72 50 72 Q34 72 30 54 Q28 40 40 30 Q40 44 48 46 Q40 26 50 6 Z', K.or) + P('M50 40 Q62 52 58 62 Q54 70 50 70 Q42 68 42 60 Q42 50 50 40 Z', K.y, 'ns')],
+  bubble: [100, 80, P('M10 6 H90 Q96 6 96 12 V52 Q96 58 90 58 H40 L22 74 L26 58 H10 Q4 58 4 52 V12 Q4 6 10 6 Z', K.b2) + C(30, 32, 5, K.white) + C(50, 32, 5, K.white) + C(70, 32, 5, K.white)],
+  page: [80, 100, P('M4 4 H56 L76 24 V96 H4 Z', K.white) + P('M56 4 V24 H76', '#e9e2d0') + L('M16 40 H64 M16 52 H64 M16 64 H64 M16 76 H46', 'th')],
+  mail: [110, 76, R(4, 4, 102, 68, 6, K.cream) + L('M6 8 L55 44 L104 8')],
+  floppy: [100, 100, P('M4 4 H82 L96 18 V96 H4 Z', K.b) + R(26, 4, 46, 30, 2, K.gr2) + R(56, 10, 10, 18, 1, K.b, 'ns') + R(16, 52, 68, 44, 2, K.white) + L('M24 66 H76 M24 80 H66', 'th')],
+  photo: [110, 90, R(4, 4, 102, 82, 6, K.white) + R(12, 12, 86, 60, 2, K.b2, 'ns') + P('M12 72 L42 38 L62 60 L76 46 L98 72 Z', K.g, 'ns') + C(80, 28, 7, K.y, 'ns') + L('M12 12 H98 V72 H12 Z', 'th')],
+  dna: [60, 120, L('M14 18 H46 M20 32 H40 M20 88 H40 M14 102 H46', 'th') + L('M8 4 C8 32 52 28 52 60 C52 92 8 88 8 116', 'tk') + L('M52 4 C52 32 8 28 8 60 C8 92 52 88 52 116', 'tk') + C(30, 60, 4, K.r) + C(30, 18, 3, K.b) + C(30, 102, 3, K.b)],
+  cd: [100, 100, C(50, 50, 46, '#dfe6ee') + P('M50 4 A46 46 0 0 1 96 50 H66 A16 16 0 0 0 50 34 Z', '#c9b7ef', 'ns') + P('M50 96 A46 46 0 0 1 4 50 H34 A16 16 0 0 0 50 66 Z', '#b7e3d6', 'ns') + C(50, 50, 46, 'none') + C(50, 50, 10, K.cream)],
+  laptop: [140, 90, R(20, 4, 100, 66, 6, K.dk) + R(28, 12, 84, 50, 2, K.b2, 'ns') + P('M4 72 H136 L128 86 H12 Z', K.gr2)],
+  books: [130, 100, R(6, 20, 24, 76, 2, K.r) + R(32, 10, 22, 86, 2, K.b) + R(56, 26, 26, 70, 2, K.g) + rot(R(86, 14, 22, 82, 2, K.y), 12, 97, 96) + L('M10 34 H26 M10 80 H26 M36 24 H50 M36 82 H50 M60 40 H78 M60 82 H78', 'th')],
+  server: [80, 120, R(4, 4, 72, 112, 6, K.dk) + [0, 1, 2, 3].map(i => R(12, 14 + i * 25, 56, 17, 2, '#5a524a') + C(60, 22.5 + i * 25, 3, '#7ee07a', 'ns')).join('')],
+  cloud: [140, 80, P('M30 74 Q4 74 6 52 Q8 32 32 34 Q38 6 70 8 Q98 10 104 34 Q134 30 136 54 Q136 74 112 74 Z', '#eef4fa')],
+  cup: [100, 90, L('M74 32 Q94 32 92 50 Q90 64 74 62', 'tk') + P('M10 24 H74 V58 Q74 84 42 84 Q10 84 10 58 Z', K.cream) + E(42, 24, 32, 6, '#6b4428') + L('M32 14 Q28 8 32 2 M50 14 Q46 8 50 2', 'th')],
+  burger: [100, 80, R(8, 62, 84, 14, 6, '#e3a24c') + R(8, 46, 84, 14, 6, '#6b4428') + P('M8 46 L20 40 L30 46 L42 40 L54 46 L66 40 L78 46 L92 40 V48 H8 Z', K.g) + P('M10 58 H90 L80 66 L70 58 Z', K.y) + P('M8 38 Q8 6 50 6 Q92 6 92 38 Z', '#e3a24c') + C(36, 20, 2, K.cream, 'ns') + C(56, 16, 2, K.cream, 'ns') + C(68, 26, 2, K.cream, 'ns')],
+  plate: [120, 70, E(60, 44, 56, 20, K.white) + E(60, 42, 40, 12, '#f6ead2', 'th') + C(46, 40, 6, K.g) + C(56, 44, 5, K.g) + P('M64 36 L88 40 L66 46 Z', K.or) + E(50, 36, 10, 5, '#d9a35b')],
+  dynamite: [100, 80, L('M80 24 Q90 10 84 4', 'th') + P('M84 4 L88 0 L90 6 L96 4 L90 10 Z', K.y) + R(10, 22, 76, 16, 8, K.r) + R(10, 40, 76, 16, 8, K.r) + R(10, 58, 76, 16, 8, K.r) + R(40, 20, 8, 56, 0, K.dk)],
+  house: [110, 100, R(76, 8, 12, 26, 0, K.br2) + R(14, 44, 82, 52, 0, '#f6ead2') + P('M4 48 L55 6 L106 48 Z', K.r) + R(46, 64, 18, 32, 0, K.br) + R(22, 56, 16, 14, 1, K.b2) + R(72, 56, 16, 14, 1, K.b2)],
+  laser: [120, 30, R(64, 13, 52, 4, 0, K.r, 'ns') + R(4, 8, 60, 14, 7, K.dk) + C(116, 15, 4, K.r) + R(30, 12, 8, 6, 2, K.r)],
+  bulb: [60, 90, P('M30 4 Q56 4 56 32 Q56 46 44 56 V64 H16 V56 Q4 46 4 32 Q4 4 30 4 Z', '#fff2a8') + R(16, 64, 28, 18, 3, K.gr) + L('M22 40 L26 32 L30 40 L34 32 L38 40', 'th') + L('M16 72 H44', 'th')],
+  brain: [100, 80, P('M20 62 Q4 58 6 42 Q4 26 18 20 Q22 6 40 8 Q50 2 62 8 Q80 6 84 20 Q98 26 94 44 Q96 60 80 64 Q72 76 56 70 Q44 78 34 70 Q24 72 20 62 Z', K.pk) + L('M50 10 V68 M24 34 Q32 28 40 36 M60 30 Q70 22 78 32 M28 50 Q38 56 44 48 M58 52 Q66 58 76 50', 'th')],
+  bike: [140, 80, C(30, 54, 24, 'none', 'tk') + C(110, 54, 24, 'none', 'tk') + L('M30 54 L56 24 H96 L110 54 M56 24 L72 54 L96 24 M72 54 H30 M52 14 H64 M96 24 L92 12 H102') + C(72, 54, 4, K.dk)],
+  horse: [150, 110, R(40, 60, 9, 46, 3, '#9a6a3f') + R(100, 60, 9, 46, 3, '#9a6a3f') + P('M126 46 Q146 54 140 80 Q132 64 122 56 Z', K.br2) + E(80, 50, 46, 20, '#9a6a3f') + R(54, 62, 9, 44, 3, '#9a6a3f') + R(86, 62, 9, 44, 3, '#9a6a3f') + P('M44 44 L28 16 Q24 8 16 12 L4 28 Q2 34 10 36 L22 34 L34 58 Z', '#9a6a3f') + P('M30 12 Q40 16 48 40 L42 44 Q36 24 28 16 Z', K.br2) + C(18, 20, 2, K.ink, 'ns')],
+  microwave: [130, 80, R(4, 6, 122, 70, 6, '#e9ecee') + R(14, 16, 74, 50, 4, K.dk) + L('M24 26 L40 40', 'hl') + C(108, 26, 6, K.gr) + R(100, 42, 16, 6, 1, K.gr2) + R(100, 54, 16, 6, 1, K.gr2)],
+  kettle: [100, 90, L('M28 26 Q50 -4 72 26', 'tk') + P('M80 44 L98 30 L96 40 L84 58 Z', K.r) + P('M18 84 L24 32 Q50 20 76 32 L82 84 Z', K.r) + R(42, 22, 16, 8, 3, K.dk) + L('M32 40 Q30 60 34 74', 'hl')],
+  turbine: [100, 200, P('M46 196 L48 60 H52 L54 196 Z', K.w2) + rot(P('M50 56 Q54 30 52 4 Q46 30 50 56 Z', K.w2), 0, 50, 56) + rot(P('M50 56 Q54 30 52 4 Q46 30 50 56 Z', K.w2), 120, 50, 56) + rot(P('M50 56 Q54 30 52 4 Q46 30 50 56 Z', K.w2), 240, 50, 56) + C(50, 56, 6, K.gr2)],
+  plant: [140, 110, P('M100 30 Q90 10 110 6 Q130 0 134 18 Q140 30 126 32 Z', '#eef4fa') + P('M10 106 Q24 64 16 26 H56 Q48 64 62 106 Z', K.gr2) + P('M70 106 Q84 64 76 26 H116 Q108 64 122 106 Z', K.gr2) + P('M20 18 Q14 2 34 4 Q50 -2 54 14 Q58 24 42 26 Z', '#eef4fa') + L('M18 40 H54 M78 40 H114', 'th')],
+  snail: [100, 60, L('M14 46 L8 20 M22 46 L20 22') + C(8, 20, 3, K.dk) + C(20, 22, 3, K.dk) + P('M4 56 Q6 44 26 46 L82 48 Q96 50 98 56 Z', '#c9b79a') + C(58, 30, 24, '#e3a24c') + L('M58 30 m-12 0 a12 12 0 1 1 12 12 a8 8 0 1 1 -6 -10', 'th')],
+  cheetah: [180, 80, L('M140 36 Q166 30 176 50', 'tk') + P('M36 40 L22 72 H30 L48 46 Z M60 44 L54 76 H62 L70 48 Z M118 42 L138 74 H146 L130 40 Z M128 38 L160 64 L164 58 L140 34 Z', '#e9b54a') + E(88, 38, 56, 15, '#e9b54a') + C(30, 30, 13, '#e9b54a') + P('M24 18 L26 10 L32 18 Z', '#e9b54a') + [[60, 32], [76, 40], [92, 30], [108, 40], [122, 32], [70, 26], [100, 46]].map(([x, y]) => C(x, y, 2.6, '#5a3b1c', 'ns')).join('') + C(26, 28, 2, K.ink, 'ns') + L('M24 32 Q22 40 20 42', 'th')],
+  train: [240, 70, P('M4 60 V30 Q4 14 20 14 H178 Q226 16 236 52 Q238 60 230 60 Z', K.w2) + P('M4 44 H232 L236 52 Q238 60 230 60 H4 Z', K.b, 'ns') + P('M190 20 Q214 24 222 40 H190 Z', K.b2) + [20, 50, 80, 110, 140, 166].map(x => R(x, 22, 22, 14, 3, K.b2)).join('') + L('M4 60 V30 Q4 14 20 14 H178 Q226 16 236 52 Q238 60 230 60 Z')],
+  sound: [100, 80, P('M6 28 H24 L48 8 V72 L24 52 H6 Z', K.dk) + L('M60 26 Q70 40 60 54 M72 16 Q88 40 72 64 M84 6 Q104 40 84 74', 'tk')],
+  light: [100, 100, P(ring(16, 0, (c, s, i) => `${i ? 'L' : 'M'}${50 + c * (i % 2 ? 22 : 46)} ${50 + s * (i % 2 ? 22 : 46)} `) + 'Z', '#ffe066') + C(50, 50, 14, K.white)],
+  tyre: [100, 100, C(50, 50, 46, K.dk) + C(50, 50, 28, K.gr2) + C(50, 50, 8, K.gr) + ring(12, 0, (c, s) => L(`M${50 + c * 38} ${50 + s * 38} L${50 + c * 45} ${50 + s * 45}`, 'hl'))],
+  scuba: [50, 130, R(18, 4, 14, 20, 2, K.gr) + R(6, 22, 38, 104, 18, K.y) + R(6, 50, 38, 10, 0, K.dk, 'ns') + L('M6 50 H44 M6 60 H44')],
+  sub: [180, 80, L('M96 10 V2 H106') + R(76, 12, 36, 26, 6, K.y) + E(90, 50, 80, 26, K.y) + C(60, 50, 7, K.b2) + C(90, 50, 7, K.b2) + C(120, 50, 7, K.b2) + P('M10 50 L2 38 V62 Z', K.y)],
+  diamond: [100, 90, P('M20 4 H80 L96 30 L50 86 L4 30 Z', '#bfe6f5') + L('M4 30 H96 M20 4 L36 30 L50 4 L64 30 L80 4 M36 30 L50 86 L64 30', 'th')],
+  ear: [80, 100, P('M20 40 Q20 6 50 6 Q76 6 76 38 Q76 58 60 68 Q52 74 52 86 Q50 98 36 96 Q24 94 24 82 Q24 60 20 40 Z', K.skin) + L('M34 40 Q34 22 50 22 Q62 22 62 36 Q62 48 50 52 Q44 56 46 66', 'th')],
+  bat: [140, 70, P('M70 22 Q60 8 50 22 Q30 6 4 18 Q16 32 14 48 Q30 36 46 48 Q56 36 70 46 Q84 36 94 48 Q110 36 126 48 Q124 32 136 18 Q110 6 90 22 Q80 8 70 22 Z', K.navy) + P('M62 18 L60 6 L68 14 Z M78 18 L80 6 L72 14 Z', K.navy) + C(65, 24, 2, K.y, 'ns') + C(75, 24, 2, K.y, 'ns')],
+  radio: [130, 90, L('M100 26 L116 2', 'tk') + R(4, 24, 122, 62, 8, '#e3a24c') + C(40, 55, 20, K.br2) + C(40, 55, 8, K.br, 'ns') + R(72, 36, 44, 16, 3, K.cream) + L('M86 36 V52', 'th') + C(84, 68, 5, K.dk) + C(104, 68, 5, K.dk)],
+  wifi: [100, 80, L('M14 32 Q50 0 86 32 M26 46 Q50 22 74 46 M38 58 Q50 46 62 58', 'tk') + C(50, 70, 6, K.dk)],
+  chip: [100, 100, L('M30 6 V18 M44 6 V18 M58 6 V18 M72 6 V18 M30 82 V94 M44 82 V94 M58 82 V94 M72 82 V94 M6 30 H18 M6 44 H18 M6 58 H18 M6 72 H18 M82 30 H94 M82 44 H94 M82 58 H94 M82 72 H94') + R(18, 18, 64, 64, 6, K.dk) + R(32, 32, 36, 36, 2, '#5a524a')],
+  rainbow: [140, 80, ['#e2553b', '#f08a3c', '#f2c230', '#5daa58', '#3f7fd8', '#8a6bd1'].map((c, i) => { const r0 = 66 - i * 8, r1 = r0 - 8; return P(`M${70 - r0} 76 A${r0} ${r0} 0 0 1 ${70 + r0} 76 H${70 + r1} A${r1} ${r1} 0 0 0 ${70 - r1} 76 Z`, c, i ? 'ns' : ''); }).join('') + L('M4 76 A66 66 0 0 1 136 76')],
+  truck: [240, 100, R(4, 10, 158, 64, 4, K.w2) + P('M166 30 H208 L232 54 V80 H166 Z', K.b) + P('M174 36 H204 L222 54 H174 Z', K.b2) + R(4, 74, 228, 8, 0, K.dk) + [30, 60, 186, 214].map(x => C(x, 84, 12, K.dk) + C(x, 84, 4, K.gr2)).join('')],
+  moto: [150, 90, C(30, 64, 22, K.dk) + C(120, 64, 22, K.dk) + C(30, 64, 8, K.gr2) + C(120, 64, 8, K.gr2) + P('M30 64 L56 40 H96 L120 64 L100 52 H60 Z', K.r) + R(52, 30, 36, 10, 5, K.dk) + L('M100 40 L108 16 H120') + P('M56 40 Q70 22 96 40 Z', K.r)],
+  scooter: [130, 90, C(22, 74, 13, K.dk) + C(108, 74, 13, K.dk) + R(22, 64, 74, 8, 3, K.gr) + L('M96 66 L108 74 M100 66 L92 8 H80 M92 8 H104', 'tk')],
+  bill: [160, 70, R(2, 2, 156, 66, 6, '#9cc69b') + R(10, 10, 140, 50, 3, 'none', 'th') + C(80, 35, 18, '#cfe5c4') + L('M76 28 Q80 24 86 28 Q88 34 80 36 Q72 38 74 44 Q80 48 86 42 M80 20 V50', 'th')],
+  stack: [160, 90, R(10, 46, 140, 40, 4, '#9cc69b') + R(6, 30, 140, 40, 4, '#9cc69b') + R(14, 14, 140, 40, 4, '#9cc69b') + R(70, 14, 20, 40, 0, '#f2e9c8') + C(40, 34, 10, '#cfe5c4', 'th')],
+  case: [140, 110, P('M50 30 V16 Q50 8 58 8 H82 Q90 8 90 16 V30 H80 V18 H60 V30 Z', K.dk) + R(4, 30, 132, 76, 8, '#5a3b1c') + R(30, 30, 12, 14, 2, K.y) + R(98, 30, 12, 14, 2, K.y) + L('M4 56 H136', 'th')],
+  weight: [110, 100, P('M38 34 Q30 6 55 6 Q80 6 72 34 H62 Q64 18 55 18 Q46 18 48 34 Z', '#4a4440') + P('M22 34 H88 L104 96 H6 Z', '#4a4440') + L('M30 44 L22 84', 'hl')]
+};
+IC.carRed = car(K.r); IC.carGreen = car(K.g); IC.carBrown = car('#a86b3f'); IC.carBlue = car(K.b); IC.concorde = IC.jet;
+function iconSVG(key, cls = '') {
+  const ic = IC[key] || IC.cloud;
+  return `<svg class="ic ${cls}" viewBox="0 0 ${ic[0]} ${ic[1]}" aria-hidden="true" focusable="false">${ic[2]}</svg>`;
+}
+const aspect = key => { const ic = IC[key] || IC.cloud; return ic[0] / ic[1]; };
+
+/* =====================================================================
+   5. REFERENCE LIBRARY  [id, label, value-in-base, icon, measured dim (length only), sentence singular, sentence plural]
+   ===================================================================== */
+const REFS = {};
+function REF(cat, rows) { REFS[cat] = rows.map(([id, name, v, icon, dim, one, many]) => ({ id, name, v, icon, dim: dim || 'h', one: one || ('a ' + name.toLowerCase()), many: many || (name.toLowerCase() + 's') })); }
+REF('length', [
+  ['atom', 'Hydrogen atom', 1.06e-10, 'atom', 'w', 'a hydrogen atom', 'hydrogen atoms'],
+  ['virus', 'Flu virus', 1.2e-7, 'virus', 'w', 'a flu virus', 'flu viruses'],
+  ['bact', 'E. coli bacterium', 2e-6, 'bacteria', 'w', 'an E. coli bacterium', 'E. coli bacteria'],
+  ['rbc', 'Red blood cell', 7.5e-6, 'cell', 'w'],
+  ['hair', 'Width of a hair', 7.5e-5, 'hair', 'w', 'the width of a hair', 'hair-widths'],
+  ['sand', 'Grain of sand', 5e-4, 'sand', 'w', 'a grain of sand', 'grains of sand'],
+  ['ant', 'Ant', 5e-3, 'ant', 'w', 'an ant', 'ants'],
+  ['coin', 'Quarter (coin)', 0.02426, 'coin', 'w', 'a US quarter', 'US quarters laid side by side'],
+  ['phone', 'Smartphone', 0.15, 'phone', 'h'],
+  ['banana', 'Banana', 0.18, 'banana', 'w', 'a banana', 'bananas'],
+  ['cat', 'House cat', 0.46, 'cat', 'w'],
+  ['person', 'Person', 1.7, 'person', 'h', 'a person', 'people stacked head to toe'],
+  ['door', 'Door', 2.03, 'door', 'h'],
+  ['giraffe', 'Giraffe', 5.5, 'giraffe', 'h'],
+  ['bus', 'School bus', 12.2, 'bus', 'w', 'a school bus', 'school buses'],
+  ['whale', 'Blue whale', 25, 'whale', 'w'],
+  ['jet', 'Jumbo jet', 70.7, 'jet', 'w'],
+  ['field', 'Football field', 91.44, 'fieldside', 'w'],
+  ['liberty', 'Statue of Liberty', 93, 'liberty', 'h', 'the Statue of Liberty', 'Statues of Liberty'],
+  ['pyramid', 'Great Pyramid', 139, 'pyramid', 'h', 'the Great Pyramid', 'Great Pyramids'],
+  ['eiffel', 'Eiffel Tower', 330, 'eiffel', 'h', 'the Eiffel Tower', 'Eiffel Towers'],
+  ['burj', 'Burj Khalifa', 828, 'tower', 'h', 'the Burj Khalifa', 'Burj Khalifas'],
+  ['everest', 'Mount Everest', 8849, 'mountain', 'h', 'Mount Everest', 'Everests'],
+  ['marathon', 'Marathon', 42195, 'road', 'w', 'a marathon', 'marathons'],
+  ['earth', 'Earth (across)', 12742000, 'earth', 'w', 'the Earth’s width', 'Earths side by side'],
+  ['moon', 'Earth to Moon', 384400000, 'spanMoon', 'w', 'the trip to the Moon', 'trips to the Moon'],
+  ['sun', 'Sun (across)', 1391400000, 'sun', 'w', 'the Sun’s width', 'Suns side by side'],
+  ['au', 'Earth to Sun', 149597870700, 'spanSun', 'w', 'the trip to the Sun', 'trips to the Sun'],
+  ['ly', 'One light-year', 9460730472580800, 'spanStar', 'w', 'a light-year', 'light-years'],
+  ['milky', 'Milky Way (across)', 9.46e20, 'galaxy', 'w', 'the Milky Way', 'Milky Ways'],
+  ['andromeda', 'To Andromeda', 2.4e22, 'spanGal', 'w', 'the trip to Andromeda', 'trips to Andromeda']
+]);
+REF('area', [
+  ['stamp', 'Postage stamp', 0.0005, 'stamp'],
+  ['card', 'Credit card', 0.004622, 'card'],
+  ['a4', 'Sheet of A4', 0.06237, 'sheet', '', 'a sheet of A4 paper', 'sheets of A4'],
+  ['pizza', 'Large pizza', 0.0993, 'pizza'],
+  ['bed', 'King-size bed', 3.9, 'bed'],
+  ['parking', 'Parking space', 12.5, 'parking'],
+  ['tennis', 'Tennis court', 260.87, 'tennis'],
+  ['bball', 'Basketball court', 420, 'bball'],
+  ['field', 'Football field', 5351.2, 'fieldtop'],
+  ['vatican', 'Vatican City', 4.9e5, 'vatican', '', 'Vatican City', 'Vatican Cities'],
+  ['cpark', 'Central Park', 3.41e6, 'park', '', 'Central Park', 'Central Parks'],
+  ['manhattan', 'Manhattan', 5.91e7, 'island', '', 'Manhattan', 'Manhattans'],
+  ['wales', 'Wales', 2.0779e10, 'wales', '', 'Wales', 'Waleses'],
+  ['texas', 'Texas', 6.95662e11, 'texas', '', 'Texas', 'Texases'],
+  ['earth', 'Earth’s surface', 5.101e14, 'earth', '', 'the Earth’s surface', 'Earth surfaces']
+]);
+REF('volume', [
+  ['drop', 'Drop of water', 0.00005, 'drop', '', 'a drop of water', 'drops of water'],
+  ['tsp', 'Teaspoon', 0.00493, 'spoon'],
+  ['shot', 'Shot glass', 0.044, 'shot'],
+  ['can', 'Soda can', 0.355, 'can'],
+  ['wine', 'Wine bottle', 0.75, 'wine'],
+  ['bottle', '2-litre bottle', 2, 'bottle', '', 'a 2-litre bottle', '2-litre bottles'],
+  ['bucket', 'Bucket', 10, 'bucket'],
+  ['tank', 'Car fuel tank', 50, 'jerry', '', 'a car’s fuel tank', 'car fuel tanks'],
+  ['tub', 'Bathtub', 150, 'tub', '', 'a bathtub', 'bathtubs'],
+  ['hottub', 'Hot tub', 1500, 'hottub'],
+  ['container', 'Shipping container', 67700, 'container'],
+  ['pool', 'Olympic pool', 2.5e6, 'pool', '', 'an Olympic pool', 'Olympic pools'],
+  ['pyramid', 'Great Pyramid', 2.6e9, 'pyramid', '', 'the Great Pyramid', 'Great Pyramids'],
+  ['loch', 'Loch Ness', 7.4e12, 'loch', '', 'Loch Ness', 'Loch Nesses'],
+  ['superior', 'Lake Superior', 1.21e16, 'lake', '', 'Lake Superior', 'Lake Superiors'],
+  ['oceans', 'All Earth’s oceans', 1.335e21, 'earth', '', 'all the oceans', 'oceans-worths']
+]);
+REF('mass', [
+  ['rice', 'Grain of rice', 2.5e-5, 'rice', '', 'a grain of rice', 'grains of rice'],
+  ['clip', 'Paperclip', 0.001, 'clip'],
+  ['nickel', 'Nickel coin', 0.005, 'coin', '', 'a nickel', 'nickels'],
+  ['battery', 'AA battery', 0.023, 'battery', '', 'an AA battery', 'AA batteries'],
+  ['egg', 'Egg', 0.06, 'egg', '', 'an egg', 'eggs'],
+  ['apple', 'Apple', 0.18, 'apple', '', 'an apple', 'apples'],
+  ['cat', 'House cat', 4.5, 'cat'],
+  ['bowling', 'Bowling ball', 7, 'bowling'],
+  ['dog', 'Labrador', 30, 'dog', '', 'a Labrador', 'Labradors'],
+  ['person', 'Adult person', 70, 'person', '', 'an adult', 'adults'],
+  ['piano', 'Grand piano', 450, 'piano'],
+  ['car', 'Car', 1500, 'carRed'],
+  ['elephant', 'Elephant', 6000, 'elephant', '', 'an elephant', 'elephants'],
+  ['bus', 'School bus', 11000, 'bus', '', 'a school bus', 'school buses'],
+  ['whale', 'Blue whale', 150000, 'whale'],
+  ['iss', 'Space station', 420000, 'iss', '', 'the ISS', 'International Space Stations'],
+  ['eiffel', 'Eiffel Tower', 1.01e7, 'eiffel', '', 'the Eiffel Tower', 'Eiffel Towers'],
+  ['titanic', 'Titanic', 5.231e7, 'ship', '', 'the Titanic', 'Titanics'],
+  ['pyramid', 'Great Pyramid', 5.9e9, 'pyramid', '', 'the Great Pyramid', 'Great Pyramids'],
+  ['moon', 'The Moon', 7.342e22, 'moon', '', 'the Moon', 'Moons'],
+  ['earth', 'Earth', 5.972e24, 'earth', '', 'the Earth', 'Earths'],
+  ['sun', 'The Sun', 1.989e30, 'sun', '', 'the Sun', 'Suns']
+]);
+REF('time', [
+  ['flash', 'Camera flash', 0.001, 'bolt'],
+  ['wing', 'Hummingbird wingbeat', 0.02, 'bird'],
+  ['blink', 'Blink', 0.3, 'eye'],
+  ['beat', 'Heartbeat', 0.8, 'heart'],
+  ['ad', 'TV ad', 30, 'tv', '', 'a TV ad', 'TV ads'],
+  ['song', 'Pop song', 210, 'note'],
+  ['movie', 'Movie', 7200, 'film'],
+  ['school', 'School day', 23400, 'school'],
+  ['day', 'Day', 86400, 'daynight'],
+  ['week', 'Week', 604800, 'cal'],
+  ['month', 'Month', YEAR / 12, 'cal'],
+  ['year', 'Year', YEAR, 'orbit'],
+  ['life', 'Human lifespan', 73.4 * YEAR, 'cake'],
+  ['pyramids', 'Age of the pyramids', 4500 * YEAR, 'pyramid', '', 'the age of the pyramids', 'pyramid-ages'],
+  ['sapiens', 'Homo sapiens so far', 300000 * YEAR, 'fire', '', 'the whole story of Homo sapiens', 'human histories'],
+  ['dinos', 'Since the dinosaurs', 66e6 * YEAR, 'dino', '', 'the time since the dinosaurs', 'dinosaur-gaps'],
+  ['earthage', 'Age of the Earth', 4.54e9 * YEAR, 'earth', '', 'the age of the Earth', 'Earth-ages'],
+  ['universe', 'Age of the universe', 13.8e9 * YEAR, 'galaxy', '', 'the age of the universe', 'universe-ages']
+]);
+REF('data', [
+  ['sms', 'Text message', 140, 'bubble'],
+  ['page', 'Page of text', 2000, 'page'],
+  ['email', 'Email', 75000, 'mail', '', 'an email', 'emails'],
+  ['floppy', 'Floppy disk', 1474560, 'floppy'],
+  ['photo', 'Phone photo', 3e6, 'photo'],
+  ['song', 'MP3 song', 4e6, 'note', '', 'an MP3 song', 'MP3 songs'],
+  ['cd', 'Music CD', 7.34e8, 'cd'],
+  ['genome', 'Your genome', 7.5e8, 'dna', '', 'your genome', 'genomes'],
+  ['movie', 'HD movie', 4e9, 'film', '', 'an HD movie', 'HD movies'],
+  ['wiki', 'All of Wikipedia (text)', 2.4e10, 'books', '', 'all of Wikipedia’s text', 'Wikipedias'],
+  ['phone', 'Phone storage', 1.28e11, 'phone', '', 'a 128 GB phone', '128 GB phones'],
+  ['ssd', 'Laptop drive', 1e12, 'laptop', '', 'a 1 TB laptop drive', '1 TB drives'],
+  ['library', 'Library of Congress books', 1.5e13, 'books', '', 'the Library of Congress (as text)', 'Libraries of Congress'],
+  ['datacentre', 'Data centre', 1e17, 'server'],
+  ['alldata', 'All data on Earth', 1.8e23, 'cloud', '', 'all the data on Earth', 'all-the-data-on-Earths']
+]);
+REF('energy', [
+  ['lift', 'Lift an apple 1 m', 1.76, 'apple', '', 'lifting an apple 1 metre', 'apple-lifts'],
+  ['aa', 'AA battery', 10800, 'battery', '', 'an AA battery', 'AA batteries'],
+  ['phone', 'Phone charge', 54000, 'phone'],
+  ['coffee', 'Boiling a cup of coffee', 83680, 'cup', '', 'boiling a cup of coffee', 'cups of coffee'],
+  ['banana', 'Banana (eaten)', 439320, 'banana', '', 'a banana', 'bananas'],
+  ['burger', 'Cheeseburger', 1255200, 'burger'],
+  ['food', 'A day of food', 8368000, 'plate', '', 'a day’s food', 'days of food'],
+  ['petrol', 'Litre of petrol', 34200000, 'jerry', '', 'a litre of petrol', 'litres of petrol'],
+  ['lightning', 'Lightning bolt', 1e9, 'bolt'],
+  ['tnt', 'Tonne of TNT', 4.184e9, 'dynamite', '', 'a tonne of TNT', 'tonnes of TNT'],
+  ['home', 'Home’s yearly power', 3.78e10, 'house', '', 'a home’s yearly electricity', 'home-years of electricity'],
+  ['world', 'World energy, 1 year', 6e20, 'earth', '', 'a year of world energy use', 'years of world energy use'],
+  ['sun', 'Sun’s output, 1 second', 3.828e26, 'sun', '', 'one second of sunshine (all of it)', 'seconds of the Sun']
+]);
+REF('power', [
+  ['laser', 'Laser pointer', 0.005, 'laser'],
+  ['bulb', 'LED bulb', 9, 'bulb', '', 'an LED bulb', 'LED bulbs'],
+  ['brain', 'Human brain', 20, 'brain'],
+  ['person', 'Person resting', 100, 'person', '', 'a resting person', 'resting people'],
+  ['cyclist', 'Pro cyclist', 400, 'bike'],
+  ['horse', 'Horse (1 hp)', 745.7, 'horse', '', 'a horse', 'horses'],
+  ['microwave', 'Microwave', 1000, 'microwave'],
+  ['kettle', 'Electric kettle', 3000, 'kettle', '', 'an electric kettle', 'electric kettles'],
+  ['car', 'Car engine', 110000, 'carBlue'],
+  ['turbine', 'Wind turbine', 3e6, 'turbine'],
+  ['jet', 'Jumbo jet, cruising', 5e7, 'jet'],
+  ['plant', 'Power station', 1e9, 'plant'],
+  ['world', 'All humanity', 1.9e13, 'earth', '', 'all of humanity’s power use', 'humanities'],
+  ['sun', 'The Sun', 3.828e26, 'sun', '', 'the Sun', 'Suns']
+]);
+REF('speed', [
+  ['snail', 'Garden snail', 0.001, 'snail'],
+  ['walk', 'Walking', 1.4, 'person', '', 'walking pace', 'walking paces'],
+  ['sprint', 'Fastest sprinter', 12.4, 'runner', '', 'the fastest sprinter', 'Usain Bolts'],
+  ['cheetah', 'Cheetah', 29, 'cheetah'],
+  ['car', 'Highway car', 33.3, 'carRed'],
+  ['train', 'Bullet train', 89, 'train'],
+  ['jet', 'Jumbo jet', 250, 'jet'],
+  ['sound', 'Speed of sound', 343, 'sound', '', 'the speed of sound', 'Mach'],
+  ['concorde', 'Concorde', 605, 'concorde', '', 'Concorde', 'Concordes'],
+  ['iss', 'Space station', 7660, 'iss', '', 'the ISS', 'ISS speeds'],
+  ['earth', 'Earth round the Sun', 29780, 'earth', '', 'the Earth’s orbit speed', 'Earth-orbit speeds'],
+  ['probe', 'Fastest space probe', 191700, 'iss', '', 'the fastest probe', 'probe speeds'],
+  ['light', 'Light', 299792458, 'light', '', 'the speed of light', 'light speeds']
+]);
+REF('pressure', [
+  ['paper', 'Sheet of paper (resting)', 0.785, 'sheet'],
+  ['mars', 'Air on Mars', 610, 'mars', '', 'the air on Mars', 'Mars atmospheres'],
+  ['everest', 'Air on Everest', 33700, 'mountain', '', 'the air on top of Everest', 'Everest-tops'],
+  ['sea', 'Air at sea level', 101325, 'cloud', '', 'the air around you', 'atmospheres'],
+  ['tyre', 'Car tyre', 220000, 'tyre', '', 'a car tyre', 'car tyres'],
+  ['bike', 'Road-bike tyre', 690000, 'bike'],
+  ['espresso', 'Espresso machine', 900000, 'cup', '', 'an espresso machine', 'espresso machines'],
+  ['scuba', 'Scuba tank', 2e7, 'scuba'],
+  ['trench', 'Deepest ocean floor', 1.086e8, 'sub', '', 'the bottom of the Mariana Trench', 'Mariana Trenches'],
+  ['diamond', 'Where diamonds form', 5e9, 'diamond', '', 'diamond-making pressure', 'diamond pressures'],
+  ['core', 'Earth’s core', 3.6e11, 'earth', '', 'the Earth’s core', 'Earth cores']
+]);
+REF('frequency', [
+  ['spin', 'Earth’s spin', 1 / 86164, 'earth', '', 'the Earth’s spin', 'Earth spins'],
+  ['heart', 'Heartbeat', 1.2, 'heart'],
+  ['humming', 'Hummingbird wings', 50, 'bird', '', 'a hummingbird’s wings', 'hummingbirds'],
+  ['a440', 'Note A (tuning)', 440, 'note', '', 'the tuning note A', 'A notes'],
+  ['hearing', 'Top of human hearing', 20000, 'ear', '', 'the top of human hearing', 'hearing limits'],
+  ['bat', 'Bat squeak', 50000, 'bat'],
+  ['am', 'AM radio', 1e6, 'radio', '', 'AM radio', 'AM radios'],
+  ['fm', 'FM radio', 1e8, 'radio', '', 'FM radio', 'FM radios'],
+  ['wifi', 'Wi-Fi', 2.4e9, 'wifi', '', 'Wi-Fi', 'Wi-Fis'],
+  ['cpu', 'Computer chip', 4e9, 'chip'],
+  ['light', 'Green light', 5.6e14, 'rainbow', '', 'green light', 'green lights']
+]);
+REF('fuel', [
+  ['truck', 'Semi truck', 2.76, 'truck'],
+  ['pickup', 'Pickup truck', 8.5, 'carBrown'],
+  ['car', 'Average car', 11.5, 'carRed', '', 'an average car', 'average cars'],
+  ['hybrid', 'Hybrid', 21.3, 'carGreen'],
+  ['moto', 'Motorbike', 25.5, 'moto'],
+  ['scooter', 'Scooter', 42.5, 'scooter']
+]);
+REF('money', [
+  ['penny', 'Penny', 0.01, 'coinCu'],
+  ['quarter', 'Quarter', 0.25, 'coinAg'],
+  ['one', '$1 bill', 1, 'bill', '', 'a $1 bill', '$1 bills'],
+  ['twenty', '$20 bill', 20, 'bill', '', 'a $20 bill', '$20 bills'],
+  ['hundred', '$100 bill', 100, 'bill', '', 'a $100 bill', '$100 bills'],
+  ['grand', 'A grand', 1000, 'stack', '', 'a grand', 'grand'],
+  ['million', 'A million dollars', 1e6, 'case', '', 'a million dollars', 'millions']
+]);
+const NICE = { length: ['nm', 'um', 'mm', 'm', 'km', 'ly'], area: ['mm2', 'cm2', 'm2', 'km2'], volume: ['ml', 'l', 'm3', 'km3'], mass: ['mg', 'g', 'kg', 't'], time: TIME_STEPS, data: ['byte', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb', 'zb'], energy: ['j', 'kj', 'mj', 'gj'], power: ['mlw', 'w', 'kw', 'mw', 'gw', 'tw'], speed: ['mps', 'kms'], pressure: ['pa', 'kpa', 'mpa', 'gpa'], frequency: ['hz', 'khz', 'mhz', 'ghz', 'thz'], money: ['cent', 'usd'], fuel: ['kml'], temperature: ['c'], angle: ['deg'] };
+function bestUnit(cat, base) {
+  const list = NICE[cat].map(i => UNITS[cat + ':' + i]); let best = list[0];
+  for (const u of list) if (Math.abs(base) >= u.toB(1) * 0.9999) best = u;
+  return best;
+}
+
+/* =====================================================================
+   6. STATE, STORAGE
+   ===================================================================== */
+const store = (() => {
+  const mem = {}; let ok = true;
+  try { const k = '__uu_probe'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); } catch (e) { ok = false; }
+  return {
+    ok,
+    get(k, d) { if (ok) { try { const v = window.localStorage.getItem(k); if (v != null) return JSON.parse(v); } catch (e) { } } return k in mem ? mem[k] : d; },
+    set(k, v) { mem[k] = v; if (ok) { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } }
+  };
+})();
+const cleanList = a => Array.isArray(a) ? a.filter(x => x && typeof x.q === 'string' && x.q.length <= 200).slice(0, 30).map(x => ({ q: x.q, r: typeof x.r === 'string' ? x.r.slice(0, 120) : '' })) : [];
+let hist = cleanList(store.get('unitUniverse.history', []));
+let favs = cleanList(store.get('unitUniverse.favs', []));
+let state = null;          // last good interpretation
+let lastQ = '';            // text of the box
+
+/* =====================================================================
+   7. RENDERING: answer, results, notes
+   ===================================================================== */
+const el = (tag, props, ...kids) => { const e = document.createElement(tag); if (props) for (const k in props) { if (k === 'class') e.className = props[k]; else if (k === 'text') e.textContent = props[k]; else if (k === 'html') e.innerHTML = props[k]; else if (k.startsWith('on')) e.addEventListener(k.slice(2), props[k]); else e.setAttribute(k, props[k]); } for (const c of kids) if (c != null) e.append(c); return e; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const asciiNum = s => s.replace(/−/g, '-');
+
+function renderAnswer(st) {
+  $('#lhs').textContent = st.srcText + ' =';
+  const rhs = $('#rhs'); rhs.className = 'rhs';
+  rhs.innerHTML = `<span class="n">${esc(fmt(st.result))}</span> <span class="u">${esc(unitName(st.to, st.result))}</span>`;
+  const alts = [];
+  const ex = rowExtra(st.to, st.result); if (ex) alts.push(`≈ <b>${esc(ex)}</b>`);
+  if (st.cat === 'time' && !ex) { const d = dhms(st.base); if (d && st.to.id !== 's') alts.push(`= <b>${esc(d)}</b>`); }
+  const w = fmtWords(st.result); if (w) alts.push(`≈ ${esc(w)} ${esc(st.to.sym)}`);
+  if (st.cat === 'temperature' && st.base < 0) alts.push('<b>Below absolute zero, which can’t physically happen.</b>');
+  $('#alt').innerHTML = alts.join(' · ');
+  const fq = favs.some(f => f.q.toLowerCase() === lastQ.trim().toLowerCase());
+  $('#favBtn').setAttribute('aria-pressed', String(fq)); $('#favBtn span').textContent = fq ? 'Favourited' : 'Favourite';
+}
+
+function renderResults(st) {
+  const cat = st.cat, units = BYCAT[cat];
+  const main = new Map(), more = new Map();
+  for (const u of units) {
+    const v = u.fromB(st.base), a = Math.abs(v);
+    const sensible = !isFinite(v) ? false : (a === 0 || (a >= 1e-4 && a < 1e9)) || u === st.to || u === st.from;
+    const tgt = sensible ? main : more;
+    if (!tgt.has(u.grp)) tgt.set(u.grp, []);
+    tgt.get(u.grp).push([u, v]);
+  }
+  const build = (map, host) => {
+    host.innerHTML = '';
+    for (const [grp, list] of map) {
+      const ul = el('ul', { class: 'rows' });
+      for (const [u, v] of list) {
+        const ex = rowExtra(u, v);
+        const on = u === st.to;
+        const valTxt = fmt(v);
+        const btn = el('button', { type: 'button', class: 'rowbtn', 'data-u': u.key, 'aria-label': `Show the answer in ${u.many}: ${valTxt} ${u.sym}` },
+          el('span', { class: 'rv', text: valTxt }), el('span', { class: 'ru' }, unitName(u, v) + (u.sym !== u.one && u.sym !== u.many ? ` (${u.sym})` : ''), ex ? el('span', { class: 'rf', text: '≈ ' + ex }) : null));
+        const cp = el('button', { type: 'button', class: 'cp', 'data-copy': asciiNum(`${valTxt} ${u.sym}`), 'aria-label': `Copy ${valTxt} ${u.sym}`, title: 'Copy', html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>' });
+        ul.append(el('li', { class: 'row' + (on ? ' on' : '') }, btn, cp));
+      }
+      host.append(el('div', { class: 'grp' }, el('h3', { text: GRP[grp] || grp }), ul));
+    }
+  };
+  build(main, $('#groups')); build(more, $('#moreGroups'));
+  $('#more').hidden = more.size === 0;
+  // notes
+  const notes = [];
+  const ids = [st.from.id, st.to.id];
+  if (cat === 'data') notes.push('Decimal units count in thousands: 1 kB = 1,000 bytes, 1 GB = 1,000,000,000 bytes. Binary units count in 1,024s: 1 KiB = 1,024 bytes, 1 GiB = 1,073,741,824 bytes. Drive makers use decimal; Windows uses binary but labels it “GB”, which is why a 1 TB drive shows up as about 931 “GB”. Lower-case b means bits: 1 byte = 8 bits.');
+  if (cat === 'temperature') notes.push('Temperature scales have different zero points, so they convert with an offset, not just a multiplier: °F = °C × 9/5 + 32, and K = °C + 273.15. (A temperature change of 10 °C is a change of 18 °F.)');
+  if (cat === 'fuel') notes.push('mpg is distance per fuel (higher is better). L/100 km is fuel per distance (lower is better). They’re inverses, not multiples: L/100 km = 235.215 ÷ mpg (US). Doubling mpg halves L/100 km. Bars show efficiency, so taller is better.');
+  if (cat === 'volume' && (st.from.cook || st.to.cook)) notes.push('US and UK measures differ. A US pint is 16 US fl oz (473 mL); a UK pint is 20 UK fl oz (568 mL). A US cup is 236.6 mL, a metric cup is 250 mL. “Cups”, “pints” and “gallons” here are US unless you say UK or imperial.');
+  if (cat === 'mass' && (ids.includes('ston') || ids.includes('t') || ids.includes('lton'))) notes.push('“ton” here means the US short ton (2,000 lb). Use “tonne” or “t” for the metric tonne (1,000 kg) and “long ton” for the UK ton (2,240 lb).');
+  if (cat === 'energy' && (ids.includes('kcal') || ids.includes('cal'))) notes.push('The “calories” on food labels are kilocalories (kcal, sometimes written Cal). Typing “calories” uses kcal; “cal” is the small physics calorie (1/1000 of a kcal).');
+  if (cat === 'time') notes.push('Months and years are averages: a year is 365.2425 days (the Gregorian calendar average) and a month is a twelfth of that.');
+  if (cat === 'speed' && ids.includes('mach')) notes.push('Mach 1 is taken as the speed of sound at sea level on a 15 °C day: 340.29 m/s. It’s slower higher up where the air is colder.');
+  if (cat === 'money') notes.push('No exchange rates here: this only splits US dollars into coins and bills.');
+  if (st.from.grp === 'fun' || st.to.grp === 'fun') notes.push('Fun units use typical sizes: a banana is 18 cm, a school bus 12.2 m, a blue whale 25 m (or 150 tonnes), a bathtub 150 L, a cup of coffee is the energy to boil 250 mL of water.');
+  $('#notes').replaceChildren(...notes.map(n => el('p', { class: 'note', text: n })));
+}
+
+/* =====================================================================
+   8. THE SIZE SHELF
+   ===================================================================== */
+const WIN = { len: 14, area: 6, vol: 10, mass: 12, bar: 9 };
+const sizeOf = (mode, v) => mode === 'len' || mode === 'bar' ? v : mode === 'area' ? Math.sqrt(v) : Math.cbrt(v);
+function pickRefs(cat, base, maxMain) {
+  const mode = CATS[cat].mode, x = sizeOf(mode, base), lw = Math.log(WIN[mode]);
+  const all = REFS[cat].map(r => ({ r, d: Math.log(sizeOf(mode, r.v) / x) }));
+  // long, flat things (buses, roads, fields) swamp a shelf fast, so they only join when close in size
+  const near = all.filter(o => Math.abs(o.d) <= (mode === 'len' && o.r.dim === 'w' ? Math.log(4) : lw)).sort((a, b) => Math.abs(a.d) - Math.abs(b.d));
+  const chosen = [];
+  // make sure one smaller and one bigger make it in when possible
+  const firstBelow = near.find(o => o.d < -0.02), firstAbove = near.find(o => o.d > 0.02);
+  for (const o of [firstBelow, firstAbove, ...near]) {
+    if (!o || chosen.includes(o)) continue;
+    if (chosen.length >= maxMain) break;
+    if (chosen.every(c => Math.abs(c.d - o.d) > 0.2)) chosen.push(o);
+  }
+  const below = all.filter(o => o.d < 0).sort((a, b) => b.d - a.d)[0];
+  const above = all.filter(o => o.d > 0).sort((a, b) => a.d - b.d)[0];
+  const left = (!chosen.some(c => c.d < 0) && below && !chosen.includes(below)) ? below : null;
+  const right = (!chosen.some(c => c.d > 0) && above && !chosen.includes(above)) ? above : null;
+  return { main: chosen, left, right };
+}
+function dispUnit(st) {
+  if (st.from.grp !== 'fun') return st.from;
+  if (st.to.grp !== 'fun') return st.to;
+  return bestUnit(st.cat, st.base);
+}
+const shortSym = u => u.short || u.sym;
+const withUnit = (n, u) => u.sym === '$' ? (n.startsWith('−') ? '−$' + n.slice(1) : '$' + n) : `${n} ${shortSym(u)}`;
+const dispVal = (st, base) => { const u = dispUnit(st); return withUnit(fmtShort(u.fromB(base)), u); };
+
+let stageKey = '', shelfItems = new Map(), thermo = null, dial = null, ladder = null;
+
+function itemDims(mode, it, s) {
+  // returns [w, h] in px for scale s
+  if (mode === 'bar') return [46, Math.max(2, it.v * s)];
+  if (it.you) {
+    if (mode === 'len') return [Math.max(10, Math.min(22, it.v * s * 0.12)), it.v * s];
+    if (mode === 'area') { const k = Math.sqrt(it.v) * s; return [k, k]; }
+    const k = Math.cbrt(it.v) * s; return mode === 'mass' ? [k * Math.sqrt(1.1), k / Math.sqrt(1.1)] : [k, k];
+  }
+  const a = aspect(it.icon);
+  if (mode === 'len') return it.dim === 'w' ? [it.v * s, it.v * s / a] : [it.v * s * a, it.v * s];
+  const k = (mode === 'area' ? Math.sqrt(it.v) : Math.cbrt(it.v)) * s;
+  return [k * Math.sqrt(a), k / Math.sqrt(a)];
+}
+function fitScale(mode, list, W, H, minSlot, gap) {
+  if (!list.length) return 1;
+  const h1 = Math.max(...list.map(it => itemDims(mode, it, 1)[1]));
+  let s = H / h1;
+  if (mode === 'bar') return s;
+  for (let k = 0; k < 80; k++) {
+    const ws = list.map(it => itemDims(mode, it, s)[0]);
+    const tot = ws.reduce((a, w) => a + Math.max(w, minSlot), 0) + gap * (list.length - 1);
+    if (tot <= W || ws.every(w => w <= minSlot)) break; // shrinking can't help when label slots are the limit
+    s *= 0.92;
+  }
+  return s;
+}
+
+function renderShelf(st) {
+  const stage = $('#stage'), cat = st.cat, mode = CATS[cat].mode;
+  if (stageKey !== 'shelf:' + cat) {
+    stage.innerHTML = '<div class="shelf" id="shelf"><div class="plank"></div></div>';
+    stageKey = 'shelf:' + cat; shelfItems = new Map();
+  }
+  const shelf = $('#shelf');
+  const old = stage.querySelector('.empty-stage'); if (old) old.remove();
+  const base = st.base;
+  if (!(base > 0) || !isFinite(base)) {
+    shelfItems.forEach(e => e.remove()); shelfItems.clear();
+    stage.append(el('div', { class: 'empty-stage', text: base === 0 ? 'Zero is a little hard to draw. Try a bigger number.' : !isFinite(base) ? 'That’s infinitely big. Nothing fits on the shelf.' : 'Negative amounts can’t be drawn to scale, but the numbers above still work.' }));
+    $('#sentence').textContent = ''; $('#picto').innerHTML = ''; $('#scaleCap').textContent = '';
+    stage.setAttribute('aria-label', 'Nothing to draw');
+    return;
+  }
+  const W = Math.max(260, shelf.clientWidth - 20);
+  const narrow = W < 520;
+  const H = narrow ? 180 : 214;
+  const gap = 10, minSlot = narrow ? 68 : 84, brkW = 54;
+  const slots = Math.max(3, Math.floor((W + gap) / (minSlot + gap)));
+  const pk = pickRefs(cat, base, Math.min(slots - 1, narrow ? 3 : 5));
+  let main = pk.main.slice(), L = pk.left, Rr = pk.right;
+  const cost = () => 1 + main.length + (L ? 1.5 : 0) + (Rr ? 1.5 : 0);
+  // drop the farthest neighbours first, then side panels, keeping one same-scale neighbour as long as possible
+  main.sort((a, b) => Math.abs(a.d) - Math.abs(b.d));
+  while (cost() > slots && main.length > 1) main.pop();
+  if (cost() > slots && L && Rr) L = null;
+  if (cost() > slots && main.length) { L = null; Rr = null; }
+  while (cost() > slots && main.length > 0) main.pop();
+  const you = { key: 'you', you: true, v: base };
+  const mainItems = [you, ...main.map(o => Object.assign({ key: o.r.id }, o.r))].sort((a, b) => a.v - b.v);
+  // side panels (past a scale break) get their own scale; measure them first so the main panel knows its room
+  const side = o => { if (!o) return null; const it = Object.assign({ key: o.r.id }, o.r); const sc = fitScale(mode, [it], narrow ? 88 : 150, H * 0.8, minSlot, gap); return { it, s: sc, w: Math.max(minSlot, itemDims(mode, it, sc)[0]) }; };
+  const sL = side(L), sR = side(Rr);
+  const panelW = W - (sL ? sL.w + brkW + gap * 2 : 0) - (sR ? sR.w + brkW + gap * 2 : 0);
+  const s = fitScale(mode, mainItems, panelW, H, minSlot, gap);
+  const order = [];
+  if (sL) { order.push({ it: sL.it, s: sL.s }); order.push({ brk: 'L', ratio: base / L.r.v }); }
+  for (const it of mainItems) order.push({ it, s });
+  if (sR) { order.push({ brk: 'R', ratio: Rr.r.v / base }); order.push({ it: sR.it, s: sR.s }); }
+
+  const seen = new Set(); const fresh = [];
+  let idx = 1; // child 0 is the plank
+  for (const o of order) {
+    const key = o.brk ? 'brk' + o.brk : o.it.key; seen.add(key);
+    let e = shelfItems.get(key);
+    if (!e) {
+      if (o.brk) e = el('div', { class: 'brk', 'aria-hidden': 'true' }, el('div', { class: 'tag' }));
+      else e = makeItem(mode, o.it);
+      e.classList.add('enter'); fresh.push(e); shelfItems.set(key, e);
+    }
+    if (shelf.children[idx] !== e) shelf.insertBefore(e, shelf.children[idx] || null);
+    idx++;
+    if (o.brk) { e.firstChild.innerHTML = `<b>×${esc(fmtShort(o.ratio))}</b>${o.brk === 'R' ? 'bigger' : 'smaller'}<br>new scale`; continue; }
+    const [w, h] = itemDims(mode, o.it, o.s);
+    const fig = e.querySelector('.fig');
+    fig.style.width = Math.max(2, w) + 'px';
+    fig.style.height = (mode === 'bar' ? h + 40 : Math.max(2, h)) + 'px';
+    if (mode === 'bar') fig.querySelector('.bar').style.height = h + 'px';
+    e.style.width = Math.max(w, minSlot) + 'px';
+    e.style.setProperty('--sw', (mode === 'bar' ? 34 : Math.min(w, h)) < 26 ? '1px' : (mode === 'bar' ? 34 : Math.min(w, h)) < 70 ? '1.6px' : '2.2px');
+    const lab = e.querySelector('.lab');
+    lab.querySelector('.vv').textContent = dispVal(st, o.it.v);
+    const tiny = e.querySelector('.tiny-flag');
+    if (mode !== 'bar' && h < 6 && !tiny) fig.append(el('span', { class: 'tiny-flag', text: '▼ tiny' }));
+    else if (tiny && (mode === 'bar' || h >= 6)) tiny.remove();
+  }
+  for (const [k, e] of shelfItems) if (!seen.has(k)) { e.remove(); shelfItems.delete(k); }
+  requestAnimationFrame(() => requestAnimationFrame(() => fresh.forEach(e => e.classList.remove('enter'))));
+
+  // caption
+  const du = dispUnit(st);
+  let cap = '';
+  if (mode === 'len') cap = `Drawn to scale · 1 px ≈ ${fmtShort(du.fromB(1 / s))} ${du.sym}`;
+  else if (mode === 'area') cap = 'Areas drawn to scale';
+  else if (mode === 'vol') cap = 'Sized by volume, to scale';
+  else if (mode === 'mass') cap = 'Sized by weight (as if equally dense)';
+  else cap = cat === 'fuel' ? 'Bar height = distance per fuel' : 'Bar heights to scale';
+  if (L || Rr) cap += ' · past ⫽ uses its own scale';
+  $('#scaleCap').textContent = cap;
+  stage.setAttribute('aria-label', `Size shelf: your ${dispVal(st, base)} next to ` + [...main.map(o => o.r), L && L.r, Rr && Rr.r].filter(Boolean).map(r => `${r.name} (${dispVal(st, r.v)})`).join(', '));
+}
+function makeItem(mode, it) {
+  const e = el('div', { class: 'it' + (it.you ? ' you' : '') });
+  const fig = el('div', { class: 'fig' });
+  if (mode === 'bar') {
+    fig.append(el('div', { class: 'bic', html: it.you ? '' : iconSVG(it.icon) }));
+    fig.append(el('div', { class: 'bar' + (it.you ? ' youbar' : ''), style: it.you ? '' : `background:${barColor(it.icon)}` }));
+  } else if (it.you) {
+    fig.append(el('div', { class: mode === 'len' ? 'tape' : mode === 'area' ? 'tile' : mode === 'vol' ? 'cube' : '' }));
+    if (mode === 'mass') fig.innerHTML = iconSVG('weight');
+  } else fig.innerHTML = iconSVG(it.icon);
+  e.append(fig, el('div', { class: 'foot' }), el('div', { class: 'lab' }, el('span', { class: 'nm', text: it.you ? 'Your amount' : it.name }), el('span', { class: 'vv' })));
+  if (!it.you) e.title = it.name;
+  return e;
+}
+const BARC = ['#f2a7a0', '#9fd3f0', '#b9dca0', '#f6d98a', '#cdbcf0', '#f3c09a'];
+function barColor(icon) { let h = 0; for (const c of icon) h = (h * 31 + c.charCodeAt(0)) >>> 0; return BARC[h % BARC.length]; }
+
+/* sentence + pictogram */
+function countPhrase(r, ref) {
+  const bare = ref.one.replace(/^(?:an?|the) /i, '');
+  if (r >= 0.95 && r < 1.05) return `about ${ref.one}`;
+  if (r >= 1.05 && r < 1.4) return `a bit more than ${ref.one}`;
+  if (r >= 1) {
+    const n = r < 10 ? trimZeros(r.toFixed(1)) : r < 1e6 ? Math.round(r).toLocaleString('en-US') : fmtShort(r);
+    return `≈ ${n} ${ref.many}`;
+  }
+  for (const d of [2, 3, 4, 5, 8, 10]) {
+    const n = Math.round(r * d); if (n < 1 || n >= d) continue;
+    if (Math.abs(n / d - r) / r < 0.06) return `about ${n === 1 && d === 2 ? 'half' : vulgar(n, d)} of ${ref.one}`;
+  }
+  if (r >= 0.01) return `about ${Math.round(r * 100)}% of ${ref.one}`;
+  return `about 1/${fmtShort(1 / r)} of ${ref.one}`;
+}
+function renderSentence(st) {
+  const refs = REFS[st.cat], b = st.base;
+  const sEl = $('#sentence'), pEl = $('#picto');
+  if (!refs || !(b > 0)) { sEl.textContent = ''; pEl.innerHTML = ''; return; }
+  const sorted = refs.slice().sort((a, c) => a.v - c.v);
+  const under = sorted.filter(r => r.v <= b * 1.05).pop();
+  const over = sorted.find(r => r.v > b * 1.05);
+  let main, second;
+  if (under && b / under.v < 1000) { main = countPhrase(b / under.v, under); if (over && b / over.v >= 0.002) second = countPhrase(b / over.v, over); }
+  else if (over) { main = countPhrase(b / over.v, over); if (under) second = countPhrase(b / under.v, under); }
+  else if (under) main = countPhrase(b / under.v, under);
+  let txt = main ? main.charAt(0).toUpperCase() + main.slice(1) : '';
+  if (st.cat === 'fuel') {
+    const nr = refs.slice().sort((a, c) => Math.abs(Math.log(b / a.v)) - Math.abs(Math.log(b / c.v)))[0], k = b / nr.v;
+    txt = Math.abs(Math.log(k)) < 0.08 ? `About as efficient as ${nr.one}.` : k > 1 ? `Goes ${trimZeros(k.toFixed(1))}× as far on the same fuel as ${nr.one}.` : `Burns ${trimZeros((1 / k).toFixed(1))}× the fuel of ${nr.one}.`;
+    second = null;
+  }
+  sEl.innerHTML = esc(txt) + (second && st.cat !== 'fuel' ? ` <span class="soft">or ${esc(second)}</span>` : '');
+  // pictogram: a reference that fits 2–12 times
+  pEl.innerHTML = '';
+  if (['fuel', 'pressure', 'frequency'].includes(st.cat) || st.cat === 'money' && b > 1e7) return;
+  const cand = refs.map(r => ({ r, k: b / r.v })).filter(o => o.k >= 1.5 && o.k <= 12).sort((a, c) => Math.abs(Math.log(a.k / 6)) - Math.abs(Math.log(c.k / 6)))[0];
+  if (!cand) return;
+  const n = Math.round(cand.k * 4) / 4, full = Math.floor(n), part = n - full;
+  const svg = iconSVG(cand.r.icon), a = aspect(cand.r.icon), w = 30 * Math.min(a, 3.2);
+  for (let i = 0; i < full; i++) pEl.append(el('span', { class: 'pc', style: `width:${w}px;--sw:1.2px`, html: svg }));
+  if (part > 0) pEl.append(el('span', { class: 'pc', style: `width:${w * part}px;--sw:1.2px`, html: svg }));
+  pEl.append(el('span', { class: 'cap', text: `= ${trimZeros(n.toFixed(2))} ${n === 1 ? cand.r.one.replace(/^(?:an?|the) /i, '') : cand.r.many}` }));
+}
+
+/* ladder (log scale, ticks every ×1,000) */
+function compactNum(n) {
+  if (n >= 1e15) return '10' + sup(Math.round(Math.log10(n)));
+  for (const [d, s] of [[1e12, 'T'], [1e9, 'B'], [1e6, 'M']]) if (n >= d) return trimZeros((n / d).toPrecision(3)) + s;
+  return fmt(n, 3);
+}
+function buildLadder(cat) {
+  const host = $('#ladder'); host.innerHTML = '';
+  const refs = REFS[cat].slice().sort((a, b) => a.v - b.v);
+  const lo = Math.floor(Math.log10(refs[0].v) / 3) * 3, hi = Math.ceil(Math.log10(refs[refs.length - 1].v) / 3) * 3;
+  const span = hi - lo || 3;
+  const pct = v => (Math.log10(v) - lo) / span * 100;
+  host.append(el('div', { class: 'lad-axis' }));
+  const W = host.clientWidth || 300, nT = span / 3 + 1, every = W / nT < 52 ? 2 : 1;
+  for (let e = lo, i = 0; e <= hi; e += 3, i++) {
+    const x = (e - lo) / span * 100;
+    host.append(el('div', { class: 'lad-tick', style: `left:${x}%` }));
+    if (i % every === 0) { const u = bestUnit(cat, Math.pow(10, e)); host.append(el('div', { class: 'lad-tl', style: `left:${x}%`, text: withUnit(compactNum(u.fromB(Math.pow(10, e))), u) })); }
+  }
+  const tip = el('div', { class: 'lad-tip' }); host.append(tip);
+  const narrowL = W < 520, lastX = [-1e9, -1e9, -1e9], minGap = narrowL ? 21 : 26;
+  host.classList.toggle('narrow', narrowL);
+  refs.forEach(r => {
+    const x = pct(r.v) / 100 * W;
+    let row = lastX.findIndex(lx => x - lx >= minGap);
+    if (row < 0 && narrowL) return; // crowded: leave it out rather than pile icons up
+    if (row < 0) row = lastX.indexOf(Math.min(...lastX));
+    lastX[row] = x;
+    const b = el('button', { type: 'button', class: 'lad-ref r' + row, style: `left:${pct(r.v)}%`, 'data-ref': r.id, 'aria-label': `Try ${r.name}`, html: iconSVG(r.icon) });
+    const show = () => { tip.textContent = `${r.name} · ${state ? dispVal(state, r.v) : ''}`; tip.style.left = Math.max(8, Math.min(92, pct(r.v))) + '%'; tip.style.top = (row * 26 - 4) + 'px'; tip.classList.add('on'); };
+    const hide = () => tip.classList.remove('on');
+    b.addEventListener('mouseenter', show); b.addEventListener('focus', show); b.addEventListener('mouseleave', hide); b.addEventListener('blur', hide);
+    b.addEventListener('click', () => { if (!state) return; const u = dispUnit(state); setQuery(`${fmtPlain(u.fromB(r.v))} ${canonTok(u)}`, true); });
+    host.append(b);
+  });
+  const you = el('div', { class: 'lad-you' }, el('div', { class: 'pin' }), el('div', { class: 'yl' }));
+  host.append(you);
+  ladder = { cat, lo, span, you, W };
+}
+function renderLadder(st) {
+  const wrap = $('#ladderWrap');
+  const show = ['len', 'area', 'vol', 'mass', 'bar'].includes(CATS[st.cat].mode) && st.cat !== 'fuel';
+  wrap.hidden = !show; if (!show) return;
+  const W = $('#ladder').clientWidth;
+  if (!ladder || ladder.cat !== st.cat || Math.abs(ladder.W - W) > 40) buildLadder(st.cat);
+  if (!(st.base > 0)) { ladder.you.style.display = 'none'; return; }
+  ladder.you.style.display = '';
+  let p = (Math.log10(st.base) - ladder.lo) / ladder.span * 100; const off = p < 0 || p > 100;
+  p = Math.max(0, Math.min(100, p));
+  ladder.you.style.left = p + '%'; ladder.you.classList.toggle('off', off);
+  const yl = ladder.you.querySelector('.yl'); yl.textContent = dispVal(st, st.base);
+  yl.style.transform = p < 12 ? 'translateX(-12%)' : p > 88 ? 'translateX(-88%)' : 'translateX(-50%)';
+}
+
+/* thermometer */
+const TKN = [[-273.15, 0], [-200, .05], [-100, .13], [-40, .22], [0, .32], [50, .47], [100, .58], [300, .68], [1000, .8], [2000, .88], [6000, 1]];
+const TMARKS = [[-273.15, 'Absolute zero', 'absolute zero'], [-196, 'Liquid nitrogen', 'liquid nitrogen'], [-89.2, 'Coldest ever on Earth', 'the coldest day ever recorded'], [-18, 'Home freezer', 'a home freezer'], [0, 'Water freezes', 'freezing water'], [21, 'Comfy room', 'a comfy room'], [37, 'Body temperature', 'your body'], [56.7, 'Hottest ever on Earth', 'the hottest day ever recorded'], [100, 'Water boils', 'boiling water'], [180, 'Baking a cake', 'a cake-baking oven'], [232.8, 'Paper catches fire', 'paper’s ignition point'], [450, 'Pizza oven', 'a pizza oven'], [1150, 'Lava', 'lava'], [1538, 'Iron melts', 'molten iron'], [5500, 'Sun’s surface', 'the Sun’s surface']];
+function tPos(c) { if (c <= TKN[0][0]) return 0; for (let i = 1; i < TKN.length; i++) if (c <= TKN[i][0]) { const [c0, p0] = TKN[i - 1], [c1, p1] = TKN[i]; return p0 + (p1 - p0) * (c - c0) / (c1 - c0); } return 1; }
+function renderThermo(st) {
+  const stage = $('#stage');
+  const VW = 400, VH = 470, tx = 150, top = 26, bot = 404, span = bot - top;
+  const tu = (st.from.id === 'f' || st.from.id === 'r') ? UNITS['temperature:f'] : st.from.id === 'k' ? UNITS['temperature:k'] : UNITS['temperature:c'];
+  const key = 'thermo:' + tu.id;
+  if (stageKey !== key) {
+    stageKey = key;
+    const ys = TMARKS.map(m => bot - tPos(m[0]) * span);
+    const ly = ys.slice(); for (let i = ly.length - 2; i >= 0; i--) ly[i] = Math.max(ly[i], ly[i + 1] + 21);
+    const over = ly[0] - (bot + 8); if (over > 0) for (let i = 0; i < ly.length; i++) ly[i] -= over;
+    for (let i = ly.length - 2; i >= 0; i--) if (ly[i] < ly[i + 1] + 21) ly[i] = ly[i + 1] + 21;
+    let marks = '';
+    TMARKS.forEach((m, i) => {
+      const t = fmt(tu.fromB(m[0] + 273.15), 4) + ' ' + tu.sym;
+      marks += `<line x1="${tx + 12}" y1="${ys[i]}" x2="${tx + 22}" y2="${ys[i]}" stroke="var(--ink)" stroke-width="2"/>
+        <path class="t-lead" d="M${tx + 22} ${ys[i]} L${tx + 38} ${ly[i] - 4}"/>
+        <text class="t-lab" data-i="${i}" x="${tx + 42}" y="${ly[i]}">${esc(m[1])} <tspan class="t-val">${esc(t)}</tspan></text>`;
+    });
+    const breaks = [-40, 100, 1000].map(c => { const y = bot - tPos(c) * span; return `<path d="M${tx - 20} ${y + 3} l6 -6 l6 6 l6 -6" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`; }).join('');
+    stage.innerHTML = `<svg class="thermo" viewBox="0 0 ${VW} ${VH}" aria-hidden="true">
+      <defs><clipPath id="tclip"><rect x="${tx - 8}" y="${top - 4}" width="16" height="${span + 40}"/></clipPath></defs>
+      <rect x="${tx - 13}" y="${top - 12}" width="26" height="${span + 30}" rx="13" fill="var(--card)" stroke="var(--edge)" stroke-width="3"/>
+      <g clip-path="url(#tclip)"><rect class="merc" id="merc" x="${tx - 7}" y="${top - 4}" width="14" height="${span + 40}" fill="#e2553b"/></g>
+      <circle cx="${tx}" cy="${bot + 34}" r="26" fill="#e2553b" stroke="var(--edge)" stroke-width="3"/>
+      <rect x="${tx - 7}" y="${bot - 2}" width="14" height="16" fill="#e2553b"/>
+      <path d="M${tx - 10} ${bot + 26} q4 -10 12 -12" stroke="rgba(255,255,255,.7)" stroke-width="4" fill="none" stroke-linecap="round"/>
+      ${breaks}${marks}
+      <g class="t-pin" id="tpin"><path d="M${tx - 16} 0 H${tx - 40}" stroke="var(--ink)" stroke-width="2.5"/><path d="M${tx - 16} 0 l-9 -6 v12 z" fill="var(--ink)"/>
+        <text id="tpinv" x="${tx - 46}" y="-2" text-anchor="end" style="font:700 17px var(--mono)" fill="var(--ink)"></text>
+        <text id="tpinv2" x="${tx - 46}" y="15" text-anchor="end" class="t-val"></text></g>
+    </svg>`;
+    thermo = { tx, top, bot, span };
+  }
+  const c = st.base - 273.15, p = tPos(c);
+  $('#merc').style.transform = `translateY(${(1 - p) * thermo.span}px)`;
+  $('#tpin').style.transform = `translateY(${thermo.bot - p * thermo.span}px)`;
+  const ou = st.to.id !== tu.id ? st.to : (tu.id === 'c' ? UNITS['temperature:f'] : UNITS['temperature:c']);
+  $('#tpinv').textContent = `${fmt(tu.fromB(st.base), 4)} ${tu.sym}`;
+  $('#tpinv2').textContent = `${fmt(ou.fromB(st.base), 4)} ${ou.sym}`;
+  let near = -1, nd = Infinity; TMARKS.forEach((m, i) => { const d = Math.abs(tPos(m[0]) - p); if (d < nd) { nd = d; near = i; } });
+  stage.querySelectorAll('.t-lab').forEach(t => t.classList.toggle('near', +t.dataset.i === near));
+  // sentence
+  let s;
+  if (st.base < 0) s = 'Colder than absolute zero. Nothing can be that cold!';
+  else if (c > 6000) s = 'Hotter than the surface of the Sun (it’s off the top of this thermometer).';
+  else {
+    const close = TMARKS.find(m => Math.abs(m[0] - c) <= Math.max(1.5, Math.abs(m[0]) * 0.03));
+    if (close) s = `Right about ${close[2]} (${fmt(tu.fromB(close[0] + 273.15), 4)} ${tu.sym}).`;
+    else {
+      const lo = TMARKS.filter(m => m[0] < c).pop(), hi = TMARKS.find(m => m[0] > c);
+      s = `Hotter than ${lo[2]}` + (hi ? `, colder than ${hi[2]}.` : '.');
+    }
+  }
+  $('#sentence').textContent = s; $('#picto').innerHTML = '';
+  $('#scaleCap').textContent = 'Scale squeezes above 100 °C and below −40 °C';
+  stage.setAttribute('aria-label', 'Thermometer. ' + s);
+}
+
+/* angle dial */
+const ANG_REFS = [[3.97, 'Leaning Tower of Pisa tilt'], [4.76, 'Steepest wheelchair ramp'], [19.3, 'World’s steepest street'], [23.44, 'Earth’s axis tilt'], [45, 'A pizza slice (⅛)'], [90, 'Right angle'], [180, 'Straight line'], [360, 'Full turn']];
+let dialAnim = null;
+function wedge(deg, r, cx, cy) {
+  const d = Math.max(-359.999, Math.min(359.999, deg));
+  if (Math.abs(d) < 0.01) return '';
+  const a = -d * Math.PI / 180, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+  return `M${cx} ${cy} L${cx + r} ${cy} A${r} ${r} 0 ${Math.abs(d) > 180 ? 1 : 0} ${d > 0 ? 0 : 1} ${x} ${y} Z`;
+}
+function renderDial(st) {
+  const stage = $('#stage');
+  const deg = st.base; // degrees
+  if (stageKey !== 'dial') {
+    stageKey = 'dial';
+    let ticks = '';
+    for (let i = 0; i < 360; i += 15) { const a = -i * Math.PI / 180, r1 = i % 90 ? 112 : 104; ticks += `<line x1="${160 + r1 * Math.cos(a)}" y1="${150 + r1 * Math.sin(a)}" x2="${160 + 120 * Math.cos(a)}" y2="${150 + 120 * Math.sin(a)}" stroke="var(--edge)" stroke-width="${i % 90 ? 1.5 : 2.5}"/>`; }
+    const lbl = [[0, '0°'], [90, '90°'], [180, '180°'], [270, '270°']].map(([d, t]) => { const a = -d * Math.PI / 180; return `<text x="${160 + 140 * Math.cos(a)}" y="${155 + 138 * Math.sin(a)}" text-anchor="middle" style="font:500 12px var(--mono)" fill="var(--muted)">${t}</text>`; }).join('');
+    stage.innerHTML = `<svg class="dial" viewBox="0 0 320 300" aria-hidden="true">
+      <circle cx="160" cy="150" r="120" fill="var(--card)" stroke="var(--edge)" stroke-width="3"/>
+      <path id="wedge" fill="rgba(242,194,48,.75)" stroke="var(--edge)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${ticks}${lbl}<line x1="160" y1="150" x2="280" y2="150" stroke="var(--edge)" stroke-width="3"/>
+      <line id="arm" x1="160" y1="150" x2="280" y2="150" stroke="#e2553b" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="160" cy="150" r="7" fill="var(--edge)"/>
+      <text id="turns" x="160" y="214" text-anchor="middle" style="font:600 13px var(--body)" fill="var(--muted)"></text>
+    </svg><div class="anglerefs" id="angRefs"></div>`;
+    const ar = $('#angRefs');
+    for (const [d, n] of ANG_REFS) ar.append(el('button', { type: 'button', class: 'chip', text: `${n} · ${d}°`, onclick: () => setQuery(`${d} degrees`, true) }));
+    dial = { cur: 0 };
+  }
+  const target = deg, from = dial.cur, t0 = performance.now();
+  if (dialAnim) cancelAnimationFrame(dialAnim);
+  const draw = d => {
+    if (!$('#wedge')) return;
+    const m = Math.abs(d) >= 360 ? (d % 360) : d;
+    const show = Math.abs(d) >= 360 && Math.abs(m) < 0.01 ? 359.999 * Math.sign(d) : m;
+    $('#wedge').setAttribute('d', wedge(show, 120, 160, 150));
+    const a = -m * Math.PI / 180; const arm = $('#arm'); arm.setAttribute('x2', 160 + 120 * Math.cos(a)); arm.setAttribute('y2', 150 + 120 * Math.sin(a));
+  };
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const step = now => { const k = reduce ? 1 : Math.min(1, (now - t0) / 650), e = 1 - Math.pow(1 - k, 3); const d = from + (target - from) * e; draw(d); dial.cur = d; if (k < 1) dialAnim = requestAnimationFrame(step); };
+  if (Math.abs(target - from) > 3600) { dial.cur = target; draw(target); } else dialAnim = requestAnimationFrame(step);
+  const turns = Math.trunc(Math.abs(deg) / 360);
+  $('#turns').textContent = turns ? `${turns.toLocaleString('en-US')} full turn${turns > 1 ? 's' : ''} + ${fmt(Math.abs(deg) % 360, 4)}°` : (deg < 0 ? 'clockwise' : '');
+  let s;
+  const a = Math.abs(deg);
+  if (a === 0) s = 'No turn at all.';
+  else if (Math.abs(a - 90) < 0.5) s = 'A right angle, like the corner of a page.';
+  else if (Math.abs(a - 180) < 0.5) s = 'A straight line: a U-turn.';
+  else if (Math.abs(a - 360) < 0.5) s = 'One full turn, right back where you started.';
+  else if (a < 1) s = `A tiny angle: about ${fmtShort(a * 60)} arcminutes. The full Moon is about 31 arcminutes wide.`;
+  else {
+    const pz = a / 45, ra = a / 90, ck = a / 30;
+    const parts = [];
+    if (ra >= 0.25) parts.push(`${trimZeros(ra.toFixed(2))} right angle${ra === 1 ? '' : 's'}`);
+    if (pz >= 0.5 && pz <= 64) parts.push(`${trimZeros(pz.toFixed(1))} pizza slice${pz === 1 ? '' : 's'}`);
+    if (a <= 360 && Math.abs(ck - Math.round(ck)) < 0.02 && Math.round(ck) >= 1 && Math.round(ck) <= 12) parts.push(`the clock hands at ${Math.round(ck)}:00`);
+    s = parts.length ? '≈ ' + parts.join(' · ') : `${fmt(a, 4)}°`;
+  }
+  $('#sentence').textContent = s; $('#picto').innerHTML = '';
+  $('#scaleCap').textContent = 'Counter-clockwise from 3 o’clock';
+  stage.setAttribute('aria-label', 'Angle dial. ' + s);
+}
+
+function renderStage(st) {
+  const mode = CATS[st.cat].mode;
+  if (mode !== 'angle' && dialAnim) { cancelAnimationFrame(dialAnim); dialAnim = null; }
+  if (mode === 'thermo') renderThermo(st);
+  else if (mode === 'angle') renderDial(st);
+  else { renderShelf(st); renderSentence(st); }
+  renderLadder(st);
+}
+
+/* =====================================================================
+   9. DROPDOWNS
+   ===================================================================== */
+function fillUnitSelect(sel, cat, val) {
+  sel.innerHTML = '';
+  const groups = new Map();
+  for (const u of BYCAT[cat]) { if (!groups.has(u.grp)) groups.set(u.grp, []); groups.get(u.grp).push(u); }
+  for (const [g, list] of groups) {
+    const og = el('optgroup', { label: GRP[g] || g });
+    for (const u of list) og.append(el('option', { value: u.key, text: u.sym === u.one ? u.one : `${u.one} (${u.sym})` }));
+    sel.append(og);
+  }
+  if (val) sel.value = val;
+}
+let pickCat = null;
+function syncPick(st) {
+  const sc = $('#selCat');
+  if (pickCat !== st.cat) { sc.value = st.cat; fillUnitSelect($('#selFrom'), st.cat); fillUnitSelect($('#selTo'), st.cat); pickCat = st.cat; }
+  $('#selFrom').value = st.from.key; $('#selTo').value = st.to.key;
+  if (document.activeElement !== $('#selVal')) $('#selVal').value = fmtPlain(st.value);
+}
+/* a unit token that parses back to exactly this unit */
+const canonCache = new Map();
+function canonTok(u) {
+  if (canonCache.has(u)) return canonCache.get(u);
+  let pick = u.one;
+  for (const t of [u.sym, u.one, u.many, ...u.al.filter(a => a[0] !== '=')]) {
+    const r = interpret(`2 ${t} to ${t}`);
+    if (r.ok && r.from === u && r.to === u) { pick = t; break; }
+  }
+  canonCache.set(u, pick); return pick;
+}
+function canonQuery(v, f, t) { return `${fmtPlain(v)} ${canonTok(f)} to ${canonTok(t)}`; }
+function queryFromPick() {
+  const f = UNITS[$('#selFrom').value], t = UNITS[$('#selTo').value];
+  let v = $('#selVal').value.trim(); if (!v) v = '1';
+  return `${v} ${canonTok(f)} to ${canonTok(t)}`;
+}
+
+/* =====================================================================
+   10. MAIN LOOP
+   ===================================================================== */
+let commitTimer = 0, liveTimer = 0, hashTimer = 0;
+function run(text, opts = {}) {
+  lastQ = text;
+  const res = interpret(text);
+  const stale = !res.ok;
+  $('#shelfCard').classList.toggle('stale', stale && !!state);
+  $('#allCard').classList.toggle('stale', stale && !!state);
+  if (res.empty) {
+    $('#lhs').textContent = 'Type something to convert…'; const rhs = $('#rhs'); rhs.className = 'rhs msg'; rhs.textContent = 'Try “3 litres” or “72 kg in lbs”.'; $('#alt').textContent = '';
+    clearTimeout(commitTimer); return res;
+  }
+  if (!res.ok) {
+    $('#lhs').textContent = 'Hmm…'; const rhs = $('#rhs'); rhs.className = 'rhs msg'; rhs.textContent = res.error; $('#alt').textContent = '';
+    clearTimeout(commitTimer); clearTimeout(liveTimer);
+    liveTimer = setTimeout(() => { $('#live').textContent = res.error; }, 900);
+    return res;
+  }
+  state = res;
+  renderAnswer(res); renderResults(res); renderStage(res); syncPick(res);
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => { $('#live').textContent = `${res.srcText} equals ${fmt(res.result)} ${unitName(res.to, res.result)}. ${$('#sentence').textContent}`; }, opts.commit ? 50 : 700);
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(() => writeHash(text), opts.commit ? 0 : 400);
+  clearTimeout(commitTimer);
+  if (opts.commit) commitHistory(); else commitTimer = setTimeout(commitHistory, 1800);
+  return res;
+}
+function setQuery(q, commit) { $('#q').value = q; run(q, { commit }); }
+function summary(st) { return `${asciiNum(fmt(st.result))} ${st.to.sym}`; }
+function commitHistory() {
+  if (!state || !state.ok) return;
+  const q = lastQ.trim(); if (!q) return;
+  const r = summary(state);
+  hist = hist.filter(h => h.q.toLowerCase() !== q.toLowerCase());
+  hist.unshift({ q, r }); hist = hist.slice(0, 15);
+  store.set('unitUniverse.history', hist); renderLists();
+}
+function toggleFav() {
+  const q = lastQ.trim(); if (!q || !state) return;
+  const i = favs.findIndex(f => f.q.toLowerCase() === q.toLowerCase());
+  if (i >= 0) favs.splice(i, 1); else favs.unshift({ q, r: summary(state) });
+  favs = favs.slice(0, 30); store.set('unitUniverse.favs', favs);
+  renderLists(); renderAnswer(state);
+  toast(i >= 0 ? 'Removed from favourites' : 'Saved to favourites');
+}
+function renderLists() {
+  const mk = (list, host, isFav) => {
+    host.replaceChildren(...list.map(h => {
+      const fav = favs.some(f => f.q.toLowerCase() === h.q.toLowerCase());
+      const b = el('button', { type: 'button', class: 'hb', 'aria-label': `Convert ${h.q}` }, el('b', { text: h.q }), el('small', { text: '= ' + h.r }));
+      b.addEventListener('click', () => setQuery(h.q, false));
+      const st = el('button', { type: 'button', class: 'st', 'aria-pressed': String(fav), 'aria-label': (fav ? 'Remove from favourites: ' : 'Add to favourites: ') + h.q, text: fav ? '★' : '☆' });
+      st.addEventListener('click', () => {
+        const i = favs.findIndex(f => f.q.toLowerCase() === h.q.toLowerCase());
+        if (i >= 0) favs.splice(i, 1); else favs.unshift({ q: h.q, r: h.r });
+        store.set('unitUniverse.favs', favs); renderLists(); if (state) renderAnswer(state);
+      });
+      return el('li', null, b, st);
+    }));
+  };
+  mk(favs, $('#favList'), true); mk(hist, $('#histList'), false);
+  $('#favEmpty').hidden = favs.length > 0; $('#histEmpty').hidden = hist.length > 0;
+  $('#clearHist').hidden = hist.length === 0;
+}
+
+/* URL hash: #q=3%20litres */
+function readHash() {
+  const h = location.hash.replace(/^#/, ''); if (!h) return null;
+  let q = null;
+  try { q = new URLSearchParams(h).get('q'); } catch (e) { return null; }
+  if (typeof q !== 'string') return null;
+  q = q.trim();
+  if (!q || q.length > 200 || /[\u0000-\u001F\u007F<>]/.test(q)) return null;
+  return q;
+}
+function writeHash(q) {
+  const t = q.trim(); const want = t ? '#q=' + encodeURIComponent(t) : '';
+  if (location.hash === want) return;
+  try { history.replaceState(null, '', want || location.pathname + location.search); } catch (e) { }
+}
+
+let toastTimer = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1800); }
+async function copyText(t, label) {
+  let ok = false;
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(t); ok = true; } } catch (e) { }
+  if (!ok) { try { const ta = el('textarea', { style: 'position:fixed;left:-9999px;opacity:0' }); ta.value = t; document.body.append(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) { } }
+  toast(ok ? `Copied ${label || t}` : 'Couldn’t reach the clipboard; select and copy by hand.');
+}
+
+/* =====================================================================
+   11. WIRING
+   ===================================================================== */
+const EXAMPLES = ['3 litres', '5\'11"', '72 kg in lbs', '1 TB', '90 km/h', '350 F', '2.5 hours', '1 lightyear', '$20 in quarters', 'half a mile', '30 mpg', '1 acre', '500 kcal in cups of coffee', '45 degrees'];
+function init() {
+  let nums = ''; for (let i = 0; i < 90; i++) nums += `<span>${i}</span>`; $('#tapeNums').innerHTML = nums;
+  for (const ex of EXAMPLES) $('#examples').append(el('button', { type: 'button', class: 'chip', text: ex, onclick: () => { setQuery(ex, true); } }));
+  const sc = $('#selCat'); for (const c of CAT_ORDER) sc.append(el('option', { value: c, text: CATS[c].name }));
+  if (!store.ok) $('#storeWarn').hidden = false;
+
+  const q = $('#q');
+  q.addEventListener('input', () => run(q.value));
+  q.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); run(q.value, { commit: true }); }
+    else if (e.key === 'Escape') { if (q.value) { e.preventDefault(); q.value = ''; run(''); } }
+  });
+  $('#clearBtn').addEventListener('click', () => { q.value = ''; run(''); q.focus(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return;
+      e.preventDefault(); q.focus(); q.select();
+    }
+  });
+  $('#pickToggle').addEventListener('click', () => { const p = $('#pick'), open = p.hidden; p.hidden = !open; $('#pickToggle').setAttribute('aria-expanded', String(open)); if (open) $('#selCat').focus(); });
+  sc.addEventListener('change', () => {
+    const cat = sc.value; const list = BYCAT[cat].filter(u => u.grp !== 'fun');
+    const f = list[0], t = defaultTarget(f, 1);
+    fillUnitSelect($('#selFrom'), cat, f.key); fillUnitSelect($('#selTo'), cat, t.key); pickCat = cat;
+    $('#selVal').value = cat === 'temperature' ? '20' : '1';
+    setQuery(queryFromPick(), false);
+  });
+  for (const id of ['#selFrom', '#selTo']) $(id).addEventListener('change', () => setQuery(queryFromPick(), false));
+  $('#selVal').addEventListener('input', () => setQuery(queryFromPick(), false));
+  const swap = () => {
+    if (!state) return;
+    const st = state;
+    setQuery(canonQuery(st.result, st.to, st.from), true);
+    toast('Swapped');
+  };
+  $('#swapBtn').addEventListener('click', swap);
+  $('#swap2').addEventListener('click', () => {
+    const f = $('#selFrom').value, t = $('#selTo').value;
+    if (state && UNITS[f] === state.from && UNITS[t] === state.to) swap();
+    else { $('#selFrom').value = t; $('#selTo').value = f; setQuery(queryFromPick(), true); }
+  });
+  $('#copyBtn').addEventListener('click', () => { if (state) copyText(asciiNum(`${fmt(state.result)} ${state.to.sym}`)); });
+  $('#favBtn').addEventListener('click', toggleFav);
+  $('#shareBtn').addEventListener('click', () => { writeHash(lastQ); copyText(location.href, 'link'); });
+  $('#clearHist').addEventListener('click', () => { hist = []; store.set('unitUniverse.history', hist); renderLists(); toast('History cleared'); });
+  const groupsClick = e => {
+    const cp = e.target.closest('.cp'); if (cp) { copyText(cp.dataset.copy); return; }
+    const rb = e.target.closest('.rowbtn'); if (rb && state) {
+      const u = UNITS[rb.dataset.u]; if (!u) return;
+      const base = lastQ.replace(/\s+(?:into|to|in|as)\s+[^]*$/i, '').trim();
+      const leftOk = !interpret(base).error && interpret(base).cat === state.cat;
+      setQuery(`${leftOk ? base : fmtPlain(state.value) + ' ' + canonTok(state.from)} to ${canonTok(u)}`, true);
+    }
+  };
+  $('#groups').addEventListener('click', groupsClick); $('#moreGroups').addEventListener('click', groupsClick);
+  window.addEventListener('hashchange', () => { const h = readHash(); if (h && h !== lastQ.trim()) { q.value = h; run(h); } });
+  let rz = 0; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (state) { if (stageKey.startsWith('shelf')) renderShelf(state); renderLadder(state); } }, 160); });
+
+  renderLists();
+  const start = readHash();
+  if (location.hash && !start) toast('That link didn’t contain a readable conversion, so here’s a fresh start.');
+  q.value = start || '3 litres';
+  run(q.value, { first: true });
+  clearTimeout(commitTimer); // don't put the demo query in history
+}
+
+window.UU = { interpret, canonTok, parseQuantity, lookupUnit, fmt, fmtShort, mixedFrac, feetInches, units: UNITS, refs: REFS, state: () => state, store };
+init();
+})();
+</script>
+</body>
+</html>
