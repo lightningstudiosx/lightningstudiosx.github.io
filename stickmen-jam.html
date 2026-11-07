@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stickmen Jam</title>
+<meta name="description" content="Build a band of over 100 doodle stickmen on a floating notebook island. Mix them, collect rare ones, and every stickman adds a part to the song.">
+<meta name="theme-color" content="#fbfaf6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap" rel="stylesheet">
+<style>
+/* Stickmen Jam: a black-and-white doodle band game. Every stickman plays one part of the same song, in time.
+   Mix two stickmen to discover new ones (113 in all), buy from a shop that changes every day,
+   collect coins and gems, wake the sleepers. Everything is drawn live with wobbly pencil lines. */
+:root { --ink: #111; --paper: #fbfaf6; --grey: #8a8a8a; }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--paper); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+body { font-family: "Gochi Hand", "Comic Sans MS", cursive; color: var(--ink); }
+canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.b { font: inherit; font-size: 19px; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 3px 12px; cursor: pointer; text-decoration: none; display: inline-block; box-shadow: 3px 4px 0 var(--ink); line-height: 1.2; position: relative; white-space: nowrap; }
+.b:active { transform: translate(2px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+.b.dark { background: var(--ink); color: #fff; }
+.b:disabled { opacity: .4; cursor: not-allowed; }
+.b .dotn { position: absolute; top: -7px; right: -7px; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); border: 2px solid #fff; }
+.hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 10px 0; pointer-events: none; z-index: 5; }
+.hud > * { pointer-events: auto; }
+.hud .mid { text-align: center; pointer-events: none; }
+.hud .mid h1 { font-size: clamp(26px, 5.4vw, 42px); font-weight: 400; line-height: 1; }
+.money { display: flex; gap: 14px; justify-content: center; font-size: 22px; margin-top: 2px; }
+.money span { display: inline-flex; align-items: center; gap: 5px; }
+.ico { display: inline-block; width: 20px; height: 20px; border: 2.5px solid var(--ink); border-radius: 50%; position: relative; background: #fff; }
+.ico.coin::after { content: "c"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; line-height: 1; }
+.ico.gem { border-radius: 3px; transform: rotate(45deg) scale(.85); background: var(--ink); }
+.bar { position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; z-index: 5; flex-wrap: nowrap; }
+.bar .b { font-size: 21px; padding: 4px 14px; }
+@media (max-width: 560px) { .bar { gap: 5px; } .bar .b { font-size: 16px; padding: 3px 8px; } .money { font-size: 19px; gap: 10px; } }
+.drawer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 3px solid var(--ink); z-index: 8; transform: translateY(105%); transition: transform .3s; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); }
+.drawer.open { transform: translateY(0); }
+.dh { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 26px; }
+.dh small { font-size: 17px; color: var(--grey); flex: 1; }
+.cards { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; }
+.card { flex: 0 0 132px; width: 132px; background: #fff; border: 3px solid var(--ink); border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px; padding: 6px 6px 8px; text-align: center; cursor: pointer; position: relative; }
+.card canvas { width: 116px; height: 118px; display: block; margin: 0 auto; }
+.card b { display: block; font-weight: 400; font-size: 18px; line-height: 1; }
+.card small { display: block; font-size: 14px; color: var(--grey); line-height: 1.1; }
+.card .st { margin-top: 4px; font-size: 16px; }
+.card.locked canvas { opacity: .25; }
+.card.sold { opacity: .45; }
+.badge { position: absolute; top: 4px; left: 4px; background: var(--ink); color: #fff; font-size: 13px; padding: 0 6px; border-radius: 8px; z-index: 1; }
+.badge.r { left: auto; right: 4px; background: #fff; color: var(--ink); border: 2px solid var(--ink); }
+.modal { position: fixed; inset: 0; background: rgba(17, 17, 17, .35); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 12; }
+.modal.hide { display: none; }
+.sheet { background: var(--paper); border: 3px solid var(--ink); border-radius: 255px 25px 225px 25px / 25px 225px 25px 255px; padding: 16px 18px; width: min(100%, 460px); max-height: calc(100dvh - 24px); overflow: auto; text-align: center; box-shadow: 5px 6px 0 var(--ink); }
+.sheet.wide { width: min(100%, 880px); border-radius: 25px; }
+.sheet h2 { font-size: 36px; font-weight: 400; line-height: 1; }
+.sheet .part { color: var(--grey); font-size: 18px; }
+.sheet canvas.big { width: 200px; height: 210px; display: block; margin: 2px auto; }
+.sheet p { font-size: 18px; line-height: 1.25; margin: 6px 0; }
+.tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.tabs .b { font-size: 17px; padding: 2px 10px; }
+.tabs .b.on { background: var(--ink); color: #fff; }
+.grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.toast { position: fixed; left: 50%; top: 96px; transform: translateX(-50%) translateY(-10px); opacity: 0; transition: .25s; background: #fff; border: 3px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 6px 16px; font-size: 20px; z-index: 40; pointer-events: none; text-align: center; max-width: 92vw; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.pot { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+.pot .pick { width: 130px; min-height: 150px; border: 3px dashed var(--ink); border-radius: 18px; display: grid; place-items: center; cursor: pointer; font-size: 18px; background: #fff; padding: 4px; }
+.pot .pick canvas { width: 110px; height: 112px; }
+.pot .plus { font-size: 40px; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 12px 0; }
+.days div { border: 3px solid var(--ink); border-radius: 12px; padding: 6px 2px; font-size: 15px; background: #fff; }
+.days div.got { background: var(--ink); color: #fff; }
+.days div.today { outline: 3px dashed var(--ink); outline-offset: 3px; }
+.days b { display: block; font-weight: 400; font-size: 20px; }
+.prog { height: 18px; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; background: #fff; margin: 8px auto; max-width: 300px; }
+.prog i { display: block; height: 100%; background: repeating-linear-gradient(45deg, var(--ink) 0 3px, transparent 3px 9px); width: 0; }
+/* loading screen */
+#load { position: fixed; inset: 0; z-index: 30; background: var(--paper) repeating-linear-gradient(transparent 0 33px, #dcdcd6 33px 35px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; cursor: pointer; transition: opacity .5s; }
+#load.gone { opacity: 0; pointer-events: none; }
+#load h1 { font-size: clamp(52px, 13vw, 104px); font-weight: 400; line-height: .9; transform: rotate(-3deg); }
+#load h1 span { display: block; font-size: .55em; }
+#loadCv { width: 170px; height: 170px; }
+.lbar { width: min(80vw, 360px); height: 26px; border: 3px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; overflow: hidden; background: #fff; }
+.lbar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(45deg, var(--ink) 0 3px, transparent 3px 9px); transition: width .25s; }
+#lmsg { font-size: 22px; min-height: 28px; }
+#ltap { font-size: 30px; opacity: 0; transition: opacity .4s; }
+#ltap.show { opacity: 1; animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { transform: scale(1.06); } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="hud">
+  <a class="b" href="index.html">← kai.fun</a>
+  <div class="mid"><h1>Stickmen Jam</h1><div class="money"><span><i class="ico coin"></i><b id="coins">0</b></span><span><i class="ico gem"></i><b id="gems">0</b></span></div></div>
+  <div><button class="b" id="menuB">menu</button></div>
+</div>
+<div class="bar">
+  <button class="b dark" id="bkB">backstage</button><button class="b" id="shopB">shop</button><button class="b" id="mixB">mix</button><button class="b" id="bookB">book</button><button class="b" id="dailyB">daily</button>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="dh">Backstage <small id="dhint">tap a stickman to put it on the island</small><button class="b" id="dClose">close</button></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="modal hide" id="info"><div class="sheet">
+  <h2 id="iName"></h2><div class="part" id="iPart"></div>
+  <canvas class="big" id="iCv" width="400" height="420"></canvas>
+  <p id="iBlurb"></p><p id="iEarn" style="color:var(--grey)"></p>
+  <div class="row" id="iBtns"></div>
+  <div class="row"><button class="b dark" id="iClose">done</button></div>
+</div></div>
+
+<div class="modal hide" id="shop"><div class="sheet wide">
+  <h2>Shop</h2><div class="tabs" id="shopTabs"></div><p id="shopNote" style="color:var(--grey)"></p>
+  <div class="grid" id="shopGrid"></div>
+  <div class="row"><button class="b dark" id="shopClose">close</button></div>
+</div></div>
+
+<div class="modal hide" id="mix"><div class="sheet">
+  <h2>Mixing Pot</h2>
+  <p>Pick two band members and mix them. Some pairs make a brand new stickman. Both parents stay in the band.</p>
+  <div id="mixBody"></div>
+  <div class="row"><button class="b dark" id="mixClose">close</button></div>
+</div></div>
+
+<div class="modal hide" id="pickM"><div class="sheet wide">
+  <h2 id="pickTitle">Pick a stickman</h2>
+  <div class="grid" id="pickGrid" style="margin-top:10px"></div>
+  <div class="row"><button class="b dark" id="pickClose">cancel</button></div>
+</div></div>
+
+<div class="modal hide" id="book"><div class="sheet wide">
+  <h2>The Book</h2><p id="bookNote"></p><div class="tabs" id="bookTabs"></div>
+  <div class="grid" id="bookGrid"></div>
+  <div class="row"><button class="b dark" id="bookClose">close</button></div>
+</div></div>
+
+<div class="modal hide" id="daily"><div class="sheet">
+  <h2>Daily Reward</h2><p id="dailyNote"></p><div class="days" id="days"></div>
+  <div class="row"><button class="b dark" id="claimB">claim</button><button class="b" id="dailyClose">close</button></div>
+</div></div>
+
+<div class="modal hide" id="menu"><div class="sheet">
+  <h2>Menu</h2>
+  <p>Every stickman plays one part of the same song. Put them on the island, and every time the song goes round they earn coins. Mix two band members in the pot to discover new stickmen. Rarer stickmen earn more.</p>
+  <p>This season: <b id="mSeason"></b>.</p>
+  <div class="row"><button class="b" id="muteB">sound on</button><button class="b" id="mSandbox">sandbox</button></div>
+  <div class="row"><button class="b" id="mClear">send everyone backstage</button><button class="b" id="mReset">start over</button></div>
+  <div class="row"><button class="b dark" id="mClose">close</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<div id="load">
+  <h1>Stickmen <span>Jam</span></h1>
+  <canvas id="loadCv" width="340" height="340"></canvas>
+  <div class="lbar"><i id="lbar"></i></div>
+  <div id="lmsg">sharpening pencils…</div>
+  <div id="ltap">tap to start the jam</div>
+</div>
+
+<script>
+// =================================================================== sketchy drawing
+let X = null, rng = Math.random, JIT = 1;
+function seedR(n) { let a = n >>> 0; rng = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const J = (k = 1) => (rng() * 2 - 1) * k;
+function sl(x1, y1, x2, y2) { X.beginPath(); X.moveTo(x1 + J(JIT * .5), y1 + J(JIT * .5)); X.quadraticCurveTo((x1 + x2) / 2 + J(JIT), (y1 + y2) / 2 + J(JIT), x2 + J(JIT * .5), y2 + J(JIT * .5)); X.stroke(); }
+function sel(cx, cy, rx, ry, rot = 0, fill) {
+  const n = Math.max(18, Math.min(72, Math.round(Math.max(rx, ry) / 7))), a0 = rng() * 6.283, over = .2 + rng() * .25;
+  X.beginPath();
+  for (let i = 0; i <= n; i++) { const a = a0 + i / n * (6.283 + over), jr = 1 + J(n > 30 ? .008 : .045); const px = Math.cos(a) * rx * jr, py = Math.sin(a) * ry * jr; const x = cx + px * Math.cos(rot) - py * Math.sin(rot), y = cy + px * Math.sin(rot) + py * Math.cos(rot); i ? X.lineTo(x, y) : X.moveTo(x, y); }
+  if (fill) { X.fillStyle = fill === true ? '#fff' : fill; X.fill(); }
+  X.stroke();
+}
+const sc = (cx, cy, r, fill) => sel(cx, cy, r, r, 0, fill);
+function spoly(pts, fill, close = true) { X.beginPath(); pts.forEach((p, i) => { const x = p[0] + J(JIT * .5), y = p[1] + J(JIT * .5); i ? X.lineTo(x, y) : X.moveTo(x, y); }); if (close) X.closePath(); if (fill) { X.fillStyle = fill === true ? '#fff' : fill; X.fill(); } X.stroke(); }
+const srect = (x, y, w, h, fill) => spoly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], fill);
+function dot(x, y, r = 1.7, c = '#111') { X.beginPath(); X.arc(x, y, r, 0, 7); X.fillStyle = c; X.fill(); }
+function arc(x, y, r, a1, a2) { X.beginPath(); X.arc(x + J(.3), y + J(.3), r, a1, a2); X.stroke(); }
+function txt(s, x, y, size, alpha = 1, color = '#111') { X.save(); X.globalAlpha *= alpha; X.font = `${size}px "Gochi Hand", cursive`; X.fillStyle = color; X.textAlign = 'center'; X.fillText(s, x, y); X.restore(); }
+function note(x, y, sz = 1) { X.save(); X.translate(x, y); X.scale(sz, sz); X.beginPath(); X.ellipse(0, 0, 3.2, 2.4, -.4, 0, 7); X.fillStyle = '#111'; X.fill(); sl(3, -1, 3, -13); sl(3, -13, 8, -9); X.restore(); }
+function star(x, y, r) { X.save(); X.lineWidth = 1.5; sl(x - r, y, x + r, y); sl(x, y - r, x, y + r); sl(x - r * .6, y - r * .6, x + r * .6, y + r * .6); sl(x - r * .6, y + r * .6, x + r * .6, y - r * .6); X.restore(); }
+const legs = (tap = 0) => { sl(0, -30, -10, 0); sl(0, -30, 10 + tap * 2, -tap * 4); };
+const spine = (top = -62, bot = -30) => sl(0, top, 0, bot);
+function arm(sx, sy, hx, hy, bend = 1) { const mx = (sx + hx) / 2 + (hy - sy) * .22 * bend, my = (sy + hy) / 2 - (hx - sx) * .22 * bend; sl(sx, sy, mx, my); sl(mx, my, hx, hy); }
+const head = (x, y, r) => sc(x, y, r, true);
+const eyes = (x, y, sp = 4.5, lx = 0, ly = 0) => { dot(x - sp + lx, y + ly); dot(x + sp + lx, y + ly); };
+const shut = (x, y, sp = 4.5) => { arc(x - sp, y + 1, 2.6, Math.PI * 1.1, Math.PI * 1.9); arc(x + sp, y + 1, 2.6, Math.PI * 1.1, Math.PI * 1.9); };
+const smile = (x, y, w = 5) => arc(x, y - w * .6, w, .25 * Math.PI, .75 * Math.PI);
+const ohMouth = (x, y, r) => sel(x, y, r * .8, r, 0, '#111');
+const basic = (A, hx = 0, hy = -78, r = 12) => { legs(); spine(); head(hx, hy, r); };
+
+// =================================================================== music
+const BPM = 96, SPS = 60 / BPM / 4, STEPS = 64;
+const CH = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]]; // C, Am, F, G
+const ROOT = [48, 45, 41, 43];
+const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+const MEL = [[0, 76, 2], [2, 79, 2], [4, 81, 1], [5, 79, 1], [6, 76, 2], [8, 72, 3], [11, 74, 1], [12, 76, 4],
+  [16, 76, 2], [18, 72, 2], [20, 74, 1], [21, 72, 1], [22, 69, 2], [24, 72, 4], [28, 69, 2], [30, 67, 2],
+  [32, 69, 2], [34, 72, 2], [36, 77, 2], [38, 76, 1], [39, 74, 1], [40, 72, 4], [44, 69, 2], [46, 72, 2],
+  [48, 74, 3], [51, 76, 1], [52, 74, 2], [54, 71, 2], [56, 67, 4], [60, 71, 2], [62, 74, 2]];
+const MELAT = {}; MEL.forEach(n => MELAT[n[0]] = n);
+const SCALE = [0, 2, 4, 5, 7, 9, 11];
+function diaDown(m, k) { const oct = Math.floor(m / 12), pc = m % 12; let d = SCALE.indexOf(pc); if (d < 0) return m - 3; let o = oct; d -= k; while (d < 0) { d += 7; o--; } return o * 12 + SCALE[d]; }
+
+let AC = null, master, dry, wet, noiseBuf, muted = false;
+function audio() {
+  if (AC) return AC;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 5; comp.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = muted ? 0 : .7; master.connect(comp);
+  dry = AC.createGain(); dry.connect(master);
+  wet = AC.createGain(); const dl = AC.createDelay(1); dl.delayTime.value = SPS * 3; const fb = AC.createGain(); fb.gain.value = .3; const wl = AC.createGain(); wl.gain.value = .32;
+  wet.connect(master); wet.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wl); wl.connect(master);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return AC;
+}
+const out = r => r >= 1 ? wet : dry;
+function envG(t, a, peak, dur, dest) { const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(.0002, peak), t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + dur); g.connect(dest); return g; }
+function osc(type, f, t, a, peak, dur, dest, o = {}) {
+  const g = envG(t, a, peak, dur, dest), os = AC.createOscillator(); os.type = type; os.frequency.setValueAtTime(o.from || f, t);
+  if (o.from) os.frequency.exponentialRampToValueAtTime(f, t + (o.glide || .05));
+  let node = os;
+  if (o.lp) { const fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.setValueAtTime(o.lp, t); if (o.lpTo) fl.frequency.exponentialRampToValueAtTime(o.lpTo, t + a + dur); fl.Q.value = o.q || .7; os.connect(fl); node = fl; }
+  if (o.vib) { const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = f * o.vib[1]; l.connect(lg).connect(os.frequency); l.start(t); l.stop(t + a + dur + .05); }
+  if (o.detune) os.detune.value = o.detune;
+  node.connect(g); os.start(t); os.stop(t + a + dur + .05);
+}
+function nz(t, dur, peak, dest, type, f, q = .8) { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = .8 + Math.random() * .4; const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = envG(t, .002, peak, dur, dest); s.connect(fl).connect(g); s.start(t, Math.random() * .5); s.stop(t + dur + .05); }
+function formant(t, m, dur, peak, dest, f1, f2, vib = .008, a = .03) {
+  const g = envG(t, a, peak, dur, dest), os = AC.createOscillator(); os.type = 'sawtooth'; os.frequency.value = mf(m);
+  const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 5.2; lg.gain.value = mf(m) * vib; l.connect(lg).connect(os.frequency);
+  [[f1, 7, 1], [f2, 9, .5]].forEach(([f, q, v]) => { const b = AC.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; const bg = AC.createGain(); bg.gain.value = v * 3; os.connect(b).connect(bg).connect(g); });
+  os.start(t); l.start(t); os.stop(t + a + dur + .1); l.stop(t + a + dur + .1);
+}
+const VOWEL = { a: [800, 1200], e: [420, 2000], i: [300, 2300], o: [460, 820], u: [330, 700] };
+// percussion sounds
+const PERC = {
+  kick: (t, r, o, e, g = 1) => osc('sine', 44, t, .003, .85 * g, .32, o, { from: 150, glide: .1 }),
+  clap: (t, r, o, e, g = 1) => { [0, .011, .022].forEach(d => nz(t + d, .05, .45 * g, o, 'bandpass', 1500, 1)); nz(t + .03, .16, .22 * g, o, 'bandpass', 1300, .8); },
+  hat: (t, r, o, e, g = 1) => nz(t, e && e.open ? .24 : .045, (e && e.open ? .2 : .25) * g, o, 'highpass', 7600),
+  shake: (t, r, o, e, g = 1) => nz(t, .05, (e && e.acc ? .12 : .05) * g, o, 'highpass', 5200),
+  bb: (t, r, o, e, g = 1) => { const s = e ? e.s | 0 : 0; if (s === 0) { osc('sine', 55, t, .002, .42 * g, .09, o, { from: 110, glide: .05 }); nz(t, .05, .1 * g, o, 'lowpass', 400); } else if (s === 1) nz(t, .045, .38 * g, o, 'bandpass', 2600, 2); else nz(t, .07, .17 * g, o, 'highpass', 6000); },
+  jingle: (t, r, o, e, g = 1) => { const v = (e && e.acc ? 1 : .55) * g; nz(t, .14, .09 * v, o, 'bandpass', 8200, 3); [2637, 3136, 3951].forEach(f => osc('sine', f, t, .002, .022 * v, .18, o)); },
+};
+const PERCV = new Set(Object.keys(PERC));
+// pitched voices: [low, high] range and a synth
+const VOICES = {
+  epiano: [55, 79, (t, m, len, o, g) => { osc('triangle', mf(m), t, .005, .1 * g, len * SPS * 1.6, o); osc('sine', mf(m) * 2, t, .003, .022 * g, .3, o); }],
+  bass: [36, 52, (t, m, len, o, g) => { osc('sawtooth', mf(m), t, .006, .28 * g, len * SPS * .95, o, { lp: 700, lpTo: 220 }); osc('sine', mf(m), t, .006, .28 * g, len * SPS, o); }],
+  pluck: [64, 88, (t, m, len, o, g) => osc('triangle', mf(m), t, .003, .09 * g, .32, o, { lp: 3000, lpTo: 900 })],
+  pad: [48, 72, (t, m, len, o, g) => [-7, 7].forEach(dt => osc('sawtooth', mf(m), t, .35, .04 * g, Math.max(.3, len * SPS - .2), o, { lp: 750, detune: dt, vib: [4.5, .004] }))],
+  whistle: [67, 91, (t, m, len, o, g) => { osc('sine', mf(m), t, .03, .15 * g, len * SPS * .9, o, { vib: [5.5, .006], from: mf(m) * .97, glide: .04 }); nz(t, len * SPS * .8, .01 * g, o, 'bandpass', mf(m) * 2, 4); }],
+  tuba: [33, 55, (t, m, len, o, g) => osc('sawtooth', mf(m), t, .03, .24 * g, len * SPS * 1.2, o, { lp: 420, from: mf(m) * .94, glide: .05 })],
+  doo: [52, 72, (t, m, len, o, g) => formant(t, m, len * SPS * .85, .13 * g, o, 450, 1000)],
+  theremin: [55, 79, (t, m, len, o, g) => osc('sine', mf(m), t, .08, .13 * g, len * SPS * 1.05, o, { vib: [6, .018], from: mf(m + 2), glide: .12 })],
+  marimba: [60, 84, (t, m, len, o, g) => { osc('sine', mf(m), t, .002, .19 * g, .45, o); osc('sine', mf(m) * 4, t, .001, .045 * g, .07, o); }],
+  steel: [67, 88, (t, m, len, o, g) => [[1, .13, .6], [2, .05, .35], [3, .025, .2]].forEach(([mul, p, d]) => osc('sine', mf(m) * mul, t, .003, p * g, d, o))],
+  solfa: [60, 74, (t, m, len, o, g) => { const syl = ['o', 'o', 'e', 'e', 'i', 'a', 'a', 'o', 'o', 'a', 'a', 'i'][m % 12]; const cons = { 5: 'f', 7: 's', 11: 't' }[m % 12]; if (cons) nz(t, .05, .05 * g, o, 'highpass', cons === 'f' ? 3000 : 6000); formant(t + (cons ? .03 : 0), m, len * SPS * .85, .15 * g, o, ...VOWEL[syl]); }],
+  soprano: [64, 84, (t, m, len, o, g, e) => { const v = 'aoeiau'[(e && e.n || 0) % 6]; formant(t, m, len * SPS * .95, .14 * g, o, ...VOWEL[v], .014, .05); }],
+  baritone: [40, 57, (t, m, len, o, g) => { osc('sine', 90, t, .002, .08 * g, .04, o); formant(t + .01, m, len * SPS * .9, .2 * g, o, 400, 760, .006, .02); }],
+  musicbox: [76, 96, (t, m, len, o, g) => { osc('sine', mf(m), t, .001, .08 * g, .5, o); osc('sine', mf(m) * 3, t, .001, .02 * g, .12, o); }],
+  snore: [43, 60, (t, m, len, o, g) => formant(t, m, len * SPS * .9, .1 * g, o, 300, 620, .01, .4)],
+};
+function fold(m, v) { const [lo, hi] = VOICES[v]; while (m < lo) m += 12; while (m > hi) m -= 12; return m; }
+function percNote(e, bar) { const c = CH[bar]; return { kick: c[0], clap: c[1], hat: c[2], shake: c[2] + 12, bb: c[(e.s | 0) % 3], jingle: c[(e.i | 0) % 3] }[e.k] || c[0]; }
+function tonal(v, t, ms, len, r, o, g = 1, e) {
+  const syn = VOICES[v][2];
+  ms.forEach(m0 => { const m = fold(m0, v); syn(t, m, len, o, g, e); if (r === 2) syn(t, Math.min(m + 12, VOICES[v][1] + 12), len, o, g * .32, e); });
+}
+function playEv(c, e, t, r, step) {
+  if (e.k === 'led' || c.voice === 'none') return;
+  const o = out(r), bar = step >> 4;
+  if (PERCV.has(e.k)) {
+    if (PERCV.has(c.voice)) PERC[e.k](t, r, o, e, 1);
+    else tonal(c.voice, t, [percNote(e, bar)], e.len || 2, r, o, .9, e);
+  } else {
+    const v = PERCV.has(c.voice) ? c.baseVoice : c.voice;
+    tonal(v, t, e.k === 'chord' ? e.ms : [e.m], e.len || 1, r, o, 1, e);
+  }
+  if (c.layer && PERC[c.layer]) PERC[c.layer](t, r, o, { s: e.s, open: 0, acc: 1 }, .45);
+}
+
+// =================================================================== accessories (custom epic + legendary looks)
+// each draws around the head [hx, hy, r]; layer: u = under the feet, b = behind the body, f = in front
+const ACC = {
+  tophat: ['f', ([x, y, r]) => { srect(x - 8, y - r - 18, 16, 15, '#111'); sl(x - 13, y - r - 3, x + 13, y - r - 3); }],
+  cowboy: ['f', ([x, y, r]) => { sel(x, y - r + 1, r + 9, 3.5, 0, true); spoly([[x - 8, y - r], [x - 6, y - r - 12], [x, y - r - 9], [x + 6, y - r - 12], [x + 8, y - r]], true); }],
+  shades: ['f', ([x, y, r]) => { srect(x - r * .8, y - 3, r * .7, 4.5, '#111'); srect(x + r * .1, y - 3, r * .7, 4.5, '#111'); sl(x - r * .1, y - 1, x + r * .1, y - 1); }],
+  headphones: ['f', ([x, y, r]) => { arc(x, y, r + 2.5, Math.PI * 1.05, Math.PI * 1.95); srect(x - r - 4, y - 3, 5, 9, '#111'); srect(x + r - 1, y - 3, 5, 9, '#111'); }],
+  propeller: ['f', ([x, y, r], A) => { arc(x, y - r + 4, r * .8, Math.PI, 0); sl(x, y - r - 4, x, y - r - 9); const a = A.now * 14; sl(x - Math.cos(a) * 10, y - r - 9, x + Math.cos(a) * 10, y - r - 9); }],
+  chef: ['f', ([x, y, r]) => { srect(x - 8, y - r - 6, 16, 6, true); sc(x - 6, y - r - 10, 5, true); sc(x + 6, y - r - 10, 5, true); sc(x, y - r - 13, 6, true); }],
+  wizard: ['f', ([x, y, r]) => { spoly([[x - 12, y - r + 2], [x + 12, y - r + 2], [x + 3, y - r - 26]], true); star(x - 1, y - r - 10, 2.5); }],
+  flowers: ['f', ([x, y, r]) => { for (let i = -2; i <= 2; i++) { const a = -Math.PI / 2 + i * .45, fx = x + Math.cos(a) * r, fy = y + Math.sin(a) * r; sc(fx, fy, 3, true); dot(fx, fy, 1.1); } }],
+  viking: ['f', ([x, y, r]) => { arc(x, y - 1, r + 1, Math.PI, 0); sl(x - r - 1, y - 1, x + r + 1, y - 1); spoly([[x - r, y - 6], [x - r - 8, y - r - 6], [x - r + 4, y - r + 2]], true); spoly([[x + r, y - 6], [x + r + 8, y - r - 6], [x + r - 4, y - r + 2]], true); }],
+  halo: ['f', ([x, y, r], A) => sel(x, y - r - 7 + Math.sin(A.now * 3) * 1.5, r * .8, 3, 0)],
+  bigcrown: ['f', ([x, y, r]) => { spoly([[x - 12, y - r + 1], [x - 13, y - r - 13], [x - 6, y - r - 6], [x, y - r - 17], [x + 6, y - r - 6], [x + 13, y - r - 13], [x + 12, y - r + 1]], '#111'); dot(x, y - r - 5, 1.6, '#fff'); }],
+  cape: ['b', ([x, y, r], A) => { const w = Math.sin(A.now * 3) * 3; spoly([[x - 6, y + r + 4], [x + 6, y + r + 4], [x + 17 + w, y + r + 50], [x - 17 + w, y + r + 50]], '#111'); }],
+  wings: ['b', ([x, y, r], A) => { const f = Math.sin(A.now * 6) * 5, by = y + r + 12; spoly([[x - 3, by], [x - 30, by - 14 - f], [x - 24, by + 4], [x - 30, by + 13 - f * .3], [x - 6, by + 10]], true); spoly([[x + 3, by], [x + 30, by - 14 - f], [x + 24, by + 4], [x + 30, by + 13 - f * .3], [x + 6, by + 10]], true); }],
+  jetpack: ['b', ([x, y, r], A) => { const by = y + r + 8; srect(x - 15, by, 10, 22, true); srect(x + 5, by, 10, 22, true); const fl = 7 + Math.sin(A.now * 30) * 3; spoly([[x - 13, by + 22], [x - 10, by + 22 + fl], [x - 7, by + 22]], '#111'); spoly([[x + 7, by + 22], [x + 10, by + 22 + fl], [x + 13, by + 22]], '#111'); }],
+  scarf: ['f', ([x, y, r], A) => { srect(x - 8, y + r + 1, 16, 4, '#111'); X.beginPath(); X.moveTo(x + 5, y + r + 4); X.quadraticCurveTo(x + 12, y + r + 12 + Math.sin(A.now * 4) * 2, x + 17, y + r + 20); X.stroke(); }],
+  monocle: ['f', ([x, y, r]) => { sc(x + 4.5, y - 1, 4.2); sl(x + 8, y + 2, x + 10, y + 13); }],
+  mustache: ['f', ([x, y, r]) => { X.save(); X.lineWidth *= 1.7; X.beginPath(); X.moveTo(x, y + 4); X.quadraticCurveTo(x - 6, y + 2, x - 9, y + 7); X.moveTo(x, y + 4); X.quadraticCurveTo(x + 6, y + 2, x + 9, y + 7); X.stroke(); X.restore(); }],
+  bow: ['f', ([x, y, r]) => { const bx = x + r * .6, by = y - r * .8; spoly([[bx, by], [bx - 7, by - 5], [bx - 7, by + 5]], '#111'); spoly([[bx, by], [bx + 7, by - 5], [bx + 7, by + 5]], '#111'); }],
+  antenna: ['f', ([x, y, r], A) => { sl(x - 4, y - r, x - 8, y - r - 12); sl(x + 4, y - r, x + 8, y - r - 12); sc(x - 8, y - r - 14, 2.5, '#111'); sc(x + 8, y - r - 14, 2.5, Math.sin(A.now * 8) > 0 ? '#111' : true); }],
+  horns: ['f', ([x, y, r]) => { spoly([[x - 7, y - r + 2], [x - 11, y - r - 9], [x - 3, y - r]], '#111'); spoly([[x + 7, y - r + 2], [x + 11, y - r - 9], [x + 3, y - r]], '#111'); }],
+  party: ['f', ([x, y, r]) => { spoly([[x - 8, y - r + 2], [x + 8, y - r + 2], [x + 1, y - r - 20]], true); sl(x - 5, y - r - 4, x + 5, y - r - 8); sl(x - 2, y - r - 12, x + 4, y - r - 14); sc(x + 1, y - r - 22, 3, '#111'); }],
+  beret: ['f', ([x, y, r]) => { sel(x + 2, y - r + 2, r * .95, 4.5, -.15, '#111'); sl(x + 2, y - r - 3, x + 3, y - r - 7); }],
+  headband: ['f', ([x, y, r]) => { sl(x - r, y - 5, x + r, y - 5); sl(x - r + 1, y - 2.5, x + r - 1, y - 2.5); sl(x + r, y - 4, x + r + 7, y + 2); sel(x - r - 3, y + 3, 1.6, 2.6, 0, true); }],
+  cloud: ['u', ([x, y, r], A) => { const b = Math.sin(A.now * 2) * 1.5; [[-14, 2, 9], [0, 4 + b, 11], [14, 2, 9]].forEach(([dx, dy, rr]) => sc(dx, dy, rr, true)); }],
+  firehair: ['f', ([x, y, r], A) => { const f = Math.sin(A.now * 18) * 2; spoly([[x - r, y - 4], [x - r + 2, y - r - 6 - f], [x - 4, y - r - 1], [x - 1, y - r - 14 + f], [x + 3, y - r - 2], [x + 7, y - r - 11 - f], [x + r, y - 4]], '#111', false); }],
+  ufo: ['f', ([x, y, r], A) => { const fy = y - r - 26 + Math.sin(A.now * 2.5) * 2; sel(x, fy, 16, 4, 0, true); sel(x, fy - 4, 7, 5, 0, true); X.save(); X.setLineDash([2, 4]); X.globalAlpha *= .5; sl(x - 6, fy + 4, x - 12, y - r + 2); sl(x + 6, fy + 4, x + 12, y - r + 2); X.restore(); }],
+  bubble: ['f', ([x, y, r]) => { X.save(); X.globalAlpha *= .55; sel(0, -48, 30, 60); X.restore(); arc(-14, -86, 8, Math.PI * 1.1, Math.PI * 1.5); }],
+  notesaura: ['f', ([x, y, r], A) => { for (let i = 0; i < 3; i++) { const a = A.now * 1.3 + i * 2.09; note(Math.cos(a) * 28, -50 + Math.sin(a) * 22, .8); } }],
+  lightning: ['f', ([x, y, r], A) => { if (Math.sin(A.now * 9) < -.2) return; spoly([[-26, -80], [-20, -66], [-28, -64], [-20, -48]], false, false); spoly([[26, -76], [20, -62], [28, -60], [21, -44]], false, false); }],
+  medal: ['f', ([x, y, r]) => { sl(-4, -60, 0, -50); sl(4, -60, 0, -50); sc(0, -46, 4.5, true); star(0, -46, 2.4); }],
+  space: ['f', ([x, y, r]) => { X.save(); X.globalAlpha *= .6; sc(x, y, r + 6); X.restore(); arc(x - 4, y - 4, r, Math.PI * 1.15, Math.PI * 1.45); }],
+  mohawk: ['f', ([x, y, r]) => { for (let i = -2; i <= 2; i++) spoly([[x + i * 3.6 - 2.5, y - r + 1], [x + i * 3.6, y - r - 10 + Math.abs(i) * 2], [x + i * 3.6 + 2.5, y - r + 1]], '#111'); }],
+  pirate: ['f', ([x, y, r]) => { spoly([[x - r - 4, y - r + 4], [x - 5, y - r - 10], [x + 5, y - r - 10], [x + r + 4, y - r + 4], [x, y - r]], '#111'); sl(x - r, y - 6, x + r, y + 2); sc(x + 4, y - 1, 3, '#111'); }],
+  gradcap: ['f', ([x, y, r], A) => { spoly([[x - 14, y - r - 4], [x, y - r - 10], [x + 14, y - r - 4], [x, y - r + 2]], '#111'); sl(x + 10, y - r - 4, x + 12, y - r + 6 + Math.sin(A.now * 3)); }],
+  ghostpal: ['f', ([x, y, r], A) => { const gx = x + 28, gy = y - 6 + Math.sin(A.now * 2.4) * 3; spoly([[gx - 7, gy], [gx - 7, gy + 12], [gx - 3, gy + 9], [gx, gy + 12], [gx + 3, gy + 9], [gx + 7, gy + 12], [gx + 7, gy]], true); sel(gx, gy, 7, 7, 0, true); dot(gx - 2.5, gy, 1.2); dot(gx + 2.5, gy, 1.2); }],
+  tiara: ['f', ([x, y, r]) => { spoly([[x - 8, y - r + 2], [x - 5, y - r - 4], [x - 2, y - r], [x, y - r - 7], [x + 2, y - r], [x + 5, y - r - 4], [x + 8, y - r + 2]], true, false); dot(x, y - r - 3.5, 1.4); }],
+  nightcap: ['f', ([x, y, r], A) => { spoly([[x - r, y - 4], [x + r, y - 4], [x + r + 10, y + 6 + Math.sin(A.now * 2) * 2]], true); sc(x + r + 11, y + 8, 3.5, true); }],
+  tie: ['f', ([x, y, r]) => spoly([[x - 2.5, y + r + 2], [x + 2.5, y + r + 2], [x + 4, y + r + 18], [x, y + r + 22], [x - 4, y + r + 18]], '#111')],
+  glasses: ['f', ([x, y, r]) => { sc(x - 4.5, y - 1, 3.6); sc(x + 4.5, y - 1, 3.6); sl(x - 1, y - 1, x + 1, y - 1); }],
+  earmuffs: ['f', ([x, y, r]) => { arc(x, y, r + 1, Math.PI * 1.1, Math.PI * 1.9); sc(x - r - 1, y, 4.5, '#111'); sc(x + r + 1, y, 4.5, '#111'); }],
+  bandana: ['f', ([x, y, r]) => { spoly([[x - r, y - 3], [x + r, y - 3], [x + r - 2, y - r * .7], [x - r + 2, y - r * .7]], '#111'); sl(x - r, y - 4, x - r - 8, y + 3); sl(x - r, y - 4, x - r - 6, y + 7); }],
+  spark: ['f', ([x, y, r], A) => { for (let i = 0; i < 4; i++) { const k = (A.now * .8 + i / 4) % 1; X.save(); X.globalAlpha *= 1 - k; star(x + Math.cos(i * 1.6) * (r + 12), y - k * 18 + Math.sin(i * 1.6) * 8, 3); X.restore(); } }],
+  panel: ['f', ([x, y, r], A) => { sl(x, y - r, x, y - r - 6); srect(x - 9, y - r - 16, 18, 10, A.h > .3 ? '#111' : true); }],
+  bigbow: ['f', ([x, y, r]) => { spoly([[x, y + r + 3], [x - 10, y + r - 3], [x - 10, y + r + 9]], '#111'); spoly([[x, y + r + 3], [x + 10, y + r - 3], [x + 10, y + r + 9]], '#111'); }],
+  rays: ['b', ([x, y, r], A) => { X.save(); X.globalAlpha *= .6; for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283 + A.now * .4; sl(x + Math.cos(a) * (r + 6), y + Math.sin(a) * (r + 6), x + Math.cos(a) * (r + 13), y + Math.sin(a) * (r + 13)); } X.restore(); }],
+};
+
+// =================================================================== the stickmen
+const seasonNow = (() => { const m = new Date().getMonth(); return m === 11 || m < 2 ? 'winter' : m < 5 ? 'spring' : m < 8 ? 'summer' : 'autumn'; })();
+let ENERGY = 0, FAM = { drum: 0, bass: 0, keys: 0, voice: 0, lead: 0 };
+const B = [];
+function base(o) { o.kind = o.kind || 'base'; o.head = o.head || [0, -78, 12]; B.push(o); return o; }
+// --- the band (these can be mixed)
+base({ id: 'thumbelly', name: 'Thumbelly', part: 'kick drum', fam: 'drum', voice: 'kick', price: 100, pre: 'Thump', suf: 'belly', how: 'by drumming on its belly', epic: 'headband', leg: 'firehair', trait: 'medal', head: [0, -80, 12],
+  blurb: 'His belly is a drum and he is very proud of it. Every beat comes straight from the gut.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4; return (ls === 0 || ls === 8 || (bar === 3 && ls === 14) || (r === 2 && ls === 10)) ? [{ k: 'kick' }] : []; },
+  draw(A) { const h = A.h, lift = (1 - h) * 14; legs(); spine(-66, -30); sel(0, -44, 17 * (1 + .1 * h), 16 * (1 - .08 * h), 0, true); for (let i = -2; i <= 2; i++) sl(i * 6, -58 + Math.abs(i) * 1.5, i * 6 + 3, -30 - Math.abs(i) * 1.5);
+    arm(-7, -62, -12, -50 - lift, -1); arm(7, -62, 12, -50 - lift, 1); sl(-12, -50 - lift, -3, -56 - lift * 1.4); sl(12, -50 - lift, 3, -56 - lift * 1.4); head(0, -80, 12); shut(0, -81); smile(0, -76, 4 + h * 2); } });
+base({ id: 'clapback', name: 'Clapback', part: 'claps', fam: 'drum', voice: 'clap', price: 100, pre: 'Clap', suf: 'back', how: 'with claps on top', epic: 'shades', leg: 'lightning', trait: 'headband',
+  blurb: 'Always has a quick reply. The reply is always a clap.',
+  notes(s, r) { const ls = s % 16; return (ls === 4 || ls === 12 || (r === 2 && ls === 15)) ? [{ k: 'clap' }] : []; },
+  draw(A) { const h = A.h, sp = (1 - h) * 20; legs(); spine(); arm(-6, -58, -2 - sp, -96 + sp * .2, -1); arm(6, -58, 2 + sp, -96 + sp * .2, 1);
+    if (h > .55) for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * .5; sl(Math.cos(a) * 10, -100 + Math.sin(a) * 10, Math.cos(a) * 17, -100 + Math.sin(a) * 17); }
+    head(0, -78, 12); eyes(0, -80); h > .4 ? ohMouth(0, -73, 3) : smile(0, -75, 4); } });
+base({ id: 'hihatter', name: 'Hi-Hatter', part: 'hi-hat', fam: 'drum', voice: 'hat', price: 120, pre: 'Hi', suf: 'hatter', how: 'ticking like a hi-hat', epic: 'monocle', leg: 'ufo', trait: 'bow', crownY: -118,
+  blurb: 'Says hi with his hat. Says hi a lot. Says hi about eight times a bar.',
+  notes(s, r) { const ls = s % 16; return (ls % 2 === 0 || (r === 2 && ls % 4 === 3)) ? [{ k: 'hat', open: ls === 14 ? 1 : 0, v: ls === 14 ? 1 : 0 }] : []; },
+  draw(A) { const h = A.h, open = A.v === 1 && A.since < .3 ? 5 : 0; legs(); spine(); arm(-6, -58, -14, -38, -1); sl(-14, -38, -8, -32); head(0, -78, 12); eyes(0, -79); smile(0, -75, 4);
+    sl(0, -90, 0, -106 - open); X.save(); X.translate(0, -94); X.rotate(h * .08); sel(0, 0, 18, 3.5, 0, true); X.restore(); sel(0, -98 - open, 17, 3.5, h * -.06, true); arm(6, -58, 18, -82 + h * 3, 1); sl(18, -82 + h * 3, 10, -98 - open + 4 * h); } });
+base({ id: 'jawnny', name: 'Jawnny Keys', part: 'piano', fam: 'keys', voice: 'epiano', price: 250, pre: 'Jaw', suf: 'keys', how: 'on a piano jaw', epic: 'tophat', leg: 'cape', trait: 'mustache', head: [-14, -82, 12],
+  blurb: 'Stretched his jaw out so far it turned into a keyboard. Now he plays it. With his hands. In front of his face.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4, hit = [[0, 3], [3, 2], [6, 2], [10, 2], [14, 2]].find(x => x[0] === ls); return hit ? [{ k: 'chord', ms: CH[bar], len: hit[1], v: bar }] : []; },
+  draw(A) { const h = A.h, bob = Math.sin(A.ph * Math.PI * 2) * 1.5, hx = -14, hy = -82 + bob; X.save(); X.translate(-14, 0); legs(); spine(); X.restore();
+    srect(hx + 6, hy + 8, 58, 9, true); for (let i = 1; i < 11; i++) sl(hx + 6 + i * 5.3, hy + 8, hx + 6 + i * 5.3, hy + 17);
+    const keys = [[2, 5, 8], [0, 3, 6], [5, 7, 9], [1, 4, 8]][(A.v | 0) % 4]; if (h > .25) keys.forEach(k => { X.fillStyle = '#111'; X.fillRect(hx + 6 + k * 5.3 + 1, hy + 9, 3.6, 7); });
+    for (let i = 0; i < 10; i++) if ([1, 2, 4, 5, 6, 8, 9].includes(i)) { X.fillStyle = '#111'; X.fillRect(hx + 6 + i * 5.3 + 3.4, hy + 8, 3, 4.5); }
+    head(hx, hy, 12); eyes(hx + 3, hy - 2, 4, 2, 2); sl(hx + 6, hy + 5, hx + 11, hy + 7); const press = h > .25 ? 3 : -3; arm(-9, -58, hx + 24, hy + 8 + press, 1); arm(-9, -56, hx + 44, hy + 8 + press, 1); } });
+base({ id: 'basil', name: 'Basil', part: 'double bass', fam: 'bass', voice: 'bass', price: 150, pre: 'Bass', suf: 'il', how: 'on a double bass', epic: 'beret', leg: 'wings', trait: 'flowers', head: [10, -80, 12],
+  blurb: 'Contra-Basil. Low notes only. Also grows herbs at the weekend.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4, n = [[0, 0, 3], [3, 0, 2], [6, 7, 2], [8, 0, 3], [11, 12, 2], [14, 7, 2]].find(x => x[0] === ls); return n ? [{ k: 'tone', m: ROOT[bar] + n[1], len: n[2], v: n[1] }] : []; },
+  draw(A) { const h = A.h; X.save(); X.translate(10, 0); legs(); spine(); head(0, -80, 12); eyes(-2, -81, 4, -1); smile(-1, -76, 3.5); X.restore();
+    sl(-18, -6, -18, -110); sel(-18, -26, 14, 14, 0, true); sel(-18, -52, 11, 12, 0, true); sl(-25, -52, -11, -52);
+    const w = Math.sin(A.now * 90) * 2.4 * h; X.beginPath(); X.moveTo(-20, -100); X.quadraticCurveTo(-20 + w, -55, -20, -16); X.moveTo(-16, -100); X.quadraticCurveTo(-16 - w, -55, -16, -16); X.stroke();
+    arm(15, -58, -8, -96, 1); arm(10, -58, -14 + (1 - h) * 4, -36, 1); } });
+base({ id: 'ribtickler', name: 'Rib Tickler', part: 'rib harp', fam: 'keys', voice: 'pluck', price: 300, pre: 'Rib', suf: 'tickler', how: 'plucked like a rib harp', epic: 'flowers', leg: 'notesaura', trait: 'glasses', head: [0, -80, 12],
+  blurb: 'Plucks his own ribs like a harp. It tickles. He has never stopped giggling.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4, idx = [0, 1, 2, 1, 0, 1, 2, 3, 0, 1, 2, 1, 2, 1, 0, 1][ls], tones = [...CH[bar], CH[bar][0] + 12].map(m => m + 12); return (ls % (r >= 1 ? 1 : 2) === 0) ? [{ k: 'tone', m: tones[idx], len: 1, v: idx }] : []; },
+  draw(A) { const h = A.h; legs(); sl(0, -66, 0, -62); sl(0, -34, 0, -30); sel(0, -48, 13, 17, 0, true);
+    for (let i = 0; i < 4; i++) { const y = -58 + i * 7, wv = (A.v === i ? h : 0) * 2.5 * Math.sin(A.now * 70 + i); X.beginPath(); X.moveTo(-10, y); X.quadraticCurveTo(0, y + wv, 10, y); X.stroke(); }
+    arm(-8, -60, -18, -76 - h * 4, -1); arm(8, -60, 8 - h * 3, -58 + (A.v | 0) * 7, 1); head(0, -80, 12); shut(0, -81); smile(0, -77, 5); if (A.h > .8 && (A.n % 6 === 0)) txt('hee', 20, -96, 12); } });
+base({ id: 'humdinger', name: 'Humdinger', part: 'humming', fam: 'voice', voice: 'pad', price: 350, pre: 'Hum', suf: 'dinger', how: 'by humming it', epic: 'scarf', leg: 'halo', trait: 'earmuffs', head: [0, -86, 18], crownY: -118,
+  blurb: 'Doesn\'t know the words to anything, so he hums. He hums beautifully. It is a real humdinger.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4; return ls === 0 ? [{ k: 'chord', ms: CH[bar].map(m => m - 12), len: 16, v: bar }] : []; },
+  draw(A) { const sway = Math.sin(A.bp * Math.PI * 2) * .07; legs(); X.save(); X.translate(0, -30); X.rotate(sway); X.translate(0, 30); spine(-68, -30); arm(-6, -58, 0, -44, -1); arm(6, -58, 0, -44, 1); head(0, -86, 18); shut(0, -88, 6); sc(0, -78, 2.6); X.restore();
+    for (let i = 0; i < 3; i++) { const k = (A.now * .5 + i / 3) % 1; X.save(); X.globalAlpha *= 1 - k; const x = 22 + k * 20, y = -96 - k * 30; X.beginPath(); X.moveTo(x - 6, y); X.quadraticCurveTo(x - 3, y - 4, x, y); X.quadraticCurveTo(x + 3, y + 4, x + 6, y); X.stroke(); X.restore(); } } });
+base({ id: 'whistleblower', name: 'Whistleblower', part: 'whistling the tune', fam: 'lead', voice: 'whistle', price: 450, pre: 'Whistle', suf: 'blower', how: 'by whistling it', epic: 'cowboy', leg: 'jetpack', trait: 'propeller', parts: 'notes',
+  blurb: 'Whistles the tune and tells everyone what everyone else is doing wrong. Mostly the tuba.',
+  notes(s, r) { const n = MELAT[s]; return n ? [{ k: 'tone', m: n[1], len: n[2], v: n[1] }] : []; },
+  draw(A) { legs(A.ph < .25 ? 1 : 0); spine(); arm(-6, -58, -4, -36, -1); arm(6, -58, 4, -36, 1); head(0, -78, 12); eyes(0, -81); sc(4, -73, 2.4 + A.h); } });
+base({ id: 'tubular', name: 'Tubular', part: 'tuba', fam: 'bass', voice: 'tuba', price: 500, pre: 'Tuba', suf: 'ular', how: 'through a tuba', epic: 'viking', leg: 'bigcrown', trait: 'beret', head: [0, -80, 12],
+  blurb: 'His whole body is coiled into a tuba. Every breath is an oom. Every other breath is a pah.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4; return ls % 4 === 0 ? [{ k: 'tone', m: ROOT[bar] + (ls % 8 === 4 ? -5 : 0), len: 2, v: ls % 8 === 4 ? 1 : 0 }] : []; },
+  draw(A) { const h = A.h; legs(); sc(0, -44, 15, true); sc(0, -44, 9); sc(0, -44, 4); X.beginPath(); X.moveTo(12, -54); X.quadraticCurveTo(26, -70, 20, -94); X.stroke(); X.beginPath(); X.moveTo(6, -58); X.quadraticCurveTo(16, -72, 10, -94); X.stroke(); sel(15, -96, 10, 3.5, 0, true);
+    if (h > .35) for (let i = -1; i <= 1; i++) sl(15 + i * 6, -102, 15 + i * 10, -112 - h * 4);
+    sl(-6, -72, 2, -60); arm(-8, -56, -14, -46, -1); arm(8, -56, 10, -48, 1); head(0, -80, 12 + h * 1.5); eyes(0, -82); sel(-6, -77, 3 + h * 2, 2.5 + h, 0, true); sel(6, -77, 3 + h * 2, 2.5 + h, 0, true); } });
+base({ id: 'altogether', name: 'Alto Gether', part: 'choir harmony', fam: 'voice', voice: 'doo', price: 600, pre: 'Alto', suf: 'gether', how: 'sung "doo"', epic: 'bigbow', leg: 'tiara', trait: 'tie',
+  blurb: 'Sings the harmony. Sings it alto. Sings it all together, all by herself.',
+  notes(s, r) { const n = MELAT[s]; return n && n[2] >= 2 ? [{ k: 'tone', m: diaDown(n[1], 2) - 12, len: n[2], v: 1 }] : []; },
+  draw(A) { const h = A.h; spoly([[0, -64], [-20, 0], [20, 0]], true); sl(-10, -32, 10, -32); srect(-12, -54, 24, 12, true); sl(0, -54, 0, -42); arm(-4, -58, -12, -48, -1); arm(4, -58, 12, -48, 1);
+    head(0, -78, 12); eyes(0, -81); sel(0, -73, 2.4, 1 + h * 3.2, 0, '#111'); if (h > .6) txt('doo', 0, -98, 13); } });
+base({ id: 'outofthebox', name: 'Out-of-the-Box', part: 'beatbox', fam: 'drum', voice: 'bb', price: 700, pre: 'Box', suf: 'boxer', how: 'with a beatbox', epic: 'headphones', leg: 'space', trait: 'bandana',
+  blurb: 'Lives in a cardboard box. Makes drum sounds with his mouth. Thinks outside the box, from inside the box.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4; if (ls === 0 || ls === 10) return [{ k: 'bb', s: 0, v: 0 }]; if (ls === 4 || ls === 12 || (bar === 3 && ls === 15)) return [{ k: 'bb', s: 1, v: 1 }]; if (ls === 2 || ls === 7 || ls === 14 || (r === 2 && ls === 9)) return [{ k: 'bb', s: 2, v: 2 }]; return []; },
+  draw(A) { const h = A.h; spine(-62, -30); arm(-6, -58, 4, -72, -1); arm(6, -58, 12, -44, 1); head(0, -78, 12); eyes(-1, -81); sel(5, -73, 2 + h, 2 + h * 1.5, 0, '#111');
+    if (h > .3) for (let i = 1; i <= (A.v === 0 ? 3 : 2); i++) arc(10, -73, 4 + i * 4, -.6, .6);
+    srect(-22, -36, 44, 36, true); sl(-14, -18, -4, -18); sl(4, -10, 14, -10); const fl = h * .5; spoly([[-22, -36], [-34, -44 - fl * 14], [-14, -40]], true, false); spoly([[22, -36], [34, -44 - fl * 14], [14, -40]], true, false); } });
+base({ id: 'shakespear', name: 'Shakespear', part: 'shaker', fam: 'drum', voice: 'shake', price: 750, pre: 'Shakes', suf: 'peare', how: 'with a shaker', epic: 'gradcap', leg: 'ghostpal', trait: 'monocle', head: [0, -80, 12],
+  blurb: 'To shake, or not to shake? He always shakes.',
+  notes(s, r) { const ls = s % 16; return [{ k: 'shake', acc: ls % 4 === 2 ? 1 : 0, v: ls }]; },
+  draw(A) { const sh = Math.sin(A.now * 38) * 3; legs(); spine(); spoly(Array.from({ length: 14 }, (_, i) => { const a = i / 14 * 6.283, rr = i % 2 ? 9 : 13; return [Math.cos(a) * rr, -64 + Math.sin(a) * rr * .4]; }), true);
+    arm(-6, -58, -18 + sh, -66, -1); arm(6, -58, 18 - sh, -70, 1); sc(-20 + sh, -72, 5, true); sl(-18 + sh, -67, -18 + sh, -62); sc(20 - sh, -76, 5, true); sl(18 - sh, -71, 18 - sh, -66);
+    head(0, -80, 12); eyes(0, -82); smile(0, -77, 3.5); spoly([[-4, -71], [0, -64], [4, -71]], '#111'); } });
+// --- the two that really sing
+base({ id: 'sopranoodle', name: 'Sopranoodle', part: 'lead singer', fam: 'lead', voice: 'soprano', price: 900, pre: 'Sopra', suf: 'noodle', how: 'sung opera-style', epic: 'tiara', leg: 'rays', trait: 'bigbow', parts: 'notes', head: [0, -79, 12],
+  blurb: 'Her hair is noodles and her voice is a soprano. She sings the tune like the whole island is an opera house.',
+  notes(s, r) { const n = MELAT[s]; return n ? [{ k: 'tone', m: n[1] - (n[1] > 79 ? 12 : 0), len: n[2], v: n[1], n: s }] : []; },
+  draw(A) { const h = A.h; legs(); spoly([[0, -64], [-14, -24], [14, -24]], true); arm(-5, -58, -2, -48, -1); arm(5, -58, 22, -78 - h * 6, 1);
+    for (let i = -3; i <= 3; i++) { X.beginPath(); X.moveTo(i * 3.4, -90); X.bezierCurveTo(i * 5 - 8, -80, i * 5 + 8, -72, i * 5.5 + Math.sin(A.now * 3 + i) * 2, -62); X.stroke(); }
+    head(0, -79, 12); shut(0, -81); sel(0, -73, 3 + h * 1.5, 2 + h * 4, 0, '#111'); } });
+base({ id: 'barrytone', name: 'Barry Tone', part: 'bass singer', fam: 'voice', voice: 'baritone', price: 900, pre: 'Barry', suf: 'tone', how: 'sung in a deep voice', epic: 'mustache', leg: 'cape', trait: 'tophat', head: [0, -80, 12],
+  blurb: 'Barry sings so low the island hums. He only knows one word, "bom", and he sings it with feeling.',
+  notes(s, r) { const ls = s % 16, bar = s >> 4; return [0, 6, 8, 14].includes(ls) ? [{ k: 'tone', m: ROOT[bar] + (ls === 6 || ls === 14 ? 7 : 0), len: ls % 8 === 0 ? 4 : 2, v: ls }] : []; },
+  draw(A) { const h = A.h; legs(); sel(0, -46, 16, 18, 0, true); arm(-14, -56, -26 - h * 4, -64 - h * 8, -1); arm(14, -56, 26 + h * 4, -64 - h * 8, 1);
+    head(0, -80, 12); eyes(0, -83); spoly([[-8, -76], [0, -64], [8, -76]], '#111'); sel(0, -75, 3, 1 + h * 3, 0, true); if (h > .5) txt('bom', -24, -98, 13); } });
+// --- the LED ones: they just hold up panels
+base({ id: 'panelshow', name: 'Panel Show', part: 'light panel (no sound)', fam: 'led', voice: 'none', price: 400, pre: 'Panel', suf: 'show', how: 'with a light panel on its head', epic: 'antenna', leg: 'spark', trait: 'panel', crownY: -128,
+  blurb: 'Holds up a panel that bounces along to everyone else. Has never played a note. Has the best seat in the house.',
+  notes(s) { return s % 4 === 0 ? [{ k: 'led' }] : []; },
+  draw(A) { legs(); spine(); arm(-6, -58, -14, -96, -1); arm(6, -58, 14, -96, 1); srect(-24, -122, 48, 26, '#111');
+    const lv = [FAM.drum, FAM.bass, FAM.keys, FAM.voice, FAM.lead]; for (let i = 0; i < 5; i++) { const hh = 3 + Math.min(1, lv[i]) * 18; X.fillStyle = '#fff'; X.fillRect(-20 + i * 8.4, -99 - hh, 6, hh); }
+    head(0, -78, 12); eyes(0, -82, 4, 0, -2); smile(0, -75, 4); } });
+base({ id: 'scrollmate', name: 'Scrollmate', part: 'scrolling sign (no sound)', fam: 'led', voice: 'none', price: 450, pre: 'Scroll', suf: 'mate', how: 'with a scrolling sign', epic: 'glasses', leg: 'jetpack', trait: 'antenna', head: [0, -80, 12],
+  blurb: 'Carries a sign with a message that scrolls forever. The message is "STICKMEN JAM". It has always been "STICKMEN JAM".',
+  notes(s) { return s % 4 === 0 ? [{ k: 'led' }] : []; },
+  draw(A) { legs(); spine(); srect(-30, -66, 60, 18, '#111'); X.save(); X.beginPath(); X.rect(-28, -64, 56, 14); X.clip(); txt('STICKMEN JAM  ♪  STICKMEN JAM  ♪', 40 - (A.now * 22) % 150, -53, 13, 1, '#fff'); X.restore(); arm(-6, -58, -24, -56, -1); arm(6, -58, 24, -56, 1); head(0, -80, 12); eyes(0, -83, 4, 0, 2); smile(0, -77, 4); } });
+base({ id: 'blinkybill', name: 'Blinky Bill', part: 'flashing lights (no sound)', fam: 'led', voice: 'none', price: 380, pre: 'Blinky', suf: 'bill', how: 'with flashing lights', epic: 'propeller', leg: 'lightning', trait: 'spark', head: [0, -80, 12],
+  blurb: 'His panel of lights flashes on every beat. He blinks on every beat too. Coincidence? Yes.',
+  notes(s) { return s % 4 === 0 ? [{ k: 'led', v: (s / 4) | 0 }] : []; },
+  draw(A) { const h = A.h; legs(); spine(); srect(-22, -64, 44, 26, true); for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) { const on = ((i + j + (A.v | 0)) % 2 === 0) && h > .2; sc(-15 + i * 10, -57 + j * 12, 3.6, on ? '#111' : true); }
+    arm(-6, -58, -20, -56, -1); arm(6, -58, 20, -56, 1); head(0, -80, 12); h > .5 ? shut(0, -82) : eyes(0, -82); smile(0, -76, 4); } });
+base({ id: 'signlanguage', name: 'Sign Language', part: 'word sign (no sound)', fam: 'led', voice: 'none', price: 420, pre: 'Sign', suf: 'language', how: 'holding up a sign', epic: 'party', leg: 'ufo', trait: 'shades',
+  blurb: 'Holds up a new word every bar. He thinks he is the singer. Nobody has told him.',
+  notes(s) { return s % 16 === 0 ? [{ k: 'led', v: s >> 4 }] : []; },
+  draw(A) { legs(); spine(); arm(-6, -58, 16, -70, -1); arm(6, -58, 20, -72, 1); sl(18, -60, 18, -98); srect(-2, -122, 40, 26, true); txt(['WOW', 'YES', 'JAM', 'MORE'][(A.v | 0) % 4], 18, -103, 15); head(0, -78, 12); eyes(1, -80, 4, 2); smile(1, -75, 4); } });
+// --- the Do-Re-Mi family: each sings one note, together they run up (and down) the scale
+const SOLF = [['dough', 'Dough', 60], ['ray', 'Ray', 62], ['me', 'Me', 64], ['fah', 'Fah', 65], ['so', 'So?', 67], ['lala', 'Lalalalala', 69], ['tea', 'Tea', 71], ['doughplus', 'Dough (but better)', 72]];
+const SOLFBLURB = {
+  dough: 'Made of bread dough. Sings "do". Rises a little every time.',
+  ray: 'A ray of sunshine. Sings "re". Very bright, especially in the morning.',
+  me: 'Sings "mi". Points at himself while doing it. It is always about him.',
+  fah: 'Sings "fa". Lives so far away he looks tiny. Waves a lot.',
+  so: 'Sings "so". Shrugs. "So?" is his answer to everything.',
+  lala: 'Sings "la". And "la". And "la". Has her fingers in her ears so she can\'t hear anyone ask her to stop.',
+  tea: 'His head is a cup of tea. Sings "ti". Spills a little on the high notes.',
+  doughplus: 'Like Dough, but better. Sings the high "do". Only joins once the whole family is here.',
+};
+const SOLFHEAD = [[0, -72, 12], [0, -78, 12], [0, -78, 12], [0, -47, 7], [0, -78, 12], [0, -78, 12], [0, -80, 13], [0, -73, 12]];
+SOLF.forEach(([id, name, m], i) => base({ id, name, part: `sings "${['do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'do'][i]}"`, fam: 'voice', voice: 'solfa', kind: 'solfa', price: id === 'doughplus' ? 0 : 200 + i * 60, gems: id === 'doughplus' ? 25 : 0, head: SOLFHEAD[i],
+  epic: ['chef', 'shades', 'bigbow', 'cowboy', 'beret', 'headphones', 'monocle', 'tophat'][i], leg: ['bigcrown', 'rays', 'cape', 'cloud', 'wings', 'wizard', 'halo', 'firehair'][i], blurb: SOLFBLURB[id],
+  notes(s, r) { const ls = s % 16, bar = s >> 4, up = bar % 2 === 0, at = up ? i * 2 : (7 - i) * 2; return ls === at || (r === 2 && ls === (at + 1) % 16) ? [{ k: 'tone', m, len: 2, v: i }] : []; },
+  draw: SOLFDRAW(i) }));
+function SOLFDRAW(i) {
+  return [
+    A => { legs(); sel(0, -44, 13, 16, 0, true); sl(-5, -52, 4, -48); sl(-6, -42, 3, -38); arm(-10, -52, -18, -40); arm(10, -52, 18, -40); sel(0, -72, 12, 10 + A.h * 2, 0, true); eyes(0, -74); ohMouth(0, -68, 1.5 + A.h * 2.5); },
+    A => { basic(A); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, l = 6 + A.h * 6; sl(Math.cos(a) * 15, -78 + Math.sin(a) * 15, Math.cos(a) * (15 + l), -78 + Math.sin(a) * (15 + l)); } arm(-6, -58, -16, -40); arm(6, -58, 16, -40); eyes(0, -80); ohMouth(0, -73, 1.5 + A.h * 2.5); },
+    A => { basic(A); arm(-6, -58, -2, -54, -1); arm(6, -58, 2, -54, 1); sl(-2, -54, 0, -60); sl(2, -54, 0, -60); eyes(0, -80); sel(0, -73, 3, 1.5 + A.h * 2.5, 0, '#111'); if (A.h > .5) txt('me!', 22, -92, 13); },
+    A => { X.save(); X.scale(.6, .6); basic(A); arm(-6, -58, -12, -40); arm(6, -58, 18 + Math.sin(A.now * 6) * 4, -84); eyes(0, -80); ohMouth(0, -73, 1.5 + A.h * 2.5); X.restore(); sl(-20, 2, 20, 2); },
+    A => { basic(A); const sh = A.h * 4; arm(-6, -58, -20, -66 - sh, -1); arm(6, -58, 20, -66 - sh, 1); sl(-20, -66 - sh, -26, -70 - sh); sl(20, -66 - sh, 26, -70 - sh); eyes(0, -80); sl(-4, -73, 4, -74); if (A.h > .4) txt('so?', 0, -98, 15); },
+    A => { basic(A); arm(-6, -58, -13, -78, -1); arm(6, -58, 13, -78, 1); shut(0, -80); sel(0, -72, 4, 2 + A.h * 4, 0, '#111'); if (A.h > .3) txt('la', 22 + A.h * 4, -96, 13); },
+    A => { legs(); spine(-64, -30); arm(-6, -58, -16, -42); arm(6, -58, 16, -42); spoly([[-13, -88], [13, -88], [9, -68], [-9, -68]], true); arc(16, -80, 5, -1.6, 1.6); sel(0, -88, 13, 3, 0, true); for (let k = -1; k <= 1; k++) { X.beginPath(); X.moveTo(k * 6, -94); X.quadraticCurveTo(k * 6 + 4, -100 - A.h * 4, k * 6, -106 - A.h * 6); X.stroke(); } eyes(0, -80, 4); ohMouth(0, -74, 1.2 + A.h * 2); },
+    A => { legs(); sel(0, -44, 14, 17, 0, true); for (let k = 0; k < 3; k++) sl(-8, -54 + k * 8, 8, -50 + k * 8); arm(-10, -52, -22, -46); sl(-30, -36, -14, -58); arm(10, -52, 18, -40); sel(0, -73, 12, 11, 0, true); eyes(0, -75); smile(0, -71, 4); ohMouth(0, -68, 1 + A.h * 2.5); spoly([[-4, -64], [0, -60], [4, -64]], '#111'); },
+  ][i];
+}
+// --- seasonals
+base({ id: 'jinglestick', name: 'Jingle Stick', part: 'sleigh bells', fam: 'drum', voice: 'jingle', kind: 'season', season: 'winter', price: 800, epic: 'earmuffs', leg: 'cloud', crownY: -122,
+  blurb: 'Only comes out when it\'s cold. Wears every scarf he owns. Jingles all the way.',
+  notes(s) { const ls = s % 16; return ls % 2 === 0 ? [{ k: 'jingle', acc: ls % 4 === 0 ? 1 : 0, i: ls / 2 }] : []; },
+  draw(A) { const sh = A.h * 4; legs(); spine(); sl(-8, -64, 8, -64); X.beginPath(); X.moveTo(6, -64); X.quadraticCurveTo(14, -58 + Math.sin(A.now * 4) * 3, 20, -50); X.stroke(); arm(-6, -58, -16, -44, -1); arm(6, -58, 20, -70 - sh, 1); sl(20, -70 - sh, 30, -66 - sh);
+    for (let i = 0; i < 4; i++) sc(22 + i * 3, -72 - sh + i, 2.4, true); head(0, -78, 12); eyes(0, -79); smile(0, -75, 4); spoly([[-12, -86], [12, -86], [3, -110]], true); sc(3, -112, 4, true); } });
+base({ id: 'booritone', name: 'Boo-ritone', part: 'ghost theremin', fam: 'lead', voice: 'theremin', kind: 'season', season: 'autumn', price: 800, epic: 'pirate', leg: 'ghostpal', head: [0, -84, 14], crownY: -112,
+  blurb: 'A ghost with a deep voice. Plays the tune on a theremin without touching it. Very spooky. Very polite.',
+  notes(s) { const n = MELAT[s]; return n ? [{ k: 'tone', m: n[1] - 12, len: n[2], v: n[1] }] : []; },
+  draw(A) { const fl = Math.sin(A.now * 2.4) * 3, h = A.h; X.save(); X.translate(0, fl - 6); const pts = [[-14, -84]]; for (let i = 0; i <= 8; i++) pts.push([-16 - i * .6, -84 + i * 9]); for (let i = 0; i <= 8; i++) pts.push([-20 + i * 5, -10 + (i % 2 ? -5 : 2) + Math.sin(A.now * 3 + i) * 1.5]); for (let i = 8; i >= 0; i--) pts.push([20 - (8 - i) * .6 + 4, -84 + i * 9 - 4]);
+    spoly(pts, true); sel(0, -84, 16, 15, 0, true); sel(-5, -86, 2.6, 3.6, 0, '#111'); sel(5, -86, 2.6, 3.6, 0, '#111'); sel(0, -76, 2.5, 1.5 + h * 2.5, 0, '#111'); X.restore();
+    srect(24, -30, 14, 10, true); sl(34, -30, 34, -66); sc(28, -46 - (A.v % 5) * 2 + fl, 3); if (h > .5) txt('ooOOoo', -6, -110, 11, .6); } });
+base({ id: 'hoppyending', name: 'Hoppy Ending', part: 'marimba', fam: 'keys', voice: 'marimba', kind: 'season', season: 'spring', price: 800, epic: 'flowers', leg: 'wings', head: [0, -84, 12], crownY: -128,
+  blurb: 'A stickman in bunny ears who plays the marimba. Every song she plays ends happily. That\'s the rule.',
+  notes(s) { const ls = s % 16, bar = s >> 4; if (ls % 2) return []; const i = [0, 1, 2, 3, 2, 1, 0, 1][ls / 2]; return [{ k: 'tone', m: [...CH[bar], CH[bar][0] + 12][i] + 12, len: 2, v: i }]; },
+  draw(A) { const h = A.h, hop = Math.abs(Math.sin(A.ph * Math.PI)) * 3; X.save(); X.translate(0, -hop); legs(); spine(-66, -30); head(0, -84, 12); eyes(0, -85); smile(0, -80, 4); sel(-5, -106, 3.5, 11, -.15, true); sel(5, -106, 3.5, 11, .15, true); X.restore();
+    for (let i = 0; i < 4; i++) srect(-24 + i * 12, -40 - (A.v === i ? h * 1.5 : 0), 10, 6 + (3 - i) * 2, true); sl(-26, -28, -26, 0); sl(24, -28, 24, 0);
+    const tx = -19 + (A.v | 0) * 12; arm(-6, -62, tx - 6, -50 + (1 - h) * -8, -1); arm(6, -62, tx + 8, -50 + (1 - h) * -8, 1); sl(tx - 6, -50 + (1 - h) * -8, tx, -42); } });
+base({ id: 'panhandler', name: 'Pan Handler', part: 'steel pan', fam: 'lead', voice: 'steel', kind: 'season', season: 'summer', price: 800, epic: 'bandana', leg: 'rays', head: [0, -80, 12],
+  blurb: 'Only plays in summer. Handles the pan. Wears sunglasses indoors, outdoors and in bed.',
+  notes(s) { const ls = s % 16, bar = s >> 4, k = [2, 6, 10, 14].indexOf(ls); if (k < 0) return []; const c = CH[bar]; return [{ k: 'tone', m: [c[2], c[1], c[2], c[0] + 12][k] + 12, len: 2, v: k }]; },
+  draw(A) { const h = A.h; legs(); spine(); sel(0, -40, 22, 7, 0, true); sl(-22, -40, -18, -30); sl(22, -40, 18, -30); X.beginPath(); X.moveTo(-18, -30); X.quadraticCurveTo(0, -24, 18, -30); X.stroke(); sc(-7, -41, 3); sc(7, -40, 3);
+    const k = A.v | 0, tx = [-8, 6, -8, 8][k], lift = (1 - h) * 10; arm(-6, -58, tx - 2, -46 - lift, -1); arm(6, -58, tx + 4, -46 - (1 - h) * 6, 1); head(0, -80, 12); srect(-9, -84, 7, 4, '#111'); srect(2, -84, 7, 4, '#111'); sl(-2, -82, 2, -82); smile(0, -76, 4); } });
+// --- the sleepers: they arrive asleep, and wake up when the right stickmen are on the island
+base({ id: 'snorchestra', name: 'Snorchestra', part: 'a whole snoring choir', fam: 'voice', voice: 'snore', kind: 'sleeper', price: 1200, wake: { need: ['humdinger', 'tubular', 'barrytone'], cost: 600 }, epic: 'wizard', leg: 'bigcrown', head: [0, -80, 13],
+  blurb: 'Used to snore so loudly it sounded like an orchestra. Now it conducts one. Still a bit sleepy.',
+  notes(s) { const ls = s % 16, bar = s >> 4; return ls === 0 ? [{ k: 'chord', ms: CH[bar], len: 16, v: bar }] : []; },
+  draw(A) { basic(A, 0, -80, 13); const b = Math.sin(A.bp * Math.PI * 8); arm(-6, -58, -18, -70 + b * 4, -1); arm(6, -58, 18, -78 - b * 8, 1); sl(18, -78 - b * 8, 28, -92 - b * 10); for (let i = -2; i <= 2; i++) sl(i * 4, -92, i * 6, -100 - Math.abs(i)); eyes(0, -82); ohMouth(0, -74, 2 + A.h); } });
+base({ id: 'kiphop', name: 'Kip Hop', part: 'sleepy hip-hop beat', fam: 'drum', voice: 'bb', kind: 'sleeper', price: 1500, wake: { need: ['thumbelly', 'outofthebox', 'clapback'], cost: 500 }, epic: 'headphones', leg: 'mohawk',
+  blurb: 'Kip means a nap. Kip Hop raps about naps, in his pyjamas, to the laziest beat on the island.',
+  notes(s) { const ls = s % 16; if (ls === 0 || ls === 7 || ls === 10) return [{ k: 'bb', s: 0, v: 0 }]; if (ls === 4 || ls === 12) return [{ k: 'bb', s: 1, v: 1 }]; if (ls % 4 === 2) return [{ k: 'bb', s: 2, v: 2 }]; return []; },
+  draw(A) { const bob = A.h * 3; X.save(); X.translate(0, bob * .4); legs(); spine(); ACC.nightcap[1]([0, -78, 12], A); arm(-6, -58, -18, -46 - bob, -1); arm(6, -58, 18, -64 + bob, 1); head(0, -78, 12); shut(0, -80); smile(0, -75, 4); X.restore(); } });
+base({ id: 'lullabye', name: 'Lull-a-Bye', part: 'music box', fam: 'keys', voice: 'musicbox', kind: 'sleeper', price: 1800, wake: { need: ['ribtickler', 'whistleblower', 'sopranoodle'], cost: 700 }, epic: 'bubble', leg: 'halo',
+  blurb: 'Winds up a tiny music box and plays everyone to sleep. Then waves goodbye. Then plays it again.',
+  notes(s) { const ls = s % 16, bar = s >> 4; if (ls % 2) return []; const i = [0, 2, 1, 3, 2, 1, 0, 2][ls / 2]; return [{ k: 'tone', m: [...CH[bar], CH[bar][0] + 12][i] + 24, len: 2, v: ls }]; },
+  draw(A) { basic(A); srect(-12, -52, 24, 14, true); sl(12, -46, 18, -46); const a = A.now * 4; arm(-6, -58, -10, -50, -1); arm(6, -58, 18 + Math.cos(a) * 5, -46 + Math.sin(a) * 5, 1); shut(0, -80); smile(0, -75, 3); if (A.h > .5) note(-18, -94 - A.h * 6, .8); } });
+
+// --- mixing: 80 pairs of band members make new stickmen
+const BREED = B.filter(c => c.kind === 'base');
+const HY = [];
+(function () {
+  const pairs = []; for (let i = 0; i < BREED.length; i++) for (let j = i + 1; j < BREED.length; j++) { const a = BREED[i], b = BREED[j]; if (a.fam === 'led' && b.fam === 'led') continue; pairs.push([a, b]); }
+  seedR(20261106); for (let i = pairs.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pairs[i], pairs[j]] = [pairs[j], pairs[i]]; }
+  pairs.slice(0, 80).forEach(([a, b]) => {
+    if (a.fam === 'led') [a, b] = [b, a];
+    let nm = a.pre + b.suf.toLowerCase(); if (/[aeiou]$/i.test(a.pre) && /^[aeiou]/i.test(b.suf)) nm = a.pre + '-' + b.suf.toLowerCase();
+    const pitchedB = VOICES[b.voice];
+    HY.push({ id: 'hy_' + a.id + '_' + b.id, kind: 'hybrid', a, b, name: nm, part: `${a.part.replace(/ \(.*\)/, '')}, ${b.how}`, fam: a.fam, head: a.head, crownY: a.crownY, parts: a.parts,
+      voice: pitchedB ? b.voice : a.voice, baseVoice: VOICES[a.voice] ? a.voice : 'epiano', layer: !pitchedB && PERCV.has(b.voice) && b.voice !== a.voice ? b.voice : null,
+      notes: a.notes, draw: a.draw, epic: a.epic, leg: a.leg, trait: b.trait, epic2: b.epic, price: 1500,
+      blurb: `${a.name} and ${b.name} mixed together. It plays the ${a.part.replace(/ \(.*\)/, '')} part ${b.how}.` });
+  });
+})();
+const CHARS = [...B, ...HY];
+const BYID = {}; CHARS.forEach((c, i) => { BYID[c.id] = c; c.i = i; if (!c.baseVoice) c.baseVoice = VOICES[c.voice] ? c.voice : 'epiano'; });
+const RAR = ['normal', 'epic', 'legendary'];
+const earnOf = (c, r) => [3, 7, 15][r] * (c.kind === 'hybrid' ? 1.5 : 1) * (c.kind === 'sleeper' ? 4 : 1) | 0;
+
+// draw a stickman with its rarity look
+function drawChar(c, A, rar, asleep) {
+  X.save();
+  if (rar === 2) X.translate(0, -3 - Math.sin(A.now * 2.2) * 2.5);
+  X.lineWidth = rar === 2 ? 3.3 : rar === 1 ? 2.9 : 2.5;
+  const hd = c.head, accs = [];
+  if (rar >= 1) accs.push(c.epic);
+  if (rar === 2) accs.push(c.leg);
+  if (c.kind === 'hybrid') { accs.push(c.trait); if (rar === 2) accs.push(c.epic2); }
+  const layer = L => accs.forEach(k => { const a = ACC[k]; if (a && a[0] === L) a[1](hd, A); });
+  layer('u'); layer('b');
+  if (asleep) A = { ...A, h: 0 };
+  c.draw(A);
+  if (rar >= 1) { const [hx, hy, hr] = hd; X.save(); X.lineWidth = 1.2; X.globalAlpha *= .6; X.beginPath(); X.arc(hx, hy, hr - 1.5, 0, 7); X.clip(); for (let i = -3; i <= 3; i++) sl(hx + i * 5 - 6, hy + hr, hx + i * 5 + 6, hy + 2); X.restore(); }
+  if (c.kind === 'hybrid') { const [hx, hy, hr] = hd; X.save(); X.globalAlpha *= .5; X.beginPath(); X.arc(hx, hy, hr - 1.5, 0, 7); X.clip(); for (let i = 0; i < 5; i++) dot(hx - 6 + (i * 37 % 13), hy - 7 + (i * 23 % 9), 1.1); X.restore(); }
+  layer('f');
+  if (rar === 2) { const [hx, hy, hr] = hd; for (let i = 0; i < 3; i++) { const a = A.now * 1.6 + i * 2.09; star(hx + Math.cos(a) * (hr + 22), hy + 8 + Math.sin(a) * (hr + 10), 3); } }
+  if (asleep) { const [hx, hy, hr] = hd; for (let i = 0; i < 3; i++) { const k = (A.now * .4 + i / 3) % 1; txt(i % 2 ? 'z' : 'Z', hx + 14 + k * 16, hy - hr - k * 26, 12 + i * 3, 1 - k); } }
+  X.restore();
+}
+
+// =================================================================== state
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const NSLOT = 24;
+let S = store.get('sjam2', null);
+function fresh() {
+  const s = { coins: 300, gems: 5, inv: [], open: 10, disc: {}, pot: null, daily: { last: '', streak: 0 }, shopSold: {}, sandbox: false, uid: 1 };
+  [['thumbelly', 1], ['basil', 3], ['clapback', 6], ['hihatter', 8]].forEach(([id, slot]) => s.inv.push({ u: s.uid++, id, r: 0, slot }));
+  s.inv.forEach(x => s.disc[x.id] = 0);
+  return s;
+}
+if (!S || !S.inv) S = fresh();
+S.inv = S.inv.filter(x => BYID[x.id]);
+muted = store.get('sjam.muted', false);
+const save = () => store.set('sjam2', S);
+let solo = null;
+const ANIM = {};
+const anim = u => ANIM[u] || (ANIM[u] = { t: -99, v: 0, n: 0, parts: [] });
+const atSlot = i => S.inv.find(x => x.slot === i);
+const onIsland = id => S.inv.some(x => x.slot != null && x.id === id && !x.sleep);
+const owned = id => S.inv.some(x => x.id === id);
+const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1000) + 'k' : String(Math.floor(n));
+function canPay(coins = 0, gems = 0) { return S.sandbox || (S.coins >= coins && S.gems >= gems); }
+function pay(coins = 0, gems = 0) { if (S.sandbox) return true; if (!canPay(coins, gems)) return false; S.coins -= coins; S.gems -= gems; updMoney(); return true; }
+function discover(id, r) {
+  const was = S.disc[id]; if (was === undefined || r > was) S.disc[id] = r;
+  if (was === undefined && BYID[id].kind === 'hybrid' && !S.sandbox) { S.gems += 1; setTimeout(() => toast(`New stickman discovered: ${BYID[id].name}! +1 gem`), 1200); }
+}
+function give(id, r = 0) { const c = BYID[id]; const x = { u: S.uid++, id, r, slot: null }; if (c.kind === 'sleeper') x.sleep = true; S.inv.push(x); discover(id, r); save(); return x; }
+
+// =================================================================== scheduler
+const ERRS = []; function logErr(where, e) { if (ERRS.length < 50) ERRS.push(where + ': ' + (e && e.message || e)); }
+let step = 0, nextT = 0, loopStart = 0, running = false, EV = [], firstLoop = true;
+function schedule() {
+  if (nextT < AC.currentTime - .25) nextT = AC.currentTime + .05;
+  while (nextT < AC.currentTime + .14) {
+    if (step === 0) { loopStart = nextT; setTimeout(earn, Math.max(0, (nextT - AC.currentTime) * 1000)); }
+    for (const x of S.inv) {
+      if (x.slot == null || x.m || x.sleep) continue; if (solo && solo !== x.u) continue;
+      const c = BYID[x.id]; let evs; try { evs = c.notes(step, x.r); } catch (e) { evs = []; logErr(c.id + ' notes', e); }
+      for (const e of evs) { try { playEv(c, e, nextT, x.r, step); } catch (err) { logErr(c.id + ' sound', err); } EV.push({ u: x.u, t: nextT, v: e.v === undefined ? 0 : e.v }); }
+    }
+    nextT += SPS; step = (step + 1) % STEPS;
+  }
+}
+function earn() {
+  if (firstLoop) { firstLoop = false; return; }
+  let gain = 0; for (const x of S.inv) if (x.slot != null && !x.m && !x.sleep) gain += earnOf(BYID[x.id], x.r);
+  if (!gain) return; S.coins += gain; save(); updMoney(); floaters.push({ txt: '+' + gain + ' coins', t: now(), x: .5, y: .15 });
+}
+
+// =================================================================== layout + render
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1, isl = {}, paper = null, floaters = [], SLOTS = [];
+const now = () => AC ? AC.currentTime : performance.now() / 1000;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR;
+  const tall = W < H * .8;
+  if (tall) { const iw = Math.min(W * .98, 600), ih = Math.min(iw * 1.5, H * .66); isl = { cx: W / 2, cy: H * .53, iw, ih, s: Math.max(.5, Math.min(1.1, iw / 640)), tall, rows: 6, cols: 4 }; }
+  else { const iw = Math.min(W * .97, 1300, H * 1.8), ih = Math.min(iw * .5, H * .68); isl = { cx: W / 2, cy: Math.min(H * .55, H - ih * .62), iw, ih, s: Math.max(.55, Math.min(1.25, Math.min(iw / 1100, ih / 540))), tall, rows: 4, cols: 6 }; }
+  SLOTS = []; const { rows, cols, iw, ih, cx, cy } = isl;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const fy = (r - (rows - 1) / 2) / rows * .86, fx0 = ((c - (cols - 1) / 2) + (r % 2 ? .25 : -.25)) / cols * .92;
+    const squeeze = Math.sqrt(Math.max(.25, 1 - Math.pow(fy * 2.05, 2)));
+    SLOTS.push([cx + fx0 * iw * squeeze, cy + fy * ih + ih * .06]);
+  }
+  paper = document.createElement('canvas'); paper.width = W * DPR; paper.height = H * DPR; const p = paper.getContext('2d'); p.scale(DPR, DPR);
+  p.fillStyle = '#fbfaf6'; p.fillRect(0, 0, W, H); p.strokeStyle = '#e1e0da'; p.lineWidth = 1.5; for (let y = 40; y < H; y += 34) { p.beginPath(); p.moveTo(0, y); p.lineTo(W, y); p.stroke(); }
+  p.strokeStyle = '#cfcfc8'; p.beginPath(); p.moveTo(Math.min(70, W * .08), 0); p.lineTo(Math.min(70, W * .08), H); p.stroke();
+}
+const slotCost = i => Math.round(400 * Math.pow(i - 8, 1.45));
+let leaves = Array.from({ length: 14 }, () => ({ x: Math.random(), y: Math.random(), s: .6 + Math.random() * .8, r: Math.random() * 6, v: .02 + Math.random() * .03 }));
+function drawIsland(t, bf) {
+  const { cx, cy, iw, ih } = isl; seedR(11 + bf * 7); X.lineWidth = 3;
+  const deep = isl.tall ? .55 : .95;
+  const under = [[cx - iw / 2, cy]]; for (let i = 1; i < 10; i++) { const k = i / 10; under.push([cx - iw / 2 + k * iw, cy + Math.sin(k * Math.PI) * ih * deep * (1 + (i % 2) * .1)]); } under.push([cx + iw / 2, cy]);
+  spoly(under, '#fff', false);
+  X.save(); X.lineWidth = 1.2; X.globalAlpha = .5; for (let i = 1; i < 22; i++) { const k = i / 22, x = cx - iw / 2 + k * iw, d = Math.sin(k * Math.PI) * ih * deep * .95; sl(x, cy + ih * .3, x - 10, cy + d); } X.restore();
+  sel(cx, cy, iw / 2, ih / 2, 0, '#fff');
+  X.save(); X.lineWidth = 1.6; for (let i = 0; i < 30; i++) { const a = i / 30 * 6.283, rx = iw / 2 * (.55 + (i * 37 % 10) / 25), ry = ih / 2 * (.5 + (i * 53 % 10) / 25); const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry; sl(x, y, x - 3, y - 7); sl(x + 3, y, x + 4, y - 8); } X.restore();
+  const tree = (x, y, sz) => { X.save(); X.translate(x, y); X.scale(sz, sz); sl(0, 0, 0, -50); sl(0, -30, 10, -40); sc(0, -64, 20, true); sc(-12, -54, 13, true); sc(13, -56, 14, true); X.restore(); };
+  if (!isl.tall) { tree(cx - iw * .48, cy - ih * .02, isl.s); tree(cx + iw * .47, cy - ih * .06, isl.s * .85); }
+}
+function drawSeason(t, dt) {
+  X.save(); X.lineWidth = 1.6;
+  if (seasonNow === 'summer') { seedR(5); const x = W - 70, y = 150; sc(x, y, 22); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283 + t * .2; sl(x + Math.cos(a) * 28, y + Math.sin(a) * 28, x + Math.cos(a) * 38, y + Math.sin(a) * 38); } }
+  else leaves.forEach((l, i) => { l.y += l.v * dt * 8; l.x += Math.sin(t + i) * .0008; l.r += dt * 1.5; if (l.y > 1.05) { l.y = -.05; l.x = Math.random(); }
+    const x = l.x * W, y = l.y * H; seedR(i * 31 + Math.floor(t * 8)); X.save(); X.translate(x, y); X.rotate(l.r); X.scale(l.s, l.s);
+    if (seasonNow === 'winter') { for (let k = 0; k < 3; k++) { const a = k * 1.047; sl(-Math.cos(a) * 6, -Math.sin(a) * 6, Math.cos(a) * 6, Math.sin(a) * 6); } }
+    else if (seasonNow === 'spring') { sel(0, 0, 4, 2.5, 0, true); sel(0, 0, 2.5, 4, 0, true); }
+    else { X.beginPath(); X.moveTo(-7, 0); X.quadraticCurveTo(0, -6, 7, 0); X.quadraticCurveTo(0, 6, -7, 0); X.fillStyle = '#fff'; X.fill(); X.stroke(); sl(-7, 0, 7, 0); }
+    X.restore(); });
+  X.restore();
+}
+function animFor(x, t) {
+  const a = anim(x.u), since = t - a.t, ph = running ? ((t - loopStart) / (SPS * 4)) % 1 : (t * 1.6) % 1, bp = running ? ((t - loopStart) / (SPS * 16)) % 1 : 0;
+  return { h: since >= 0 ? Math.exp(-since * 9) : 0, since, v: a.v, n: a.n, ph, bp, now: t };
+}
+let last = performance.now();
+function frame() {
+  const pn = performance.now(), dt = Math.min(.05, (pn - last) / 1000); last = pn;
+  const t = now(), bf = Math.floor(pn / 125);
+  if (EV.length) { const keep = []; for (const e of EV) { if (e.t <= t) { const a = anim(e.u); a.t = e.t; a.v = e.v; a.n++; a.parts.push({ t: e.t, x: 8 + Math.random() * 8 }); if (a.parts.length > 8) a.parts.shift(); } else keep.push(e); } EV = keep; }
+  const fam = { drum: 0, bass: 0, keys: 0, voice: 0, lead: 0 }; let en = 0;
+  for (const x of S.inv) { if (x.slot == null || x.sleep || x.m) continue; const c = BYID[x.id]; if (c.fam === 'led') continue; const a = anim(x.u), k = t - a.t >= 0 ? Math.exp(-(t - a.t) * 6) : 0; fam[c.fam] = Math.max(fam[c.fam], k); en += k; }
+  FAM = fam; ENERGY = en;
+  X = ctx; X.setTransform(DPR, 0, 0, DPR, 0, 0); X.drawImage(paper, 0, 0, W, H); X.strokeStyle = '#111'; X.lineCap = 'round'; X.lineJoin = 'round';
+  drawSeason(t, dt); drawIsland(t, bf);
+  for (let i = 0; i < NSLOT; i++) {
+    const [x, y] = SLOTS[i], s = isl.s, it = atSlot(i);
+    X.save(); X.translate(x, y); X.scale(s, s); seedR(i * 101 + bf * 13);
+    if (!it) {
+      X.save(); X.lineWidth = 2; X.setLineDash([4, 6]); X.globalAlpha = .45; X.beginPath(); X.ellipse(0, -2, 22, 7, 0, 0, 7); X.stroke(); X.setLineDash([]);
+      if (i >= S.open) { X.globalAlpha = .55; srect(-7, -18, 14, 11, true); arc(0, -18, 5, Math.PI, 0); if (i === S.open && s >= .6) txt(fmt(slotCost(i)), 0, 14, 13); } else txt('+', 0, -8, 22, .5);
+      X.restore(); X.restore(); continue;
+    }
+    const c = BYID[it.id], A = animFor(it, t);
+    X.lineWidth = 2; X.save(); X.globalAlpha = .35; sel(0, 0, 22, 5, 0, '#d8d8d2'); X.restore();
+    const faded = it.m || (solo && solo !== it.u);
+    if (faded || it.sleep) X.globalAlpha = it.sleep ? .55 : .3;
+    drawChar(c, A, it.r, it.sleep);
+    if (c.parts === 'notes' && !it.sleep) { const a = anim(it.u); a.parts = a.parts.filter(p => t - p.t < 1.6); a.parts.forEach(p => { const k = (t - p.t) / 1.6; X.save(); X.globalAlpha *= (1 - k); note(p.x + k * 14, -86 - k * 40, .9); X.restore(); }); }
+    if (s >= .82) { X.globalAlpha = faded ? .5 : .8; txt(c.name + (it.r ? (it.r === 2 ? ' ♛' : ' ★') : ''), 0, 18, 13, X.globalAlpha); }
+    X.restore();
+  }
+  if (running) { const b = Math.floor(((t - loopStart) / (SPS * 16)) % 4); seedR(bf); X.lineWidth = 2; for (let i = 0; i < 4; i++) { const x = W / 2 - 27 + i * 18, y = W < 560 ? 96 : 88; i === b ? sc(x, y, 5, '#111') : sc(x, y, 4); } }
+  floaters = floaters.filter(f => t - f.t < 1.8); floaters.forEach(f => txt(f.txt, f.x * W, f.y * H + 40 - (t - f.t) * 26, 22, 1 - (t - f.t) / 1.8));
+  if (running) schedule();
+  requestAnimationFrame(frame);
+}
+
+// =================================================================== UI
+function toast(m) { const el = $('#toast'); el.textContent = m; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2600); }
+function updMoney() { $('#coins').textContent = S.sandbox ? '∞' : fmt(S.coins); $('#gems').textContent = S.sandbox ? '∞' : S.gems; dailyDot(); }
+function mini(c, rar, canvas, A, asleep) {
+  const g = canvas.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
+  const k = canvas.height / 160; X = g; g.setTransform(k, 0, 0, k, canvas.width / 2, canvas.height * .92); g.strokeStyle = '#111'; g.lineCap = 'round'; g.lineJoin = 'round';
+  seedR(c.i * 7 + 3); drawChar(c, A || { h: 0, since: 9, v: 0, n: 0, ph: 0, bp: 0, now: 1 }, rar, asleep); X = ctx;
+}
+function cardEl(c, rar, status, opts = {}) {
+  const d = document.createElement('div'); d.className = 'card' + (opts.locked ? ' locked' : '') + (opts.sold ? ' sold' : '');
+  d.innerHTML = `${opts.badge ? `<span class="badge">${opts.badge}</span>` : ''}${rar ? `<span class="badge r">${rar === 2 ? '♛ legend' : '★ epic'}</span>` : ''}<canvas width="232" height="236"></canvas><b>${opts.hide ? '???' : c.name}</b><small>${opts.hide ? (opts.hint || 'not found yet') : c.part}</small>${status ? `<div class="st">${status}</div>` : ''}`;
+  if (!opts.hide) mini(c, rar, d.querySelector('canvas'), null, opts.asleep); else { const g = d.querySelector('canvas').getContext('2d'); g.font = '120px "Gochi Hand"'; g.textAlign = 'center'; g.fillStyle = '#ccc'; g.fillText('?', 116, 170); }
+  return d;
+}
+const openM = id => $('#' + id).classList.remove('hide');
+const closeM = id => $('#' + id).classList.add('hide');
+['info', 'shop', 'mix', 'pickM', 'book', 'daily', 'menu'].forEach(id => $('#' + id).addEventListener('click', e => { if (e.target.id === id) { closeM(id); if (id === 'info') stopInfo(); if (id === 'mix') potOpen = false; } }));
+
+// ---------- backstage
+let pendingSlot = -1;
+function renderBackstage() {
+  const box = $('#cards'); box.innerHTML = '';
+  const list = S.inv.filter(x => x.slot == null);
+  if (!list.length) box.innerHTML = '<p style="font-size:20px;padding:20px">Nobody is backstage. Buy stickmen in the shop, or mix new ones in the pot.</p>';
+  list.forEach(x => { const c = BYID[x.id]; const el = cardEl(c, x.r, x.sleep ? 'asleep · tap to add' : 'tap to add', { asleep: x.sleep }); el.onclick = () => place(x); box.appendChild(el); });
+}
+function freeSlot() { for (let i = 0; i < S.open; i++) if (!atSlot(i)) return i; return -1; }
+function place(x) {
+  const slot = pendingSlot >= 0 && pendingSlot < S.open && !atSlot(pendingSlot) ? pendingSlot : freeSlot();
+  if (slot < 0) { toast('The island is full. Buy another spot (tap a padlock), or send someone backstage.'); return; }
+  x.slot = slot; pendingSlot = -1; save(); closeDrawer();
+  if (x.sleep) toast(`${BYID[x.id].name} is asleep. Tap them to see what wakes them up.`);
+}
+function openDrawer(slot = -1) { pendingSlot = slot; renderBackstage(); $('#drawer').classList.add('open'); $('.bar').style.display = 'none'; }
+function closeDrawer() { $('#drawer').classList.remove('open'); $('.bar').style.display = ''; pendingSlot = -1; }
+$('#bkB').onclick = () => openDrawer(); $('#dClose').onclick = closeDrawer;
+
+// ---------- info card
+let infoX = null, infoRaf = 0;
+function stopInfo() { infoX = null; cancelAnimationFrame(infoRaf); }
+function openInfo(x) {
+  infoX = x; const c = BYID[x.id];
+  $('#iName').textContent = c.name + (x.r ? (x.r === 2 ? ' ♛' : ' ★') : '');
+  $('#iPart').textContent = `${RAR[x.r]} · plays: ${c.part}`;
+  let blurb = c.blurb;
+  if (x.sleep) blurb += ` It's asleep. To wake it up, put ${c.wake.need.map(n => BYID[n].name).join(', ')} on the island, then pay ${c.wake.cost} coins.`;
+  $('#iBlurb').textContent = blurb;
+  $('#iEarn').textContent = x.sleep ? 'earns nothing while asleep' : `earns ${earnOf(c, x.r)} coins every time the song goes round`;
+  const bt = $('#iBtns'); bt.innerHTML = '';
+  const btn = (label, fn, cls = '') => { const b = document.createElement('button'); b.className = 'b ' + cls; b.textContent = label; b.onclick = fn; bt.appendChild(b); return b; };
+  if (x.sleep) btn(`wake up (${c.wake.cost} coins)`, () => {
+    const miss = c.wake.need.filter(n => !onIsland(n)); if (miss.length) { toast(`Still needs ${miss.map(n => BYID[n].name).join(' and ')} on the island.`); return; }
+    if (!pay(c.wake.cost)) { toast(`Waking up costs ${c.wake.cost} coins.`); return; }
+    x.sleep = false; if (!S.sandbox) S.gems += 5; save(); updMoney(); toast(`${c.name} is awake! +5 gems`); openInfo(x); }, 'dark');
+  if (x.slot != null) { btn(x.m ? 'unmute' : 'mute', () => { x.m = !x.m; save(); openInfo(x); }); btn(solo === x.u ? 'stop solo' : 'solo', () => { solo = solo === x.u ? null : x.u; openInfo(x); }); btn('send backstage', () => { if (solo === x.u) solo = null; x.slot = null; save(); closeM('info'); stopInfo(); }); }
+  else btn('put on the island', () => { closeM('info'); stopInfo(); place(x); });
+  if (x.r < 2) { const g = x.r === 0 ? 8 : 20; btn(`make ${RAR[x.r + 1]} (${g} gems)`, () => { if (!pay(0, g)) { toast(`You need ${g} gems. Get them from the daily reward and new discoveries.`); return; } x.r++; discover(x.id, x.r); save(); openInfo(x); toast(`${c.name} is now ${RAR[x.r]}!`); }); }
+  const sell = Math.round((c.price || 300) / 4 * [1, 3, 8][x.r]);
+  btn(`sell (${fmt(sell)} coins)`, () => { if (S.inv.length <= 1) { toast('You can\'t sell your last stickman.'); return; } if (solo === x.u) solo = null; S.inv = S.inv.filter(y => y !== x); if (!S.sandbox) S.coins += sell; save(); updMoney(); closeM('info'); stopInfo(); toast(`Sold ${c.name} for ${fmt(sell)} coins.`); });
+  openM('info');
+  cancelAnimationFrame(infoRaf);
+  const loop = () => { if (infoX !== x) return; mini(c, x.r, $('#iCv'), animFor(x, now()), x.sleep); infoRaf = requestAnimationFrame(loop); };
+  loop();
+}
+$('#iClose').onclick = () => { closeM('info'); stopInfo(); };
+
+// ---------- tapping the island
+let lockTap = { i: -1, t: 0 };
+cv.addEventListener('click', e => {
+  if (!running) return;
+  const x = e.clientX, y = e.clientY, s = isl.s; let best = -1, bd = 1e9;
+  for (let i = 0; i < NSLOT; i++) { const [sx, sy] = SLOTS[i]; if (x > sx - 32 * s && x < sx + 32 * s && y > sy - 110 * s && y < sy + 18 * s) { const d = Math.abs(x - sx) + Math.abs(y - (sy - 40 * s)) * .6; if (d < bd) { bd = d; best = i; } } }
+  if (best < 0) return;
+  const it = atSlot(best);
+  if (it) { openInfo(it); return; }
+  if (best >= S.open) {
+    const cost = slotCost(S.open);
+    if (lockTap.i === best && Date.now() - lockTap.t < 3000) { if (!pay(cost)) { toast(`Another spot costs ${fmt(cost)} coins.`); return; } S.open++; save(); toast('New spot on the island!'); lockTap.i = -1; return; }
+    lockTap = { i: best, t: Date.now() }; toast(`Tap again to buy another spot for ${fmt(cost)} coins.`); return;
+  }
+  openDrawer(best);
+});
+
+// ---------- shop
+const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+let shopTab = 'today';
+function todaysDeals() {
+  const k = dayKey(); seedR(+k.replace(/-/g, ''));
+  const pool = [...BREED, ...B.filter(c => c.kind === 'solfa' && c.id !== 'doughplus'), ...HY.filter(() => rng() < .1)];
+  const items = [];
+  for (let i = 0; i < 6; i++) {
+    const c = pool[Math.floor(rng() * pool.length)], roll = rng(), r = roll < .06 ? 2 : roll < .3 ? 1 : 0, base = c.price || 300;
+    items.push({ id: c.id, r, coins: r === 2 ? 0 : Math.round(base * (r === 1 ? 2.6 : .8)), gems: r === 2 ? 10 + Math.round(base / 150) : 0 });
+  }
+  return items;
+}
+const priceTxt = it => it.gems ? `${it.gems} gems` : `${fmt(it.coins)} coins`;
+function buy(id, r, coins, gems, onDone) {
+  if (!pay(coins, gems)) { toast(gems ? `You need ${gems} gems.` : `You need ${fmt(coins)} coins. Keep jamming!`); return false; }
+  give(id, r); save(); updMoney(); toast(`${BYID[id].name}${r ? ' (' + RAR[r] + ')' : ''} is backstage. Tap "backstage" to put them on the island.`); if (onDone) onDone(); return true;
+}
+function renderShop() {
+  const tabs = [['today', "today's deals"], ['band', 'the band'], ['scale', 'do-re-mi'], ['sleepers', 'sleepers'], ['season', 'seasonal']];
+  $('#shopTabs').innerHTML = ''; tabs.forEach(([k, l]) => { const b = document.createElement('button'); b.className = 'b' + (shopTab === k ? ' on' : ''); b.textContent = l; b.onclick = () => { shopTab = k; renderShop(); }; $('#shopTabs').appendChild(b); });
+  const g = $('#shopGrid'); g.innerHTML = ''; const note = $('#shopNote');
+  if (shopTab === 'today') {
+    const mid = new Date(); mid.setHours(24, 0, 0, 0); const left = mid - Date.now(); note.textContent = `New stock in ${Math.floor(left / 3600000)}h ${Math.floor(left % 3600000 / 60000)}m. Each deal can be bought once.`;
+    const sold = S.shopSold[dayKey()] || [];
+    todaysDeals().forEach((it, i) => { const c = BYID[it.id], isSold = sold.includes(i); const el = cardEl(c, it.r, isSold ? 'sold out' : priceTxt(it), { sold: isSold, badge: c.kind === 'hybrid' ? 'rare mix' : null });
+      el.onclick = () => { if (isSold) return; if (buy(it.id, it.r, it.coins, it.gems)) { (S.shopSold[dayKey()] = S.shopSold[dayKey()] || []).push(i); save(); renderShop(); } }; g.appendChild(el); });
+  } else if (shopTab === 'band') {
+    note.textContent = 'The regular band. Always in stock.';
+    BREED.forEach(c => { const el = cardEl(c, 0, `${fmt(c.price)} coins`); el.onclick = () => buy(c.id, 0, c.price, 0, renderShop); g.appendChild(el); });
+  } else if (shopTab === 'scale') {
+    note.textContent = 'The Do-Re-Mi family each sing one note. Together they sing the whole scale.';
+    B.filter(c => c.kind === 'solfa').forEach(c => { const need = c.id === 'doughplus' && !S.sandbox && !SOLF.slice(0, 7).every(([id]) => owned(id)); const el = cardEl(c, 0, need ? 'needs the other 7 first' : c.gems ? `${c.gems} gems` : `${fmt(c.price)} coins`, { locked: need });
+      el.onclick = () => { if (need) { toast('Dough (but better) only comes once you have the other seven.'); return; } buy(c.id, 0, c.price, c.gems, renderShop); }; g.appendChild(el); });
+  } else if (shopTab === 'sleepers') {
+    note.textContent = 'Sleepers arrive asleep. Put the right stickmen on the island to wake them up. Waking one gives 5 gems.';
+    B.filter(c => c.kind === 'sleeper').forEach(c => { const el = cardEl(c, 0, `${fmt(c.price)} coins`, { asleep: true }); el.onclick = () => buy(c.id, 0, c.price, 0, renderShop); g.appendChild(el); });
+  } else {
+    note.textContent = `It's ${seasonNow}. Seasonal stickmen can only be bought in their season.`;
+    B.filter(c => c.kind === 'season').forEach(c => { const inS = c.season === seasonNow || S.sandbox; const el = cardEl(c, 0, inS ? `${fmt(c.price)} coins` : `back in ${c.season}`, { locked: !inS, badge: c.season === seasonNow ? 'in season!' : c.season });
+      el.onclick = () => { if (!inS) { toast(`${c.name} only visits in ${c.season}.`); return; } buy(c.id, 0, c.price, 0, renderShop); }; g.appendChild(el); });
+  }
+}
+$('#shopB').onclick = () => { renderShop(); openM('shop'); }; $('#shopClose').onclick = () => closeM('shop');
+
+// ---------- mixing pot
+let potOpen = false, potPick = [null, null];
+const MIXABLE = c => c.kind === 'base';
+function mixResult(a, b) {
+  const ca = BYID[a.id], cb = BYID[b.id];
+  const hy = HY.find(h => (h.a === ca && h.b === cb) || (h.a === cb && h.b === ca));
+  const id = hy && Math.random() < .65 ? hy.id : (Math.random() < .5 ? a.id : b.id);
+  const bonus = (a.r + b.r) * .04, roll = Math.random(), r = roll < .02 + bonus * .5 ? 2 : roll < .12 + bonus ? 1 : 0;
+  return { id, r };
+}
+function blip() { if (!AC || muted) return; osc('sine', 600, AC.currentTime, .01, .1, .2, dry, { from: 300, glide: .15 }); }
+function renderPot() {
+  const body = $('#mixBody'); body.innerHTML = '';
+  if (S.pot) {
+    const left = Math.max(0, S.pot.end - Date.now()), done = left <= 0, tot = Math.max(1, S.pot.end - S.pot.start);
+    body.innerHTML = `<p style="font-size:22px">${done ? 'The mix is ready!' : 'Mixing…'}</p><div class="prog"><i style="width:${done ? 100 : (1 - left / tot) * 100}%"></i></div><p>${done ? '' : Math.ceil(left / 1000) + ' seconds left'}</p>`;
+    const row = document.createElement('div'); row.className = 'row';
+    if (done) { const b = document.createElement('button'); b.className = 'b dark'; b.id = 'openPot'; b.textContent = 'open the pot'; b.onclick = () => { const res = S.pot.res; S.pot = null; const isNew = S.disc[res.id] === undefined; give(res.id, res.r); save(); updMoney(); renderPot(); blip(); const c = BYID[res.id];
+        body.prepend(Object.assign(document.createElement('p'), { textContent: `${isNew ? 'NEW! ' : ''}You got ${c.name}${res.r ? ' (' + RAR[res.r] + ')' : ''}! They're backstage.`, style: 'font-size:22px' })); const card = cardEl(c, res.r, ''); card.style.margin = '6px auto'; body.prepend(card); }; row.appendChild(b); }
+    else { const g = Math.max(1, Math.ceil(left / 30000)); const b = document.createElement('button'); b.className = 'b'; b.textContent = `finish now (${g} gem${g > 1 ? 's' : ''})`; b.onclick = () => { if (!pay(0, g)) { toast(`You need ${g} gems.`); return; } S.pot.end = Date.now(); save(); renderPot(); }; row.appendChild(b); }
+    body.appendChild(row);
+    if (!done) setTimeout(() => { if (potOpen && S.pot) renderPot(); }, 500);
+    return;
+  }
+  const pot = document.createElement('div'); pot.className = 'pot';
+  [0, 1].forEach(k => { const p = document.createElement('div'); p.className = 'pick'; p.id = 'pick' + k; const x = potPick[k];
+    if (x) { const cv2 = document.createElement('canvas'); cv2.width = 220; cv2.height = 224; p.appendChild(cv2); mini(BYID[x.id], x.r, cv2); p.appendChild(Object.assign(document.createElement('div'), { textContent: BYID[x.id].name })); } else p.textContent = 'tap to pick';
+    p.onclick = () => openPick(k); pot.appendChild(p); if (k === 0) pot.appendChild(Object.assign(document.createElement('div'), { className: 'plus', textContent: '+' })); });
+  body.appendChild(pot);
+  if (potPick[0] && potPick[1]) {
+    const ca = BYID[potPick[0].id], cb = BYID[potPick[1].id], hy = HY.find(h => (h.a === ca && h.b === cb) || (h.a === cb && h.b === ca));
+    body.appendChild(Object.assign(document.createElement('p'), { textContent: hy ? (S.disc[hy.id] !== undefined ? `This pair can make ${hy.name}.` : 'This pair can make something new…') : 'This pair doesn\'t make anything new, but you\'ll get a copy of one of them (maybe a rarer one).' }));
+  }
+  const row = document.createElement('div'); row.className = 'row'; const b = document.createElement('button'); b.className = 'b dark'; b.id = 'mixGo'; b.textContent = 'mix! (30 seconds)'; b.disabled = !(potPick[0] && potPick[1]);
+  b.onclick = () => { const res = mixResult(potPick[0], potPick[1]); const dur = S.sandbox ? 1500 : 30000 + (potPick[0].r + potPick[1].r) * 15000; S.pot = { start: Date.now(), end: Date.now() + dur, res }; potPick = [null, null]; save(); renderPot(); blip(); };
+  row.appendChild(b); body.appendChild(row);
+}
+function openPick(k) {
+  $('#pickTitle').textContent = k ? 'Pick the second stickman' : 'Pick the first stickman';
+  const g = $('#pickGrid'); g.innerHTML = '';
+  const list = S.inv.filter(x => MIXABLE(BYID[x.id]) && x !== potPick[1 - k]);
+  if (!list.length) g.innerHTML = '<p>Only band members can be mixed (not mixes, the Do-Re-Mi family, seasonals or sleepers). Buy some in the shop!</p>';
+  list.forEach(x => { const el = cardEl(BYID[x.id], x.r, x.slot != null ? 'on the island' : 'backstage'); el.onclick = () => { potPick[k] = x; closeM('pickM'); renderPot(); }; g.appendChild(el); });
+  openM('pickM');
+}
+$('#pickClose').onclick = () => closeM('pickM');
+$('#mixB').onclick = () => { potOpen = true; renderPot(); openM('mix'); }; $('#mixClose').onclick = () => { potOpen = false; closeM('mix'); };
+
+// ---------- the book
+let bookTab = 'all';
+function renderBook() {
+  const tabs = [['all', 'everyone'], ['band', 'band'], ['mix', 'mixes'], ['special', 'do-re-mi, seasonal, sleepers']];
+  $('#bookTabs').innerHTML = ''; tabs.forEach(([k, l]) => { const b = document.createElement('button'); b.className = 'b' + (bookTab === k ? ' on' : ''); b.textContent = l; b.onclick = () => { bookTab = k; renderBook(); }; $('#bookTabs').appendChild(b); });
+  const found = CHARS.filter(c => S.disc[c.id] !== undefined || S.sandbox).length;
+  $('#bookNote').textContent = `You've found ${found} of ${CHARS.length} stickmen.`;
+  const g = $('#bookGrid'); g.innerHTML = '';
+  const list = CHARS.filter(c => bookTab === 'all' || (bookTab === 'band' && c.kind === 'base') || (bookTab === 'mix' && c.kind === 'hybrid') || (bookTab === 'special' && ['solfa', 'season', 'sleeper'].includes(c.kind)));
+  const frag = document.createDocumentFragment();
+  list.forEach(c => { const got = S.disc[c.id] !== undefined || S.sandbox; let hint = 'not found yet';
+    if (!got && c.kind === 'hybrid') hint = (S.disc[c.a.id] !== undefined && S.disc[c.b.id] !== undefined) ? `mix ${c.a.name} + ${c.b.name}` : 'a mix of two band members';
+    const el = cardEl(c, got ? (S.disc[c.id] || 0) : 0, got && c.kind === 'hybrid' ? `${c.a.name} + ${c.b.name}` : '', { hide: !got, hint });
+    if (got) el.onclick = () => previewInfo(c, S.disc[c.id] || 0); frag.appendChild(el); });
+  g.appendChild(frag);
+}
+function previewInfo(c, r) {
+  let previewR = r; const me = { u: -999 }; infoX = me;
+  $('#iName').textContent = c.name; $('#iPart').textContent = 'plays: ' + c.part; $('#iBlurb').textContent = c.blurb; $('#iEarn').textContent = 'tap a rarity to see its look';
+  const bt = $('#iBtns'); bt.innerHTML = ''; RAR.forEach((nm, k) => { const b = document.createElement('button'); b.className = 'b'; b.textContent = (k === 2 ? '♛ ' : k === 1 ? '★ ' : '') + nm; b.onclick = () => { previewR = k; }; bt.appendChild(b); });
+  openM('info'); cancelAnimationFrame(infoRaf);
+  const loop = () => { if (infoX !== me) return; const t = now(), ph = (t * 1.6) % 1; mini(c, previewR, $('#iCv'), { h: ph < .2 ? 1 - ph * 5 : 0, since: 0, v: Math.floor(t * 1.6) % 4, n: 0, ph, bp: (t * .4) % 1, now: t }); infoRaf = requestAnimationFrame(loop); };
+  loop();
+}
+$('#bookB').onclick = () => { renderBook(); openM('book'); }; $('#bookClose').onclick = () => closeM('book');
+
+// ---------- daily reward
+const DAILY = [[200, 1], [300, 1], [400, 2], [500, 1], [700, 2], [900, 2], [1500, 5]];
+const canClaim = () => S.daily.last !== dayKey();
+function dailyDot() { const b = $('#dailyB'); const has = b.querySelector('.dotn'); if (canClaim() && !has) b.insertAdjacentHTML('beforeend', '<span class="dotn"></span>'); else if (!canClaim() && has) has.remove(); }
+function nextStreak() { const y = new Date(); y.setDate(y.getDate() - 1); return S.daily.last === dayKey(y) ? S.daily.streak % 7 + 1 : 1; }
+function renderDaily() {
+  const can = canClaim(), st = can ? nextStreak() : S.daily.streak;
+  $('#dailyNote').textContent = can ? `Day ${st} of your streak. Come back every day for bigger rewards!` : 'You\'ve claimed today\'s reward. Come back tomorrow!';
+  $('#days').innerHTML = DAILY.map(([c, g], i) => `<div class="${i < st - (can ? 1 : 0) ? 'got' : ''} ${i === st - 1 && can ? 'today' : ''}"><b>${i + 1}</b>${c}c<br>${g} gem${g > 1 ? 's' : ''}</div>`).join('');
+  $('#claimB').disabled = !can;
+}
+$('#claimB').onclick = () => { if (!canClaim()) return; const st = nextStreak(), [c, g] = DAILY[st - 1]; S.coins += c; S.gems += g; S.daily = { last: dayKey(), streak: st }; save(); updMoney(); renderDaily(); toast(`+${c} coins and +${g} gem${g > 1 ? 's' : ''}!`); };
+$('#dailyB').onclick = () => { renderDaily(); openM('daily'); }; $('#dailyClose').onclick = () => closeM('daily');
+
+// ---------- menu
+const setMuteLabel = () => { $('#muteB').textContent = muted ? 'sound off' : 'sound on'; };
+$('#muteB').onclick = () => { muted = !muted; store.set('sjam.muted', muted); setMuteLabel(); if (master) master.gain.setTargetAtTime(muted ? 0 : .7, AC.currentTime, .05); };
+setMuteLabel();
+$('#menuB').onclick = () => { $('#mSeason').textContent = seasonNow + ' (' + B.find(c => c.season === seasonNow).name + ' is visiting)'; $('#mSandbox').textContent = S.sandbox ? 'sandbox: on' : 'sandbox: off'; openM('menu'); };
+$('#mClose').onclick = () => closeM('menu');
+$('#mSandbox').onclick = () => { S.sandbox = !S.sandbox; save(); updMoney(); closeM('menu'); toast(S.sandbox ? 'Sandbox on: everything is free and the book is open.' : 'Sandbox off.'); };
+$('#mClear').onclick = () => { S.inv.forEach(x => x.slot = null); solo = null; save(); closeM('menu'); toast('Everyone went backstage.'); };
+let resetTap = 0;
+$('#mReset').onclick = () => { if (Date.now() - resetTap > 3000) { resetTap = Date.now(); toast('Tap "start over" again to wipe everything.'); return; } S = fresh(); solo = null; save(); updMoney(); closeM('menu'); toast('Started over.'); };
+
+// test and screenshot hooks
+window.__jam = {
+  errs: () => ERRS, S: () => S, ids: CHARS.map(c => c.id), count: CHARS.length, hybrids: HY.length, state: () => ({ running, step, t: now() }),
+  place(id, slot, r = 0) { S.inv.filter(x => x.slot === slot).forEach(x => x.slot = null); const x = { u: S.uid++, id, r, slot }; S.inv.push(x); discover(id, r); return x.u; },
+  paint(canvas, id, r, scale, x, y, h) { const g = canvas.getContext('2d'); X = g; g.setTransform(scale, 0, 0, scale, x, y); g.strokeStyle = '#111'; g.lineCap = 'round'; g.lineJoin = 'round'; seedR(7); drawChar(BYID[id], { h, since: 0, v: 0, n: 0, ph: 0, bp: 0, now: now() }, r); X = ctx; },
+};
+
+// =================================================================== loading screen
+(function () {
+  const lc = $('#loadCv'), g = lc.getContext('2d'), msgs = ['sharpening pencils…', `drawing ${CHARS.length} stickmen…`, 'tuning the ribcages…', 'teaching the tuba to breathe…', 'stretching Jawnny\'s jaw…', 'not waking the sleepers…', 'filling the shop…'];
+  let p = 0, ready = false, fontsOk = false, mi = 0; const t0 = performance.now();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { fontsOk = true; }); setTimeout(() => { fontsOk = true; }, 3000);
+  const c = BYID.sopranoodle;
+  function tick() {
+    const el = (performance.now() - t0) / 1000; p = Math.min(fontsOk ? 100 : 90, el / 2.6 * 100); $('#lbar').style.width = p + '%';
+    const m = Math.min(msgs.length - 1, Math.floor(p / (100 / msgs.length))); if (m !== mi) { mi = m; $('#lmsg').textContent = msgs[m]; }
+    const beat = (el * 1.6) % 1; X = g; g.setTransform(2.2, 0, 0, 2.2, 170, 318); g.clearRect(-100, -150, 200, 160); g.strokeStyle = '#111'; g.lineCap = 'round'; g.lineWidth = 2.5; seedR(Math.floor(el * 8));
+    c.draw({ h: Math.exp(-beat * 5), since: 0, v: 0, n: 0, ph: beat, bp: 0, now: el }); for (let i = 0; i < 2; i++) { const k = (el * .7 + i / 2) % 1; g.globalAlpha = 1 - k; note(18 + k * 20, -90 - k * 40, 1); g.globalAlpha = 1; } X = ctx;
+    if (p >= 100 && !ready) { ready = true; $('#lmsg').textContent = 'the band is ready!'; $('#ltap').classList.add('show'); }
+    if (!$('#load').classList.contains('gone')) requestAnimationFrame(tick);
+  }
+  tick();
+  $('#load').addEventListener('click', () => {
+    if (!ready) return;
+    try { audio(); if (AC.state === 'suspended') AC.resume(); } catch (e) {}
+    $('#load').classList.add('gone'); setTimeout(() => $('#load').remove(), 600);
+    running = !!AC; nextT = AC ? AC.currentTime + .08 : 0; step = 0; loopStart = nextT;
+    if (canClaim()) setTimeout(() => toast('Your daily reward is ready! Tap "daily".'), 1400);
+  });
+})();
+
+addEventListener('resize', resize);
+resize(); updMoney(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>
