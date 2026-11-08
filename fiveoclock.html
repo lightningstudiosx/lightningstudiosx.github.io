@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>It's 5 O'Clock Somewhere · Kai.fun</title>
+<meta property="og:title" content="It's 5 O'Clock Somewhere">
+<meta property="og:description" content="A clock that's always at 5 o'clock, showing only the countries where it really is.">
+<meta property="og:image" content="fiveoclock.png">
+<style>
+  :root{--ink:#141414;--paper:#fff;--muted:#6f6158;--coral:#ff6b5e;--sky:#4aa9d8;--moss:#6fb85c;--grape:#9b7fd4;--sun:#f5b829;--face:#fff8ec;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;min-height:100vh;padding:70px 18px 48px;transition:background 1s;
+    background:linear-gradient(180deg,#ffe2b8 0%,#ffc49a 45%,#ff9f86 100%) fixed}
+  body.am{background:linear-gradient(180deg,#c7cff7 0%,#e5d2f0 50%,#ffd9c2 100%) fixed}
+  a.back{position:fixed;top:14px;left:16px;z-index:5;font-weight:800;color:var(--ink);text-decoration:none;font-size:15px;border:2px solid var(--ink);border-radius:999px;padding:4px 12px;background:#fff;box-shadow:3px 3px 0 var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto}
+  header{text-align:center;position:relative}
+  h1{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:clamp(36px,7.4vw,74px);line-height:.95;transform:rotate(-1.5deg)}
+  .sub{color:var(--muted);margin-top:12px;font-size:17px;font-weight:700}
+  .ampm{display:inline-flex;margin-top:16px;border:2px solid var(--ink);border-radius:999px;overflow:hidden;box-shadow:3px 3px 0 var(--ink);background:#fff}
+  .ampm button{font:inherit;font-weight:900;font-size:15px;border:0;background:#fff;padding:6px 16px;cursor:pointer}
+  .ampm button+button{border-left:2px solid var(--ink)}
+  .ampm button.on{background:var(--ink);color:#fff}
+  .main{display:grid;grid-template-columns:minmax(300px,440px) 1fr;gap:34px;align-items:start;margin-top:30px}
+  .clockbox{text-align:center;position:sticky;top:20px}
+  svg.clock{width:100%;max-width:440px;height:auto;display:block;margin:0 auto;overflow:visible}
+  .digital{display:inline-block;margin-top:14px;font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:34px;background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:4px 18px;font-variant-numeric:tabular-nums}
+  .where-label{margin-top:12px;font-weight:800;color:var(--muted)}
+  .panel{background:rgba(255,255,255,.9);border:2px solid var(--ink);border-radius:22px;box-shadow:6px 6px 0 var(--ink);padding:20px 22px}
+  .panel h2{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-size:clamp(24px,3.4vw,34px);line-height:1.1}
+  .panel h2 em{font-style:normal;color:var(--coral)}
+  .count{color:var(--muted);font-weight:700;margin-top:4px}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:16px}
+  .place{display:flex;align-items:center;gap:12px;border:2px solid var(--ink);border-radius:14px;padding:8px 12px;background:#fff;box-shadow:3px 3px 0 var(--ink);animation:pop .45s cubic-bezier(.3,1.5,.5,1) both}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  .place img{width:40px;height:30px;object-fit:cover;border:2px solid var(--ink);border-radius:5px;flex:0 0 auto;background:#eee}
+  .place b{display:block;font-size:15.5px;line-height:1.15}
+  .place span{display:block;font-size:12.5px;color:var(--muted);font-weight:700}
+  .place .t{margin-left:auto;font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .next{margin-top:22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#fff;border:2px dashed var(--ink);border-radius:18px;padding:14px 18px}
+  .next .when{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:20px}
+  .next .who{color:var(--muted);font-weight:700;font-size:14px;flex:1;min-width:200px}
+  .flags{display:flex;gap:4px;flex-wrap:wrap}
+  .flags img{width:30px;height:22px;object-fit:cover;border:2px solid var(--ink);border-radius:4px;background:#eee}
+  .foot{margin-top:30px;color:var(--muted);font-size:13px;text-align:center;line-height:1.6;font-weight:700}
+  @media(max-width:860px){.main{grid-template-columns:1fr}.clockbox{position:static}svg.clock{max-width:340px}}
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; Kai.fun</a>
+<div class="wrap">
+  <header>
+    <h1>It's 5 O'Clock Somewhere</h1>
+    <p class="sub">The only clock that's always right. It just keeps changing which country it's in.</p>
+    <div class="ampm" id="ampm"><button data-h="17" class="on">5 PM</button><button data-h="5">5 AM</button></div>
+  </header>
+  <div class="main">
+    <div class="clockbox">
+      <svg class="clock" id="clock" viewBox="0 0 400 400" aria-label="A clock that always shows five o'clock"></svg>
+      <div class="digital" id="digital">5:00:00 PM</div>
+      <p class="where-label" id="whereLabel"></p>
+    </div>
+    <div>
+      <div class="panel">
+        <h2 id="headline">Right now it's <em>5 o'clock</em> in...</h2>
+        <p class="count" id="count"></p>
+        <div class="list" id="list"></div>
+      </div>
+      <div class="next" id="next"></div>
+    </div>
+  </div>
+  <p class="foot">Times come live from your browser's time zone database, daylight saving included. Flags from flagcdn.com.<br>Some places run on the half hour (India, Newfoundland) or even the quarter hour (Nepal), so their 5 o'clock starts at a different minute.</p>
+</div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+// [flag code, country, time zone, region]
+const PLACES = [
+  ["dz","Algeria","Africa/Algiers"],["ao","Angola","Africa/Luanda"],["bj","Benin","Africa/Porto-Novo"],["bw","Botswana","Africa/Gaborone"],
+  ["bf","Burkina Faso","Africa/Ouagadougou"],["bi","Burundi","Africa/Bujumbura"],["cv","Cape Verde","Atlantic/Cape_Verde"],["cm","Cameroon","Africa/Douala"],
+  ["cf","Central African Republic","Africa/Bangui"],["td","Chad","Africa/Ndjamena"],["km","Comoros","Indian/Comoro"],
+  ["cd","DR Congo","Africa/Kinshasa","West (Kinshasa)"],["cd","DR Congo","Africa/Lubumbashi","East (Lubumbashi)"],["cg","Republic of the Congo","Africa/Brazzaville"],
+  ["ci","Côte d'Ivoire","Africa/Abidjan"],["dj","Djibouti","Africa/Djibouti"],["eg","Egypt","Africa/Cairo"],["gq","Equatorial Guinea","Africa/Malabo"],
+  ["er","Eritrea","Africa/Asmara"],["sz","Eswatini","Africa/Mbabane"],["et","Ethiopia","Africa/Addis_Ababa"],["ga","Gabon","Africa/Libreville"],
+  ["gm","Gambia","Africa/Banjul"],["gh","Ghana","Africa/Accra"],["gn","Guinea","Africa/Conakry"],["gw","Guinea-Bissau","Africa/Bissau"],
+  ["ke","Kenya","Africa/Nairobi"],["ls","Lesotho","Africa/Maseru"],["lr","Liberia","Africa/Monrovia"],["ly","Libya","Africa/Tripoli"],
+  ["mg","Madagascar","Indian/Antananarivo"],["mw","Malawi","Africa/Blantyre"],["ml","Mali","Africa/Bamako"],["mr","Mauritania","Africa/Nouakchott"],
+  ["mu","Mauritius","Indian/Mauritius"],["ma","Morocco","Africa/Casablanca"],["mz","Mozambique","Africa/Maputo"],["na","Namibia","Africa/Windhoek"],
+  ["ne","Niger","Africa/Niamey"],["ng","Nigeria","Africa/Lagos"],["rw","Rwanda","Africa/Kigali"],["st","São Tomé and Príncipe","Africa/Sao_Tome"],
+  ["sn","Senegal","Africa/Dakar"],["sc","Seychelles","Indian/Mahe"],["sl","Sierra Leone","Africa/Freetown"],["so","Somalia","Africa/Mogadishu"],
+  ["za","South Africa","Africa/Johannesburg"],["ss","South Sudan","Africa/Juba"],["sd","Sudan","Africa/Khartoum"],["tz","Tanzania","Africa/Dar_es_Salaam"],
+  ["tg","Togo","Africa/Lome"],["tn","Tunisia","Africa/Tunis"],["ug","Uganda","Africa/Kampala"],["zm","Zambia","Africa/Lusaka"],["zw","Zimbabwe","Africa/Harare"],
+
+  ["al","Albania","Europe/Tirane"],["ad","Andorra","Europe/Andorra"],["am","Armenia","Asia/Yerevan"],["at","Austria","Europe/Vienna"],
+  ["az","Azerbaijan","Asia/Baku"],["by","Belarus","Europe/Minsk"],["be","Belgium","Europe/Brussels"],["ba","Bosnia and Herzegovina","Europe/Sarajevo"],
+  ["bg","Bulgaria","Europe/Sofia"],["hr","Croatia","Europe/Zagreb"],["cy","Cyprus","Asia/Nicosia"],["cz","Czechia","Europe/Prague"],
+  ["dk","Denmark","Europe/Copenhagen"],["ee","Estonia","Europe/Tallinn"],["fi","Finland","Europe/Helsinki"],["fr","France","Europe/Paris"],
+  ["ge","Georgia","Asia/Tbilisi"],["de","Germany","Europe/Berlin"],["gr","Greece","Europe/Athens"],["hu","Hungary","Europe/Budapest"],
+  ["is","Iceland","Atlantic/Reykjavik"],["ie","Ireland","Europe/Dublin"],["it","Italy","Europe/Rome"],["xk","Kosovo","Europe/Belgrade"],
+  ["lv","Latvia","Europe/Riga"],["li","Liechtenstein","Europe/Vaduz"],["lt","Lithuania","Europe/Vilnius"],["lu","Luxembourg","Europe/Luxembourg"],
+  ["mt","Malta","Europe/Malta"],["md","Moldova","Europe/Chisinau"],["mc","Monaco","Europe/Monaco"],["me","Montenegro","Europe/Podgorica"],
+  ["nl","Netherlands","Europe/Amsterdam"],["mk","North Macedonia","Europe/Skopje"],["no","Norway","Europe/Oslo"],["pl","Poland","Europe/Warsaw"],
+  ["pt","Portugal","Europe/Lisbon"],["pt","Portugal","Atlantic/Azores","Azores"],["ro","Romania","Europe/Bucharest"],
+  ["ru","Russia","Europe/Kaliningrad","Kaliningrad"],["ru","Russia","Europe/Moscow","Moscow"],["ru","Russia","Europe/Samara","Samara"],
+  ["ru","Russia","Asia/Yekaterinburg","Yekaterinburg"],["ru","Russia","Asia/Omsk","Omsk"],["ru","Russia","Asia/Novosibirsk","Novosibirsk"],
+  ["ru","Russia","Asia/Krasnoyarsk","Krasnoyarsk"],["ru","Russia","Asia/Irkutsk","Irkutsk"],["ru","Russia","Asia/Yakutsk","Yakutsk"],
+  ["ru","Russia","Asia/Vladivostok","Vladivostok"],["ru","Russia","Asia/Magadan","Magadan"],["ru","Russia","Asia/Kamchatka","Kamchatka"],
+  ["sm","San Marino","Europe/San_Marino"],["rs","Serbia","Europe/Belgrade"],["sk","Slovakia","Europe/Bratislava"],["si","Slovenia","Europe/Ljubljana"],
+  ["es","Spain","Europe/Madrid"],["es","Spain","Atlantic/Canary","Canary Islands"],["se","Sweden","Europe/Stockholm"],["ch","Switzerland","Europe/Zurich"],
+  ["tr","Turkey","Europe/Istanbul"],["ua","Ukraine","Europe/Kiev"],["gb","United Kingdom","Europe/London"],["va","Vatican City","Europe/Vatican"],
+
+  ["af","Afghanistan","Asia/Kabul"],["bh","Bahrain","Asia/Bahrain"],["bd","Bangladesh","Asia/Dhaka"],["bt","Bhutan","Asia/Thimphu"],
+  ["bn","Brunei","Asia/Brunei"],["kh","Cambodia","Asia/Phnom_Penh"],["cn","China","Asia/Shanghai"],["in","India","Asia/Kolkata"],
+  ["id","Indonesia","Asia/Jakarta","West (Jakarta)"],["id","Indonesia","Asia/Makassar","Central (Bali)"],["id","Indonesia","Asia/Jayapura","East (Papua)"],
+  ["ir","Iran","Asia/Tehran"],["iq","Iraq","Asia/Baghdad"],["il","Israel","Asia/Jerusalem"],["jp","Japan","Asia/Tokyo"],["jo","Jordan","Asia/Amman"],
+  ["kz","Kazakhstan","Asia/Almaty"],["kw","Kuwait","Asia/Kuwait"],["kg","Kyrgyzstan","Asia/Bishkek"],["la","Laos","Asia/Vientiane"],
+  ["lb","Lebanon","Asia/Beirut"],["my","Malaysia","Asia/Kuala_Lumpur"],["mv","Maldives","Indian/Maldives"],["mn","Mongolia","Asia/Ulaanbaatar"],
+  ["mm","Myanmar","Asia/Yangon"],["np","Nepal","Asia/Kathmandu"],["kp","North Korea","Asia/Pyongyang"],["om","Oman","Asia/Muscat"],
+  ["pk","Pakistan","Asia/Karachi"],["ps","Palestine","Asia/Gaza"],["ph","Philippines","Asia/Manila"],["qa","Qatar","Asia/Qatar"],
+  ["sa","Saudi Arabia","Asia/Riyadh"],["sg","Singapore","Asia/Singapore"],["kr","South Korea","Asia/Seoul"],["lk","Sri Lanka","Asia/Colombo"],
+  ["sy","Syria","Asia/Damascus"],["tw","Taiwan","Asia/Taipei"],["tj","Tajikistan","Asia/Dushanbe"],["th","Thailand","Asia/Bangkok"],
+  ["tl","Timor-Leste","Asia/Dili"],["tm","Turkmenistan","Asia/Ashgabat"],["ae","United Arab Emirates","Asia/Dubai"],["uz","Uzbekistan","Asia/Tashkent"],
+  ["vn","Vietnam","Asia/Ho_Chi_Minh"],["ye","Yemen","Asia/Aden"],
+
+  ["ag","Antigua and Barbuda","America/Antigua"],["ar","Argentina","America/Argentina/Buenos_Aires"],["bs","Bahamas","America/Nassau"],
+  ["bb","Barbados","America/Barbados"],["bz","Belize","America/Belize"],["bo","Bolivia","America/La_Paz"],
+  ["br","Brazil","America/Sao_Paulo","Brasília"],["br","Brazil","America/Manaus","Amazon"],["br","Brazil","America/Rio_Branco","Acre"],["br","Brazil","America/Noronha","Fernando de Noronha"],
+  ["ca","Canada","America/St_Johns","Newfoundland"],["ca","Canada","America/Halifax","Atlantic"],["ca","Canada","America/Toronto","Eastern"],
+  ["ca","Canada","America/Winnipeg","Central"],["ca","Canada","America/Edmonton","Mountain"],["ca","Canada","America/Vancouver","Pacific"],
+  ["cl","Chile","America/Santiago"],["cl","Chile","Pacific/Easter","Easter Island"],["co","Colombia","America/Bogota"],["cr","Costa Rica","America/Costa_Rica"],
+  ["cu","Cuba","America/Havana"],["dm","Dominica","America/Dominica"],["do","Dominican Republic","America/Santo_Domingo"],
+  ["ec","Ecuador","America/Guayaquil"],["ec","Ecuador","Pacific/Galapagos","Galápagos"],["sv","El Salvador","America/El_Salvador"],
+  ["gl","Greenland","America/Nuuk"],["gd","Grenada","America/Grenada"],["gt","Guatemala","America/Guatemala"],["gy","Guyana","America/Guyana"],
+  ["ht","Haiti","America/Port-au-Prince"],["hn","Honduras","America/Tegucigalpa"],["jm","Jamaica","America/Jamaica"],
+  ["mx","Mexico","America/Mexico_City","Central"],["mx","Mexico","America/Cancun","Cancún"],["mx","Mexico","America/Mazatlan","Pacific"],["mx","Mexico","America/Tijuana","Baja California"],
+  ["ni","Nicaragua","America/Managua"],["pa","Panama","America/Panama"],["py","Paraguay","America/Asuncion"],["pe","Peru","America/Lima"],
+  ["pr","Puerto Rico","America/Puerto_Rico"],["kn","Saint Kitts and Nevis","America/St_Kitts"],["lc","Saint Lucia","America/St_Lucia"],
+  ["vc","Saint Vincent","America/St_Vincent"],["sr","Suriname","America/Paramaribo"],["tt","Trinidad and Tobago","America/Port_of_Spain"],
+  ["us","United States","America/New_York","Eastern"],["us","United States","America/Chicago","Central"],["us","United States","America/Denver","Mountain"],
+  ["us","United States","America/Phoenix","Arizona"],["us","United States","America/Los_Angeles","Pacific"],["us","United States","America/Anchorage","Alaska"],
+  ["us","United States","Pacific/Honolulu","Hawaii"],["uy","Uruguay","America/Montevideo"],["ve","Venezuela","America/Caracas"],
+
+  ["au","Australia","Australia/Perth","Western"],["au","Australia","Australia/Darwin","Northern Territory"],["au","Australia","Australia/Adelaide","South Australia"],
+  ["au","Australia","Australia/Brisbane","Queensland"],["au","Australia","Australia/Sydney","Eastern"],["au","Australia","Australia/Lord_Howe","Lord Howe Island"],
+  ["fj","Fiji","Pacific/Fiji"],["ki","Kiribati","Pacific/Tarawa","Gilbert Islands"],["ki","Kiribati","Pacific/Kanton","Phoenix Islands"],["ki","Kiribati","Pacific/Kiritimati","Line Islands"],
+  ["mh","Marshall Islands","Pacific/Majuro"],["fm","Micronesia","Pacific/Pohnpei"],["nr","Nauru","Pacific/Nauru"],
+  ["nz","New Zealand","Pacific/Auckland"],["nz","New Zealand","Pacific/Chatham","Chatham Islands"],["pw","Palau","Pacific/Palau"],
+  ["pg","Papua New Guinea","Pacific/Port_Moresby"],["ws","Samoa","Pacific/Apia"],["sb","Solomon Islands","Pacific/Guadalcanal"],
+  ["to","Tonga","Pacific/Tongatapu"],["tv","Tuvalu","Pacific/Funafuti"],["vu","Vanuatu","Pacific/Efate"],
+  ["as","American Samoa","Pacific/Pago_Pago"],["nu","Niue","Pacific/Niue"],["ck","Cook Islands","Pacific/Rarotonga"],
+  ["pf","French Polynesia","Pacific/Tahiti","Tahiti"],["pf","French Polynesia","Pacific/Marquesas","Marquesas Islands"],
+  ["nc","New Caledonia","Pacific/Noumea"],["gu","Guam","Pacific/Guam"],
+  ["um","Baker Island","Etc/GMT+12","uninhabited, USA"],
+];
+
+// ---- work out every place's UTC offset (in minutes), refreshed once a minute ----
+const fmts = new Map();
+let offsets = [], offsetsMinute = -1;
+function offsetOf(zone, now){
+  if (!fmts.has(zone)){
+    let f = null;
+    try { f = new Intl.DateTimeFormat("en-US", {timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric"}); } catch (e) {}
+    fmts.set(zone, f);
+  }
+  const f = fmts.get(zone); if (!f) return null;
+  const p = {}; for (const x of f.formatToParts(now)) p[x.type] = x.value;
+  const wall = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+  return Math.round((wall - Math.floor(now / 60000) * 60000) / 60000);
+}
+function refreshOffsets(now){
+  const m = Math.floor(now / 60000);
+  if (m === offsetsMinute) return;
+  offsetsMinute = m;
+  offsets = PLACES.map(p => offsetOf(p[2], now));
+}
+
+let TARGET = 17;           // 5 PM (or 5 AM)
+const localParts = (now, off) => { const d = new Date(now + off * 60000); return {h: d.getUTCHours(), m: d.getUTCMinutes(), s: d.getUTCSeconds(), ms: d.getUTCMilliseconds()}; };
+const flag = (code, w) => `<img src="https://flagcdn.com/w${w}/${code}.png" srcset="https://flagcdn.com/w${w * 2}/${code}.png 2x" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
+const ampm = () => TARGET >= 12 ? "PM" : "AM";
+
+// who is at 5 o'clock, grouped by offset; the biggest group drives the clock
+function groupsAt(now, hour){
+  const groups = new Map();
+  PLACES.forEach((p, i) => {
+    const off = offsets[i]; if (off == null) return;
+    if (localParts(now, off).h !== hour) return;
+    if (!groups.has(off)) groups.set(off, []);
+    groups.get(off).push(p);
+  });
+  return [...groups.entries()].map(([off, list]) => ({off, list}));
+}
+
+// ---- the clock face ----
+const svg = $("clock");
+function buildFace(){
+  let s = `<circle cx="207" cy="207" r="186" fill="#141414"/>
+    <circle cx="200" cy="200" r="186" fill="var(--face)" stroke="#141414" stroke-width="8"/>`;
+  for (let k = 0; k < 60; k++){
+    const a = k * 6 * Math.PI / 180, big = k % 5 === 0, r1 = big ? 152 : 160, r2 = 170;
+    s += `<line x1="${200 + Math.sin(a) * r1}" y1="${200 - Math.cos(a) * r1}" x2="${200 + Math.sin(a) * r2}" y2="${200 - Math.cos(a) * r2}" stroke="#141414" stroke-width="${big ? 5 : 2}" stroke-linecap="round"/>`;
+  }
+  for (let n = 1; n <= 12; n++){
+    const a = n * 30 * Math.PI / 180, r = 124, x = 200 + Math.sin(a) * r, y = 200 - Math.cos(a) * r;
+    if (n === 5) s += `<circle cx="${x}" cy="${y}" r="30" fill="#ff6b5e" stroke="#141414" stroke-width="4"/>`;
+    s += `<text x="${x}" y="${y + (n === 5 ? 13 : 11)}" text-anchor="middle" font-family="Comic Sans MS, Trebuchet MS, sans-serif" font-weight="900" font-size="${n === 5 ? 38 : 30}" fill="${n === 5 ? "#fff" : "#141414"}">${n}</text>`;
+  }
+  s += `<text x="200" y="128" text-anchor="middle" font-family="Trebuchet MS, sans-serif" font-weight="800" font-size="13" letter-spacing="2" fill="#8a7b6e">SOMEWHERE</text>
+    <g id="hHour"><line x1="200" y1="216" x2="200" y2="112" stroke="#141414" stroke-width="15" stroke-linecap="round"/></g>
+    <g id="hMin"><line x1="200" y1="222" x2="200" y2="58" stroke="#141414" stroke-width="9" stroke-linecap="round"/></g>
+    <g id="hSec"><line x1="200" y1="236" x2="200" y2="46" stroke="#ff6b5e" stroke-width="3.5" stroke-linecap="round"/><circle cx="200" cy="58" r="7" fill="#ff6b5e"/></g>
+    <circle cx="200" cy="200" r="11" fill="#141414"/><circle cx="200" cy="200" r="5" fill="#ff6b5e"/>`;
+  svg.innerHTML = s;
+}
+buildFace();
+const hHour = $("hHour"), hMin = $("hMin"), hSec = $("hSec");
+
+// ---- the lists ----
+let shownKey = "", main = null;
+function renderLists(now){
+  const groups = groupsAt(now, TARGET);
+  groups.sort((a, b) => b.list.length - a.list.length || a.off - b.off);
+  main = groups[0] || null;
+  const key = TARGET + "|" + groups.map(g => g.off + ":" + g.list.length).join(",");
+  if (key !== shownKey){
+    shownKey = key;
+    const all = [];
+    for (const g of groups) for (const p of g.list) all.push({p, off: g.off});
+    all.sort((a, b) => a.p[1].localeCompare(b.p[1]) || (a.p[3] || "").localeCompare(b.p[3] || ""));
+    const countries = new Set(all.map(x => x.p[1])).size;
+    $("count").textContent = countries ? `${countries} ${countries === 1 ? "country" : "countries"} and territories, right this minute.` : "";
+    $("list").innerHTML = all.map(({p, off}, k) => `<div class="place" style="animation-delay:${Math.min(k, 30) * 25}ms">${flag(p[0], 40)}<div><b>${p[1]}</b>${p[3] ? `<span>${p[3]}</span>` : ""}</div><div class="t" data-off="${off}"></div></div>`).join("");
+    if (!all.length) $("list").innerHTML = `<p>Hmm, nowhere on the list right now. The ocean is having its 5 o'clock alone.</p>`;
+    const names = main ? [...new Set(main.list.map(p => p[1] + (p[3] ? ` (${p[3]})` : "")))] : [];
+    $("whereLabel").textContent = main ? "showing the time in " + names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "") : "";
+  }
+  // who's next: places one hour behind, arriving soonest
+  const prev = (TARGET + 23) % 24;
+  const nextGroups = groupsAt(now, prev).map(g => ({...g, m: localParts(now, g.off).m}));
+  nextGroups.sort((a, b) => b.m - a.m || b.list.length - a.list.length);
+  const ng = nextGroups[0];
+  if (ng){
+    const lp = localParts(now, ng.off), secsLeft = (59 - lp.m) * 60 + (60 - lp.s);
+    const mins = Math.floor(secsLeft / 60), secs = secsLeft % 60;
+    const names = [...new Set(ng.list.map(p => p[1] + (p[3] ? ` (${p[3]})` : "")))];
+    const uniq = []; const seen = new Set(); for (const p of ng.list) if (!seen.has(p[0])){ seen.add(p[0]); uniq.push(p[0]); }
+    const nkey = "n" + ng.off + TARGET;
+    if ($("next").dataset.key !== nkey){
+      $("next").dataset.key = nkey;
+      $("next").innerHTML = `<div class="when">Next stop in <span id="cd"></span></div><div class="flags">${uniq.slice(0, 10).map(c => flag(c, 40)).join("")}</div><div class="who" id="nwho"></div>`;
+    }
+    $("cd").textContent = `${mins}:${String(secs).padStart(2, "0")}`;
+    $("nwho").textContent = names.slice(0, 6).join(", ") + (names.length > 6 ? ` and ${names.length - 6} more` : "");
+  }
+}
+
+// ---- every frame: move the hands, tick the times ----
+let lastSecond = -1;
+function frame(){
+  const now = Date.now();
+  refreshOffsets(now);
+  const sec = Math.floor(now / 1000);
+  if (sec !== lastSecond){
+    lastSecond = sec;
+    renderLists(now);
+    document.querySelectorAll(".place .t").forEach(el => { const lp = localParts(now, +el.dataset.off); el.textContent = `5:${String(lp.m).padStart(2, "0")} ${ampm()}`; });
+  }
+  if (main){
+    const lp = localParts(now, main.off);
+    const s = lp.s + lp.ms / 1000, m = lp.m + s / 60;
+    hHour.setAttribute("transform", `rotate(${(5 + m / 60) * 30} 200 200)`);
+    hMin.setAttribute("transform", `rotate(${m * 6} 200 200)`);
+    hSec.setAttribute("transform", `rotate(${s * 6} 200 200)`);
+    $("digital").textContent = `5:${String(lp.m).padStart(2, "0")}:${String(lp.s).padStart(2, "0")} ${ampm()}`;
+  }
+  requestAnimationFrame(frame);
+}
+
+$("ampm").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  TARGET = +b.dataset.h;
+  document.querySelectorAll("#ampm button").forEach(x => x.classList.toggle("on", x === b));
+  document.body.classList.toggle("am", TARGET === 5);
+  shownKey = ""; $("next").dataset.key = "";
+  $("headline").innerHTML = TARGET === 5 ? `Right now it's <em>5 in the morning</em> in...` : `Right now it's <em>5 o'clock</em> in...`;
+};
+refreshOffsets(Date.now());
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
