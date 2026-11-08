@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tab Farm · Kai.fun</title>
+<meta property="og:title" content="Tab Farm">
+<meta property="og:description" content="A farming clicker where every field is a real browser tab. Buy more, open more. Your RAM will not survive.">
+<meta property="og:image" content="tabfarm.png">
+<link rel="icon" id="fav" href="data:,">
+<style>
+  :root{--ink:#1d1a16;--paper:#fffaf0;--chrome:#dfe3e8;--chrome2:#c9ced6;--tab:#eef1f4;--muted:#7a7266;--corn:#f7c62f;--corn2:#e8a514;--leaf:#5aa83c;--leaf2:#3f7f2a;--sky:#9fd6f5;--coral:#ff6b5e;--grape:#8b6fd0;--good:#2f9e44;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Trebuchet MS",system-ui,sans-serif;color:var(--ink);background:var(--sky)}
+  button{font:inherit;color:inherit}
+  [hidden]{display:none!important}
+
+  /* =============== HUB: a farm living inside a browser window =============== */
+  #hub{min-height:100%;padding:22px 16px 40px;
+    background:
+      radial-gradient(ellipse 70% 40% at 15% 108%,#6fbf4a 0 60%,transparent 61%),
+      radial-gradient(ellipse 80% 45% at 85% 112%,#5fae3e 0 60%,transparent 61%),
+      linear-gradient(#8fd0f4,#cfeefb 60%,#e7f7d9)}
+  .home{position:fixed;top:12px;left:14px;z-index:20;font-weight:800;font-size:14px;text-decoration:none;color:var(--ink);background:#fff;border:2px solid var(--ink);border-radius:999px;padding:4px 12px;box-shadow:3px 3px 0 var(--ink)}
+  .title{text-align:center;margin:18px 0 18px}
+  .title h1{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:clamp(46px,9vw,92px);line-height:.9;transform:rotate(-2deg);text-shadow:4px 4px 0 #fff,7px 7px 0 var(--ink)}
+  .title h1 b{color:var(--corn);-webkit-text-stroke:2px var(--ink)}
+  .title p{margin-top:12px;font-weight:700;color:#3e4b3a}
+  .win{max-width:1180px;margin:0 auto;background:var(--paper);border:3px solid var(--ink);border-radius:16px;box-shadow:8px 8px 0 var(--ink);overflow:hidden}
+  /* tab strip */
+  .strip{display:flex;align-items:flex-end;gap:4px;background:var(--chrome2);padding:8px 10px 0;overflow-x:auto;scrollbar-width:thin;min-height:44px}
+  .dots{display:flex;gap:6px;padding:0 10px 10px 2px;flex:0 0 auto}
+  .dots i{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(0,0,0,.35)}
+  .ftab{flex:0 0 auto;display:flex;align-items:center;gap:6px;max-width:170px;min-width:42px;padding:7px 10px 8px;border-radius:10px 10px 0 0;background:var(--tab);font-size:12.5px;font-weight:700;border:1.5px solid rgba(0,0,0,.18);border-bottom:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:transform .15s}
+  .ftab:hover{transform:translateY(-2px)}
+  .ftab.hub{background:var(--paper);border-color:var(--ink);border-width:2px;padding-bottom:9px;cursor:default}
+  .ftab .e{font-size:15px}
+  .ftab .live{width:7px;height:7px;border-radius:50%;background:var(--good);flex:0 0 auto;box-shadow:0 0 0 2px rgba(47,158,68,.25)}
+  .ftab.closed{opacity:.55;background:#d5d9de}
+  .ftab.closed .live{background:#999;box-shadow:none}
+  .ftab.win2{background:#efe6ff}
+  .ftab.newtab{min-width:0;padding:6px 10px;background:none;border:0;font-size:18px;cursor:default;color:#555}
+  /* toolbar */
+  .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--paper);border-bottom:2px solid var(--ink);flex-wrap:wrap}
+  .nav{display:flex;gap:4px;color:#888;font-size:18px;font-weight:900}
+  .addr{flex:1;min-width:180px;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:5px 14px;font-size:14px;font-weight:700;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .addr b{color:var(--ink)}
+  .ram{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800}
+  .ram .meter{width:120px;height:14px;border:2px solid var(--ink);border-radius:999px;background:#fff;overflow:hidden}
+  .ram .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5ac85a,#f7c62f 60%,#ff5a4a);transition:width .4s}
+  .iconbtn{border:2px solid var(--ink);background:#fff;border-radius:10px;padding:4px 9px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+  .iconbtn:active{transform:translate(2px,2px);box-shadow:none}
+  /* page content */
+  .page{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,440px);gap:0}
+  .farm{position:relative;padding:22px 22px 26px;text-align:center;border-right:2px solid var(--ink);overflow:hidden;
+    background:repeating-linear-gradient(90deg,rgba(0,0,0,.025) 0 24px,transparent 24px 48px),linear-gradient(#fffaf0,#fdf1d6)}
+  .bank{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:clamp(34px,5.4vw,56px);line-height:1;font-variant-numeric:tabular-nums}
+  .bank small{font-size:.42em;color:var(--muted);display:block;margin-top:4px;font-family:"Trebuchet MS",sans-serif;font-weight:800}
+  .persec{margin-top:8px;font-weight:800;font-size:16px}
+  .persec b{color:var(--good)}
+  #cornBtn{display:block;margin:18px auto 8px;width:min(300px,70vw);aspect-ratio:1;border:0;background:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .08s;filter:drop-shadow(6px 7px 0 rgba(29,26,22,.85))}
+  #cornBtn:hover{transform:scale(1.03) rotate(-2deg)}
+  #cornBtn:active,#cornBtn.hit{transform:scale(.93) rotate(3deg)}
+  #cornBtn svg{width:100%;height:100%;overflow:visible}
+  .hint{font-size:13px;color:var(--muted);font-weight:700}
+  .float{position:absolute;pointer-events:none;font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:22px;color:var(--ink);text-shadow:2px 2px 0 #fff;animation:rise 1s ease-out forwards;z-index:3}
+  @keyframes rise{to{transform:translateY(-90px) scale(1.15);opacity:0}}
+  .kernel{position:absolute;width:12px;height:14px;border-radius:50% 50% 45% 45%;background:var(--corn);border:1.5px solid var(--ink);pointer-events:none;z-index:2}
+  .notice{margin:14px auto 0;max-width:460px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:10px 14px;box-shadow:3px 3px 0 var(--ink);font-weight:700;font-size:14px;text-align:left}
+  .notice .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .notice.warn{background:#fff3c4}
+  .btn{border:2px solid var(--ink);background:var(--corn);border-radius:12px;padding:6px 14px;font-weight:900;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+  .btn.ghost{background:#fff}
+  .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px auto 0;max-width:460px}
+  .mini div{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:6px 4px;box-shadow:2px 2px 0 var(--ink)}
+  .mini b{display:block;font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-size:20px}
+  .mini span{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  #golden{position:absolute;width:74px;height:74px;cursor:pointer;z-index:4;animation:bob 1.2s ease-in-out infinite;filter:drop-shadow(0 0 12px #ffd84a) drop-shadow(3px 3px 0 var(--ink))}
+  @keyframes bob{50%{transform:translateY(-10px) rotate(8deg)}}
+  .rush{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--coral);color:#fff;border:2px solid var(--ink);border-radius:999px;padding:4px 14px;font-weight:900;box-shadow:3px 3px 0 var(--ink);z-index:4;white-space:nowrap}
+  /* shop */
+  .shop{display:flex;flex-direction:column;max-height:760px;background:#fff}
+  .shoptabs{display:flex;border-bottom:2px solid var(--ink)}
+  .shoptabs button{flex:1;border:0;background:#f1ece0;padding:10px 6px;font-weight:900;cursor:pointer;border-right:2px solid var(--ink)}
+  .shoptabs button:last-child{border-right:0}
+  .shoptabs button.on{background:var(--corn)}
+  .list{overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .item{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;border:2px solid var(--ink);border-radius:14px;padding:8px 10px;background:#fff;box-shadow:3px 3px 0 var(--ink);cursor:pointer;text-align:left;width:100%;transition:transform .08s}
+  .item:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+  .item:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+  .item.cant{opacity:.5;cursor:not-allowed}
+  .item.locked{filter:grayscale(1) brightness(.6);opacity:.45;cursor:default}
+  .item .ic{width:52px;height:52px;border:2px solid var(--ink);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;background:#f6f1e4;position:relative}
+  .item .ic .k{position:absolute;bottom:-7px;right:-7px;font-size:10px;font-weight:900;background:var(--ink);color:#fff;border-radius:999px;padding:1px 6px}
+  .item b{display:block;font-size:15px}
+  .item small{display:block;font-size:12px;color:var(--muted);font-weight:700;line-height:1.3}
+  .item .cost{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:15px;text-align:right;white-space:nowrap}
+  .item .cost i{display:block;font-style:normal;font-size:11px;color:var(--muted);font-family:"Trebuchet MS",sans-serif}
+  .item.owned{background:#eef8e8;cursor:default}
+  .tag{display:inline-block;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;border:1.5px solid var(--ink);border-radius:999px;padding:0 6px;margin-left:6px;vertical-align:2px;background:#fff}
+  .tag.w{background:#e6dcff}
+  .trophy{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;border:2px dashed #b9b0a0;border-radius:12px;padding:8px 10px}
+  .trophy.got{border:2px solid var(--ink);background:#fff8dc}
+  .trophy .ic{font-size:26px;text-align:center;filter:grayscale(1);opacity:.4}
+  .trophy.got .ic{filter:none;opacity:1}
+  .shopfoot{border-top:2px solid var(--ink);padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--muted);background:#faf6ec}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(140%);background:var(--ink);color:#fff;border-radius:14px;padding:10px 16px;font-weight:800;max-width:min(560px,92vw);text-align:center;transition:transform .3s;z-index:50;box-shadow:4px 4px 0 var(--corn)}
+  #toast.on{transform:translateX(-50%) translateY(0)}
+  .foot{max-width:1180px;margin:18px auto 0;text-align:center;font-size:13px;font-weight:700;color:#3e4b3a;line-height:1.6}
+  @media(max-width:820px){.page{grid-template-columns:1fr}.farm{border-right:0;border-bottom:2px solid var(--ink)}.shop{max-height:none}.list{max-height:560px}}
+
+  /* =============== FIELD: what lives inside each farm tab =============== */
+  #field{position:fixed;inset:0;overflow:hidden;user-select:none;-webkit-user-select:none}
+  #field canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation}
+  .fhud{position:absolute;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;flex-wrap:wrap}
+  .fcard{pointer-events:auto;background:rgba(255,250,240,.94);border:2px solid var(--ink);border-radius:14px;padding:7px 12px;box-shadow:3px 3px 0 var(--ink);font-weight:800;font-size:13px;max-width:100%}
+  .fcard h2{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-size:20px;line-height:1.1}
+  .fcard .rate{color:var(--good)}
+  .fcard.dark{background:rgba(30,26,46,.92);color:#fff;border-color:#000}
+  .fstatus{display:flex;align-items:center;gap:6px}
+  .fstatus i{width:9px;height:9px;border-radius:50%;background:var(--good)}
+  .fstatus.off i{background:var(--coral)}
+  .fline{position:absolute;left:10px;right:10px;bottom:10px;text-align:center;pointer-events:none}
+  .fline span{display:inline-block;background:rgba(255,250,240,.9);border:2px solid var(--ink);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700}
+  .fline a{pointer-events:auto;color:inherit}
+</style>
+</head>
+<body>
+
+<!-- ================================ HUB ================================ -->
+<div id="hub" hidden>
+  <a class="home" href="index.html">&larr; Kai.fun</a>
+  <div class="title">
+    <h1>Tab <b>Farm</b></h1>
+    <p>Every field you buy is a real browser tab. Bigger farms open whole new windows. Keep them open to keep them growing.</p>
+  </div>
+  <div class="win">
+    <div class="strip" id="strip"></div>
+    <div class="bar">
+      <div class="nav">&#8592; &#8594; &#8635;</div>
+      <div class="addr">&#128274; <b>kaifun.fun</b>/tabfarm</div>
+      <div class="ram" title="Memory your farm is using"><span id="ramText">RAM 0.4 / 4 GB</span><span class="meter"><i id="ramBar"></i></span></div>
+      <button class="iconbtn" id="soundBtn" title="Sound">&#128266; on</button>
+    </div>
+    <div class="page">
+      <div class="farm" id="farm">
+        <div class="bank"><span id="bank">0</span><small>kernels</small></div>
+        <div class="persec"><b id="persec">0</b> per second from <span id="openCount">0</span> open fields</div>
+        <button id="cornBtn" aria-label="Harvest corn"></button>
+        <p class="hint" id="clickHint">Click the corn. Then buy your first field and watch a new tab appear.</p>
+        <div class="mini">
+          <div><b id="mTabs">0</b><span>tabs</span></div>
+          <div><b id="mWins">0</b><span>windows</span></div>
+          <div><b id="mClick">1</b><span>per click</span></div>
+        </div>
+        <div id="notices"></div>
+      </div>
+      <div class="shop">
+        <div class="shoptabs" id="shopTabs"><button data-s="fields" class="on">Fields</button><button data-s="upgrades">Upgrades</button><button data-s="trophies">Trophies</button></div>
+        <div class="list" id="list"></div>
+        <div class="shopfoot"><span id="capText">Room for 12 fields</span><span><button class="iconbtn" id="closeAll">Close all farm tabs</button> <button class="iconbtn" id="resetBtn">Reset</button></span></div>
+      </div>
+    </div>
+  </div>
+  <p class="foot">Fields only grow while their tab or window is open. If your browser blocks them, allow pop-ups for this site (there's an icon in the address bar) and press Reopen.<br>Your progress saves on this computer. Please do not actually crash your computer. Or do. We're a farm, not a cop.</p>
+  <div id="toast"></div>
+</div>
+
+<!-- ============================== FIELD TAB ============================== -->
+<div id="field" hidden>
+  <canvas id="fieldCv"></canvas>
+  <div class="fhud">
+    <div class="fcard" id="fCard"><h2 id="fName">Field</h2><div><span class="rate" id="fRate">+0/s</span> for your farm</div></div>
+    <div class="fcard" id="fConn"><div class="fstatus" id="fStatus"><i></i><span id="fStatusText">Looking for your farm...</span></div></div>
+  </div>
+  <div class="fline"><span id="fLine">Click the crops for a bonus harvest.</span></div>
+</div>
+
+<script>
+"use strict";
+// =====================================================================================
+//  Shared data
+// =====================================================================================
+const FIELDS = [
+  {key:"sprout",  name:"Sprout Tab",        icon:"🌱", kind:"tab",    cost:15,     rate:0.5,    line:"One tiny sprout in a whole tab. It believes in you."},
+  {key:"wheat",   name:"Wheat Tab",         icon:"🌾", kind:"tab",    cost:120,    rate:3,      line:"Golden wheat, swaying in the breeze of your laptop fan."},
+  {key:"carrot",  name:"Carrot Tab",        icon:"🥕", kind:"tab",    cost:950,    rate:14,     line:"Carrots grow underground, which is where this tab keeps its secrets."},
+  {key:"corn",    name:"Corn Tab",          icon:"🌽", kind:"tab",    cost:6800,   rate:70,     line:"Tall corn. Someone in here is definitely playing hide and seek."},
+  {key:"pumpkin", name:"Pumpkin Tab",       icon:"🎃", kind:"tab",    cost:50000,  rate:380,    line:"Huge pumpkins. One of them might be a carriage. Don't ask."},
+  {key:"barn",    name:"Barn Window",       icon:"🐄", kind:"window", cost:360000, rate:2000,   line:"A whole new browser window with a barn in it. The cows moo in stereo."},
+  {key:"green",   name:"Greenhouse Window", icon:"🪴", kind:"window", cost:2.7e6,  rate:11000,  line:"A window full of windows. Very meta, very humid."},
+  {key:"sun",     name:"Sunflower Window",  icon:"🌻", kind:"window", cost:2.1e7,  rate:65000,  line:"Every sunflower turns to face your cursor."},
+  {key:"orchard", name:"Incognito Orchard", icon:"🍎", kind:"window", cost:1.7e8,  rate:400000, line:"A private window. The apples don't remember you, and that's okay.", dark:true},
+  {key:"server",  name:"Server Farm",       icon:"🖥️", kind:"window", cost:1.5e9,  rate:2.6e6,  line:"An actual server farm. The servers grow corn now. Nobody stopped them.", dark:true},
+];
+const BY = Object.fromEntries(FIELDS.map(f => [f.key, f]));
+const fmt = n => {
+  if (!isFinite(n)) return "∞";
+  if (n < 1000) return n < 10 && n % 1 ? n.toFixed(1) : Math.floor(n).toLocaleString("en");
+  const u = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+  let i = 0; while (n >= 1000 && i < u.length - 1){ n /= 1000; i++; }
+  return (n < 10 ? n.toFixed(2) : n < 100 ? n.toFixed(1) : Math.floor(n)) + u[i];
+};
+const chan = "BroadcastChannel" in window ? new BroadcastChannel("tabfarm") : null;
+const params = new URLSearchParams(location.search);
+const PLOT = params.get("plot"), PLOT_ID = params.get("id");
+function setFavicon(emoji, badge){
+  try {
+    const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d");
+    x.font = "50px 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(emoji, 32, 36);
+    if (badge){ x.fillStyle = "#2f9e44"; x.beginPath(); x.arc(52, 12, 11, 0, 7); x.fill(); x.strokeStyle = "#fff"; x.lineWidth = 3; x.stroke(); }
+    document.getElementById("fav").href = c.toDataURL();
+  } catch (e) {}
+}
+
+if (PLOT && BY[PLOT] && PLOT_ID) runField(); else runHub();
+
+// =====================================================================================
+//  THE HUB (the main page: bank, shop, the tab strip)
+// =====================================================================================
+function runHub(){
+  document.getElementById("hub").hidden = false;
+  const s = document.createElement("script"); s.src = "bdp.js"; s.defer = true; document.body.appendChild(s);
+  const $ = id => document.getElementById(id);
+  const KEY = "tabfarm_v1";
+
+  const UPGRADES = [
+    {key:"gloves",   icon:"🧤", name:"Gardening Gloves",   cost:100,    desc:"Clicks harvest twice as much.", need:() => true},
+    {key:"ram1",     icon:"💾", name:"Download More RAM",  cost:600,    desc:"Room for 25 fields instead of 12.", need:() => owned().length >= 5},
+    {key:"fert",     icon:"💩", name:"Fertilizer",         cost:1500,   desc:"Sprout and Wheat tabs grow 3× faster.", need:() => count("wheat") >= 1},
+    {key:"auto",     icon:"🧩", name:"Auto-Clicker Extension", cost:8000, desc:"An extension that clicks the corn 5 times a second, forever.", need:() => total() >= 2000},
+    {key:"pinned",   icon:"📌", name:"Pinned Tabs",        cost:25000,  desc:"Pin your fields so they can't wander off. All tabs earn +50%.", need:() => owned().length >= 8},
+    {key:"detector", icon:"📡", name:"Corn Detector",      cost:40000,  desc:"Golden corn shows up twice as often.", need:() => stats.golden >= 1},
+    {key:"groups",   icon:"🗂️", name:"Tab Groups",         cost:120000, desc:"Every field earns +4% for each other open field of the same crop.", need:() => owned().length >= 12},
+    {key:"ram2",     icon:"💽", name:"Download Even More RAM", cost:250000, desc:"Room for 50 fields.", need:() => S.up.ram1 && owned().length >= 20},
+    {key:"dark",     icon:"🌙", name:"Dark Mode",          cost:900000, desc:"Your crops stop squinting. Everything earns +25%.", need:() => count("barn") >= 1},
+    {key:"keyboard", icon:"⌨️", name:"Clicky Keyboard",    cost:3e6,    desc:"Each click also harvests 2% of your per-second rate.", need:() => S.up.auto},
+    {key:"monitor",  icon:"🖥️", name:"Second Monitor",     cost:1.2e7,  desc:"Windows earn double. You can finally see all of them.", need:() => countKind("window") >= 3},
+    {key:"cloud",    icon:"☁️", name:"Cloud Farming",      cost:9e7,    desc:"Closed fields keep growing at 15% speed, somewhere in the cloud.", need:() => countKind("window") >= 5},
+    {key:"ram3",     icon:"🧠", name:"Download a Suspicious Amount of RAM", cost:4e8, desc:"Room for 100 fields. Where is it coming from? Don't ask.", need:() => S.up.ram2 && owned().length >= 45},
+    {key:"hwaccel",  icon:"🚀", name:"Hardware Acceleration", cost:3e9, desc:"Everything earns double. Your fan becomes a jet engine.", need:() => count("server") >= 1},
+  ];
+  const TROPHIES = [
+    {icon:"🌱", name:"Green Thumb",         desc:"Open your first field tab.",          ok:() => owned().length >= 1},
+    {icon:"🗂️", name:"Tab Hoarder",         desc:"Have 10 fields open at once.",        ok:() => stats.maxOpen >= 10},
+    {icon:"🪟", name:"Window Shopper",      desc:"Open your first farm window.",        ok:() => countKind("window") >= 1},
+    {icon:"🔥", name:"My Fan Is Screaming", desc:"Have 25 fields open at once.",        ok:() => stats.maxOpen >= 25},
+    {icon:"🌟", name:"Golden Harvest",      desc:"Catch a golden corn.",                ok:() => stats.golden >= 1},
+    {icon:"👆", name:"Clicker",             desc:"Click the corn 500 times.",           ok:() => stats.clicks >= 500},
+    {icon:"🧑‍🌾", name:"Tab Farmer",        desc:"Harvest one million kernels in total.", ok:() => S.total >= 1e6},
+    {icon:"🖱️", name:"Field Trip",          desc:"Click 100 crops inside your field tabs.", ok:() => stats.fieldClicks >= 100},
+    {icon:"💀", name:"Tab Killer",          desc:"Close all your farm tabs at once.",   ok:() => stats.closedAll >= 1},
+    {icon:"🖥️", name:"Server Admin",        desc:"Own a Server Farm.",                  ok:() => count("server") >= 1},
+    {icon:"🧠", name:"RAM Collector",       desc:"Own all three RAM downloads.",        ok:() => S.up.ram1 && S.up.ram2 && S.up.ram3},
+    {icon:"🏆", name:"Kernel Billionaire",  desc:"Harvest one billion kernels in total.", ok:() => S.total >= 1e9},
+  ];
+
+  // ---------- state ----------
+  let S = load();
+  const stats = S.stats;
+  function fresh(){ return {bank:0, total:0, nextId:1, fields:[], up:{}, stats:{clicks:0, golden:0, maxOpen:0, fieldClicks:0, closedAll:0}, trophies:{}, sound:true}; }
+  function load(){
+    try { const j = JSON.parse(localStorage.getItem(KEY) || "null"); if (j && typeof j === "object"){ const f = fresh(); return {...f, ...j, stats:{...f.stats, ...(j.stats || {})}, up:{...(j.up || {})}, trophies:{...(j.trophies || {})}, fields:(j.fields || []).filter(x => BY[x.key])}; } } catch (e) {}
+    return fresh();
+  }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  const owned = () => S.fields;
+  const count = k => S.fields.filter(f => f.key === k).length;
+  const countKind = k => S.fields.filter(f => BY[f.key].kind === k).length;
+  const total = () => S.total;
+  const cap = () => S.up.ram3 ? 100 : S.up.ram2 ? 50 : S.up.ram1 ? 25 : 12;
+  const priceOf = k => Math.ceil(BY[k].cost * Math.pow(1.15, count(k)));
+
+  // ---------- which tabs are alive ----------
+  const beats = {};            // id -> last heartbeat time
+  const refs = {};             // id -> window handle (only for windows opened this session)
+  const ALIVE_MS = 75000;      // background tabs get throttled to a beat a minute, so be patient
+  const isOpen = f => beats[f.id] && Date.now() - beats[f.id] < ALIVE_MS;
+  const openFields = () => S.fields.filter(isOpen);
+
+  function rateOf(f, openList){
+    const d = BY[f.key];
+    let r = d.rate;
+    if (S.up.fert && (f.key === "sprout" || f.key === "wheat")) r *= 3;
+    if (S.up.pinned && d.kind === "tab") r *= 1.5;
+    if (S.up.monitor && d.kind === "window") r *= 2;
+    if (S.up.groups){ const same = openList.filter(o => o.key === f.key).length; r *= 1 + 0.04 * Math.max(0, same - 1); }
+    if (S.up.dark) r *= 1.25;
+    if (S.up.hwaccel) r *= 2;
+    return r;
+  }
+  let rushUntil = 0;
+  const rushMult = () => Date.now() < rushUntil ? 7 : 1;
+  function perSecond(){
+    const open = openFields();
+    let sum = 0;
+    for (const f of S.fields){
+      const r = rateOf(f, open);
+      if (isOpen(f)) sum += r; else if (S.up.cloud) sum += r * 0.15;
+    }
+    return sum * rushMult();
+  }
+  function clickValue(){
+    let v = 1;
+    if (S.up.gloves) v *= 2;
+    v += S.fields.length * 0.1;                      // every field you own makes the corn a bit juicier
+    if (S.up.keyboard) v += perSecond() * 0.02;
+    return v * rushMult();
+  }
+  function earn(n){ S.bank += n; S.total += n; }
+
+  // ---------- opening real tabs and windows ----------
+  function fieldURL(f){ return location.pathname + "?plot=" + f.key + "&id=" + f.id; }
+  function openField(f){
+    const d = BY[f.key];
+    let w = null;
+    try {
+      if (d.kind === "window"){
+        const W = 440, H = 360;
+        const left = Math.round((screen.availLeft || 0) + Math.random() * Math.max(0, (screen.availWidth || 1200) - W));
+        const top = Math.round((screen.availTop || 0) + Math.random() * Math.max(0, (screen.availHeight || 800) - H));
+        w = window.open(fieldURL(f), "tabfarm" + f.id, `popup=yes,width=${W},height=${H},left=${left},top=${top}`);
+      } else {
+        w = window.open(fieldURL(f), "tabfarm" + f.id);
+      }
+    } catch (e) { w = null; }
+    if (!w){ toast("Your browser blocked the new " + (d.kind === "window" ? "window" : "tab") + ". Allow pop-ups for this site, then press Reopen."); return false; }
+    refs[f.id] = w; beats[f.id] = Date.now();
+    return true;
+  }
+  function buyField(k){
+    const p = priceOf(k);
+    if (S.bank < p) return;
+    if (S.fields.length >= cap()){ toast("Out of RAM! Download More RAM in Upgrades to fit more fields."); shake(); return; }
+    S.bank -= p;
+    const f = {id: S.nextId++, key: k};
+    S.fields.push(f);
+    sfx("buy");
+    openField(f);
+    save(); renderAll();
+  }
+  function reopenNext(){
+    const closed = S.fields.find(f => !isOpen(f));
+    if (closed && openField(closed)){ sfx("buy"); renderAll(); }
+  }
+
+  // ---------- talking to the field tabs ----------
+  if (chan){
+    chan.onmessage = e => {
+      const m = e.data || {};
+      if (m.type === "hb" && m.id != null){ beats[m.id] = Date.now(); }
+      else if (m.type === "bye"){ delete beats[m.id]; renderStrip(); }
+      else if (m.type === "harvest"){
+        if (paused) return;
+        const f = S.fields.find(x => x.id == m.id); if (!f || !isOpen(f)) return;
+        const n = Math.min(20, m.n | 0);
+        const gain = rateOf(f, openFields()) * 4 * n * rushMult();
+        earn(gain); stats.fieldClicks += n;
+      }
+    };
+    chan.postMessage({type: "hub-hello"});
+  }
+  function broadcastHub(){
+    if (!chan) return;
+    const open = openFields(), rates = {};
+    for (const f of S.fields) rates[f.id] = rateOf(f, open) * rushMult();
+    chan.postMessage({type: "hub", t: Date.now(), ids: S.fields.map(f => f.id), rates, bank: S.bank, ps: perSecond(), rush: rushMult() > 1});
+  }
+  $("closeAll").onclick = () => {
+    if (!openFields().length){ toast("No farm tabs are open."); return; }
+    chan && chan.postMessage({type: "close-all"});
+    for (const id in refs){ try { refs[id].close(); } catch (e) {} }
+    for (const id in beats) delete beats[id];
+    stats.closedAll++; toast("Closed every farm tab. The crops are very confused."); sfx("close");
+    renderAll();
+  };
+
+  // ---------- the giant corn ----------
+  $("cornBtn").innerHTML = cornSVG();
+  function cornSVG(){
+    let k = "";
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 4; c++){
+      const y = 70 + r * 17, w = 56 - Math.abs(r - 4) * 3, x = 100 - w / 2 + c * (w / 3.4) + (r % 2 ? 5 : 0);
+      k += `<ellipse cx="${x}" cy="${y}" rx="7.5" ry="8.5" fill="${(r + c) % 3 ? "#f7c62f" : "#ffd84a"}" stroke="#1d1a16" stroke-width="2"/>`;
+    }
+    return `<svg viewBox="0 0 200 240">
+      <path d="M100 236 C 40 220 30 150 52 112 C 60 160 78 196 100 236Z" fill="#5aa83c" stroke="#1d1a16" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M100 236 C 160 220 170 150 148 112 C 140 160 122 196 100 236Z" fill="#4c9632" stroke="#1d1a16" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M100 36 C 140 36 152 90 148 140 C 145 190 125 222 100 224 C 75 222 55 190 52 140 C 48 90 60 36 100 36Z" fill="#f7c62f" stroke="#1d1a16" stroke-width="5"/>
+      ${k}
+      <path d="M100 236 C 70 214 58 182 66 150 C 76 190 92 206 100 236Z" fill="#6fbf4a" stroke="#1d1a16" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M100 236 C 132 212 144 182 136 150 C 126 190 110 206 100 236Z" fill="#62b142" stroke="#1d1a16" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M100 38 C 96 20 104 8 112 4" fill="none" stroke="#c98b2a" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="84" cy="128" r="6" fill="#1d1a16"/><circle cx="116" cy="128" r="6" fill="#1d1a16"/>
+      <circle cx="86" cy="126" r="2" fill="#fff"/><circle cx="118" cy="126" r="2" fill="#fff"/>
+      <path d="M86 146 Q100 160 114 146" fill="none" stroke="#1d1a16" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+  }
+  const farmEl = $("farm");
+  function pop(x, y, text){
+    const fl = document.createElement("div"); fl.className = "float"; fl.textContent = text;
+    fl.style.left = x - 30 + "px"; fl.style.top = y - 20 + "px"; farmEl.appendChild(fl);
+    setTimeout(() => fl.remove(), 1000);
+    for (let i = 0; i < 4; i++){
+      const k = document.createElement("div"); k.className = "kernel";
+      k.style.left = x + "px"; k.style.top = y + "px"; farmEl.appendChild(k);
+      const a = Math.random() * Math.PI * 2, d = 40 + Math.random() * 50;
+      k.animate([{transform: "translate(0,0) rotate(0)", opacity: 1}, {transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d + 60}px) rotate(${Math.random() * 360}deg)`, opacity: 0}], {duration: 700 + Math.random() * 300, easing: "cubic-bezier(.2,.7,.4,1)"});
+      setTimeout(() => k.remove(), 1000);
+    }
+  }
+  function harvestClick(x, y){
+    const v = clickValue(); earn(v); stats.clicks++;
+    pop(x, y, "+" + fmt(v));
+    sfx("click");
+    const b = $("cornBtn"); b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 70);
+    renderBank();
+  }
+  $("cornBtn").addEventListener("pointerdown", e => {
+    e.preventDefault();
+    const r = farmEl.getBoundingClientRect();
+    harvestClick(e.clientX - r.left, e.clientY - r.top);
+    startAudio();
+  });
+  addEventListener("keydown", e => { if (e.code === "Space" && document.activeElement === document.body){ e.preventDefault(); const r = $("cornBtn").getBoundingClientRect(), fr = farmEl.getBoundingClientRect(); harvestClick(r.left - fr.left + r.width / 2, r.top - fr.top + r.height / 2); } });
+
+  // ---------- golden corn ----------
+  let goldenAt = Date.now() + 45000 + Math.random() * 60000, goldenEl = null;
+  function spawnGolden(){
+    goldenEl = document.createElement("div"); goldenEl.id = "golden"; goldenEl.innerHTML = cornSVG().replace(/#f7c62f/g, "#ffd700").replace(/#ffd84a/g, "#fff2a8");
+    goldenEl.style.left = 10 + Math.random() * 70 + "%"; goldenEl.style.top = 15 + Math.random() * 55 + "%";
+    farmEl.appendChild(goldenEl);
+    const me = goldenEl;
+    goldenEl.onpointerdown = e => {
+      e.preventDefault(); stats.golden++;
+      const r = farmEl.getBoundingClientRect();
+      if (Math.random() < 0.5 || perSecond() < 1){ const g = Math.max(perSecond() * 90, clickValue() * 60, 50); earn(g); pop(e.clientX - r.left, e.clientY - r.top, "GOLDEN! +" + fmt(g)); }
+      else { rushUntil = Date.now() + 20000; pop(e.clientX - r.left, e.clientY - r.top, "TAB RUSH ×7!"); }
+      sfx("golden"); me.remove(); goldenEl = null; renderAll();
+    };
+    setTimeout(() => { if (goldenEl === me){ me.remove(); goldenEl = null; } }, 13000);
+  }
+
+  // ---------- rendering ----------
+  let shopTab = "fields";
+  $("shopTabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; shopTab = b.dataset.s; [...$("shopTabs").children].forEach(x => x.classList.toggle("on", x === b)); renderShop(); sfx("tick"); };
+  function renderBank(){
+    $("bank").textContent = fmt(S.bank);
+    document.title = fmt(S.bank) + " kernels · Tab Farm";
+  }
+  let lastShopKey = "";
+  function renderShop(force){
+    const list = $("list");
+    let html = "", key = shopTab + "|" + S.fields.length + "|" + Object.keys(S.up).length + "|" + cap();
+    if (shopTab === "fields"){
+      let shownLocked = 0;
+      FIELDS.forEach((d, i) => {
+        const unlocked = i === 0 || count(FIELDS[i - 1].key) > 0 || count(d.key) > 0 || S.total >= d.cost * 0.6;
+        if (!unlocked){ if (shownLocked++ < 1) html += `<div class="item locked"><div class="ic">❔</div><div><b>???</b><small>Own a ${FIELDS[i - 1].name} to discover this.</small></div><div class="cost">${fmt(d.cost)}</div></div>`; return; }
+        const p = priceOf(d.key), can = S.bank >= p;
+        key += "|" + (can ? 1 : 0);
+        html += `<button class="item ${can ? "" : "cant"}" data-buy="${d.key}"><div class="ic">${d.icon}<span class="k">${count(d.key)}</span></div>
+          <div><b>${d.name}<span class="tag ${d.kind === "window" ? "w" : ""}">${d.kind === "window" ? "new window" : "new tab"}</span></b><small>${d.line}</small><small>+${fmt(rateOf({key: d.key}, openFields()))}/s each</small></div>
+          <div class="cost">${fmt(p)}<i>kernels</i></div></button>`;
+      });
+    } else if (shopTab === "upgrades"){
+      const avail = UPGRADES.filter(u => !S.up[u.key] && u.need());
+      const done = UPGRADES.filter(u => S.up[u.key]);
+      if (!avail.length) html += `<p class="hint" style="padding:10px">No new upgrades right now. Grow your farm to unlock more.</p>`;
+      for (const u of avail){
+        const can = S.bank >= u.cost; key += "|" + u.key + (can ? 1 : 0);
+        html += `<button class="item ${can ? "" : "cant"}" data-up="${u.key}"><div class="ic">${u.icon}</div><div><b>${u.name}</b><small>${u.desc}</small></div><div class="cost">${fmt(u.cost)}<i>kernels</i></div></button>`;
+      }
+      for (const u of done) html += `<div class="item owned"><div class="ic">${u.icon}</div><div><b>${u.name}</b><small>${u.desc}</small></div><div class="cost">✔</div></div>`;
+      key += "|d" + done.length + "|a" + avail.length;
+    } else {
+      for (const t of TROPHIES){ const got = !!S.trophies[t.name]; key += got ? 1 : 0; html += `<div class="trophy ${got ? "got" : ""}"><div class="ic">${t.icon}</div><div><b>${got ? t.name : "???"}</b><small>${t.desc}</small></div></div>`; }
+    }
+    if (!force && key === lastShopKey) return;
+    lastShopKey = key;
+    const st = list.scrollTop; list.innerHTML = html; list.scrollTop = st;
+  }
+  $("list").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.buy){ if (b.classList.contains("cant")){ sfx("nope"); return; } buyField(b.dataset.buy); }
+    else if (b.dataset.up){
+      const u = UPGRADES.find(x => x.key === b.dataset.up);
+      if (!u || S.bank < u.cost){ sfx("nope"); return; }
+      S.bank -= u.cost; S.up[u.key] = true; sfx("upgrade"); toast(u.icon + " " + u.name + "! " + u.desc); save(); renderAll();
+    }
+  });
+  let lastStripKey = null;
+  function renderStrip(){
+    const key = S.fields.map(f => f.id + (isOpen(f) ? "o" : "c")).join(",");
+    if (key === lastStripKey) return; lastStripKey = key;
+    let h = `<div class="dots"><i style="background:#ff6058"></i><i style="background:#ffbd2e"></i><i style="background:#28c840"></i></div>
+      <div class="ftab hub"><span class="e">🌽</span>Tab Farm</div>`;
+    for (const f of S.fields){
+      const d = BY[f.key], open = isOpen(f);
+      h += `<div class="ftab ${open ? "" : "closed"} ${d.kind === "window" ? "win2" : ""}" data-id="${f.id}" title="${d.name}${open ? " (open)" : " (closed: click to reopen)"}"><span class="live"></span><span class="e">${d.icon}</span>${d.name.replace(" Tab", "").replace(" Window", "")}</div>`;
+    }
+    h += `<div class="ftab newtab">+</div>`;
+    $("strip").innerHTML = h;
+  }
+  $("strip").addEventListener("click", e => {
+    const t = e.target.closest(".ftab[data-id]"); if (!t) return;
+    const f = S.fields.find(x => x.id == t.dataset.id); if (!f) return;
+    if (isOpen(f)){ try { refs[f.id] && refs[f.id].focus(); } catch (er) {} }
+    else if (openField(f)){ sfx("buy"); renderAll(); }
+  });
+  function renderNotices(){
+    const closed = S.fields.filter(f => !isOpen(f)).length;
+    let h = "";
+    if (closed) h += `<div class="notice warn"><div class="row"><span>${closed} of your ${S.fields.length} field${S.fields.length > 1 ? "s are" : " is"} closed${S.up.cloud ? " (growing at 15% in the cloud)" : " and not growing"}.</span><button class="btn" id="reopen">Reopen ${closed > 1 ? "one" : "it"}</button></div></div>`;
+    if (!chan) h += `<div class="notice warn">Your browser can't talk between tabs, so fields can't be counted. Try a newer browser.</div>`;
+    const el = $("notices");
+    if (el.dataset.k !== h){ el.dataset.k = h; el.innerHTML = h; const r = $("reopen"); if (r) r.onclick = reopenNext; }
+  }
+  function renderRam(){
+    const n = openFields().length, capGB = {12: 4, 25: 8, 50: 16, 100: 64}[cap()];
+    const used = 0.4 + n * (capGB - 0.6) / cap();
+    $("ramText").textContent = `RAM ${used.toFixed(1)} / ${capGB} GB`;
+    $("ramBar").style.width = Math.min(100, used / capGB * 100) + "%";
+    $("capText").textContent = `${S.fields.length} of ${cap()} fields (RAM limit)`;
+  }
+  function renderAll(){
+    renderBank(); renderShop(); renderStrip(); renderNotices(); renderRam();
+    const open = openFields();
+    $("persec").textContent = fmt(perSecond());
+    $("openCount").textContent = open.length;
+    $("mTabs").textContent = open.filter(f => BY[f.key].kind === "tab").length;
+    $("mWins").textContent = open.filter(f => BY[f.key].kind === "window").length;
+    $("mClick").textContent = fmt(clickValue());
+    $("clickHint").textContent = S.fields.length ? (rushMult() > 1 ? "TAB RUSH! Everything ×7!" : "Keep your field tabs open. Closed tabs don't grow.") : "Click the corn. Then buy your first field and watch a new tab appear.";
+    let rush = farmEl.querySelector(".rush");
+    if (rushMult() > 1){ if (!rush){ rush = document.createElement("div"); rush.className = "rush"; farmEl.appendChild(rush); } rush.textContent = "TAB RUSH ×7 · " + Math.ceil((rushUntil - Date.now()) / 1000) + "s"; }
+    else if (rush) rush.remove();
+  }
+  function checkTrophies(){
+    stats.maxOpen = Math.max(stats.maxOpen, openFields().length);
+    for (const t of TROPHIES) if (!S.trophies[t.name] && t.ok()){ S.trophies[t.name] = Date.now(); toast("🏆 Trophy: " + t.name); sfx("golden"); lastShopKey = ""; }
+  }
+  let toastT = 0;
+  function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3600); }
+  function shake(){ document.querySelector(".win").animate([{transform: "translateX(0)"}, {transform: "translateX(-8px)"}, {transform: "translateX(8px)"}, {transform: "translateX(0)"}], {duration: 240}); }
+  $("resetBtn").onclick = () => {
+    if (!confirm("Reset your whole farm? Kernels, fields, upgrades and trophies will be gone.")) return;
+    chan && chan.postMessage({type: "close-all"});
+    S = fresh(); Object.assign(stats, S.stats); S.stats = stats; save(); lastShopKey = ""; lastStripKey = null; renderAll(); toast("Fresh soil. Start clicking.");
+  };
+
+  // ---------- sound: clicks, dings and the fan that gets louder with every tab ----------
+  let ac = null, fanGain = null;
+  function startAudio(){
+    if (ac || !S.sound) return;
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+      let last = 0; for (let i = 0; i < len; i++){ last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+      const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+      fanGain = ac.createGain(); fanGain.gain.value = 0;
+      src.connect(lp); lp.connect(fanGain); fanGain.connect(ac.destination); src.start();
+    } catch (e) { ac = null; }
+  }
+  function tone(f, dur, type, vol, slide){
+    if (!ac || !S.sound) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.1, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function sfx(n){
+    if (!ac) return;
+    if (n === "click") tone(420 + Math.random() * 120, 0.08, "triangle", 0.09, 260);
+    else if (n === "buy"){ tone(523, 0.12, "square", 0.05); setTimeout(() => tone(784, 0.18, "square", 0.05), 90); }
+    else if (n === "upgrade"){ [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.2, "triangle", 0.08), i * 70)); }
+    else if (n === "golden"){ [880, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.3, "sine", 0.09), i * 90)); }
+    else if (n === "nope") tone(160, 0.15, "sawtooth", 0.05, 110);
+    else if (n === "close") tone(600, 0.4, "sawtooth", 0.06, 80);
+    else if (n === "tick") tone(1200, 0.03, "square", 0.03);
+  }
+  $("soundBtn").onclick = () => {
+    S.sound = !S.sound; save();
+    $("soundBtn").innerHTML = S.sound ? "&#128266; on" : "&#128263; off";
+    if (S.sound) startAudio(); else if (fanGain) fanGain.gain.value = 0;
+  };
+  $("soundBtn").innerHTML = S.sound ? "&#128266; on" : "&#128263; off";
+
+  // ---------- the clock ----------
+  let lastT = Date.now(), lastAuto = 0;
+  function tick(){
+    const now = Date.now();
+    const dt = Math.min(120, (now - lastT) / 1000); lastT = now;
+    earn(perSecond() * dt);
+    if (S.up.auto){ lastAuto += dt; while (lastAuto >= 0.2){ lastAuto -= 0.2; earn(clickValue()); } }
+    if (!goldenEl && now > goldenAt){ spawnGolden(); goldenAt = now + (S.up.detector ? 0.5 : 1) * (50000 + Math.random() * 70000); }
+    if (fanGain && ac) fanGain.gain.setTargetAtTime(S.sound ? Math.min(0.09, openFields().length * 0.004) : 0, ac.currentTime, 0.5);
+  }
+  // only one farm page may run at a time, or everything would be counted twice
+  const HUB_ID = Math.random().toString(36).slice(2), LOCK = "tabfarm_hub";
+  let paused = false;
+  function readLock(){ try { return JSON.parse(localStorage.getItem(LOCK) || "null"); } catch (e) { return null; } }
+  function takeLock(){ try { localStorage.setItem(LOCK, JSON.stringify({id: HUB_ID, t: Date.now()})); } catch (e) {} }
+  function checkLock(){
+    const l = readLock();
+    const other = l && l.id !== HUB_ID && Date.now() - l.t < 4000;
+    if (other && !paused){ paused = true; showPaused(); }
+    if (!other && !paused) takeLock();
+    return !paused;
+  }
+  function showPaused(){
+    const o = document.createElement("div");
+    o.style.cssText = "position:fixed;inset:0;z-index:60;background:rgba(29,26,22,.6);display:flex;align-items:center;justify-content:center;padding:20px";
+    o.innerHTML = `<div class="notice" style="max-width:420px;text-align:center;font-size:16px"><p style="font-size:40px">🌽🌽</p><p>Tab Farm is already open in another tab. Only one farm page can run at a time.</p><p style="margin-top:12px"><button class="btn" id="takeover">Farm in this tab instead</button></p></div>`;
+    document.body.appendChild(o);
+    o.querySelector("#takeover").onclick = () => { takeLock(); location.reload(); };
+  }
+  if (!checkLock()) return;
+  setInterval(() => { if (!checkLock()) return; tick(); checkTrophies(); renderAll(); broadcastHub(); }, 250);
+  setInterval(() => { if (!paused) save(); }, 3000);
+  addEventListener("pagehide", () => { if (!paused){ save(); try { const l = readLock(); if (l && l.id === HUB_ID) localStorage.removeItem(LOCK); } catch (e) {} } });
+  addEventListener("beforeunload", () => { if (!paused) save(); });
+  setFavicon("🌽");
+  renderAll(); renderShop(true);
+}
+
+// =====================================================================================
+//  A FIELD (one real tab or window of the farm)
+// =====================================================================================
+function runField(){
+  const d = BY[PLOT], id = +PLOT_ID;
+  document.getElementById("field").hidden = false;
+  document.body.style.background = "#000";
+  const $ = x => document.getElementById(x);
+  $("fName").textContent = d.icon + " " + d.name + " #" + id;
+  $("fLine").textContent = d.line + " Click the crops for a bonus.";
+  if (d.dark){ $("fCard").classList.add("dark"); $("fConn").classList.add("dark"); }
+  setFavicon(d.icon, true);
+  const cv = $("fieldCv"), ctx = cv.getContext("2d");
+  let W = 0, H = 0;
+  function fit(){ const r = devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * r; cv.height = H * r; ctx.setTransform(r, 0, 0, r, 0, 0); layout(); }
+  addEventListener("resize", fit);
+
+  const THEME = {
+    sprout:  {sky:["#bfe8ff","#eaf8ff"], ground:["#8a5a34","#6e4527"], crop:"🌱", rows:2, size:34},
+    wheat:   {sky:["#ffd98a","#fff3d0"], ground:["#c28a3c","#9c6a2c"], crop:"🌾", rows:3, size:40},
+    carrot:  {sky:["#a8dcff","#e1f4ff"], ground:["#7c4d2a","#5f3a20"], crop:"🥕", rows:3, size:36},
+    corn:    {sky:["#8fd0f4","#d6f1ff"], ground:["#6f8f3a","#56722b"], crop:"🌽", rows:3, size:46},
+    pumpkin: {sky:["#ffb37a","#ffe2c4"], ground:["#5e7a35","#465c27"], crop:"🎃", rows:2, size:50},
+    barn:    {sky:["#9fd6f5","#e8f7ff"], ground:["#69b04a","#4f8f36"], crop:"🐄", rows:2, size:44, barn:true},
+    green:   {sky:["#c9f2d9","#f0fff5"], ground:["#7a5a3a","#5e4429"], crop:"🪴", rows:3, size:38, glass:true},
+    sun:     {sky:["#7cc6ff","#d8f0ff"], ground:["#5c9e3a","#467d2c"], crop:"🌻", rows:3, size:46},
+    orchard: {sky:["#141230","#2c2552"], ground:["#1e3b26","#14281a"], crop:"🍎", rows:2, size:40, trees:true, night:true},
+    server:  {sky:["#0b1020","#1a2440"], ground:["#222a38","#161c27"], crop:"🌽", rows:3, size:34, servers:true, night:true},
+  }[d.key];
+
+  let plants = [], floats = [], hubRates = {}, hubSeen = 0, member = true, pending = 0, cursor = {x: -1, y: -1};
+  function layout(){
+    plants = [];
+    const groundTop = H * 0.48, rows = THEME.rows;
+    for (let r = 0; r < rows; r++){
+      const y = groundTop + (H - groundTop) * ((r + 0.6) / (rows + 0.2));
+      const scale = (0.7 + 0.3 * (r + 1) / rows) * Math.max(1, Math.min(2, Math.min(W / 520, H / 380)));
+      const gap = THEME.size * 1.5 * scale, n = Math.max(3, Math.floor((W - 30) / gap));
+      for (let i = 0; i < n; i++) plants.push({x: 20 + (i + 0.5) * ((W - 40) / n) + (r % 2 ? gap * 0.25 : 0), y, s: scale, g: Math.random(), speed: 0.12 + Math.random() * 0.08, wob: Math.random() * 6});
+    }
+  }
+  function drawEmoji(e, x, y, size, rot){
+    ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot);
+    ctx.font = `${size}px 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(e, 0, 0); ctx.restore();
+  }
+  function scenery(t){
+    const g = ctx.createLinearGradient(0, 0, 0, H * 0.5); g.addColorStop(0, THEME.sky[0]); g.addColorStop(1, THEME.sky[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (THEME.night){
+      ctx.fillStyle = "#fff"; for (let i = 0; i < 60; i++){ const sx = (i * 97.3) % W, sy = (i * 53.7) % (H * 0.45); ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(t / 900 + i)); ctx.fillRect(sx, sy, 2, 2); } ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff6c8"; ctx.beginPath(); ctx.arc(W * 0.82, H * 0.14, 26, 0, 7); ctx.fill();
+    } else {
+      ctx.fillStyle = "#fff4b0"; ctx.beginPath(); ctx.arc(W * 0.85, H * 0.13, 30, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      for (let i = 0; i < 3; i++){ const cx = ((t / 60 + i * W / 2.2) % (W + 200)) - 100, cy = H * (0.1 + i * 0.07); ctx.beginPath(); ctx.ellipse(cx, cy, 46, 16, 0, 0, 7); ctx.ellipse(cx + 26, cy - 8, 28, 16, 0, 0, 7); ctx.fill(); }
+    }
+    // far hills + ground
+    ctx.fillStyle = THEME.night ? "#1b2a2a" : "#7cc35a";
+    ctx.beginPath(); ctx.moveTo(0, H * 0.5); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H * 0.44 - Math.sin(x / 90) * 14 - Math.sin(x / 37) * 6); ctx.lineTo(W, H * 0.5); ctx.fill();
+    const gg = ctx.createLinearGradient(0, H * 0.48, 0, H); gg.addColorStop(0, THEME.ground[0]); gg.addColorStop(1, THEME.ground[1]);
+    ctx.fillStyle = gg; ctx.fillRect(0, H * 0.48, W, H * 0.52);
+    // furrows
+    ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.lineWidth = 3;
+    for (let r = 0; r < 7; r++){ const y = H * 0.52 + r * (H * 0.48 / 7); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    if (THEME.barn){
+      const bx = W * 0.08, by = H * 0.5, bw = Math.min(150, W * 0.3), bh = bw * 0.8;
+      ctx.fillStyle = "#c8382c"; ctx.strokeStyle = "#1d1a16"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by - bh * 0.6); ctx.lineTo(bx + bw / 2, by - bh); ctx.lineTo(bx + bw, by - bh * 0.6); ctx.lineTo(bx + bw, by); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.fillRect(bx + bw * 0.35, by - bh * 0.45, bw * 0.3, bh * 0.45); ctx.strokeRect(bx + bw * 0.35, by - bh * 0.45, bw * 0.3, bh * 0.45);
+      ctx.beginPath(); ctx.moveTo(bx + bw * 0.35, by - bh * 0.45); ctx.lineTo(bx + bw * 0.65, by); ctx.moveTo(bx + bw * 0.65, by - bh * 0.45); ctx.lineTo(bx + bw * 0.35, by); ctx.stroke();
+    }
+    if (THEME.servers){
+      for (let i = 0; i < 6; i++){
+        const x = W * (0.06 + i * 0.16), y = H * 0.5, w = Math.min(70, W * 0.11), h = H * 0.3;
+        ctx.fillStyle = "#2b3346"; ctx.strokeStyle = "#5c6b8a"; ctx.lineWidth = 2; ctx.fillRect(x, y - h, w, h); ctx.strokeRect(x, y - h, w, h);
+        for (let k = 0; k < 8; k++){ ctx.fillStyle = Math.sin(t / 120 + i * 7 + k * 3) > 0.3 ? "#3cff7a" : "#1e5a33"; ctx.fillRect(x + 8, y - h + 8 + k * (h / 8.5), 6, 4); ctx.fillStyle = "#3a4560"; ctx.fillRect(x + 20, y - h + 8 + k * (h / 8.5), w - 28, 4); }
+      }
+    }
+    if (THEME.trees){
+      for (let i = 0; i < 5; i++){
+        const x = W * (0.1 + i * 0.2), y = H * 0.52;
+        ctx.fillStyle = "#3b2a1c"; ctx.fillRect(x - 6, y - 50, 12, 50);
+        ctx.fillStyle = "#1f4a2c"; ctx.beginPath(); ctx.arc(x, y - 70, 38, 0, 7); ctx.fill();
+        for (let k = 0; k < 4; k++){ ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t / 400 + i + k); drawEmoji("🍎", x - 22 + k * 15, y - 56 - (k % 2) * 22, 16); } ctx.globalAlpha = 1;
+      }
+    }
+  }
+  function frame(t){
+    if (!W) fit();
+    scenery(t);
+    const dt = 1 / 60;
+    for (const p of plants){
+      p.g = Math.min(1, p.g + dt * p.speed);
+      const size = THEME.size * p.s * (0.35 + 0.65 * p.g);
+      const sway = Math.sin(t / 700 + p.wob) * 0.08 * (THEME.crop === "🐄" ? 0.3 : 1);
+      const near = cursor.x >= 0 && Math.hypot(cursor.x - p.x, cursor.y - p.y + size / 2) < size * 0.7;
+      if (THEME.crop === "🐄") p.x += Math.sin(t / 2000 + p.wob) * 0.25;
+      drawEmoji(THEME.crop, p.x, p.y, size * (near ? 1.12 : 1), d.key === "sun" ? (cursor.x >= 0 ? Math.max(-0.4, Math.min(0.4, (cursor.x - p.x) / 300)) : sway) : sway);
+      if (p.g >= 1 && Math.random() < 0.004){ p.g = 0.15; floats.push({x: p.x, y: p.y - size, v: rateFor(), t: 0}); }
+    }
+    if (THEME.glass){
+      ctx.fillStyle = "rgba(200,255,230,.18)"; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
+      for (let x = 0; x < W; x += W / 6){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0, H * 0.3); ctx.lineTo(W, H * 0.3); ctx.stroke();
+    }
+    ctx.textAlign = "center"; ctx.font = "900 18px 'Comic Sans MS',sans-serif";
+    floats = floats.filter(f => (f.t += dt) < 1.2);
+    for (const f of floats){ ctx.globalAlpha = 1 - f.t / 1.2; ctx.fillStyle = THEME.night ? "#fff" : "#1d1a16"; ctx.fillText("+" + fmt(f.v), f.x, f.y - f.t * 60); }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  const rateFor = () => hubRates[id] || d.rate;
+
+  // clicking crops sends a bonus harvest to the farm
+  cv.addEventListener("pointermove", e => { cursor = {x: e.clientX, y: e.clientY}; });
+  cv.addEventListener("pointerleave", () => { cursor = {x: -1, y: -1}; });
+  cv.addEventListener("pointerdown", e => {
+    let best = null, bd = 1e9;
+    for (const p of plants){ const size = THEME.size * p.s; const dd = Math.hypot(e.clientX - p.x, e.clientY - (p.y - size / 2)); if (dd < size && dd < bd){ bd = dd; best = p; } }
+    if (!best) return;
+    best.g = 0.1; pending++;
+    floats.push({x: best.x, y: best.y - 30, v: rateFor() * 4, t: 0});
+  });
+  setInterval(() => { if (pending && chan){ chan.postMessage({type: "harvest", id, n: pending}); pending = 0; } }, 300);
+
+  // heartbeat: tell the farm this field is open
+  const beat = () => chan && chan.postMessage({type: "hb", id, key: d.key});
+  beat(); setInterval(beat, 1000);
+  addEventListener("pagehide", () => chan && chan.postMessage({type: "bye", id}));
+  if (chan) chan.onmessage = e => {
+    const m = e.data || {};
+    if (m.type === "hub-hello") beat();
+    else if (m.type === "close-all"){ window.close(); setTimeout(() => { $("fStatusText").textContent = "Your farm closed this field. You can close this tab."; }, 200); }
+    else if (m.type === "hub"){
+      hubSeen = Date.now(); hubRates = m.rates || {}; member = (m.ids || []).includes(id);
+      document.title = `${d.icon} +${fmt(rateFor())}/s · ${fmt(m.bank)} kernels`;
+    }
+  };
+  setInterval(() => {
+    const st = $("fStatus");
+    if (!chan){ st.className = "fstatus off"; $("fStatusText").textContent = "This browser can't connect tabs."; return; }
+    const ok = Date.now() - hubSeen < 75000;
+    if (!member){ st.className = "fstatus off"; $("fStatusText").textContent = "This field isn't part of your farm anymore."; }
+    else if (ok){ st.className = "fstatus"; $("fStatusText").textContent = "Growing for your farm"; }
+    else { st.className = "fstatus off"; $("fStatusText").innerHTML = `Your farm is closed. <a href="${location.pathname}" target="tabfarmhub">Open Tab Farm</a>`; }
+    $("fRate").textContent = "+" + fmt(rateFor()) + "/s";
+  }, 1000);
+  document.title = `${d.icon} ${d.name} · Tab Farm`;
+  fit(); requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
