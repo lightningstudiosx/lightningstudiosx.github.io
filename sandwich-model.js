@@ -140,7 +140,7 @@ export function buildSandwich(THREE, opts = {}) {
       const veinFine = 1 - smooth(0.0, 0.08, Math.abs(((x * 0.6 - rib * 2.2) * 31 + fbm(n2, u * 12, v * 12) * 2) % 1 - 0.5) * 2 - 0.9);
       const mott = fbm(n, u * 40, v * 40, 4);
       const edge = smooth(0.45, 1.0, r);
-      let R = mix(132, 58, edge), G = mix(200, 132, edge), B = mix(70, 34, edge);
+      let R = mix(118, 48, edge), G = mix(196, 122, edge), B = mix(62, 30, edge);
       R += (mott - 0.5) * 22; G += (mott - 0.5) * 26; B += (mott - 0.5) * 12;
       const lv = Math.max(vein * 0.55, veinFine * 0.25) * (1 - isRib);
       R = mix(R, 214, lv * 0.6); G = mix(G, 236, lv * 0.6); B = mix(B, 160, lv * 0.6);
@@ -221,7 +221,7 @@ export function buildSandwich(THREE, opts = {}) {
       let R = 214 + (tone - 0.5) * 26, G = 108 + (tone - 0.5) * 26, B = 108 + (tone - 0.5) * 20;
       R = mix(R, 236, marble * 0.6); G = mix(G, 168, marble * 0.6); B = mix(B, 162, marble * 0.6);
       const fat = smooth(0.955, 0.985, rho) * smooth(-0.2, 0.5, Math.sin(t + seed * 2.1));
-      R = mix(R, 240, fat); G = mix(G, 204, fat); B = mix(B, 196, fat);
+      R = mix(R, 236, fat * 0.8); G = mix(G, 186, fat * 0.8); B = mix(B, 178, fat * 0.8);
       out[0] = R; out[1] = G; out[2] = B;
       b = 0.5 + marble * 0.2 + fat * 0.3 + (tone - 0.5) * 0.3;
     }, () => b);
@@ -231,42 +231,96 @@ export function buildSandwich(THREE, opts = {}) {
   // o.outline(t) radius at angle t; o.rings rho values 0..1; o.nT angle steps;
   // o.half(rho) half thickness; o.lift(x, z, rho, t) height of the middle; o.rimFrom: rho where group 1 starts;
   // o.uvSize: world size covered by the face texture; o.rimUV: world size covered by the rim texture
-  function slab(o) {
+  // bites: circles {x, z, r} (in the slab's own coordinates) that have been eaten away
+  function slab(o, bites) {
+    const TAU = Math.PI * 2;
     const nT = Math.max(24, Math.round(o.nT * SEG)), R = o.rings, nR = R.length;
     const iRim = o.rimFrom == null ? nR : R.findIndex(r => r >= o.rimFrom - 1e-9);
     const P = [], UV = [], CO = [], idx0 = [], idx1 = [];
-    const ts = [], rT = [];
-    for (let j = 0; j <= nT; j++) { const t = j / nT * Math.PI * 2; ts.push(t); rT.push(o.outline(t % (Math.PI * 2))); }
+    const ts = [], rT = [], bit = [];
+    let cx = 0, cz = 0;
+    if (!bites || !bites.length) {
+      for (let j = 0; j < nT; j++) { const t = j / nT * TAU; ts.push(t); rT.push(o.outline(t)); bit.push(false); }
+    } else {
+      const outl = (x, z) => o.outline((Math.atan2(z, x) + TAU) % TAU);
+      let maxR = 0; for (let k = 0; k < 64; k++) maxR = Math.max(maxR, o.outline(k / 64 * TAU));
+      bites = bites.filter(b => Math.hypot(b.x, b.z) < maxR + b.r);          // only bites that reach this slab
+      const clear = (x, z) => { let m = outl(x, z) - Math.hypot(x, z); for (const b of bites) m = Math.min(m, Math.hypot(x - b.x, z - b.z) - b.r); return m; };
+      // if a bite got close to the middle, grow the slab from the point that is furthest from any edge
+      if (bites.length && clear(0, 0) < 0.9) {
+        const prev = o._centre;
+        if (prev && clear(prev[0], prev[1]) > 0.9) { cx = prev[0]; cz = prev[1]; }
+        else {
+          let best = -1;
+          for (let gx = -maxR; gx <= maxR; gx += 0.3) for (let gz = -maxR; gz <= maxR; gz += 0.3) {
+            if (Math.hypot(gx, gz) >= outl(gx, gz)) continue;
+            const c = clear(gx, gz); if (c > best) { best = c; cx = gx; cz = gz; }
+          }
+          if (best <= 0.06) return null;                     // nothing left of this layer
+          o._centre = [cx, cz];
+        }
+      }
+      for (let j = 0; j < nT; j++) {
+        const t = j / nT * TAU, dx = Math.cos(t), dz = Math.sin(t);
+        // where the ray leaves the original outline
+        let so;
+        if (cx === 0 && cz === 0) so = o.outline(t);
+        else {
+          let a = 0; const st = 0.15;
+          while (a < 40 && Math.hypot(cx + dx * (a + st), cz + dz * (a + st)) < outl(cx + dx * (a + st), cz + dz * (a + st))) a += st;
+          let lo = a, hi = a + st;
+          for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (Math.hypot(cx + dx * mid, cz + dz * mid) < outl(cx + dx * mid, cz + dz * mid)) lo = mid; else hi = mid; }
+          so = lo;
+        }
+        // where it first runs into a bite
+        let sb = Infinity;
+        for (const b of bites) {
+          const ox = b.x - cx, oz = b.z - cz, proj = ox * dx + oz * dz, d2 = ox * ox + oz * oz - proj * proj, r2 = b.r * b.r;
+          if (d2 >= r2) continue;
+          const s1 = proj - Math.sqrt(r2 - d2);
+          if (s1 > 0 && s1 < sb) sb = s1;
+        }
+        ts.push(t); rT.push(Math.max(0.02, Math.min(so, sb)));
+        bit.push(sb < so);                                    // this edge was made by teeth, not by the bread knife
+      }
+    }
+    for (let j = 0; j < nT; j++) if (bit[j]) { const h = Math.sin(j * 12.9898 + 78.233) * 43758.5453; rT[j] = Math.max(0.02, rT[j] - 0.025 - 0.07 * (h - Math.floor(h))); }
+    ts.push(TAU); rT.push(rT[0]); bit.push(bit[0]);
+    const anyBit = bit.some(Boolean);
     // perimeter for rim u coordinate
     const L = [0];
     for (let j = 1; j <= nT; j++) L.push(L[j - 1] + Math.hypot(Math.cos(ts[j]) * rT[j] - Math.cos(ts[j - 1]) * rT[j - 1], Math.sin(ts[j]) * rT[j] - Math.sin(ts[j - 1]) * rT[j - 1]));
     const H0 = o.half(R[Math.min(iRim, nR - 1)]);
-    function add(i, j, s, rim) {
-      const rho = R[i], t = ts[j], r = rT[j] * rho, x = Math.cos(t) * r, z = Math.sin(t) * r;
+    function add(i, j, s, kind) {
+      const rim = kind === 'rim', wall = kind === 'wall';
+      const rho = R[i], t = ts[j], r = rT[j] * rho, x = cx + Math.cos(t) * r, z = cz + Math.sin(t) * r;
       const y = o.lift(x, z, rho, t) + s * o.half(rho);
       P.push(x, y, z);
-      if (rim) {
-        const dist = (rho - R[iRim]) * rT[j] + (H0 - o.half(rho));
-        UV.push(L[j] / o.rimUV, 0.5 - s * dist / o.rimUV);
+      if (rim || wall) {
+        const dist = (rho - R[iRim]) * rT[j] + (H0 - o.half(rho)), sc = rim ? o.rimUV : o.uvSize;
+        UV.push(L[j] / sc, 0.5 - s * dist / sc);
       } else UV.push(x / o.uvSize + 0.5, z / o.uvSize + 0.5);
-      if (o.color) { const c = o.color(x, z, rho, t, s); CO.push(c[0], c[1], c[2]); }
+      if (o.color) { const c = o.color(x, z, rho, t, s, rim); CO.push(c[0], c[1], c[2]); }
       return P.length / 3 - 1;
     }
     for (const s of [1, -1]) {
-      const A = [], B = [];
+      const A = [], B = [], C = [];
       for (let i = 0; i < nR; i++) {
         A[i] = [];
-        if (i === 0) { A[0][0] = add(0, 0, s, false); continue; }
-        for (let j = 0; j < nT; j++) A[i][j] = add(i, j, s, false);
-        if (i >= iRim) { B[i] = []; for (let j = 0; j <= nT; j++) B[i][j] = add(i, j, s, true); }
+        if (i === 0) { A[0][0] = add(0, 0, s, 'face'); continue; }
+        for (let j = 0; j < nT; j++) A[i][j] = add(i, j, s, 'face');
+        if (i >= iRim) {
+          B[i] = []; for (let j = 0; j <= nT; j++) B[i][j] = add(i, j, s, 'rim');
+          if (anyBit) { C[i] = []; for (let j = 0; j <= nT; j++) C[i][j] = add(i, j, s, 'wall'); }   // the bitten wall shows the inside
+        }
       }
       for (let i = 0; i < nR - 1; i++) {
-        const rim = i >= iRim;
         for (let j = 0; j < nT; j++) {
           const jn = j + 1;
           if (i === 0) { const c = A[0][0], a = A[1][j], b = A[1][jn % nT]; if (s > 0) idx0.push(c, b, a); else idx0.push(c, a, b); continue; }
           let a, b, c, d, arr;
-          if (rim) { a = B[i][j]; b = B[i + 1][j]; c = B[i + 1][jn]; d = B[i][jn]; arr = idx1; }
+          if (i >= iRim && !bit[j] && !bit[jn]) { a = B[i][j]; b = B[i + 1][j]; c = B[i + 1][jn]; d = B[i][jn]; arr = idx1; }
+          else if (i >= iRim) { a = C[i][j]; b = C[i + 1][j]; c = C[i + 1][jn]; d = C[i][jn]; arr = idx0; }
           else { a = A[i][j]; b = A[i + 1][j]; c = A[i + 1][jn % nT]; d = A[i][jn % nT]; arr = idx0; }
           if (s > 0) arr.push(a, c, b, a, d, c); else arr.push(a, b, c, a, c, d);
         }
@@ -278,11 +332,15 @@ export function buildSandwich(THREE, opts = {}) {
     if (o.color) g.setAttribute('color', new THREE.Float32BufferAttribute(CO, 3));
     g.setIndex(idx0.concat(idx1));
     g.addGroup(0, idx0.length, 0);
-    if (idx1.length) g.addGroup(idx0.length, idx1.length, 1);
+    g.addGroup(idx0.length, idx1.length, 1);
     g.computeVertexNormals();
     g.computeBoundingSphere();
+    let area = 0; for (let j = 0; j < nT; j++) area += 0.5 * rT[j] * rT[j] * (TAU / nT);
+    g.userData.area = area;
     return g;
   }
+  // where a point sits in a slab's own (un-bitten) shape: [angle, 0 at the middle .. 1 at the edge]
+  const polar = (outline, x, z) => { const t = (Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2); return [t, Math.hypot(x, z) / outline(t)]; };
   // rings packed tighter near the edge, where the shape curves
   function rings(nIn, nEdge, edgeFrom) {
     const r = [];
@@ -297,8 +355,9 @@ export function buildSandwich(THREE, opts = {}) {
   function breadR(t) {
     let r = squircle(t, 5.4, 5);
     const da = Math.atan2(Math.sin(t - 1.5 * Math.PI), Math.cos(t - 1.5 * Math.PI));   // 0 on the domed (-z) side
-    if (Math.abs(da) < Math.PI / 2) r += 0.75 * Math.pow(Math.cos(da), 6);
-    r += 0.24 * Math.exp(-Math.pow(Math.abs(da) - 0.78, 2) / 0.02);
+    if (Math.abs(da) < Math.PI / 2) r += 1.0 * Math.pow(Math.cos(da), 6);
+    r += 0.3 * Math.exp(-Math.pow(Math.abs(da) - 0.8, 2) / 0.025);
+    r += 0.035 * Math.sin(7 * t + 1.1) + 0.02 * Math.sin(13 * t + 0.4);
     return r;
   }
   const breadRAt = (x, z) => breadR((Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2));
@@ -309,7 +368,8 @@ export function buildSandwich(THREE, opts = {}) {
   const M = {};
   const crumbMap = tex(crumb.color, true, 1), crumbBump = tex(crumb.bump, false, 1);
   const crustMap = tex(crust.color, true, 1), crustBump = tex(crust.bump, false, 1);
-  M.crumb = new THREE.MeshPhysicalMaterial({ map: crumbMap, bumpMap: crumbBump, bumpScale: 5, roughness: 0.95 });
+  M.crumb = new THREE.MeshPhysicalMaterial({ map: crumbMap, bumpMap: crumbBump, bumpScale: 6, roughness: 0.95, vertexColors: true });
+  M.crumbBit = new THREE.MeshPhysicalMaterial({ map: crumbMap, bumpMap: crumbBump, bumpScale: 6, roughness: 0.95 });
   M.crust = new THREE.MeshPhysicalMaterial({ map: crustMap, bumpMap: crustBump, bumpScale: 3, roughness: 0.62, vertexColors: true, clearcoat: 0.08, clearcoatRoughness: 0.7 });
   M.mayo = new THREE.MeshPhysicalMaterial({ color: '#f6eed2', roughness: 0.28, clearcoat: 0.6, clearcoatRoughness: 0.25 });
   M.lettuce = new THREE.MeshPhysicalMaterial({ map: tex(lettuce.color), bumpMap: tex(lettuce.bump, false), bumpScale: 4, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3, vertexColors: true });
@@ -337,107 +397,112 @@ export function buildSandwich(THREE, opts = {}) {
   const layers = [];
   const root = new THREE.Group();
 
+  // every slab mesh remembers how it was made, so it can be rebuilt after a bite
+  const SLABS = [];
+  function slabMesh(spec, mat, x = 0, z = 0, rotY = 0) {
+    const m = shadowy(new THREE.Mesh(slab(spec, null), mat));
+    m.position.set(x, 0, z); m.rotation.y = rotY;
+    m.userData.slabId = SLABS.length;
+    let maxR = 0; for (let k = 0; k < 64; k++) maxR = Math.max(maxR, spec.outline(k / 64 * Math.PI * 2));
+    SLABS.push({ spec, x, z, rotY, maxR });
+    return m;
+  }
+
   /* ---------- 1 + 7: bread ---------- */
-  function breadSlice(baseY, top, seed) {
+  function breadSlice(baseY, top, seed, x = 0, z = 0, rotY = 0) {
     const H = 0.62, from = 0.95;
     const nz = noise2(seed, 256);
-    const g = slab({
+    return slabMesh({
       outline: breadR, nT: 220, rings: [0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.91, 0.935, 0.95, 0.962, 0.972, 0.981, 0.988, 0.994, 0.998, 1],
       half: edgeProfile(H, from, 4), rimFrom: 0.935, uvSize: 12, rimUV: 6,
-      lift: (x, z, rho) => baseY + (fbm(nz, x * 0.35 + 9, z * 0.35 + 4, 3) - 0.5) * 0.07 + (top ? 0.13 * (1 - rho * rho) : 0.03 * (1 - rho * rho)),
-      color: (x, z) => { const k = 1 - 0.32 * smooth(-1.5, -5.6, z); return [k, k * 0.95, k * 0.9]; },
-    });
-    return shadowy(new THREE.Mesh(g, [M.crumb, M.crust]));
+      lift: (x, z) => { const rho0 = Math.min(1, polar(breadR, x, z)[1]); return baseY + (fbm(nz, x * 0.35 + 9, z * 0.35 + 4, 3) - 0.5) * 0.08 + (top ? 0.16 * (1 - rho0 * rho0) : 0.04 * (1 - rho0 * rho0)); },
+      color: (x, z, rho, t, s, rim) => {
+        if (rim) { const k = 1 - 0.34 * smooth(-1.5, -6, z) + (s < 0 ? -0.06 : 0); return [k, k * 0.95, k * 0.9]; }
+        const rho0 = Math.min(1, polar(breadR, x, z)[1]), k = 1 - 0.08 * smooth(0.72, 0.94, rho0) - (fbm(nz, x * 0.5, z * 0.5, 2) - 0.5) * 0.06;
+        return [k, k * 0.985, k * 0.96];
+      },
+    }, [M.crumb, M.crust], x, z, rotY);
   }
 
   /* ---------- 2: mayo ---------- */
   function mayoLayer(baseY) {
-    const g = slab({
+    return slabMesh({
       outline: t => squircle(t, 4.95, 5) + 0.12 * Math.sin(7 * t + 1) + 0.08 * Math.sin(13 * t + 2.2) + 0.05 * Math.sin(29 * t),
       nT: 180, rings: rings(4, 5, 0.86), half: edgeProfile(0.05, 0.86, 2), uvSize: 12, rimUV: 6,
       lift: (x, z) => baseY + (fbm(geoNoise, x * 0.35 + 9, z * 0.35 + 4, 3) - 0.5) * 0.07 + (fbm(geoNoise, x * 1.3 + 50, z * 1.3, 2) - 0.5) * 0.05,
-    });
-    return shadowy(new THREE.Mesh(g, M.mayo));
+    }, M.mayo);
   }
 
   /* ---------- 3: lettuce (pressed flat under the tomatoes, frilly where it hangs out) ---------- */
-  const TOMATOES = [{ x: 0.25, z: -2.45, r: 2.85, a: 0.4 }, { x: -0.2, z: 2.55, r: 2.75, a: 1.9 }];
+  const TOMATOES = [{ x: 0.3, z: -2.7, r: 3.05, a: 0.4 }, { x: -0.25, z: 2.75, r: 2.95, a: 1.9 }];
   const TOM_Y = 1.86, TOM_H = 0.27;
   function lettuceLayer(baseY, ox, oz, rot, seed, scale = 1) {
     const nz = noise2(seed, 256), c = Math.cos(rot), s = Math.sin(rot);
     const R0 = 6.3 * scale;
     const outline = t => R0 * (1 + 0.06 * Math.sin(3 * t + 0.4 + seed) + 0.045 * Math.sin(5 * t + 1.3) + 0.03 * Math.sin(11 * t + 2) + 0.018 * Math.sin(23 * t + 0.5));
-    const g = slab({
+    return slabMesh({
       outline, nT: 300, rings: rings(10, 12, 0.5), half: edgeProfile(0.035, 0.96, 2), uvSize: R0 * 2.1, rimUV: 4,
-      lift: (x, z, rho, t) => {
+      lift: (x, z) => {
+        const pr = polar(outline, x, z), t = pr[0], rho = Math.min(1, pr[1]);
         const wx = ox + x * c - z * s, wz = oz + x * s + z * c;   // sandwich coordinates
         let y = baseY + (fbm(nz, x * 0.5, z * 0.5, 3) - 0.5) * 0.08;
         const A = 0.36 * Math.pow(smooth(0.45, 1, rho), 1.3);
         y += A * (0.6 * Math.sin(21 * t + 3 * rho + 1.3 + seed) + 0.4 * Math.sin(37 * t + 2.1) + 0.35 * (fbm(nz, x * 1.5 + 30, z * 1.5, 3) - 0.5));
+        y += 0.1 * Math.pow(smooth(0.8, 1, rho), 2) * Math.sin(63 * t + seed);       // fine crinkles right at the edge
         const d = overhang(wx, wz, 0.96);
         y -= 0.42 * Math.pow(d, 1.25) + 0.12 * d;
         for (const T of TOMATOES) { const dd = Math.hypot(wx - T.x, wz - T.z); if (dd < T.r + 0.35) y = Math.min(y, TOM_Y - TOM_H - 0.045 - Math.max(0, dd - T.r) * 0.25); }
         return y;
       },
-      color: (x, z, rho) => { const k = 0.85 + 0.15 * (1 - smooth(0.6, 1, rho)); return [k, k, k]; },
-    });
-    const m = shadowy(new THREE.Mesh(g, M.lettuce));
-    m.position.set(ox, 0, oz); m.rotation.y = -rot;
-    return m;
+      color: (x, z) => { const rho = Math.min(1, polar(outline, x, z)[1]), k = 0.82 + 0.18 * (1 - smooth(0.55, 1, rho)); return [k * 1.02, k, k * 0.86]; },
+    }, M.lettuce, ox, oz, -rot);
   }
 
   /* ---------- 4: tomato slices ---------- */
   function tomatoSlice(T, seed) {
     const nz = noise2(seed, 256);
     const outline = t => T.r * (1 + 0.025 * Math.sin(5 * t + seed) + 0.02 * Math.sin(3 * t + 1));
-    const g = slab({
+    return slabMesh({
       outline, nT: 140, rings: [0, 0.3, 0.6, 0.85, 0.94, 0.97, 0.985, 0.995, 1], half: edgeProfile(TOM_H, 0.94, 3), rimFrom: 0.97,
       uvSize: T.r * 2.02, rimUV: 3,
       lift: (x, z) => TOM_Y + (fbm(nz, x * 0.6, z * 0.6, 2) - 0.5) * 0.05 + x * 0.012,
-    });
-    const m = shadowy(new THREE.Mesh(g, [M.tomato, M.tomatoSkin]));
-    m.position.set(T.x, 0, T.z); m.rotation.y = T.a;
-    return m;
+    }, [M.tomato, M.tomatoSkin], T.x, T.z, T.a);
   }
 
-  /* ---------- 5: cheese (a square slice turned 45°, corners drooping) ---------- */
+  /* ---------- 5: cheese (a square slice turned 45 degrees, corners drooping) ---------- */
   function cheeseLayer(baseY) {
     const rot = Math.PI / 4 + 0.05, c = Math.cos(rot), s = Math.sin(rot);
-    const g = slab({
+    return slabMesh({
       outline: t => squircle(t, 5.15, 9) * 0.995 + 0.025 * Math.sin(9 * t), nT: 200, rings: rings(8, 5, 0.94), half: edgeProfile(0.1, 0.94, 3),
       uvSize: 11, rimUV: 11,
-      lift: (x, z) => { const wx = x * c - z * s, wz = x * s + z * c, d = overhang(wx, wz, 0.99); return baseY - 0.3 * Math.pow(d, 1.6) - 0.22 * d + (fbm(geoNoise, x * 0.7, z * 0.7 + 20, 2) - 0.5) * 0.04; },
-    });
-    const m = shadowy(new THREE.Mesh(g, M.cheese));
-    m.rotation.y = -rot;
-    return m;
+      lift: (x, z) => { const wx = x * c - z * s, wz = x * s + z * c, d = overhang(wx, wz, 0.99); return baseY - 0.34 * Math.pow(d, 1.6) - 0.24 * d + (fbm(geoNoise, x * 0.7, z * 0.7 + 20, 2) - 0.5) * 0.04; },
+    }, M.cheese, 0, 0, -rot);
   }
 
   /* ---------- 6: ham, three folded slices ---------- */
   function hamSlice(baseY, ox, oz, rot, seed) {
-    const c = Math.cos(rot), s = Math.sin(rot), R0 = 5.05;
+    const c = Math.cos(rot), s = Math.sin(rot), R0 = 5.45;
     const outline = t => R0 * (1 + 0.05 * Math.sin(2 * t + seed) + 0.03 * Math.sin(5 * t + seed * 2) + 0.015 * Math.sin(11 * t));
     const nz = noise2(seed * 7, 256);
-    const g = slab({
+    const ht = hamTexture(outline, R0 * 2.3, 60 + seed);
+    const hm = new THREE.MeshPhysicalMaterial({ map: tex(ht.color), bumpMap: tex(ht.bump, false), bumpScale: 2, roughness: 0.5, clearcoat: 0.08, clearcoatRoughness: 0.5 });
+    return slabMesh({
       outline, nT: 220, rings: rings(10, 6, 0.9), half: edgeProfile(0.07, 0.95, 2), uvSize: R0 * 2.3, rimUV: 6,
-      lift: (x, z, rho) => {
+      lift: (x, z) => {
+        const rho = Math.min(1, polar(outline, x, z)[1]);
         const wx = ox + x * c - z * s, wz = oz + x * s + z * c;
         let y = baseY + 0.14 * Math.sin(1.25 * x + seed) * (0.45 + 0.55 * rho) + 0.05 * Math.sin(2.7 * z + seed * 3) * rho + (fbm(nz, x * 0.8, z * 0.8, 2) - 0.5) * 0.05;
         const d = overhang(wx, wz, 0.99);
-        y -= 0.45 * Math.pow(d, 1.4) + 0.3 * d;
+        y -= 0.5 * Math.pow(d, 1.4) + 0.32 * d - 0.12 * Math.sin(4 * Math.atan2(z, x) + seed) * Math.min(1, d);   // hangs over the crust in waves
         return y;
       },
-    });
-    const ht = hamTexture(outline, R0 * 2.3, 60 + seed);
-    const hm = new THREE.MeshPhysicalMaterial({ map: tex(ht.color), bumpMap: tex(ht.bump, false), bumpScale: 2, roughness: 0.42, clearcoat: 0.12, clearcoatRoughness: 0.4 });
-    const m = shadowy(new THREE.Mesh(g, hm));
-    m.position.set(ox, 0, oz); m.rotation.y = -rot;
-    return m;
+    }, hm, ox, oz, -rot);
   }
 
   /* ---------- 8: olive on a toothpick ---------- */
+  const PICK = { x: -1.9, z: -1.35 };
   function oliveLayer() {
-    const grp = new THREE.Group(), X = -1.9, Z = -1.35;
+    const grp = new THREE.Group(), X = PICK.x, Z = PICK.z;
     const stick = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 6.0, 12), M.pick)); stick.position.set(X, 3.3, Z);
     const tipTop = shadowy(new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.45, 12), M.pick)); tipTop.position.set(X, 6.52, Z);
     const olive = shadowy(new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), M.olive)); olive.scale.set(0.62, 0.8, 0.62); olive.position.set(X, 5.34, Z);
@@ -457,10 +522,10 @@ export function buildSandwich(THREE, opts = {}) {
   addLayer('bottomBread', [bot], CAPS.bread, { outside: [5.45, 0.5, 1.45], cut: [0, 0.6, -3.0] });
   addLayer('mayo', [mayoLayer(1.27)], CAPS.mayo, { outside: [3.9, 1.33, 2.6], cut: [0, 1.31, 4.3] });
   addLayer('lettuce', [lettuceLayer(1.45, 0.25, -0.2, 0.3, 1)], CAPS.lettuce, { outside: [-2.4, 1.1, 5.7], cut: [0, 1.5, -5.0] });
-  addLayer('tomato', TOMATOES.map((T, i) => tomatoSlice(T, 10 + i)), CAPS.tomato, { outside: [-0.2, 1.86, 5.25], cut: [0, 1.86, -2.4] });
+  addLayer('tomato', TOMATOES.map((T, i) => tomatoSlice(T, 10 + i)), CAPS.tomato, { outside: [-0.25, 1.86, 5.65], cut: [0, 1.86, -2.6] });
   addLayer('cheese', [cheeseLayer(2.26)], CAPS.cheese, { outside: [6.5, 1.55, 0.35], cut: [0, 2.27, 3.1] });
   addLayer('ham', [hamSlice(2.57, -0.4, 0.3, 0.2, 1), hamSlice(2.7, 0.5, -0.35, 1.4, 2), hamSlice(2.83, 0.05, 0.35, 2.6, 3)], CAPS.ham, { outside: [5.3, 2.62, -2.2], cut: [0, 2.7, 0.2] });
-  const top = breadSlice(TOP, true, 9); top.rotation.y = 0.05; top.position.set(0.1, 0, -0.06);
+  const top = breadSlice(TOP, true, 9, 0.1, -0.06, 0.05);
   addLayer('topBread', [top], CAPS.bread, { outside: [1.8, 4.42, 1.6], cut: [0, 3.75, 2.4] });
   const ol = oliveLayer();
   addLayer('olive', [ol], null, { outside: [-1.45, 5.3, -0.9], cut: [-1.45, 5.3, -0.9] });
@@ -475,15 +540,34 @@ export function buildSandwich(THREE, opts = {}) {
   const crumbGeo = new THREE.IcosahedronGeometry(1, 1);
   { const p = crumbGeo.attributes.position, r = rng(91); for (let i = 0; i < p.count; i++) { const k = 0.7 + r() * 0.5; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.7, p.getZ(i) * k); } crumbGeo.computeVertexNormals(); }
   function addCrumb(x, z, y = 0.05, s = 0.12) {
-    const m = new THREE.Mesh(crumbGeo, Math.random() < 0.7 ? M.crumb : M.crust.clone());
-    if (m.material !== M.crumb) { m.material.vertexColors = false; }
+    const m = new THREE.Mesh(crumbGeo, Math.random() < 0.7 ? M.crumbBit : M.crust.clone());
+    if (m.material !== M.crumbBit) { m.material.vertexColors = false; }
     m.scale.setScalar(s * (0.6 + Math.random() * 0.8)); m.position.set(x, y, z); m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
     m.castShadow = true; crumbs.add(m); return m;
   }
   { const r = rng(5); for (let i = 0; i < 9; i++) { const a = r() * Math.PI * 2, d = 6.4 + r() * 3.2; addCrumb(Math.cos(a) * d, Math.sin(a) * d, 0.06, 0.08 + r() * 0.08); } }
 
+  // tone the room reflections down so the key light shapes everything (less washed out)
+  const ENV = 0.6;
+  Object.values(M).forEach(m => { m.envMapIntensity = ENV; });
+  Object.values(CAPS).forEach(m => { m.envMapIntensity = ENV; });
+  M.plate.envMapIntensity = 0.85;
+  root.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.envMapIntensity === 1) m.envMapIntensity = ENV; }); });
+
+  // rebuild slabs with bites taken out (bites are circles {x, z, r} in sandwich coordinates).
+  // If `fresh` (the newest bites) is given, slabs those can't reach are skipped (geometry: undefined).
+  function remake(bites, fresh) {
+    return SLABS.map((S, id) => {
+      if (!bites.length) S.spec._centre = null;
+      if (fresh && !fresh.some(b => Math.hypot(b.x - S.x, b.z - S.z) < S.maxR + b.r + 0.5)) return { id, geometry: undefined };
+      const c = Math.cos(S.rotY), s = Math.sin(S.rotY);
+      const local = bites.map(b => { const dx = b.x - S.x, dz = b.z - S.z; return { x: dx * c - dz * s, z: dx * s + dz * c, r: b.r }; });
+      return { id, geometry: slab(S.spec, local) };
+    });
+  }
+
   return {
-    root, layers, plate, crumbs, addCrumb, materials: M, breadR,
+    root, layers, plate, crumbs, addCrumb, materials: M, breadR, remake, pick: PICK, olive: ol,
     dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); },
   };
 }
