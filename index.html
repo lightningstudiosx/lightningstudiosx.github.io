@@ -146,6 +146,20 @@
     .link-btn:hover{transform:none;}
   }
 </style>
+<style>
+  /* the sandwich at the very bottom */
+  .sandwich-link{display:flex;flex-direction:column;align-items:center;width:max-content;max-width:100%;margin:30px auto 0;text-decoration:none;color:var(--ink)}
+  .sandwich-link .stage{position:relative;width:340px;max-width:86vw;aspect-ratio:17/11}
+  .sandwich-link canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .sandwich-link .ph{position:absolute;inset:0;display:grid;place-items:center;font-size:84px;transition:opacity .4s}
+  .sandwich-link.ready .ph{opacity:0}
+  .sandwich-link .cap{font-family:"Comic Sans MS","Trebuchet MS",sans-serif;font-weight:900;font-size:19px;margin-top:2px;transform:rotate(-1.5deg)}
+  .sandwich-link .sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .sandwich-link:hover .cap,.sandwich-link:focus-visible .cap{text-decoration:underline}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
 </head>
 <body>
   <div class="wrap">
@@ -158,6 +172,9 @@
     <main class="games">
       <a class="game-tile tile-img" style="background:#cfc7b8;border-color:#141414;box-shadow:5px 5px 0 #b3261e;" href="https://workfor.kaifun.fun/" aria-label="We're hiring: apply to work for kai.fun">
         <img src="hiring.png" alt="We're hiring: a paper job application">
+      </a>
+      <a class="game-tile tile-img" style="background:#3a0ca3;border-color:#141414;box-shadow:5px 5px 0 #ffd23f;" href="cosmic.html" aria-label="The Cosmic Calendar">
+        <img src="cosmic.png" alt="Cosmic Calendar">
       </a>
       <a class="game-tile tile-img" style="background:#2f5bff;border-color:#141414;box-shadow:5px 5px 0 #ff4fa3;" href="kotera.html" aria-label="Kotera: learn the code language">
         <img src="kotera.png?v=2" alt="Kotera">
@@ -380,6 +397,11 @@
       </div>
       <p class="contact">Contact - <a href="mailto:checkmatedbusiness@gmail.com">checkmatedbusiness@gmail.com</a></p>
       <p class="fine"><a href="#">Privacy policy</a></p>
+      <a class="sandwich-link" id="sandwichLink" href="sandwich.html" aria-label="The Anatomy of a Sandwich: open it and look inside">
+        <span class="stage"><span class="ph" aria-hidden="true">🥪</span><canvas id="sandwichMini" aria-hidden="true"></canvas></span>
+        <span class="cap">The Anatomy of a Sandwich</span>
+        <span class="sub">click to cut it open</span>
+      </a>
     </footer>
   </div>
 <script>
@@ -587,5 +609,47 @@ const QT=["Every {n} was once a {a} {n2} that refused to give up.", "Be the {a} 
 </script>
 <script src="puzzles.js"></script>
 <script src="bdp.js" defer></script>
+<script type="module">
+// a real 3D sandwich, built from code, spinning at the bottom of the page (only loads when you scroll down to it)
+const link = document.getElementById('sandwichLink'), cv = document.getElementById('sandwichMini');
+let started = false;
+const near = new IntersectionObserver(es => { if (!started && es.some(e => e.isIntersecting)) { started = true; near.disconnect(); start(); } }, { rootMargin: '400px' });
+near.observe(link);
+async function start() {
+  try {
+    const THREE = await import('three');
+    const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+    const { buildSandwich } = await import('./sandwich-model.js?v=1');
+    const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+    const size = () => { r.setSize(cv.clientWidth, cv.clientHeight, false); cam.aspect = cv.clientWidth / cv.clientHeight; cam.updateProjectionMatrix(); };
+    r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.86;
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(r), 0.04).texture;
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.5, 200); cam.position.set(0, 12.5, 26); cam.lookAt(0, 1.8, 0);
+    const key = new THREE.DirectionalLight(0xfff6ea, 2.3); key.position.set(8, 19, 9); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+    Object.assign(key.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 2, far: 50 }); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.03;
+    scene.add(key, new THREE.HemisphereLight(0xffffff, 0xe9e4da, 0.35));
+    const S = buildSandwich(THREE, { quality: 'low' }); scene.add(S.root);
+    size(); addEventListener('resize', size);
+    let visible = true, hover = false, spin = 0.6, lift = 0, last = performance.now();
+    link.addEventListener('mouseenter', () => hover = true); link.addEventListener('mouseleave', () => hover = false);
+    link.addEventListener('focus', () => hover = true); link.addEventListener('blur', () => hover = false);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function loop(t) {
+      if (!visible) return;
+      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      if (!still) spin += dt * (hover ? 1.4 : 0.35);
+      lift += ((hover ? 0.8 : 0) - lift) * Math.min(1, dt * 8);
+      S.root.rotation.y = spin; S.root.position.y = lift;
+      r.render(scene, cam); requestAnimationFrame(loop);
+    }
+    new IntersectionObserver(es => { const v = es[0].isIntersecting; if (v && !visible) { visible = true; last = performance.now(); requestAnimationFrame(loop); } visible = v; }).observe(cv);
+    requestAnimationFrame(loop);
+    link.classList.add('ready');
+  } catch (e) { console.warn('sandwich could not be made here', e); }
+}
+</script>
 </body>
 </html>
