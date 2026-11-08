@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hyperplot: a 4D, 5D and 6D graphing calculator</title>
+<meta name="description" content="Graph surfaces, hypersurfaces and polytopes in 4, 5 and 6 dimensions. Spin them through the extra dimensions or slice them open.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px) }
+body { margin: 0 }
+img { max-width: 100% }
+[hidden] { display: none !important }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a Desmos-style expression list on the left, the hyperspace view filling the rest; on phones the view sits on top. */
+:root {
+  --bg: #f3f4f6; --panel: #ffffff; --canvas: #eceff3; --ink: #16191f; --muted: #5f6775; --line: #dcdfe5; --soft: #eef0f4;
+  --focus: #2f5fd0; --bad: #b8382b; --good: #2f8a52;
+  --ax-x: #d2473c; --ax-y: #2f9a58; --ax-z: #2f6bd3; --ax-w: #c97f0a; --ax-v: #a23db3; --ax-u: #138f8f;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101318; --panel: #161a20; --canvas: #0c0f13; --ink: #e6e9ee; --muted: #9aa2ae; --line: #2a2f38; --soft: #1d222a;
+  --focus: #7aa2ff; --bad: #ff8172; --good: #5fcf8a;
+  --ax-x: #f0685d; --ax-y: #4cc27a; --ax-z: #6b9bf2; --ax-w: #f0aa3e; --ax-v: #cf74df; --ax-u: #2fc2c2; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #101318; --panel: #161a20; --canvas: #0c0f13; --ink: #e6e9ee; --muted: #9aa2ae; --line: #2a2f38; --soft: #1d222a;
+  --focus: #7aa2ff; --bad: #ff8172; --good: #5fcf8a;
+  --ax-x: #f0685d; --ax-y: #4cc27a; --ax-z: #6b9bf2; --ax-w: #f0aa3e; --ax-v: #cf74df; --ax-u: #2fc2c2; color-scheme: dark }
+
+html, body { height: 100% }
+body { background: var(--bg); color: var(--ink); font: 400 14px/1.45 var(--f-body); overflow: hidden }
+button, input, select { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px }
+.app { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); height: 100% }
+
+/* ---- expression list ---- */
+.side { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line) }
+.brand { display: flex; align-items: center; gap: 10px; padding-block: 14px 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; border-bottom: 1px solid var(--line) }
+.brand h1 { margin: 0; font: 600 19px/1 var(--f-mono); letter-spacing: -.01em }
+.brand h1 i { font-style: normal; color: var(--ax-w) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--soft) }
+.seg button { border: 0; background: transparent; padding: 6px 10px; cursor: pointer; font: 500 13px/1 var(--f-mono); color: var(--muted) }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: inset 0 -2px 0 var(--ax-w) }
+.brand .seg { margin-left: auto }
+.tools { display: flex; gap: 8px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; border-bottom: 1px solid var(--line) }
+.btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 11px; font-weight: 500 }
+.btn:hover { border-color: var(--muted) }
+.tools select { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 8px }
+.list { flex: 1; overflow: auto; min-height: 0 }
+.entry { display: grid; grid-template-columns: 38px minmax(0, 1fr) 30px; border-bottom: 1px solid var(--line); background: var(--panel) }
+.entry:focus-within { box-shadow: inset 3px 0 0 var(--focus) }
+.swatch { border: 0; border-right: 1px solid var(--line); background: var(--soft); cursor: pointer; display: grid; place-items: center; padding: 0 }
+.swatch i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); border: 2px solid var(--c) }
+.entry.off .swatch i { background: transparent }
+.entry .num { font: 500 10px/1 var(--f-mono); color: var(--muted); margin-top: 3px }
+.field { min-width: 0; padding: 9px 8px 9px 10px }
+.ex { width: 100%; border: 0; background: transparent; font: 500 15px/1.35 var(--f-mono); padding: 2px 0; outline: none }
+.msg { font-size: 12.5px; color: var(--muted); margin-top: 3px; min-height: 0 }
+.msg:empty { display: none }
+.msg.bad { color: var(--bad) }
+.msg .add { border: 1px solid currentColor; background: transparent; border-radius: 6px; padding: 1px 6px; margin-left: 4px; cursor: pointer; font-size: 12px }
+.extra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font: 400 12.5px var(--f-mono); color: var(--muted) }
+.extra:empty { display: none }
+.extra input[type="text"] { width: 52px; border: 1px solid var(--line); border-radius: 5px; background: var(--soft); padding: 2px 5px; font: 400 12.5px var(--f-mono) }
+.extra .rng { display: inline-flex; align-items: center; gap: 4px }
+.slider { display: grid; grid-template-columns: 26px 44px minmax(0, 1fr) 44px; align-items: center; gap: 6px; width: 100% }
+.slider input[type="range"] { width: 100%; accent-color: var(--ax-w) }
+.slider .play, .play { border: 1px solid var(--line); background: var(--soft); border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: grid; place-items: center; padding: 0; font-size: 10px }
+.del { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 }
+.del:hover { color: var(--bad) }
+.help { border-top: 1px solid var(--line); padding-block: 10px 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; font-size: 13px; color: var(--muted); max-height: 40%; overflow: auto }
+.help summary { cursor: pointer; color: var(--ink); font-weight: 500 }
+.help dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 10px 0 0 }
+.help dt { font-family: var(--f-mono); color: var(--ink) }
+.help dd { margin: 0 }
+.help code { font-family: var(--f-mono); color: var(--ink); background: var(--soft); padding: 0 4px; border-radius: 4px }
+
+/* ---- the view ---- */
+.stage { position: relative; min-width: 0; min-height: 0; background: var(--canvas); overflow: hidden }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab }
+#gl:active { cursor: grabbing }
+#labels { position: absolute; inset: 0; pointer-events: none }
+#labels span { position: absolute; left: 0; top: 0; font: 600 14px/1 var(--f-mono); transform: translate(-50%, -50%); text-shadow: 0 0 3px var(--canvas), 0 0 3px var(--canvas) }
+.viewbar { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); left: 16px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; pointer-events: none }
+.viewbar > * { pointer-events: auto }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px }
+.chip input { accent-color: var(--ax-w); margin: 0 }
+.viewbar .seg { background: var(--panel) }
+.viewbar select { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 8px; font-size: 13px }
+.hyper { position: absolute; left: 16px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.08); max-height: calc(100% - 90px); overflow: auto }
+.hyper h2 { margin: 0; font: 600 12px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+.hyper header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel) }
+.hyper header .btn { margin-left: auto; padding: 4px 9px; font-size: 12.5px }
+.hyper .body { padding: 8px 12px 12px; display: grid; gap: 6px }
+.hyper.closed .body { display: none }
+.prow { display: grid; grid-template-columns: 40px minmax(0, 1fr) 46px 24px; align-items: center; gap: 8px }
+.prow b { font: 600 13px/1 var(--f-mono) }
+.prow input[type="range"] { width: 100%; accent-color: var(--ax-w) }
+.prow .deg { font: 400 12px/1 var(--f-mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums }
+.play[aria-pressed="true"] { background: var(--ax-w); border-color: var(--ax-w); color: var(--panel) }
+.note { font-size: 12.5px; color: var(--muted); margin: 2px 0 0 }
+.legend { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px)); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: 400 12px var(--f-mono); color: var(--muted); display: grid; gap: 5px; width: 180px }
+.legend .bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #3557d6, #2aa7c9, #43b45a, #e6b325, #e0532c) }
+.legend .ends { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--muted); font-size: 15px }
+
+@media (max-width: 820px) {
+  body { overflow: auto }
+  .app { display: flex; flex-direction: column; height: auto }
+  .stage { height: 62vh; min-height: 360px; order: -1 }
+  .side { border-right: 0 }
+  .list { overflow: visible }
+  .help { max-height: none }
+  .hyper { width: calc(100% - 32px); max-height: 46% }
+  .legend { display: none }
+  .viewbar { justify-content: flex-start }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto } }
+.brand .home { color: var(--muted); text-decoration: none; font: 600 17px/1 var(--f-mono); padding: 2px 2px 2px 0 }
+.brand .home:hover { color: var(--ink) }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <a class="home" href="index.html" aria-label="Back to kai.fun">←</a><h1>hyper<i>plot</i></h1>
+      <div class="seg" role="group" aria-label="Number of dimensions" id="dims">
+        <button type="button" data-dim="4" aria-pressed="true">4D</button>
+        <button type="button" data-dim="5" aria-pressed="false">5D</button>
+        <button type="button" data-dim="6" aria-pressed="false">6D</button>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="btn" type="button" id="addBtn">+ Expression</button>
+      <select id="examples" aria-label="Load an example"></select>
+    </div>
+    <div class="list" id="list"></div>
+    <details class="help" id="help">
+      <summary>How to type things</summary>
+      <dl>
+        <dt>x y z w</dt><dd>the axes. 5D adds <code>v</code>, 6D adds <code>u</code>.</dd>
+        <dt>( , , , )</dt><dd>a surface made from <code>s</code> and <code>t</code>, like <code>(cos s, sin s, cos t, sin t)</code>. Use only <code>t</code> for a curve, no letters for a point.</dd>
+        <dt>… = …</dt><dd>a hypersurface, like <code>x²+y²+z²+w² = 4</code>. Best seen in Slice.</dd>
+        <dt>a = 1</dt><dd>a slider you can use anywhere.</dd>
+        <dt>f(r) = …</dt><dd>your own function.</dd>
+        <dt>hypercube</dt><dd>also <code>simplex</code>, <code>orthoplex</code> and (in 4D) <code>24cell</code>. Add a size: <code>hypercube(2)</code>.</dd>
+        <dt>maths</dt><dd><code>^</code> powers, <code>|x|</code>, <code>2x</code>, <code>sqrt</code>, <code>sin</code>, <code>exp</code>, <code>ln</code>, <code>min</code>, <code>max</code>, <code>pi</code>…</dd>
+      </dl>
+      <p class="note">Shadow squashes the extra dimensions flat, like a 3D object casting a shadow on a wall. Slice shows only the part where the hidden coordinates equal the slider values, like one frame of an MRI scan.</p>
+    </details>
+  </aside>
+
+  <main class="stage" id="stage">
+    <canvas id="gl" aria-label="The graph. Drag to turn the 3D view; use the Rotate panel to turn through the extra dimensions."></canvas>
+    <div id="labels"></div>
+    <div class="empty" id="empty" hidden>Type an expression on the left</div>
+    <div class="viewbar">
+      <div class="seg" role="group" aria-label="View" id="modes">
+        <button type="button" data-mode="shadow" aria-pressed="true">Shadow</button>
+        <button type="button" data-mode="slice" aria-pressed="false">Slice</button>
+      </div>
+      <label class="chip" id="perspChip"><input type="checkbox" id="persp" checked> Perspective</label>
+      <div class="seg" role="group" aria-label="Colour" id="colors">
+        <button type="button" data-color="w" aria-pressed="true">Colour by w</button>
+        <button type="button" data-color="entry" aria-pressed="false">By line</button>
+      </div>
+      <select id="bounds" aria-label="Graph size">
+        <option value="2">±2</option><option value="3" selected>±3</option><option value="5">±5</option><option value="10">±10</option>
+      </select>
+      <button class="chip" type="button" id="resetBtn">Reset view</button>
+    </div>
+    <section class="hyper" id="hyper">
+      <header><h2 id="hyperTitle">Rotate through 4D</h2><button class="btn" type="button" id="pauseBtn">Pause</button><button class="btn" type="button" id="foldBtn" aria-expanded="true">Hide</button></header>
+      <div class="body" id="hyperBody"></div>
+    </section>
+    <div class="legend" id="legend">
+      <span id="legendTitle">colour = w after rotating</span>
+      <div class="bar"></div>
+      <div class="ends"><span id="legLo">−3</span><span id="legHi">+3</span></div>
+    </div>
+  </main>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+const $ = s => document.querySelector(s);
+const TAU = Math.PI * 2;
+const AX = ['x', 'y', 'z', 'w', 'v', 'u'];
+const PARAMS = ['s', 't'];
+const PALETTE = ['#d9542b', '#2f6bd3', '#2f9a58', '#9b45b8', '#d6950e', '#12908f', '#c23b6d', '#5a6472'];
+
+/* =====================================================================
+   1. Maths input: tokenizer, parser (with 2x-style multiplication), compiler
+   ===================================================================== */
+const FUNCS = new Set(['sin','cos','tan','sec','csc','cot','asin','acos','atan','arcsin','arccos','arctan','sinh','cosh','tanh','asinh','acosh','atanh','exp','ln','log','sqrt','cbrt','abs','floor','ceil','round','sign','min','max','mod','atan2','hypot']);
+const CONSTS = { pi: 'Math.PI', 'π': 'Math.PI', tau: '(2*Math.PI)', 'τ': '(2*Math.PI)', e: 'Math.E' };
+const M = {
+  pow: Math.pow, sin: Math.sin, cos: Math.cos, tan: Math.tan, sec: x => 1 / Math.cos(x), csc: x => 1 / Math.sin(x), cot: x => 1 / Math.tan(x),
+  asin: Math.asin, acos: Math.acos, atan: Math.atan, arcsin: Math.asin, arccos: Math.acos, arctan: Math.atan,
+  sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, asinh: Math.asinh, acosh: Math.acosh, atanh: Math.atanh,
+  exp: Math.exp, ln: Math.log, log: Math.log10, sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil,
+  round: Math.round, sign: Math.sign, min: Math.min, max: Math.max, mod: (a, b) => ((a % b) + b) % b, atan2: Math.atan2, hypot: Math.hypot,
+  fact: n => { if (n < 0 || n > 170) return NaN; let r = 1; for (let i = 2; i <= Math.round(n); i++) r *= i; return r; },
+};
+class MathError extends Error {}
+
+function tokenize(src, known) {
+  src = src.replace(/²/g, '^2').replace(/³/g, '^3').replace(/[·×∙]/g, '*').replace(/[−–]/g, '-').replace(/√/g, 'sqrt ').replace(/÷/g, '/');
+  const out = []; let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    const num = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i));
+    if (num) { out.push({ type: 'num', v: num[0] }); i += num[0].length; continue; }
+    const id = /^[a-zA-Zα-ωπτθ]+/.exec(src.slice(i));
+    if (id) {
+      // split runs of letters into known names and single letters: "xsin" -> x sin, "xy" -> x y
+      const w = id[0]; let k = 0;
+      while (k < w.length) {
+        let best = '';
+        for (const name of known) if (name.length > best.length && name.length > 1 && w.startsWith(name, k)) best = name;
+        const piece = best || w[k];
+        out.push({ type: 'id', v: piece }); k += piece.length;
+      }
+      i += w.length; continue;
+    }
+    if ('+-*/^(),|![]'.includes(c)) { out.push({ type: 'op', v: c }); i++; continue; }
+    throw new MathError(`I don't understand "${c}"`);
+  }
+  return out;
+}
+
+function parse(tokens, fns) {
+  let p = 0, absDepth = 0;
+  const peek = () => tokens[p], next = () => tokens[p++];
+  const expect = v => { const t = next(); if (!t || t.v !== v) throw new MathError(t ? `Expected "${v}" but found "${t.v}"` : `Missing "${v}" at the end`); };
+  const startsFactor = t => !!t && (t.type === 'num' || t.type === 'id' || t.v === '(' || t.v === '[' || (t.v === '|' && absDepth === 0));
+  function sum() { let a = product(); for (;;) { const t = peek(); if (t && (t.v === '+' || t.v === '-')) { next(); a = { t: 'bin', op: t.v, a, b: product() }; } else return a; } }
+  function product() {
+    let a = unary();
+    for (;;) {
+      const t = peek();
+      if (t && (t.v === '*' || t.v === '/')) { next(); a = { t: 'bin', op: t.v, a, b: unary() }; }
+      else if (startsFactor(t)) a = { t: 'bin', op: '*', a, b: power() };
+      else return a;
+    }
+  }
+  function unary() { const t = peek(); if (t && (t.v === '-' || t.v === '+')) { next(); const a = unary(); return t.v === '-' ? { t: 'neg', a } : a; } return power(); }
+  function power() { const b = postfix(); const t = peek(); if (t && t.v === '^') { next(); return { t: 'bin', op: '^', a: b, b: unary() }; } return b; }
+  function postfix() { let a = primary(); while (peek() && peek().v === '!') { next(); a = { t: 'call', name: 'fact', args: [a] }; } return a; }
+  function args() { const list = [sum()]; while (peek() && peek().v === ',') { next(); list.push(sum()); } return list; }
+  function primary() {
+    const t = next();
+    if (!t) throw new MathError('Something is missing at the end');
+    if (t.type === 'num') return { t: 'num', v: +t.v };
+    if (t.v === '(' || t.v === '[') { const close = t.v === '(' ? ')' : ']'; const items = args(); expect(close); return items.length === 1 ? items[0] : { t: 'tuple', items }; }
+    if (t.v === '|') { absDepth++; const a = sum(); expect('|'); absDepth--; return { t: 'call', name: 'abs', args: [a] }; }
+    if (t.type === 'id') {
+      if (FUNCS.has(t.v) || fns.has(t.v)) {
+        const n = peek();
+        if (n && n.v === '(') { next(); const a = args(); expect(')'); return { t: 'call', name: t.v, args: a }; }
+        if (n && n.v === '^') { next(); const ex = unary(); return { t: 'bin', op: '^', a: { t: 'call', name: t.v, args: [power()] }, b: ex }; }
+        return { t: 'call', name: t.v, args: [power()] };
+      }
+      return { t: 'var', name: t.v };
+    }
+    throw new MathError(`Unexpected "${t.v}"`);
+  }
+  if (!tokens.length) throw new MathError('Empty');
+  const ast = sum();
+  if (p < tokens.length) throw new MathError(`Unexpected "${tokens[p].v}"`);
+  return ast;
+}
+
+// turn a tree into JavaScript; collects the names it uses
+function gen(n, ctx) {
+  switch (n.t) {
+    case 'num': return '(' + n.v + ')';
+    case 'neg': return '(-' + gen(n.a, ctx) + ')';
+    case 'bin': { const a = gen(n.a, ctx), b = gen(n.b, ctx); return n.op === '^' ? `M.pow(${a},${b})` : `(${a}${n.op}${b})`; }
+    case 'var': {
+      const k = n.name;
+      if (ctx.locals && ctx.locals.has(k)) return 'L_' + k;
+      if (k in CONSTS) return CONSTS[k];
+      ctx.used.add(k);
+      if (AX.includes(k) || PARAMS.includes(k)) return k;
+      return `P.${k}`;
+    }
+    case 'call': {
+      const a = n.args.map(x => gen(x, ctx)).join(',');
+      if (ctx.fns.has(n.name)) { ctx.used.add(n.name); return `F.${n.name}(${a})`; }
+      if (['min', 'max', 'hypot', 'atan2', 'mod'].includes(n.name) || n.args.length === 1) return `M.${n.name}(${a})`;
+      throw new MathError(`${n.name} takes one input`);
+    }
+    case 'tuple': throw new MathError('A list of coordinates has to be on its own line');
+  }
+}
+
+/* =====================================================================
+   2. State
+   ===================================================================== */
+const S = {
+  dim: 4, mode: 'shadow', persp: true, colorBy: 'w', B: 3,
+  entries: [], ang: {}, spin: {}, paused: false,
+  slice: [0, 0, 0], slicePlay: [false, false, false], sliceDir: [1, 1, 1],
+};
+let nextId = 1;
+const P = {}; const F = {};          // slider values and user functions, read live by compiled code
+function newEntry(text, extra = {}) {
+  return { id: nextId++, text, color: PALETTE[(nextId - 2) % PALETTE.length], off: false, s: extra.s || ['0', '2pi'], t: extra.t || ['0', '2pi'],
+    slider: { min: extra.min ?? -5, max: extra.max ?? 5, playing: false, dir: 1 } };
+}
+
+/* =====================================================================
+   3. Understanding each line
+   ===================================================================== */
+const POLY_RE = /^\s*(hypercube|tesseract|cube|simplex|orthoplex|cross|crosspolytope|24cell|24-cell)\s*(?:\(([^)]*)\))?\s*$/i;
+const FN_RE = /^\s*([a-zA-Z][a-zA-Z0-9]*)\s*\(\s*([a-zA-Z](?:\s*,\s*[a-zA-Z])*)\s*\)\s*=(.*)$/;
+const SL_RE = /^\s*([a-zA-Z])\s*=(.*)$/;
+
+function compileAll() {
+  // pass 1: what names exist?
+  const fnNames = new Set(), sliderNames = new Set();
+  for (const e of S.entries) {
+    const f = FN_RE.exec(e.text); if (f && !AX.includes(f[1]) && !PARAMS.includes(f[1]) && !FUNCS.has(f[1])) { fnNames.add(f[1]); continue; }
+    const s = SL_RE.exec(e.text); if (s && !AX.includes(s[1]) && !PARAMS.includes(s[1]) && !(s[1] in CONSTS)) sliderNames.add(s[1]);
+  }
+  const known = [...FUNCS, ...Object.keys(CONSTS), ...fnNames];
+  const mk = (code, names) => new Function('M', 'P', 'F', `"use strict"; return (${names.join(',')}) => ${code};`)(M, P, F);
+  const compile = (src, locals) => {
+    const ctx = { used: new Set(), fns: fnNames, locals };
+    const ast = parse(tokenize(src, known), fnNames);
+    return { ast, ctx };
+  };
+  for (const k of Object.keys(P)) delete P[k];
+  for (const k of Object.keys(F)) delete F[k];
+  const consts = [];
+  for (const e of S.entries) {
+    e.c = null; e.msg = ''; e.bad = false; e.missing = null;
+    const text = e.text.trim();
+    if (!text) { e.c = { kind: 'empty' }; continue; }
+    try {
+      const poly = POLY_RE.exec(text);
+      if (poly) {
+        let type = poly[1].toLowerCase().replace('-', '');
+        type = ['hypercube', 'tesseract', 'cube'].includes(type) ? 'cube' : type === 'cross' || type === 'crosspolytope' ? 'orthoplex' : type;
+        let size = null;
+        if (poly[2] && poly[2].trim()) { const { ast, ctx } = compile(poly[2]); size = { fn: mk(gen(ast, ctx), []), used: ctx.used }; }
+        e.c = { kind: 'poly', type, size, used: size ? size.used : new Set() };
+        continue;
+      }
+      const f = FN_RE.exec(text);
+      if (f && fnNames.has(f[1])) {
+        const params = f[2].split(',').map(x => x.trim());
+        const { ast, ctx } = compile(f[3], new Set(params));
+        const fn = mk(gen(ast, ctx), params.map(p => 'L_' + p));
+        F[f[1]] = fn;
+        e.c = { kind: 'func', name: f[1], used: ctx.used };
+        e.msg = `function of ${params.join(', ')}`;
+        continue;
+      }
+      const sl = SL_RE.exec(text);
+      if (sl && sliderNames.has(sl[1])) {
+        const name = sl[1], rhs = sl[2].trim();
+        if (/^[-+]?(\d+\.?\d*|\.\d+)$/.test(rhs)) {
+          P[name] = +rhs;
+          e.c = { kind: 'slider', name, used: new Set() };
+          if (P[name] < e.slider.min) e.slider.min = Math.floor(P[name]);
+          if (P[name] > e.slider.max) e.slider.max = Math.ceil(P[name]);
+        } else {
+          const { ast, ctx } = compile(rhs);
+          if ([...ctx.used].some(k => AX.includes(k) || PARAMS.includes(k))) throw new MathError(`${name} can't depend on the axes. Use another letter`);
+          const fn = mk(gen(ast, ctx), []);
+          consts.push({ name, fn, e });
+          e.c = { kind: 'const', name, used: ctx.used };
+        }
+        continue;
+      }
+      if (text.includes('=')) {
+        const parts = text.split('=');
+        if (parts.length !== 2) throw new MathError('Use just one = sign');
+        if (!parts[0].trim() || !parts[1].trim()) throw new MathError('Put something on both sides of =');
+        const a = compile(parts[0]), b = compile(parts[1]);
+        const code = `(${gen(a.ast, a.ctx)})-(${gen(b.ast, b.ctx)})`;
+        const used = new Set([...a.ctx.used, ...b.ctx.used]);
+        if ([...used].some(k => PARAMS.includes(k))) throw new MathError('s and t are for surfaces. Equations use x, y, z, w…');
+        const axes = [...used].filter(k => AX.includes(k));
+        if (!axes.length) throw new MathError('An equation needs at least one axis: x, y, z, w…');
+        e.c = { kind: 'implicit', fn: mk(code, AX), used };
+        const tooHigh = axes.filter(k => AX.indexOf(k) >= S.dim);
+        if (tooHigh.length) e.msg = `${tooHigh.join(', ')} ${tooHigh.length > 1 ? 'are' : 'is'} 0 here: ${tooHigh.map(k => AX.indexOf(k) + 1 + 'D').join(', ')} needed`;
+        else e.msg = 'hypersurface · clearest in Slice';
+        continue;
+      }
+      const { ast, ctx } = compile(text);
+      if (ast.t === 'tuple') {
+        const n = ast.items.length;
+        if (n < 2) throw new MathError('A point needs at least two coordinates');
+        if (n > 6) throw new MathError('Hyperplot goes up to 6 coordinates');
+        const comps = ast.items.map(it => mk(gen(it, ctx), ['s', 't']));
+        if ([...ctx.used].some(k => AX.includes(k))) throw new MathError('Use s and t inside ( ), not x, y, z…');
+        const us = ctx.used.has('s'), ut = ctx.used.has('t');
+        const kind = us && ut ? 'surface' : us || ut ? 'curve' : 'point';
+        e.c = { kind, comps, n, param: us && !ut ? 's' : 't', used: ctx.used };
+        const note = kind === 'surface' ? 'surface' : kind === 'curve' ? 'curve' : 'point';
+        e.msg = n > S.dim ? `has ${n} coordinates: switch to ${n}D to see all of them` : `${note} in ${n}D${n < S.dim ? ' (the rest are 0)' : ''}`;
+        if (n > S.dim) e.bad = true;
+        continue;
+      }
+      if ([...ctx.used].some(k => AX.includes(k) || PARAMS.includes(k))) throw new MathError('Add "= something" to make an equation');
+      e.c = { kind: 'value', fn: mk(gen(ast, ctx), []), used: ctx.used };
+    } catch (err) {
+      e.c = { kind: 'error' }; e.bad = true;
+      e.msg = err instanceof MathError ? err.message : 'I could not read that';
+    }
+  }
+  // values that depend on sliders
+  for (let pass = 0; pass < 6; pass++) for (const c of consts) { try { P[c.name] = c.fn(); } catch { P[c.name] = NaN; } }
+  for (const c of consts) c.e.msg = `= ${fmt(P[c.name])}`;
+  // unknown names -> offer a slider
+  const definedSliders = new Set(Object.keys(P));
+  for (const e of S.entries) {
+    if (!e.c || !e.c.used || e.bad) continue;
+    const missing = [...e.c.used].filter(k => !AX.includes(k) && !PARAMS.includes(k) && !fnNames.has(k) && !definedSliders.has(k));
+    if (missing.length) { e.bad = true; e.missing = missing; e.msg = `${missing.join(', ')} ${missing.length > 1 ? "aren't" : "isn't"} defined yet`; }
+    else if (e.c.kind === 'value') { try { e.msg = '= ' + fmt(e.c.fn()); } catch { e.msg = 'could not work this out'; } }
+  }
+}
+function fmt(v) { if (!isFinite(v)) return String(v); const a = Math.abs(v); return a !== 0 && (a < 1e-4 || a >= 1e7) ? v.toExponential(4) : (+v.toFixed(6)).toString(); }
+function evalConst(src, fallback) {
+  try {
+    const known = [...FUNCS, ...Object.keys(CONSTS)];
+    const ctx = { used: new Set(), fns: new Set() };
+    const code = gen(parse(tokenize(String(src), known), new Set()), ctx);
+    const v = new Function('M', 'P', 'F', `return ${code};`)(M, P, F);
+    return isFinite(v) ? v : fallback;
+  } catch { return fallback; }
+}
+
+/* =====================================================================
+   4. Shapes in n dimensions (all stored as 6 numbers per point)
+   ===================================================================== */
+function polytope(type, n, r) {
+  const V = [], E = [];
+  if (type === 'cube') {
+    for (let m = 0; m < (1 << n); m++) { const v = new Array(6).fill(0); for (let i = 0; i < n; i++) v[i] = (m >> i & 1) ? r : -r; V.push(v); }
+    for (let a = 0; a < V.length; a++) for (let b = a + 1; b < V.length; b++) { const x = a ^ b; if ((x & (x - 1)) === 0) E.push([a, b]); }
+  } else if (type === 'orthoplex') {
+    for (let i = 0; i < n; i++) for (const sg of [1, -1]) { const v = new Array(6).fill(0); v[i] = sg * r; V.push(v); }
+    for (let a = 0; a < V.length; a++) for (let b = a + 1; b < V.length; b++) if ((a >> 1) !== (b >> 1)) E.push([a, b]);
+  } else if (type === 'simplex') {
+    const c = (1 - Math.sqrt(n + 1)) / n, pts = [];
+    for (let i = 0; i < n; i++) { const v = new Array(n).fill(0); v[i] = 1; pts.push(v); }
+    pts.push(new Array(n).fill(c));
+    const cen = new Array(n).fill(0); pts.forEach(p => p.forEach((x, i) => cen[i] += x / (n + 1)));
+    const rad = Math.hypot(...pts[0].map((x, i) => x - cen[i]));
+    for (const p of pts) { const v = new Array(6).fill(0); p.forEach((x, i) => v[i] = (x - cen[i]) / rad * r); V.push(v); }
+    for (let a = 0; a < V.length; a++) for (let b = a + 1; b < V.length; b++) E.push([a, b]);
+  } else if (type === '24cell') {
+    const k = r / Math.SQRT2;
+    for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) for (const si of [1, -1]) for (const sj of [1, -1]) { const v = new Array(6).fill(0); v[i] = si * k; v[j] = sj * k; V.push(v); }
+    for (let a = 0; a < V.length; a++) for (let b = a + 1; b < V.length; b++) { let d = 0; for (let i = 0; i < 4; i++) d += (V[a][i] - V[b][i]) ** 2; if (Math.abs(d - 2 * k * k) < 1e-6) E.push([a, b]); }
+  }
+  return { V, E };
+}
+// the solid version of each polytope, as "inside < 0", used for slicing
+function polytopeField(type, n, r, V) {
+  if (type === 'cube') return (...c) => { let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(c[i])); return m - r; };
+  if (type === 'orthoplex') return (...c) => { let m = 0; for (let i = 0; i < n; i++) m += Math.abs(c[i]); return m - r; };
+  if (type === '24cell') { const k = r / Math.SQRT2; return (...c) => { let a = 0, s = 0; for (let i = 0; i < 4; i++) { const q = Math.abs(c[i]); a = Math.max(a, q); s += q; } return Math.max(a, s / 2) - k; }; }
+  const N = V.map(v => v.slice(0, n).map(x => -x / r)), inr = r / n;            // regular simplex: facets face away from each vertex
+  return (...c) => { let m = -Infinity; for (const nv of N) { let d = 0; for (let i = 0; i < n; i++) d += nv[i] * c[i]; m = Math.max(m, d); } return m - inr; };
+}
+const POLY_INFO = {
+  cube: { 4: ['tesseract', '{4,3,3}'], 5: ['penteract', '{4,3,3,3}'], 6: ['hexeract', '{4,3,3,3,3}'] },
+  orthoplex: { 4: ['16-cell', '{3,3,4}'], 5: ['pentacross', '{3,3,3,4}'], 6: ['hexacross', '{3,3,3,3,4}'] },
+  simplex: { 4: ['5-cell', '{3,3,3}'], 5: ['5-simplex', '{3,3,3,3}'], 6: ['6-simplex', '{3,3,3,3,3}'] },
+  '24cell': { 4: ['24-cell', '{3,4,3}'] },
+};
+
+/* =====================================================================
+   5. Rotation and projection down to 3D
+   ===================================================================== */
+const R = new Float64Array(36);
+function planes() { const out = []; for (let j = 3; j < S.dim; j++) for (let i = 0; i < j; i++) out.push([i, j]); return out; }
+function buildR() {
+  R.fill(0); for (let i = 0; i < 6; i++) R[i * 7] = 1;
+  for (const [i, j] of planes()) {
+    const a = S.ang[i + '' + j] || 0; if (!a) continue;
+    const c = Math.cos(a), s = Math.sin(a);
+    for (let k = 0; k < 6; k++) { const ri = R[i * 6 + k], rj = R[j * 6 + k]; R[i * 6 + k] = c * ri - s * rj; R[j * 6 + k] = s * ri + c * rj; }
+  }
+}
+const Q = new Float64Array(7);
+// q[0..2] = where it lands in 3D, q[6] = its w after rotating (for colour), returns slice distance
+function project(a, o) {
+  const n = S.dim, persp = S.mode === 'shadow' && S.persp, D = S.B * 2.0;
+  for (let i = 0; i < n; i++) { let s = 0; const r = i * 6; for (let j = 0; j < n; j++) s += R[r + j] * a[o + j]; Q[i] = s; }
+  Q[6] = n > 3 ? Q[3] : 0;
+  let dist = 0;
+  if (S.mode === 'slice') for (let k = 3; k < n; k++) dist = Math.max(dist, Math.abs(Q[k] - S.slice[k - 3]));
+  if (persp) for (let k = n - 1; k >= 3; k--) { const den = D - Q[k], f = D / Math.max(den, D * 0.18); for (let i = 0; i < k; i++) Q[i] *= f; }
+  return dist;
+}
+
+/* =====================================================================
+   6. Three.js scene
+   ===================================================================== */
+const canvas = $('#gl'), stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+function resetCamera() { const d = S.B * 4.4; camera.position.set(d * 0.78, d * 0.52, d * 0.95); controls.target.set(0, 0, 0); controls.update(); }
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(4, 9, 6); scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5); fill.position.set(-6, -3, -4); scene.add(fill);
+const lineMats = [];
+function lineMat(width) { const m = new LineMaterial({ linewidth: width, vertexColors: true, worldUnits: false }); m.resolution.set(stage.clientWidth, stage.clientHeight); lineMats.push(m); return m; }
+function makeLines(nSeg, width) {
+  const g = new LineSegmentsGeometry(); g.setPositions(new Float32Array(Math.max(1, nSeg) * 6)); g.setColors(new Float32Array(Math.max(1, nSeg) * 6));
+  const l = new LineSegments2(g, lineMat(width)); l.frustumCulled = false; return l;
+}
+function setLines(l, pos, col) {
+  const g = l.geometry, pb = g.attributes.instanceStart.data, cb = g.attributes.instanceColorStart.data;
+  pb.array.set(pos); pb.needsUpdate = true; cb.array.set(col); cb.needsUpdate = true;
+}
+// faint grid lines drawn on surfaces, one square per step of s and t
+const gridTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 64); x.fillStyle = 'rgba(0,0,0,.28)'; x.fillRect(0, 0, 64, 2); x.fillRect(0, 0, 2, 64);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+})();
+const dotTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(32, 32, 28, 0, TAU); x.fill();
+  const t = new THREE.CanvasTexture(c); return t;
+})();
+
+// colours from the page's tokens (they change with the theme)
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const AXC = []; let BG = new THREE.Color(), LINE = new THREE.Color();
+const RAMP = ['#3557d6', '#2aa7c9', '#43b45a', '#e6b325', '#e0532c'].map(h => new THREE.Color(h));
+function readTheme() {
+  AX.forEach((a, i) => AXC[i] = new THREE.Color(css('--ax-' + a) || '#888'));
+  BG = new THREE.Color(css('--canvas') || '#eceff3'); LINE = new THREE.Color(css('--line') || '#ccc');
+  renderer.setClearColor(BG, 1);
+  grid.material.color.copy(LINE);
+  markAll();
+}
+function ramp(v, out) {
+  let t = (v / S.B + 1) / 2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const x = t * (RAMP.length - 1), i = Math.min(RAMP.length - 2, Math.floor(x)), f = x - i, A = RAMP[i], Bc = RAMP[i + 1];
+  out.r = A.r + (Bc.r - A.r) * f; out.g = A.g + (Bc.g - A.g) * f; out.b = A.b + (Bc.b - A.b) * f; return out;
+}
+const grid = new THREE.GridHelper(1, 1); scene.add(grid);
+function rebuildGrid() {
+  scene.remove(grid); grid.geometry.dispose();
+  const g = new THREE.GridHelper(S.B * 2, S.B * 2 > 10 ? 10 : S.B * 2);
+  grid.geometry = g.geometry; grid.material.transparent = true; grid.material.opacity = 0.55; grid.material.vertexColors = false; grid.material.needsUpdate = true; grid.material.color.copy(LINE); scene.add(grid);
+}
+
+/* ---- the axes ---- */
+const axes = makeLines(6, 2); scene.add(axes);
+const labelsEl = $('#labels'); const axisLabels = AX.map((a, i) => { const s = document.createElement('span'); s.textContent = a; labelsEl.appendChild(s); return s; });
+function updateAxes() {
+  const pos = new Float32Array(36), col = new Float32Array(36), tmp = new Float64Array(6);
+  for (let i = 0; i < 6; i++) {
+    if (i >= S.dim) continue;
+    for (const [k, sg] of [[0, -1], [1, 1]]) {
+      tmp.fill(0); tmp[i] = sg * S.B; project(tmp, 0);
+      pos.set([Q[0], Q[2], -Q[1]], i * 6 + k * 3);
+      const c = AXC[i]; col.set([c.r, c.g, c.b], i * 6 + k * 3);
+    }
+  }
+  setLines(axes, pos, col);
+}
+const v3 = new THREE.Vector3();
+function updateLabels() {
+  const w = stage.clientWidth, h = stage.clientHeight, tmp = new Float64Array(6);
+  for (let i = 0; i < 6; i++) {
+    const el = axisLabels[i];
+    if (i >= S.dim) { el.hidden = true; continue; }
+    tmp.fill(0); tmp[i] = S.B * 1.1; project(tmp, 0);
+    v3.set(Q[0], Q[2], -Q[1]).project(camera);
+    if (v3.z > 1) { el.hidden = true; continue; }
+    el.hidden = false; el.style.color = css('--ax-' + AX[i]);
+    el.style.transform = `translate(${((v3.x + 1) / 2 * w).toFixed(1)}px, ${((1 - v3.y) / 2 * h).toFixed(1)}px) translate(-50%, -50%)`;
+  }
+}
+
+/* =====================================================================
+   7. Turning lines into 3D objects
+   ===================================================================== */
+const objects = new Map();                    // entry id -> object
+const tmpC = new THREE.Color();
+function entryColor(e) { return tmpC.set(e.color); }
+
+function buildObject(e) {
+  const c = e.c; if (!c || e.bad || e.off) return null;
+  const n = S.dim, B = S.B;
+  try {
+    if (c.kind === 'surface' || c.kind === 'curve') {
+      const s0 = evalConst(e.s[0], 0), s1 = evalConst(e.s[1], TAU), t0 = evalConst(e.t[0], 0), t1 = evalConst(e.t[1], TAU);
+      const comps = c.comps.slice(0, n);
+      if (c.kind === 'curve') {
+        const N = 600, nd = new Float32Array(N * 6), [a0, a1] = c.param === 's' ? [s0, s1] : [t0, t1];
+        for (let i = 0; i < N; i++) { const p = a0 + (a1 - a0) * i / (N - 1); for (let k = 0; k < comps.length; k++) nd[i * 6 + k] = comps[k](p, p); }
+        const lines = makeLines(N - 1, 3);
+        const o = { kind: 'curve', nd, N, lines, group: lines,
+          project() {
+            const pos = new Float32Array((N - 1) * 6), col = new Float32Array((N - 1) * 6), P3 = new Float32Array(N * 3), PC = new Float32Array(N * 3), PD = new Float32Array(N);
+            for (let i = 0; i < N; i++) {
+              const d = project(nd, i * 6); P3[i * 3] = Q[0]; P3[i * 3 + 1] = Q[2]; P3[i * 3 + 2] = -Q[1]; PD[i] = d;
+              const col3 = S.colorBy === 'w' ? ramp(Q[6], tmpC) : entryColor(e); PC[i * 3] = col3.r; PC[i * 3 + 1] = col3.g; PC[i * 3 + 2] = col3.b;
+            }
+            const band = S.B * 0.07;
+            for (let i = 0; i < N - 1; i++) {
+              const ok = [P3[i * 3], P3[i * 3 + 1], P3[i * 3 + 2], P3[i * 3 + 3], P3[i * 3 + 4], P3[i * 3 + 5]].every(isFinite);
+              pos.set(ok ? P3.subarray(i * 3, i * 3 + 6) : [0, 0, 0, 0, 0, 0], i * 6);
+              let fade = 0; if (S.mode === 'slice') fade = (PD[i] > band && PD[i + 1] > band) ? 0.88 : 0;
+              for (let k = 0; k < 6; k++) { const ch = k % 3, base = PC[(i + (k >= 3 ? 1 : 0)) * 3 + ch], bg = ch === 0 ? BG.r : ch === 1 ? BG.g : BG.b; col[i * 6 + k] = base + (bg - base) * fade; }
+            }
+            setLines(lines, pos, col);
+          } };
+        return o;
+      }
+      const NS = n >= 6 ? 60 : 72, NT = NS, NV = (NS + 1) * (NT + 1);
+      const nd = new Float32Array(NV * 6);
+      for (let i = 0; i <= NS; i++) for (let j = 0; j <= NT; j++) {
+        const s = s0 + (s1 - s0) * i / NS, t = t0 + (t1 - t0) * j / NT, o = (i * (NT + 1) + j) * 6;
+        for (let k = 0; k < comps.length; k++) nd[o + k] = comps[k](s, t);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NV * 3), 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NV * 4), 4));
+      const uv = new Float32Array(NV * 2);
+      for (let i = 0; i <= NS; i++) for (let j = 0; j <= NT; j++) { const o = (i * (NT + 1) + j) * 2; uv[o] = i / NS * 16; uv[o + 1] = j / NT * 16; }
+      g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      const idx = [];
+      for (let i = 0; i < NS; i++) for (let j = 0; j < NT; j++) { const a = i * (NT + 1) + j, b = a + NT + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+      g.setIndex(idx);
+      const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.55, metalness: 0, map: gridTex, alphaTest: 0.5 }));
+      mesh.frustumCulled = false;
+      return { kind: 'surface', group: mesh,
+        project() {
+          const pos = g.attributes.position.array, col = g.attributes.color.array, band = S.B * 0.07;
+          for (let i = 0; i < NV; i++) {
+            const d = project(nd, i * 6);
+            const ok = isFinite(Q[0]) && isFinite(Q[1]) && isFinite(Q[2]);
+            pos[i * 3] = ok ? Q[0] : 0; pos[i * 3 + 1] = ok ? Q[2] : 0; pos[i * 3 + 2] = ok ? -Q[1] : 0;
+            const cc = S.colorBy === 'w' ? ramp(Q[6], tmpC) : entryColor(e);
+            col[i * 4] = cc.r; col[i * 4 + 1] = cc.g; col[i * 4 + 2] = cc.b;
+            col[i * 4 + 3] = !ok ? 0 : S.mode === 'slice' ? Math.max(0, Math.min(1, 1.5 - d / band)) : 1;
+          }
+          g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+          g.computeVertexNormals();
+        } };
+    }
+    if (c.kind === 'point') {
+      const nd = new Float32Array(6); c.comps.slice(0, n).forEach((f, k) => nd[k] = f(0, 0));
+      const m = new THREE.Mesh(new THREE.SphereGeometry(B * 0.035, 20, 14), new THREE.MeshStandardMaterial({ roughness: 0.4 }));
+      return { kind: 'point', group: m,
+        project() { const d = project(nd, 0); m.position.set(Q[0], Q[2], -Q[1]); m.material.color.copy(S.colorBy === 'w' ? ramp(Q[6], tmpC) : entryColor(e)); m.visible = S.mode !== 'slice' || d < S.B * 0.1; } };
+    }
+    if (c.kind === 'poly') {
+      if (c.type === '24cell' && n !== 4) { e.msg = 'the 24-cell only exists in 4D'; e.bad = true; return null; }
+      const r = c.size ? c.size.fn() : (c.type === 'cube' ? 1.2 : 1.8) * B / 3;
+      if (!(r > 0)) { e.msg = 'the size has to be more than 0'; e.bad = true; return null; }
+      const { V, E } = polytope(c.type, n, r), info = POLY_INFO[c.type][n];
+      e.msg = `${info[0]} · ${V.length} vertices · ${E.length} edges · ${info[1]}`;
+      if (S.mode === 'slice') return sliceObject(e, polytopeField(c.type, n, r, V), true);
+      const nd = new Float32Array(V.length * 6); V.forEach((v, i) => nd.set(v, i * 6));
+      const lines = makeLines(E.length, 2.5);
+      const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(V.length * 3), 3)); dg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(V.length * 3), 3));
+      const dots = new THREE.Points(dg, new THREE.PointsMaterial({ size: B * 0.07, vertexColors: true, map: dotTex, alphaTest: 0.5, sizeAttenuation: true }));
+      dots.frustumCulled = false;
+      const grp = new THREE.Group(); grp.add(lines, dots);
+      return { kind: 'poly', group: grp,
+        project() {
+          const P3 = dg.attributes.position.array, PC = dg.attributes.color.array;
+          for (let i = 0; i < V.length; i++) { project(nd, i * 6); P3[i * 3] = Q[0]; P3[i * 3 + 1] = Q[2]; P3[i * 3 + 2] = -Q[1]; const cc = S.colorBy === 'w' ? ramp(Q[6], tmpC) : entryColor(e); PC[i * 3] = cc.r; PC[i * 3 + 1] = cc.g; PC[i * 3 + 2] = cc.b; }
+          dg.attributes.position.needsUpdate = true; dg.attributes.color.needsUpdate = true;
+          const pos = new Float32Array(E.length * 6), col = new Float32Array(E.length * 6);
+          E.forEach(([a, b], k) => { pos.set(P3.subarray(a * 3, a * 3 + 3), k * 6); pos.set(P3.subarray(b * 3, b * 3 + 3), k * 6 + 3); col.set(PC.subarray(a * 3, a * 3 + 3), k * 6); col.set(PC.subarray(b * 3, b * 3 + 3), k * 6 + 3); });
+          setLines(lines, pos, col);
+        } };
+    }
+    if (c.kind === 'implicit') {
+      if (S.mode === 'slice') { e.msg = `hypersurface · the slice where ${AX.slice(3, n).join(', ')} ${n > 4 ? 'are' : 'is'} set below`; return sliceObject(e, c.fn, false); }
+      return cloudObject(e, c.fn);
+    }
+  } catch (err) { console.warn(err); e.msg = 'could not draw this'; e.bad = true; }
+  return null;
+}
+
+// shadow of a hypersurface: find where the equation flips sign on an n-D grid, show those spots as a cloud
+function cloudObject(e, fn) {
+  const n = S.dim, B = S.B, N = n === 4 ? 30 : n === 5 ? 15 : 9, step = 2 * B / (N - 1), total = N ** n;
+  const vals = new Float32Array(total), c = [0, 0, 0, 0, 0, 0], stride = [];
+  for (let d = 0, s = 1; d < n; d++, s *= N) stride.push(s);
+  for (let k = 0; k < total; k++) { let r = k; for (let d = 0; d < n; d++) { const id = r % N; r = (r - id) / N; c[d] = -B + id * step; } vals[k] = fn(c[0], c[1], c[2], c[3], c[4], c[5]); }
+  const pts = [];
+  for (let k = 0; k < total; k++) {
+    const a = vals[k]; if (!isFinite(a)) continue;
+    let r = k; const id = []; for (let d = 0; d < n; d++) { const q = r % N; id.push(q); r = (r - q) / N; }
+    for (let d = 0; d < n; d++) {
+      if (id[d] === N - 1) continue;
+      const b = vals[k + stride[d]]; if (!isFinite(b) || (a < 0) === (b < 0)) continue;
+      const f = a / (a - b);
+      for (let q = 0; q < 6; q++) pts.push(q < n ? -B + (id[q] + (q === d ? f : 0)) * step : 0);
+    }
+  }
+  let count = pts.length / 6; const MAX = 140000;
+  let nd = new Float32Array(pts);
+  if (count > MAX) { const keep = new Float32Array(MAX * 6), stepK = count / MAX; for (let i = 0; i < MAX; i++) keep.set(nd.subarray(Math.floor(i * stepK) * 6, Math.floor(i * stepK) * 6 + 6), i * 6); nd = keep; count = MAX; }
+  if (!count) { e.msg = 'nothing in view: try a bigger graph size'; return null; }
+  e.msg = `hypersurface · ${count.toLocaleString()} sample points · Slice shows it solid`;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  const pts3 = new THREE.Points(g, new THREE.PointsMaterial({ size: B * (n === 4 ? 0.028 : 0.045), vertexColors: true, map: dotTex, alphaTest: 0.5, sizeAttenuation: true }));
+  pts3.frustumCulled = false;
+  return { kind: 'cloud', group: pts3,
+    project() {
+      const P3 = g.attributes.position.array, PC = g.attributes.color.array;
+      for (let i = 0; i < count; i++) { project(nd, i * 6); P3[i * 3] = Q[0]; P3[i * 3 + 1] = Q[2]; P3[i * 3 + 2] = -Q[1]; const cc = S.colorBy === 'w' ? ramp(Q[6], tmpC) : entryColor(e); PC[i * 3] = cc.r; PC[i * 3 + 1] = cc.g; PC[i * 3 + 2] = cc.b; }
+      g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+    } };
+}
+
+// slice of a hypersurface (or a solid polytope): marching tetrahedra through the visible 3D space
+const CO = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]];
+const TETS = [[0, 1, 2, 6], [0, 1, 5, 6], [0, 3, 2, 6], [0, 3, 7, 6], [0, 4, 5, 6], [0, 4, 7, 6]];
+function sliceObject(e, fn, solid) {
+  const g = new THREE.BufferGeometry();
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.5, metalness: 0, flatShading: solid }));
+  mesh.frustumCulled = false;
+  let lastKey = '';
+  const obj = { kind: 'slice', group: mesh, slice: true,
+    project(force) {
+      const key = Array.from(R).join(',') + S.slice.join(',') + S.dim + S.B + (obj.gen || 0);
+      mesh.material.color.copy(S.colorBy === 'w' ? ramp(S.slice[0], tmpC) : entryColor(e));
+      if (!force && key === lastKey) return;
+      lastKey = key;
+      const busy = isBusy(), G = busy ? 30 : 46, B = S.B * 1.02, N1 = G + 1, step = 2 * B / G, n = S.dim;
+      const V = new Float32Array(N1 * N1 * N1), base = [0, 0, 0, 0, 0, 0];
+      for (let j = 0; j < n; j++) for (let i = 3; i < n; i++) base[j] += R[i * 6 + j] * S.slice[i - 3];
+      const p = [0, 0, 0, 0, 0, 0]; let idx = 0;
+      for (let iz = 0; iz < N1; iz++) { const Z = -B + iz * step;
+        for (let iy = 0; iy < N1; iy++) { const Y = -B + iy * step;
+          for (let ix = 0; ix < N1; ix++) { const X = -B + ix * step;
+            for (let j = 0; j < 6; j++) p[j] = j < n ? R[j] * X + R[6 + j] * Y + R[12 + j] * Z + base[j] : 0;
+            V[idx++] = fn(p[0], p[1], p[2], p[3], p[4], p[5]);
+          } } }
+      const id = (x, y, z) => x + N1 * (y + N1 * z);
+      const val = (x, y, z) => V[id(Math.max(0, Math.min(G, x)), Math.max(0, Math.min(G, y)), Math.max(0, Math.min(G, z)))];
+      const pos = [], nor = [], cv = new Float64Array(8), cx = new Int32Array(8), cy = new Int32Array(8), cz = new Int32Array(8);
+      const tp = new Float64Array(9), tn = new Float64Array(9);
+      let tc = 0;
+      const vert = (ka, kb) => {
+        const va = cv[ka], vb = cv[kb], f = va / (va - vb);
+        const X = -B + (cx[ka] + (cx[kb] - cx[ka]) * f) * step, Y = -B + (cy[ka] + (cy[kb] - cy[ka]) * f) * step, Z = -B + (cz[ka] + (cz[kb] - cz[ka]) * f) * step;
+        const ga = [val(cx[ka] + 1, cy[ka], cz[ka]) - val(cx[ka] - 1, cy[ka], cz[ka]), val(cx[ka], cy[ka] + 1, cz[ka]) - val(cx[ka], cy[ka] - 1, cz[ka]), val(cx[ka], cy[ka], cz[ka] + 1) - val(cx[ka], cy[ka], cz[ka] - 1)];
+        const gb = [val(cx[kb] + 1, cy[kb], cz[kb]) - val(cx[kb] - 1, cy[kb], cz[kb]), val(cx[kb], cy[kb] + 1, cz[kb]) - val(cx[kb], cy[kb] - 1, cz[kb]), val(cx[kb], cy[kb], cz[kb] + 1) - val(cx[kb], cy[kb], cz[kb] - 1)];
+        tp[tc * 3] = X; tp[tc * 3 + 1] = Z; tp[tc * 3 + 2] = -Y;
+        const gx = ga[0] + (gb[0] - ga[0]) * f, gy = ga[1] + (gb[1] - ga[1]) * f, gz = ga[2] + (gb[2] - ga[2]) * f;
+        tn[tc * 3] = gx; tn[tc * 3 + 1] = gz; tn[tc * 3 + 2] = -gy; tc++;
+      };
+      const flush = () => {   // one triangle: wind it so its front faces the way the equation grows
+        const ax = tp[3] - tp[0], ay = tp[4] - tp[1], az = tp[5] - tp[2], bx = tp[6] - tp[0], by = tp[7] - tp[1], bz = tp[8] - tp[2];
+        const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+        const order = (nx * (tn[0] + tn[3] + tn[6]) + ny * (tn[1] + tn[4] + tn[7]) + nz * (tn[2] + tn[5] + tn[8])) < 0 ? [0, 2, 1] : [0, 1, 2];
+        for (const k of order) { pos.push(tp[k * 3], tp[k * 3 + 1], tp[k * 3 + 2]); const l = Math.hypot(tn[k * 3], tn[k * 3 + 1], tn[k * 3 + 2]) || 1; nor.push(tn[k * 3] / l, tn[k * 3 + 1] / l, tn[k * 3 + 2] / l); }
+        tc = 0;
+      };
+      for (let iz = 0; iz < G; iz++) for (let iy = 0; iy < G; iy++) for (let ix = 0; ix < G; ix++) {
+        let neg = 0;
+        for (let k = 0; k < 8; k++) { cx[k] = ix + CO[k][0]; cy[k] = iy + CO[k][1]; cz[k] = iz + CO[k][2]; cv[k] = V[id(cx[k], cy[k], cz[k])]; if (cv[k] < 0) neg++; }
+        if (neg === 0 || neg === 8) continue;
+        for (const T of TETS) {
+          const ins = T.filter(k => cv[k] < 0), out = T.filter(k => !(cv[k] < 0));
+          if (ins.length === 0 || ins.length === 4) continue;
+          if (ins.length === 1 || ins.length === 3) {
+            const [o, rest] = ins.length === 1 ? [ins[0], out] : [out[0], ins];
+            vert(o, rest[0]); vert(o, rest[1]); vert(o, rest[2]); flush();
+          } else {
+            const [a, b] = ins, [c2, d] = out;
+            vert(a, c2); vert(a, d); vert(b, d); flush();
+            vert(a, c2); vert(b, d); vert(b, c2); flush();
+          }
+        }
+      }
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.computeBoundingSphere();
+      obj.empty = pos.length === 0;
+    } };
+  return obj;
+}
+function isBusy() { return (!S.paused && Object.values(S.spin).some(Boolean)) || S.slicePlay.some(Boolean) || S.entries.some(e => e.slider.playing); }
+
+/* =====================================================================
+   8. Keeping the scene in step with the list
+   ===================================================================== */
+let projDirty = true;
+function markAll() { projDirty = true; }
+function rebuild(onlyIds) {
+  compileAll();
+  for (const e of S.entries) {
+    if (onlyIds && !onlyIds.has(e.id)) continue;
+    const old = objects.get(e.id);
+    if (old) { scene.remove(old.group); old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== undefined) { const i = lineMats.indexOf(o.material); if (i >= 0) lineMats.splice(i, 1); o.material.dispose(); } }); objects.delete(e.id); }
+    const o = buildObject(e); e.drawMsg = e.msg;
+    if (o) { scene.add(o.group); objects.set(e.id, o); o.project(true); }
+  }
+  keepDrawMessages(onlyIds);
+  renderList(false);
+  $('#empty').hidden = S.entries.some(e => e.text.trim());
+  markAll(); save();
+}
+// lines that weren't redrawn keep what drawing them said (vertex counts and so on)
+function keepDrawMessages(ids) { if (!ids) return; for (const e of S.entries) if (!ids.has(e.id) && !e.bad && e.drawMsg && objects.has(e.id)) e.msg = e.drawMsg; }
+function usesName(e, name) { return e.c && e.c.used && (e.c.used.has(name) || [...e.c.used].some(k => F[k])); }
+
+/* =====================================================================
+   9. The expression list
+   ===================================================================== */
+const list = $('#list');
+function renderList(full = true) {
+  if (full) list.innerHTML = '';
+  S.entries.forEach((e, i) => {
+    let row = list.querySelector(`[data-id="${e.id}"]`);
+    if (!row) {
+      row = document.createElement('div'); row.className = 'entry'; row.dataset.id = e.id;
+      row.innerHTML = `<button class="swatch" type="button" title="Show or hide"><span><i></i><div class="num"></div></span></button>
+        <div class="field"><input class="ex" type="text" spellcheck="false" autocomplete="off" aria-label="Expression"><div class="msg"></div><div class="extra"></div></div>
+        <button class="del" type="button" aria-label="Delete">×</button>`;
+      const input = row.querySelector('.ex'); input.id = 'ex-' + e.id; input.value = e.text;
+      let tmr;
+      input.addEventListener('input', () => { e.text = input.value; clearTimeout(tmr); tmr = setTimeout(() => rebuild(), 160); });
+      input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { ev.preventDefault(); const at = S.entries.indexOf(e) + 1; const ne = newEntry(''); S.entries.splice(at, 0, ne); renderList(); rebuild(); focusEntry(ne.id); }
+        if (ev.key === 'Backspace' && !input.value && S.entries.length > 1) { ev.preventDefault(); const at = S.entries.indexOf(e); removeEntry(e); const prev = S.entries[Math.max(0, at - 1)]; if (prev) focusEntry(prev.id); }
+      });
+      row.querySelector('.swatch').addEventListener('click', () => { e.off = !e.off; rebuild(new Set([e.id])); });
+      row.querySelector('.del').addEventListener('click', () => removeEntry(e));
+      list.appendChild(row);
+    }
+    row.classList.toggle('off', e.off);
+    row.querySelector('.swatch').style.setProperty('--c', e.color);
+    row.querySelector('.num').textContent = i + 1;
+    const msg = row.querySelector('.msg');
+    msg.className = 'msg' + (e.bad ? ' bad' : '');
+    msg.textContent = e.msg || '';
+    if (e.missing) for (const name of e.missing) { const b = document.createElement('button'); b.className = 'add'; b.type = 'button'; b.textContent = `add slider ${name}`; b.onclick = () => { S.entries.splice(S.entries.indexOf(e), 0, newEntry(`${name} = 1`)); renderList(); rebuild(); }; msg.appendChild(b); }
+    renderExtra(e, row.querySelector('.extra'));
+  });
+  // keep the order right
+  S.entries.forEach(e => list.appendChild(list.querySelector(`[data-id="${e.id}"]`)));
+  [...list.children].forEach(r => { if (!S.entries.some(e => String(e.id) === r.dataset.id)) r.remove(); });
+}
+function renderExtra(e, box) {
+  const want = e.c && !e.bad ? (e.c.kind === 'slider' ? 'slider' : e.c.kind === 'surface' ? 'st' : e.c.kind === 'curve' ? (e.c.param === 's' ? 's' : 't') : '') : '';
+  if (box.dataset.want === want && want !== 'slider') return;
+  if (want === 'slider' && box.dataset.want === 'slider') { const r = box.querySelector('input[type=range]'); if (r && document.activeElement !== r) r.value = P[e.c.name]; const vv = box.querySelector('.vv'); if (vv) vv.textContent = fmt(P[e.c.name]); return; }
+  box.dataset.want = want; box.innerHTML = '';
+  if (want === 'slider') {
+    const name = e.c.name;
+    box.innerHTML = `<div class="slider"><button class="play" type="button" aria-pressed="${e.slider.playing}" aria-label="Play ${name}">${e.slider.playing ? '❚❚' : '▶'}</button>
+      <input type="text" class="mn" id="mn-${e.id}" value="${e.slider.min}" aria-label="Lowest value"><input type="range" id="sl-${e.id}" min="${e.slider.min}" max="${e.slider.max}" step="any" value="${P[name]}" aria-label="${name}"><input type="text" class="mx" id="mx-${e.id}" value="${e.slider.max}" aria-label="Highest value"></div>`;
+    const r = box.querySelector('input[type=range]');
+    r.addEventListener('input', () => setSlider(e, +r.value));
+    box.querySelector('.mn').addEventListener('change', ev => { e.slider.min = evalConst(ev.target.value, e.slider.min); r.min = e.slider.min; });
+    box.querySelector('.mx').addEventListener('change', ev => { e.slider.max = evalConst(ev.target.value, e.slider.max); r.max = e.slider.max; });
+    box.querySelector('.play').addEventListener('click', ev => { e.slider.playing = !e.slider.playing; ev.currentTarget.setAttribute('aria-pressed', e.slider.playing); ev.currentTarget.textContent = e.slider.playing ? '❚❚' : '▶'; });
+    return;
+  }
+  const rng = p => `<span class="rng">${p}: <input type="text" id="${p}0-${e.id}" data-p="${p}0" value="${e[p][0]}" aria-label="${p} from"> to <input type="text" id="${p}1-${e.id}" data-p="${p}1" value="${e[p][1]}" aria-label="${p} to"></span>`;
+  if (want === 'st') box.innerHTML = rng('s') + rng('t');
+  else if (want) box.innerHTML = rng(want);
+  box.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => { const p = inp.dataset.p; e[p[0]][+p[1]] = inp.value; rebuild(new Set([e.id])); }));
+}
+function setSlider(e, v) {
+  const name = e.c.name; P[name] = v;
+  e.text = `${name} = ${+v.toFixed(3)}`;
+  const row = list.querySelector(`[data-id="${e.id}"]`); if (row) { const ex = row.querySelector('.ex'); if (document.activeElement !== ex) ex.value = e.text; }
+  const ids = new Set(S.entries.filter(x => x !== e && usesName(x, name)).map(x => x.id));
+  // values that use this slider
+  if (S.entries.some(x => x.c && x.c.kind === 'const')) S.entries.forEach(x => { if (x.c && x.c.kind === 'const') ids.add(x.id); });
+  ids.forEach(id => sliderQueue.add(id)); sliderQueued = true;
+}
+const sliderQueue = new Set(); let sliderQueued = false;
+function removeEntry(e) { S.entries = S.entries.filter(x => x !== e); if (!S.entries.length) S.entries.push(newEntry('')); renderList(); rebuild(); }
+function focusEntry(id) { const r = list.querySelector(`[data-id="${id}"] .ex`); if (r) r.focus(); }
+$('#addBtn').addEventListener('click', () => { const ne = newEntry(''); S.entries.push(ne); renderList(); rebuild(); focusEntry(ne.id); });
+
+/* =====================================================================
+   10. Examples
+   ===================================================================== */
+const EXAMPLES = {
+  4: [
+    ['Tesseract and Clifford torus', ['hypercube', '(1.3cos s, 1.3sin s, 1.3cos t, 1.3sin t)'], 'shadow'],
+    ['3-sphere (slice it)', ['x^2 + y^2 + z^2 + w^2 = 4'], 'slice'],
+    ['Tesseract, sliced', ['hypercube(1.6)'], 'slice'],
+    ['Complex function w = z²', [{ text: '(s, t, s^2 - t^2, 2s t)', s: ['-1.6', '1.6'], t: ['-1.6', '1.6'] }], 'shadow'],
+    ['24-cell', ['24cell(2)'], 'shadow'],
+    ['Duocylinder, sliced', ['max(x^2 + y^2, z^2 + w^2) = 2.5'], 'slice'],
+    ['Gyroid that moves with w', ['sin x cos y + sin y cos z + sin z cos x = w/2'], 'slice'],
+    ['Twisting torus with a slider', ['a = 2', '(cos(s)cos(t), cos(s)sin(t), 1.6sin(s)cos(a t), 1.6sin(s)sin(a t))'], 'shadow'],
+    ['5-cell and 16-cell', ['simplex(2.2)', 'orthoplex(1.4)'], 'shadow'],
+    ['A curve in 4D', [{ text: '(2cos t, 2sin t, cos 3t, sin 5t)', t: ['0', '2pi'] }], 'shadow'],
+  ],
+  5: [
+    ['Penteract (5-cube)', ['hypercube'], 'shadow'],
+    ['4-sphere (slice it)', ['x^2 + y^2 + z^2 + w^2 + v^2 = 4'], 'slice'],
+    ['5-simplex and pentacross', ['simplex(2.2)', 'orthoplex(1.2)'], 'shadow'],
+    ['Torus wound through 5D', ['(1.6cos s, 1.6sin s, 1.6cos t, 1.6sin t, 1.6sin(s + t))'], 'shadow'],
+    ['Penteract, sliced', ['hypercube(1.6)'], 'slice'],
+  ],
+  6: [
+    ['Hexeract (6-cube)', ['hypercube'], 'shadow'],
+    ['Torus in 6D', ['(1.5cos s, 1.5sin s, 1.5cos t, 1.5sin t, 1.5cos(s + t), 1.5sin(s - t))'], 'shadow'],
+    ['Hexacross', ['orthoplex(2)'], 'shadow'],
+    ['Hyperboloid (slice it)', ['x^2 + y^2 + z^2 - w^2 - v^2 - u^2 = 1'], 'slice'],
+    ['6-simplex', ['simplex(2.4)'], 'shadow'],
+  ],
+};
+const exSel = $('#examples');
+function fillExamples() {
+  exSel.innerHTML = `<option value="">Examples in ${S.dim}D…</option>` + EXAMPLES[S.dim].map((x, i) => `<option value="${i}">${x[0]}</option>`).join('');
+}
+exSel.addEventListener('change', () => {
+  const ex = EXAMPLES[S.dim][+exSel.value]; if (!ex) return;
+  S.entries = ex[1].map(x => typeof x === 'string' ? newEntry(x) : newEntry(x.text, x));
+  setMode(ex[2], false);
+  renderList(); rebuild(); exSel.value = '';
+});
+
+/* =====================================================================
+   11. View controls
+   ===================================================================== */
+function pressed(group, attr, val) { document.querySelectorAll(`${group} button`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === String(val)))); }
+function setDim(d) {
+  S.dim = d; pressed('#dims', 'dim', d);
+  for (const k of Object.keys(S.ang)) { const j = +k[1]; if (j >= d) { delete S.ang[k]; delete S.spin[k]; } }
+  defaultSpins(); buildHyperPanel(); fillExamples(); buildR(); rebuild();
+}
+function setMode(m, doRebuild = true) {
+  S.mode = m; pressed('#modes', 'mode', m);
+  $('#perspChip').hidden = m === 'slice';
+  buildHyperPanel(); if (doRebuild) rebuild();
+}
+$('#dims').addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) setDim(+b.dataset.dim); });
+$('#modes').addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) setMode(b.dataset.mode); });
+$('#colors').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.colorBy = b.dataset.color; pressed('#colors', 'color', S.colorBy); $('#legend').hidden = S.colorBy !== 'w'; markAll(); save(); });
+$('#persp').addEventListener('change', ev => { S.persp = ev.target.checked; markAll(); save(); });
+$('#bounds').addEventListener('change', ev => { S.B = +ev.target.value; $('#legLo').textContent = '−' + S.B; $('#legHi').textContent = '+' + S.B; S.slice = S.slice.map(v => Math.max(-S.B, Math.min(S.B, v))); rebuildGrid(); resetCamera(); buildHyperPanel(); rebuild(); });
+$('#resetBtn').addEventListener('click', () => { for (const k of Object.keys(S.ang)) S.ang[k] = 0; S.slice = [0, 0, 0]; defaultSpins(true); buildHyperPanel(); resetCamera(); buildR(); markAll(); });
+$('#pauseBtn').addEventListener('click', () => { S.paused = !S.paused; $('#pauseBtn').textContent = S.paused ? 'Spin' : 'Pause'; for (const o of objects.values()) if (o.slice) o.gen = (o.gen || 0) + 1; markAll(); });
+$('#foldBtn').addEventListener('click', ev => { const h = $('#hyper'); h.classList.toggle('closed'); const open = !h.classList.contains('closed'); ev.currentTarget.textContent = open ? 'Hide' : 'Show'; ev.currentTarget.setAttribute('aria-expanded', open); });
+
+function defaultSpins(force) {
+  const want = { '03': 0.32, '23': 0.21, '14': 0.26, '35': 0.19 };
+  for (const [k, v] of Object.entries(want)) if (+k[1] < S.dim && (force || S.spin[k] === undefined)) S.spin[k] = v;
+}
+const PL = (i, j) => `<b><span style="color:var(--ax-${AX[i]})">${AX[i].toUpperCase()}</span><span style="color:var(--ax-${AX[j]})">${AX[j].toUpperCase()}</span></b>`;
+function buildHyperPanel() {
+  const body = $('#hyperBody'); body.innerHTML = '';
+  $('#hyperTitle').textContent = S.mode === 'slice' ? `Slice and rotate ${S.dim}D` : `Rotate through ${S.dim}D`;
+  if (S.mode === 'slice') {
+    for (let k = 3; k < S.dim; k++) {
+      const i = k - 3, row = document.createElement('div'); row.className = 'prow';
+      row.innerHTML = `<b style="color:var(--ax-${AX[k]})">${AX[k]} =</b><input type="range" id="slice-${AX[k]}" min="${-S.B}" max="${S.B}" step="0.01" value="${S.slice[i]}" aria-label="Slice at ${AX[k]}"><span class="deg">${S.slice[i].toFixed(2)}</span><button class="play" type="button" aria-pressed="${S.slicePlay[i]}" aria-label="Sweep ${AX[k]}">${S.slicePlay[i] ? '❚❚' : '▶'}</button>`;
+      const r = row.querySelector('input'), out = row.querySelector('.deg');
+      r.addEventListener('input', () => { S.slice[i] = +r.value; out.textContent = S.slice[i].toFixed(2); markAll(); });
+      row.querySelector('.play').addEventListener('click', ev => { S.slicePlay[i] = !S.slicePlay[i]; ev.currentTarget.setAttribute('aria-pressed', S.slicePlay[i]); ev.currentTarget.textContent = S.slicePlay[i] ? '❚❚' : '▶'; });
+      row.dataset.slice = i; body.appendChild(row);
+    }
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = 'Turning the slice through the hidden axes changes which cross-section you see.'; body.appendChild(note);
+  }
+  for (const [i, j] of planes()) {
+    const k = i + '' + j, row = document.createElement('div'); row.className = 'prow';
+    const deg = ((S.ang[k] || 0) * 180 / Math.PI);
+    row.innerHTML = `${PL(i, j)}<input type="range" id="rot-${k}" min="-180" max="180" step="0.5" value="${wrapDeg(deg)}" aria-label="Rotate in the ${AX[i]}${AX[j]} plane"><span class="deg">${Math.round(wrapDeg(deg))}°</span><button class="play" type="button" aria-pressed="${!!S.spin[k]}" aria-label="Spin ${AX[i]}${AX[j]}">${S.spin[k] ? '❚❚' : '▶'}</button>`;
+    const r = row.querySelector('input'), out = row.querySelector('.deg');
+    r.addEventListener('input', () => { S.ang[k] = +r.value * Math.PI / 180; out.textContent = Math.round(+r.value) + '°'; buildR(); markAll(); });
+    row.querySelector('.play').addEventListener('click', ev => { S.spin[k] = S.spin[k] ? 0 : (0.2 + 0.1 * ((i + j) % 3)); ev.currentTarget.setAttribute('aria-pressed', !!S.spin[k]); ev.currentTarget.textContent = S.spin[k] ? '❚❚' : '▶'; });
+    row.dataset.plane = k; body.appendChild(row);
+  }
+  if (S.mode !== 'slice') { const note = document.createElement('p'); note.className = 'note'; note.textContent = 'Drag the graph to turn it in 3D. These planes turn it through the extra dimensions, which 3D dragging can’t reach.'; body.appendChild(note); }
+}
+const wrapDeg = d => ((d + 180) % 360 + 360) % 360 - 180;
+function syncHyperPanel() {
+  document.querySelectorAll('#hyperBody .prow[data-plane]').forEach(row => {
+    const k = row.dataset.plane, d = wrapDeg((S.ang[k] || 0) * 180 / Math.PI), r = row.querySelector('input');
+    if (document.activeElement !== r) r.value = d; row.querySelector('.deg').textContent = Math.round(d) + '°';
+  });
+  document.querySelectorAll('#hyperBody .prow[data-slice]').forEach(row => {
+    const i = +row.dataset.slice, r = row.querySelector('input');
+    if (document.activeElement !== r) r.value = S.slice[i]; row.querySelector('.deg').textContent = S.slice[i].toFixed(2);
+  });
+}
+
+/* =====================================================================
+   12. Saving between visits (this browser only)
+   ===================================================================== */
+function save() {
+  try { localStorage.setItem('hyperplot', JSON.stringify({ dim: S.dim, mode: S.mode, persp: S.persp, colorBy: S.colorBy, B: S.B, entries: S.entries.map(e => ({ text: e.text, s: e.s, t: e.t, off: e.off, min: e.slider.min, max: e.slider.max })) })); } catch {}
+}
+function load() {
+  try { const d = JSON.parse(localStorage.getItem('hyperplot') || 'null'); if (!d || !Array.isArray(d.entries) || !d.entries.length) return false;
+    S.dim = [4, 5, 6].includes(d.dim) ? d.dim : 4; S.mode = d.mode === 'slice' ? 'slice' : 'shadow'; S.persp = d.persp !== false; S.colorBy = d.colorBy === 'entry' ? 'entry' : 'w'; S.B = [2, 3, 5, 10].includes(d.B) ? d.B : 3;
+    S.entries = d.entries.map(x => { const e = newEntry(String(x.text || ''), x); e.off = !!x.off; return e; }); return true;
+  } catch { return false; }
+}
+
+/* =====================================================================
+   13. Go
+   ===================================================================== */
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+  lineMats.forEach(m => m.resolution.set(w, h));
+}
+new ResizeObserver(resize).observe(stage);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+if (!load()) S.entries = EXAMPLES[4][0][1].map(x => newEntry(x));
+pressed('#dims', 'dim', S.dim); pressed('#modes', 'mode', S.mode); pressed('#colors', 'color', S.colorBy);
+$('#persp').checked = S.persp; $('#perspChip').hidden = S.mode === 'slice'; $('#bounds').value = String(S.B); $('#legend').hidden = S.colorBy !== 'w';
+$('#legLo').textContent = '−' + S.B; $('#legHi').textContent = '+' + S.B;
+defaultSpins(); buildR(); rebuildGrid(); readTheme(); resetCamera(); resize();
+fillExamples(); buildHyperPanel(); renderList(); rebuild();
+
+let last = performance.now(), uiTick = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let turned = false;
+  if (!S.paused) for (const [k, v] of Object.entries(S.spin)) if (v && +k[1] < S.dim) { S.ang[k] = (S.ang[k] || 0) + v * dt; turned = true; }
+  S.slicePlay.forEach((on, i) => { if (!on) return; S.slice[i] += S.sliceDir[i] * S.B * 0.35 * dt; if (Math.abs(S.slice[i]) > S.B) { S.slice[i] = Math.sign(S.slice[i]) * S.B; S.sliceDir[i] *= -1; } turned = true; });
+  for (const e of S.entries) if (e.slider.playing && e.c && e.c.kind === 'slider') {
+    let v = P[e.c.name] + e.slider.dir * (e.slider.max - e.slider.min) * 0.25 * dt;
+    if (v > e.slider.max || v < e.slider.min) { e.slider.dir *= -1; v = Math.max(e.slider.min, Math.min(e.slider.max, v)); }
+    setSlider(e, v);
+  }
+  if (sliderQueued) { sliderQueued = false; const ids = new Set(sliderQueue); sliderQueue.clear(); for (const e of S.entries) if (e.c && e.c.kind === 'const') ids.add(e.id); rebuildSliders(ids); }
+  if (turned) { buildR(); markAll(); }
+  if (projDirty) { projDirty = false; updateAxes(); for (const o of objects.values()) o.project(); }
+  if (++uiTick % 6 === 0) syncHyperPanel();
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+  requestAnimationFrame(frame);
+}
+// a slider moved: re-make just the lines that use it, without re-reading every line
+function rebuildSliders(ids) {
+  compileAllKeepSliders();
+  for (const e of S.entries) {
+    if (!ids.has(e.id)) continue;
+    const old = objects.get(e.id);
+    if (old) { scene.remove(old.group); old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { const i = lineMats.indexOf(o.material); if (i >= 0) lineMats.splice(i, 1); o.material.dispose(); } }); objects.delete(e.id); }
+    const o = buildObject(e); e.drawMsg = e.msg; if (o) { scene.add(o.group); objects.set(e.id, o); o.project(true); }
+  }
+  keepDrawMessages(ids);
+  renderList(false); markAll();
+}
+function compileAllKeepSliders() { const keep = { ...P }; compileAll(); for (const k of Object.keys(keep)) if (k in P) { const e = S.entries.find(x => x.c && x.c.kind === 'slider' && x.c.name === k); if (e) P[k] = keep[k]; } }
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>
