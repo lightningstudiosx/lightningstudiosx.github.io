@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Last Stop</title>
+<meta name="description" content="A 3D night-shift escape game. You stopped for gas at the end of the world, and the road keeps bringing you back through the front door. Solve the store to get out. Three endings, ten souvenirs.">
+<meta name="theme-color" content="#05060c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Monoton&family=VT323&family=Rubik:wght@400;600;800&display=swap">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<style>
+/* Last Stop: "Night Shift Neon". Near-black, fluorescent cream, neon pink and teal, a VT323 till readout. */
+:root { --ink: #05060c; --pink: #ff4fa0; --teal: #2fe0c8; --cream: #fff3d6; --amber: #ffb84a; --muted: #8a8fa8; --display: "Monoton", "Rubik", sans-serif; --body: "Rubik", system-ui, sans-serif; --mono: "VT323", monospace; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: var(--cream); font-family: var(--body); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent }
+button { font: inherit; color: inherit; cursor: pointer }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none }
+.home { position: fixed; z-index: 30; left: max(14px, env(safe-area-inset-left)); top: calc(env(safe-area-inset-top, 0px) + 12px); font: 600 12px var(--body); color: var(--ink); text-decoration: none; padding: 5px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--cream); box-shadow: 3px 3px 0 var(--pink) }
+.home:hover { background: var(--teal) }
+body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 40; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55)), repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px) }
+
+/* ---------- title ---------- */
+#title { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; background: linear-gradient(180deg, rgba(5,6,12,.15), rgba(5,6,12,.75)) }
+.logo h1 { margin: 0; font: clamp(56px, 12vw, 132px)/1 var(--display); color: var(--pink); text-shadow: 0 0 10px var(--pink), 0 0 30px var(--pink), 0 0 60px rgba(255,79,160,.6); animation: neon 4s infinite }
+.logo h2 { margin: 8px 0 0; font: 400 clamp(16px, 2.6vw, 26px) var(--mono); color: var(--teal); letter-spacing: 3px; text-shadow: 0 0 10px var(--teal) }
+.eyebrow { font: 20px var(--mono); color: var(--amber); letter-spacing: 3px }
+@keyframes neon { 0%, 18%, 22%, 60%, 64%, 100% { opacity: 1 } 20%, 62% { opacity: .35 } }
+.menu { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center }
+.menu button, .ending button, .paper button, .device button { padding: 11px 20px; border-radius: 10px; border: 2px solid var(--teal); background: rgba(5,6,12,.7); font: 600 16px var(--body); box-shadow: 0 0 12px rgba(47,224,200,.3) }
+.menu button:hover, .paper button:hover, .device button:hover, .ending button:hover { background: var(--teal); color: var(--ink) }
+button.big { font-size: 20px !important; border-color: var(--pink) !important; box-shadow: 0 0 18px rgba(255,79,160,.5) !important }
+button.big:hover { background: var(--pink) !important }
+.endings { font: 20px var(--mono); color: var(--muted) } .end { margin: 0 6px; padding: 2px 8px; border: 1px dashed var(--muted); border-radius: 6px } .end.got { color: var(--amber); border-color: var(--amber) }
+.blurb { max-width: 560px; color: var(--muted); line-height: 1.5 }
+.ending { max-width: 640px } .ending h1 { font: clamp(40px, 8vw, 84px)/1.05 var(--display); color: var(--amber); text-shadow: 0 0 16px var(--amber); margin: 10px 0 }
+.ending p { font-size: 19px; line-height: 1.55 } .ending .stats { font: 22px var(--mono); color: var(--teal) }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none }
+#cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,243,214,.7); transition: transform .1s }
+#cross.on { transform: scale(2.2); background: var(--teal); box-shadow: 0 0 10px var(--teal) }
+#prompt { position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); font: 24px var(--mono); color: var(--cream); text-shadow: 0 0 6px #000, 0 2px 0 #000; white-space: nowrap }
+#say { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); width: min(760px, 92vw); padding: 12px 18px; border-radius: 12px; background: rgba(5,6,12,.82); border-left: 4px solid var(--pink); font-size: 17px; line-height: 1.45; opacity: 0; transition: opacity .3s }
+#say.on { opacity: 1 }
+#loop { position: absolute; right: 16px; top: 14px; font: 30px var(--mono); color: var(--amber); text-shadow: 0 0 8px var(--amber) }
+#inv { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 92vw }
+.chip { font: 20px var(--mono); padding: 3px 12px; border-radius: 8px; background: rgba(5,6,12,.8); border: 1px solid var(--teal); color: var(--teal) }
+#keys { position: absolute; left: 16px; bottom: 18px; font: 18px var(--mono); color: var(--muted) }
+#banner { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center; opacity: 0 }
+#banner.on { animation: banner 3.4s ease forwards }
+#banner b { display: block; font: 72px var(--display); color: var(--amber); text-shadow: 0 0 20px var(--amber) }
+#banner span { font: 24px var(--mono); color: var(--cream) }
+@keyframes banner { 0% { opacity: 0; transform: translate(-50%, 10px) } 15%, 70% { opacity: 1; transform: translate(-50%, 0) } 100% { opacity: 0 } }
+#toasts { position: absolute; right: 16px; top: 60px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end }
+.toast { font: 20px var(--mono); padding: 4px 12px; border-radius: 8px; background: var(--teal); color: var(--ink); animation: tin .3s ease }
+@keyframes tin { from { opacity: 0; transform: translateX(20px) } }
+#touchUI { position: absolute; inset: 0 }
+#touchUI button { pointer-events: auto; position: absolute; bottom: 110px; width: 74px; height: 74px; border-radius: 50%; border: 2px solid var(--teal); background: rgba(5,6,12,.6); font: 600 15px var(--body) }
+#useBtn { right: 24px } #bookBtn { right: 108px; width: 56px !important; height: 56px !important }
+.stickhint { position: absolute; left: 30px; bottom: 120px; width: 110px; height: 110px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.25) }
+
+/* ---------- overlays: paper, devices ---------- */
+.overlay { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; padding: 20px; background: rgba(5,6,12,.55) }
+.overlay.dim { background: rgba(5,6,12,.75) }
+.overlay .x { position: absolute; right: 10px; top: 8px; border: 0 !important; box-shadow: none !important; background: none !important; font-size: 20px !important; color: inherit; padding: 4px 8px !important }
+.paper { position: relative; max-width: 560px; width: 100%; max-height: 86vh; overflow: auto; padding: 22px 24px; background: #f6efd8; color: #2a2418; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.6); transform: rotate(-.6deg) }
+.paper h3 { margin: 0 0 10px; font: 30px var(--mono) } .paper h4 { margin: 14px 0 4px; font: 22px var(--mono) }
+.paper pre { white-space: pre-wrap; font: 22px/1.25 var(--mono); margin: 0 }
+.paper button { color: #2a2418; border-color: #2a2418 !important; background: #fff !important; box-shadow: none !important }
+.paper .row, .device .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap }
+.paper .col { display: flex; flex-direction: column; gap: 10px }
+.paper .obj { font: 22px var(--mono); color: #a8203a }
+.paper details { margin: 4px 0 } .paper summary { cursor: pointer; font-weight: 600 }
+.paper.wide { max-width: 860px }
+.souvs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px } .sv { padding: 10px; border: 2px solid #2a2418; border-radius: 6px } .sv.locked { opacity: .45 } .sv p { margin: 4px 0 0; font-size: 14px }
+.hint { color: var(--muted); font-size: 14px; margin: 10px 0 0 } .paper .hint { color: #6a5a40 }
+.device { position: relative; padding: 22px; border-radius: 16px; background: #23252d; border: 3px solid #444a58; box-shadow: 0 10px 40px rgba(0,0,0,.7); text-align: center; max-width: 440px; width: 100% }
+.register .lcd { font: 46px var(--mono); color: #3aff7a; background: #06120a; border-radius: 8px; padding: 6px 12px; margin-bottom: 14px; text-shadow: 0 0 8px #3aff7a; letter-spacing: 3px }
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px } .keys button { font: 30px var(--mono) !important; padding: 10px !important }
+.clock canvas { width: 220px; height: 220px; display: block; margin: 0 auto 6px }
+.clock .ok { margin-top: 12px }
+.radio { background: #6a4a2a; border-color: #3a2410 }
+.dial { position: relative; height: 54px; border-radius: 8px; background: #f0d8a0; margin-bottom: 10px; overflow: hidden } .needle { position: absolute; top: 0; bottom: 0; width: 3px; background: #c81e2a; left: 40% } .scale { position: absolute; bottom: 4px; left: 0; right: 0; font: 18px var(--mono); color: #3a2410 }
+.freq { font: 40px var(--mono); color: #ffb84a; text-shadow: 0 0 10px #ffb84a } .radio input { width: 100%; accent-color: #ffb84a }
+.radio .hint { color: #f0d8a0; font: 22px var(--mono); min-height: 52px }
+.switches { background: #dcd6c0; border-color: #8a8470; color: #2a2418 } .switches .hint { color: #4a4430 }
+.grid { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; justify-content: center; margin: 14px 0 }
+.sw { width: 72px; height: 92px; border-radius: 8px; border: 3px solid #5a5440 !important; background: linear-gradient(180deg, #fff 0 45%, #bbb 45% 100%) !important; box-shadow: none !important }
+.sw.on { background: linear-gradient(180deg, #bbb 0 55%, #fff 55% 100%) !important; box-shadow: 0 0 16px #ffe880 !important; border-color: #e8c040 !important }
+.switches .reset { color: #2a2418 }
+#fade { position: fixed; inset: 0; z-index: 35; background: #000; opacity: 0; pointer-events: none; transition: opacity .6s }
+#flash { position: fixed; inset: 0; z-index: 34; opacity: 0; pointer-events: none }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<a class="home" href="index.html">← Kai.fun</a>
+<div id="hud" hidden>
+  <div id="cross"></div><div id="prompt"></div><div id="say"></div><div id="loop"></div><div id="inv"></div><div id="banner"></div><div id="toasts"></div>
+  <div id="keys">WASD · mouse · E use · J notebook</div>
+  <div id="touchUI" hidden><div class="stickhint"></div><button id="useBtn">USE</button><button id="bookBtn">📓</button></div>
+</div>
+<div id="overlay" class="overlay" hidden></div>
+<div id="title"></div>
+<div id="flash"></div>
+<div id="fade"></div>
+<script type="module">
+import * as THREE from 'three';
+/* ============================================================================================
+   THE STATION. "Night Shift Neon": a 1990s gas-station convenience store at 11:52 PM, forever.
+   Hard fluorescent light, sticky checkerboard floor, a pink-and-teal neon OPEN sign, fog that
+   eats the road. Everything is built here from boxes and canvas textures.
+   ============================================================================================ */
+const W = {};               // the world: meshes the game needs to reach
+const colliders = [];       // {minX,maxX,minZ,maxZ,on} boxes the player can't walk through
+const interactables = [];   // meshes with userData.use
+const raycastables = [];    // everything that blocks a look
+
+function rngFrom(seed) { let a = seed | 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function tex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapNearestFilter; t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  t.userData = { canvas: c, ctx: x }; return t;
+}
+const MATS = {};
+function mat(color, opts = {}) { return new THREE.MeshLambertMaterial({ color, ...opts }); }
+function box(w, h, d, m, x, y, z, { solid = false, parent, ray = true, name } = {}) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.position.set(x, y, z); (parent || W.scene).add(mesh);
+  if (name) mesh.name = name;
+  if (ray) raycastables.push(mesh);
+  if (solid) { const c = { minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, on: true }; colliders.push(c); mesh.userData.col = c; }
+  return mesh;
+}
+function plane(w, h, m, x, y, z, ry = 0, parent) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  mesh.position.set(x, y, z); mesh.rotation.y = ry; (parent || W.scene).add(mesh); raycastables.push(mesh); return mesh;
+}
+function interact(mesh, label, use, extra = {}) { mesh.userData.label = label; mesh.userData.use = use; Object.assign(mesh.userData, extra); interactables.push(mesh); if (!raycastables.includes(mesh)) raycastables.push(mesh); return mesh; }
+function textTex(lines, { w = 256, h = 128, bg = '#f4ecd0', fg = '#222', font = 'bold 30px Courier New', align = 'center', border } = {}) {
+  return tex(w, h, (x) => {
+    x.fillStyle = bg; x.fillRect(0, 0, w, h);
+    if (border) { x.strokeStyle = border; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8); }
+    x.fillStyle = fg; x.font = font; x.textAlign = align; x.textBaseline = 'middle';
+    const L = Array.isArray(lines) ? lines : [lines], lh = h / (L.length + 1);
+    L.forEach((l, i) => x.fillText(l, align === 'center' ? w / 2 : 16, lh * (i + 1)));
+  });
+}
+
+function buildWorld(seed) {
+  const R = rngFrom(seed);
+  const scene = W.scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05060c);
+  scene.fog = new THREE.FogExp2(0x07080f, 0.045);
+
+  /* ---------- textures ---------- */
+  const floorT = tex(64, 64, (x) => { for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#d9d2bf' : '#2b2b36'; x.fillRect(i * 32, j * 32, 32, 32); } x.fillStyle = 'rgba(80,60,20,.15)'; for (let k = 0; k < 40; k++) x.fillRect(Math.random() * 64, Math.random() * 64, 2, 2); }, [16, 12]);
+  const ceilT = tex(64, 64, (x) => { x.fillStyle = '#cfcbbd'; x.fillRect(0, 0, 64, 64); x.strokeStyle = '#8f8a7a'; x.lineWidth = 2; x.strokeRect(1, 1, 62, 62); x.fillStyle = 'rgba(0,0,0,.06)'; for (let k = 0; k < 60; k++) x.fillRect(Math.random() * 64, Math.random() * 64, 1, 1); }, [8, 6]);
+  const wallT = tex(64, 64, (x) => { x.fillStyle = '#e6dfc4'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#c94f6d'; x.fillRect(0, 44, 64, 6); x.fillStyle = '#2fb8a8'; x.fillRect(0, 50, 64, 3); x.fillStyle = 'rgba(0,0,0,.05)'; for (let k = 0; k < 50; k++) x.fillRect(Math.random() * 64, Math.random() * 64, 1, 2); }, [8, 1]);
+  const asphaltT = tex(64, 64, (x) => { x.fillStyle = '#1b1c22'; x.fillRect(0, 0, 64, 64); for (let k = 0; k < 300; k++) { const v = 20 + Math.random() * 30; x.fillStyle = `rgb(${v},${v},${v + 4})`; x.fillRect(Math.random() * 64, Math.random() * 64, 1, 1); } }, [40, 40]);
+  const tileT = tex(32, 32, (x) => { x.fillStyle = '#9fc9c4'; x.fillRect(0, 0, 32, 32); x.strokeStyle = '#6f9995'; x.strokeRect(0.5, 0.5, 31, 31); }, [4, 3]);
+
+  const M = {
+    floor: mat(0xffffff, { map: floorT }), ceil: mat(0xffffff, { map: ceilT }), wall: mat(0xffffff, { map: wallT }), dark: mat(0x22232c), metal: mat(0x9aa0aa),
+    counter: mat(0xb8452f), counterTop: mat(0xe8e2d0), shelf: mat(0x5d6470), glass: new THREE.MeshLambertMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.18, depthWrite: false }),
+    asphalt: mat(0xffffff, { map: asphaltT }), tile: mat(0xffffff, { map: tileT }), door: mat(0x6b4a3a), steel: mat(0x6f7480), canopy: mat(0xd8d8d8), red: mat(0xd8343a), white: mat(0xf2f2f2),
+    light: new THREE.MeshBasicMaterial({ color: 0xfff8e6 }), black: mat(0x0a0a0e), wood: mat(0x8a6a4a),
+  };
+  MATS.M = M;
+
+  /* ---------- the store: x -8..8, z -6..6, 3.2 tall ---------- */
+  const H = 3.2;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), M.floor); floor.rotation.x = -Math.PI / 2; scene.add(floor); raycastables.push(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), M.ceil); ceil.rotation.x = Math.PI / 2; ceil.position.y = H; scene.add(ceil);
+  // walls
+  box(0.2, H, 12, M.wall, -8.1, H / 2, 0, { solid: true });                 // left (fridges)
+  box(0.2, H, 12, M.wall, 8.1, H / 2, 0, { solid: true });                  // right
+  // back wall with two doorways: restroom x -7.2..-5.8 ; staff x 4.4..5.6
+  box(0.9, H, 0.2, M.wall, -7.65, H / 2, -6.1, { solid: true });
+  box(10.2, H, 0.2, M.wall, -0.7, H / 2, -6.1, { solid: true });
+  box(2.4, H, 0.2, M.wall, 6.8, H / 2, -6.1, { solid: true });
+  box(1.4, 0.9, 0.2, M.wall, -6.5, H - 0.45, -6.1); box(1.2, 0.9, 0.2, M.wall, 5, H - 0.45, -6.1);
+  // front wall: windows and the automatic door gap x -1.2..1.2
+  for (const [x0, x1] of [[-8, -1.2], [1.2, 8]]) {
+    const w = x1 - x0, cx = (x0 + x1) / 2;
+    box(w, 0.9, 0.25, M.counter, cx, 0.45, 6.1, { solid: true });
+    box(w, 0.5, 0.25, M.wall, cx, H - 0.25, 6.1);
+    const g = box(w, 1.8, 0.05, M.glass, cx, 1.8, 6.1, { solid: true }); g.renderOrder = 2;
+    for (let px = x0; px <= x1 + 0.01; px += w / 3) box(0.08, 1.8, 0.12, M.steel, px, 1.8, 6.1);
+  }
+  box(2.4, 0.5, 0.25, M.wall, 0, H - 0.25, 6.1);
+  // automatic sliding doors
+  W.doorL = box(1.2, 2.6, 0.06, M.glass, -0.6, 1.3, 6.1); W.doorR = box(1.2, 2.6, 0.06, M.glass, 0.6, 1.3, 6.1);
+  [W.doorL, W.doorR].forEach(d => { d.renderOrder = 2; box(1.2, 0.08, 0.1, M.steel, 0, 1.3, 0, { parent: d, ray: false }).position.set(0, 1.27, 0); });
+  W.doorCol = { minX: -1.2, maxX: 1.2, minZ: 6.0, maxZ: 6.2, on: true }; colliders.push(W.doorCol);
+  // the CLOSED-sign hook on the front door
+  W.hook = box(0.25, 0.25, 0.05, M.steel, -0.6, 1.9, 6.0);
+  W.doorSign = plane(0.5, 0.25, new THREE.MeshBasicMaterial({ map: textTex(['OPEN 24H'], { w: 128, h: 64, bg: '#1d6b3a', fg: '#fff', font: 'bold 26px Arial' }) }), -0.6, 1.75, 6.02, Math.PI);
+  W.doorSign.material.side = THREE.DoubleSide;
+
+  // ceiling fluorescent panels + lights
+  W.lights = []; W.panels = [];
+  for (const [x, z] of [[-4.5, -3], [0, -3], [4.5, -3], [-4.5, 2.5], [0, 2.5], [4.5, 2.5]]) {
+    const p = box(2.2, 0.06, 0.5, M.light, x, H - 0.04, z, { ray: false }); W.panels.push(p);
+  }
+  for (const [x, z] of [[-4.5, 0], [3, 0], [0, 3.5], [-6.3, -8], [5.5, -8]]) { const l = new THREE.PointLight(0xfff3d6, 7, 14, 1.3); l.position.set(x, H - 0.3, z); scene.add(l); W.lights.push(l); }
+  W.amb = new THREE.HemisphereLight(0xbfd4ff, 0x302820, 0.55); scene.add(W.amb);
+  W.emergency = new THREE.PointLight(0xff2a3a, 0, 20, 1.2); W.emergency.position.set(5, 2.6, -4); scene.add(W.emergency);
+
+  /* ---------- aisles with products ---------- */
+  const labels = ['CHIPZ', 'SODA', 'GUM', 'JERKY', 'NUTS', 'CANDY', 'OIL', 'MAPS', 'SOUP', 'FOG'];
+  const labelMats = labels.map((l, i) => new THREE.MeshLambertMaterial({ map: textTex([l], { w: 64, h: 64, bg: ['#d8343a', '#2fb8a8', '#f2c230', '#7a4ab8', '#3a7ad8', '#e86a1a', '#4a8a3a', '#d84a9a', '#e8e2d0', '#9aa0aa'][i], fg: '#111', font: 'bold 16px Arial' }) }));
+  W.products = [];
+  for (const ax of [-4.8, -2.2, 0.4]) {
+    box(0.9, 1.7, 5, M.shelf, ax, 0.85, -1.6, { solid: true });
+    for (const y of [0.35, 0.85, 1.35]) {
+      box(1.0, 0.04, 5.1, M.metal, ax, y - 0.12, -1.6, { ray: false });
+      for (let z = -3.8; z < 0.7; z += 0.36) for (const side of [-1, 1]) {
+        if (R() < 0.15) continue;
+        const m = labelMats[Math.floor(R() * 8)], hh = 0.18 + R() * 0.14;
+        const pr = box(0.24, hh, 0.26, m, ax + side * 0.33, y - 0.1 + hh / 2, z, { ray: false });
+        W.products.push(pr);
+      }
+    }
+  }
+  // end-cap sign for the jerky (a price clue)
+  W.jerkyTag = plane(0.6, 0.3, new THREE.MeshBasicMaterial({ map: null }), -2.2, 1.95, 0.92);
+  // map spinner rack by the door
+  box(0.5, 1.6, 0.5, M.steel, -2.6, 0.8, 4.6, { solid: true });
+  W.mapTag = plane(0.5, 0.25, new THREE.MeshBasicMaterial({ map: null }), -2.6, 1.75, 4.86);
+
+  /* ---------- fridges along the left wall ---------- */
+  W.fridgeSlots = [];
+  for (let i = 0; i < 4; i++) {
+    const z = -4 + i * 1.3;
+    // a hollow cooler: back, top, bottom, a shelf and dividers, so the sodas show through the glass
+    const fm = mat(0x1a1c24);
+    box(0.1, 2.4, 1.2, fm, -7.95, 1.2, z, { ray: false });
+    box(0.8, 0.15, 1.2, fm, -7.6, 2.33, z, { ray: false }); box(0.8, 0.3, 1.2, fm, -7.6, 0.15, z, { ray: false });
+    box(0.75, 0.04, 1.1, M.metal, -7.6, 1.12, z, { ray: false });
+    box(0.8, 2.4, 0.06, fm, -7.6, 1.2, z - 0.62, { ray: false });
+    colliders.push({ minX: -8, maxX: -7.15, minZ: z - 0.65, maxZ: z + 0.65, on: true });
+    const inner = new THREE.PointLight(0xa8f0ff, 1.6, 2.4, 1.5); inner.position.set(-7.25, 1.9, z); scene.add(inner);
+    const g = box(0.04, 2.1, 1.1, M.glass, -7.18, 1.2, z); g.renderOrder = 2;
+    const bm = mat(0xff0000), bottles = [];
+    for (const y of [1.42, 0.58]) for (const dz of [-0.32, 0, 0.32]) {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.5, 8), bm); b.position.set(-7.6, y, z + dz); scene.add(b); bottles.push(b);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.08, 6), M.white); cap.position.set(-7.6, y + 0.29, z + dz); scene.add(cap);
+    }
+    interact(g, 'Swap the sodas', null, { fridge: i });
+    W.fridgeSlots.push({ glass: g, bottles, color: 0 });
+  }
+  // the freezer at the end, chained shut
+  W.freezer = box(0.8, 2.4, 1.2, M.dark, -7.6, 1.2, 1.4, { solid: true });
+  W.freezerDoor = box(0.06, 2.1, 1.1, mat(0x5a8aa0), -7.18, 1.2, 1.4);
+  W.chain = box(0.08, 0.6, 1.0, mat(0x777777), -7.12, 1.2, 1.4, { ray: false });
+
+  /* ---------- the counter, register, radio, switches ---------- */
+  box(4, 1.0, 0.8, M.counter, 5.5, 0.5, 2.6, { solid: true });
+  box(4.1, 0.06, 0.9, M.counterTop, 5.5, 1.03, 2.6, { ray: false });
+  box(0.8, 1.0, 2.2, M.counter, 3.9, 0.5, 1.1, { solid: true });
+  W.register = box(0.55, 0.35, 0.45, mat(0x3a3d44), 5.2, 1.24, 2.6);
+  box(0.5, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0x3aff7a }), 5.2, 1.45, 2.38, { ray: false });
+  W.drawer = box(0.5, 0.1, 0.4, mat(0x2a2c32), 5.2, 1.05, 2.6, { ray: false });
+  // the stool behind the counter
+  W.stool = box(0.45, 0.75, 0.45, mat(0xc94f6d), 6.3, 0.38, 1.4);
+  // back shelf (cigarettes and the radio)
+  box(4, 2.2, 0.4, M.wood, 6, 1.1, -0.2, { solid: true });
+  for (let i = 0; i < 24; i++) box(0.12, 0.2, 0.05, labelMats[i % 10], 4.5 + (i % 12) * 0.25, 1.6 + Math.floor(i / 12) * 0.35, -0.02, { ray: false });
+  W.radio = box(0.6, 0.32, 0.25, mat(0x6a4a2a), 6.6, 1.3, 0.12);
+  W.radioDial = plane(0.36, 0.12, new THREE.MeshBasicMaterial({ color: 0xffa040 }), 6.6, 1.32, 0.25);
+  W.radioNote = plane(0.22, 0.22, new THREE.MeshBasicMaterial({ map: textTex(['TUNE TO', 'THE NUMBER', 'ON PUMP 4'], { w: 128, h: 128, bg: '#ffe66b', font: 'bold 16px Arial' }) }), 7.05, 1.3, 0.25);
+  // light switch panel on the right wall
+  W.switchPanel = box(0.06, 0.6, 0.6, mat(0xdcd6c0), 8.0, 1.4, -2.5);
+  // the clock above the staff door
+  const clockT = tex(128, 128, () => {});
+  W.clockTex = clockT;
+  W.clock = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), new THREE.MeshBasicMaterial({ map: clockT })); W.clock.position.set(5, 2.75, -5.98); scene.add(W.clock); raycastables.push(W.clock);
+  // bulletin board ("LOOPS WITHOUT ESCAPE")
+  W.board = plane(1.4, 0.9, new THREE.MeshLambertMaterial({ map: null }), -2.5, 1.9, -5.98);
+  W.polaroid = plane(0.25, 0.3, new THREE.MeshBasicMaterial({ map: textTex(['', '☺', 'YOU'], { w: 64, h: 80, bg: '#f4f4f4', font: 'bold 18px Arial' }) }), -2.0, 1.75, -5.96);
+  // coffee station front-left
+  box(1.8, 0.95, 0.7, M.counter, -6.4, 0.48, 4.6, { solid: true });
+  box(1.9, 0.05, 0.75, M.counterTop, -6.4, 0.98, 4.6, { ray: false });
+  W.coffee = box(0.5, 0.65, 0.45, mat(0x2a2a30), -6.9, 1.33, 4.6);
+  box(0.3, 0.06, 0.3, mat(0xff3030), -6.9, 1.3, 4.82, { ray: false });
+  W.cups = box(0.3, 0.25, 0.3, M.white, -6.1, 1.13, 4.6);
+  W.coffeeSign = plane(0.7, 0.35, new THREE.MeshBasicMaterial({ map: null }), -6.4, 1.95, 4.97, Math.PI);
+  // the receipt on the floor by the door
+  W.receipt = box(0.18, 0.01, 0.32, M.white, 1.6, 0.01, 4.4);
+
+  /* ---------- the restroom: x -8..-4.5, z -10..-6 ---------- */
+  const rf = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4), M.tile); rf.rotation.x = -Math.PI / 2; rf.position.set(-6.25, 0.001, -8); scene.add(rf);
+  box(0.2, H, 4, M.tile, -8.1, H / 2, -8, { solid: true }); box(0.2, H, 4, M.tile, -4.4, H / 2, -8, { solid: true }); box(3.8, H, 0.2, M.tile, -6.25, H / 2, -10.1, { solid: true });
+  const rc = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4), M.ceil); rc.rotation.x = Math.PI / 2; rc.position.set(-6.25, H, -8); scene.add(rc);
+  box(0.7, 0.18, 0.5, M.white, -7.6, 0.9, -8.6, { solid: true });
+  W.sink = box(0.7, 0.2, 0.5, M.white, -7.6, 0.9, -8.6);
+  W.mirror = plane(0.04, 0.9, null, -7.98, 1.75, -8.6);
+  W.mirror.geometry = new THREE.PlaneGeometry(1.0, 0.9); W.mirror.rotation.y = Math.PI / 2;
+  W.mirrorTex = tex(256, 230, () => {}); W.mirror.material = new THREE.MeshBasicMaterial({ map: W.mirrorTex });
+  box(1.2, 2.0, 1.4, mat(0x8fb9b4), -5.2, 1.0, -9.2, { solid: true });        // stall
+  W.stall = box(0.04, 1.6, 0.9, mat(0x7aa29e), -5.82, 1.0, -8.9);
+  // restroom door (locked)
+  W.rDoorPivot = new THREE.Group(); W.rDoorPivot.position.set(-7.2, 0, -6.1); scene.add(W.rDoorPivot);
+  W.rDoor = box(1.4, 2.3, 0.08, M.door, 0.7, 1.15, 0, { parent: W.rDoorPivot });
+  W.rDoorCol = { minX: -7.2, maxX: -5.8, minZ: -6.2, maxZ: -6.0, on: true }; colliders.push(W.rDoorCol);
+  plane(0.5, 0.25, new THREE.MeshBasicMaterial({ map: textTex(['RESTROOM'], { w: 128, h: 64, bg: '#2a5aa8', fg: '#fff', font: 'bold 22px Arial' }) }), -6.5, 2.55, -5.98);
+
+  /* ---------- the back room: x 3..8, z -10..-6 ---------- */
+  const bf = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), M.floor); bf.rotation.x = -Math.PI / 2; bf.position.set(5.5, 0.001, -8); scene.add(bf);
+  box(0.2, H, 4, M.dark, 2.9, H / 2, -8, { solid: true }); box(0.2, H, 4, M.dark, 8.1, H / 2, -8, { solid: true }); box(5.2, H, 0.2, M.dark, 5.5, H / 2, -10.1, { solid: true });
+  const bc = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), M.dark); bc.rotation.x = Math.PI / 2; bc.position.set(5.5, H, -8); scene.add(bc);
+  for (let i = 0; i < 5; i++) box(0.6, 0.5 + R() * 0.5, 0.6, mat(0xa07a4a), 3.6 + R() * 0.6, 0.35, -9.4 + i * 0.7, { solid: true });
+  W.exitDoor = box(1.1, 2.2, 0.08, mat(0x8a2020), 6.6, 1.1, -9.98);
+  plane(0.6, 0.22, new THREE.MeshBasicMaterial({ map: textTex(['EXIT'], { w: 128, h: 48, bg: '#0a0a0a', fg: '#ff3030', font: 'bold 34px Arial' }) }), 6.6, 2.4, -9.96);
+  W.closedSign = plane(0.5, 0.25, new THREE.MeshBasicMaterial({ map: textTex(['CLOSED'], { w: 128, h: 64, bg: '#a81d1d', fg: '#fff', font: 'bold 30px Arial' }) }), 7.98, 1.6, -7.5, -Math.PI / 2);
+  W.sDoorPivot = new THREE.Group(); W.sDoorPivot.position.set(4.4, 0, -6.1); scene.add(W.sDoorPivot);
+  W.sDoor = box(1.2, 2.3, 0.08, mat(0x5a5f6a), 0.6, 1.15, 0, { parent: W.sDoorPivot });
+  W.sDoorCol = { minX: 4.4, maxX: 5.6, minZ: -6.2, maxZ: -6.0, on: true }; colliders.push(W.sDoorCol);
+  plane(0.6, 0.22, new THREE.MeshBasicMaterial({ map: textTex(['STAFF ONLY'], { w: 160, h: 56, bg: '#222', fg: '#ffd23a', font: 'bold 24px Arial' }) }), 5, 2.55, -5.98);
+  W.backLight = new THREE.PointLight(0xffb070, 0, 8, 1.4); W.backLight.position.set(5.5, 2.6, -8); scene.add(W.backLight);
+
+  /* ---------- outside: the forecourt, pumps, canopy, the price sign, the road ---------- */
+  const lot = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), M.asphalt); lot.rotation.x = -Math.PI / 2; lot.position.set(0, -0.01, 30); scene.add(lot);
+  for (let x = -40; x < 40; x += 3) box(1.6, 0.01, 0.15, new THREE.MeshBasicMaterial({ color: 0xe8d040 }), x, 0.01, 22, { ray: false });
+  box(14, 0.4, 6, M.canopy, 0, 4.4, 12);
+  box(14.2, 0.5, 0.2, M.red, 0, 4.5, 9); box(14.2, 0.5, 0.2, M.red, 0, 4.5, 15);
+  const canopyGlow = new THREE.Mesh(new THREE.PlaneGeometry(13, 5), new THREE.MeshBasicMaterial({ color: 0xfff4dc })); canopyGlow.rotation.x = Math.PI / 2; canopyGlow.position.set(0, 4.19, 12); scene.add(canopyGlow);
+  for (const x of [-5, 5]) { const l = new THREE.PointLight(0xfff0d0, 9, 16, 1.2); l.position.set(x, 4, 12); scene.add(l); W.lights.push(l); }
+  for (const x of [-6.6, 6.6]) box(0.3, 4.4, 0.3, M.white, x, 2.2, 12, { solid: true });
+  W.pumps = [];
+  [-4.5, -1.5, 1.5, 4.5].forEach((x, i) => {
+    box(0.8, 1.8, 0.6, i % 2 ? M.red : M.white, x, 0.9, 12, { solid: true });
+    const disp = plane(0.6, 0.35, new THREE.MeshBasicMaterial({ map: null }), x, 1.4, 12.31);
+    plane(0.6, 0.35, disp.material, x, 1.4, 11.69, Math.PI);
+    W.pumps.push(disp);
+  });
+  // the price sign on a pole
+  box(0.3, 7, 0.3, M.steel, 10, 3.5, 8, { solid: true });
+  W.priceSign = plane(3, 2.6, new THREE.MeshBasicMaterial({ map: null }), 10, 7.2, 8.17);
+  W.priceSignBack = plane(3, 2.6, W.priceSign.material, 10, 7.2, 7.83, Math.PI);
+  // the neon OPEN sign in the right window, facing the lot (seen mirrored from inside)
+  W.neonTex = tex(256, 96, () => {});
+  W.neon = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.66), new THREE.MeshBasicMaterial({ map: W.neonTex, transparent: true, side: THREE.DoubleSide }));
+  W.neon.position.set(4.2, 2.2, 6.25); scene.add(W.neon); raycastables.push(W.neon);
+  W.neonLight = new THREE.PointLight(0xff4fa0, 3, 6, 1.5); W.neonLight.position.set(4.2, 2.2, 6.6); scene.add(W.neonLight);
+  // ice chest by the door (a price clue)
+  box(1.2, 0.9, 0.7, M.white, -3.4, 0.45, 7.2, { solid: true });
+  W.iceTag = plane(1.0, 0.3, new THREE.MeshBasicMaterial({ map: null }), -3.4, 0.65, 7.56);
+  // the road vanishing into fog, and the truck that appears for Earl's ending
+  W.truck = new THREE.Group(); W.truck.position.set(-9, 0, 13); scene.add(W.truck); W.truck.visible = false;
+  box(2.2, 1.2, 4.4, mat(0x3a5a8a), 0, 0.9, 0, { parent: W.truck }); box(2.1, 0.9, 1.8, mat(0x2a4a7a), 0, 1.9, 0.9, { parent: W.truck });
+  W.truckHit = box(2.2, 2.4, 4.4, new THREE.MeshBasicMaterial({ visible: false }), 0, 1.2, 0, { parent: W.truck });
+  W.truckCol = { minX: -10.1, maxX: -7.9, minZ: 10.8, maxZ: 15.2, on: false }; colliders.push(W.truckCol);
+
+  /* ---------- Earl, the customer who never moves while you watch ---------- */
+  W.earl = new THREE.Group(); scene.add(W.earl);
+  const skin = mat(0xd8b38a), shirt = mat(0x8a2a2a), jeans = mat(0x2a3a6a);
+  box(0.42, 0.7, 0.24, shirt, 0, 1.25, 0, { parent: W.earl, ray: false });
+  box(0.3, 0.3, 0.28, skin, 0, 1.78, 0, { parent: W.earl, ray: false });
+  W.earlCap = box(0.34, 0.12, 0.42, mat(0xd8d040), 0, 1.98, 0.05, { parent: W.earl, ray: false });
+  box(0.16, 0.85, 0.2, jeans, -0.11, 0.45, 0, { parent: W.earl, ray: false }); box(0.16, 0.85, 0.2, jeans, 0.11, 0.45, 0, { parent: W.earl, ray: false });
+  box(0.12, 0.62, 0.14, shirt, -0.29, 1.25, 0, { parent: W.earl, ray: false }); box(0.12, 0.62, 0.14, shirt, 0.29, 1.25, 0, { parent: W.earl, ray: false });
+  [-0.07, 0.07].forEach(x => box(0.04, 0.04, 0.02, M.black, x, 1.82, 0.15, { parent: W.earl, ray: false }));
+  W.earlHit = box(0.7, 2.0, 0.6, new THREE.MeshBasicMaterial({ visible: false }), 0, 1.0, 0, { parent: W.earl });
+  W.earlCol = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, on: true }; colliders.push(W.earlCol);
+
+  /* ---------- souvenirs (positions; the game decides when each is there) ---------- */
+  W.souvenirMeshes = {};
+  return W;
+}
+
+function drawClock(h, m) {
+  const t = W.clockTex, x = t.userData.ctx;
+  x.fillStyle = '#f4f0e0'; x.beginPath(); x.arc(64, 64, 62, 0, Math.PI * 2); x.fill(); x.lineWidth = 6; x.strokeStyle = '#222'; x.stroke();
+  x.fillStyle = '#222'; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; x.fillRect(64 + Math.sin(a) * 50 - 2, 64 - Math.cos(a) * 50 - 2, 4, 4); }
+  const hand = (a, len, w) => { x.lineWidth = w; x.lineCap = 'round'; x.beginPath(); x.moveTo(64, 64); x.lineTo(64 + Math.sin(a) * len, 64 - Math.cos(a) * len); x.stroke(); };
+  hand(((h % 12) + m / 60) / 12 * Math.PI * 2, 30, 6); hand(m / 60 * Math.PI * 2, 46, 4);
+  t.needsUpdate = true;
+}
+function drawNeon(colors, on = 1) {
+  const t = W.neonTex, x = t.userData.ctx; x.clearRect(0, 0, 256, 96);
+  x.font = 'bold 76px Arial Black, Arial'; x.textBaseline = 'middle'; x.lineWidth = 5;
+  'OPEN'.split('').forEach((ch, i) => {
+    const c = on ? colors[i] : '#333';
+    // the plane faces the lot, so it reads OPEN from outside and backwards (NEPO) from inside
+    x.save(); x.translate(8 + i * 60, 50);
+    x.shadowColor = c; x.shadowBlur = on ? 18 : 0; x.strokeStyle = c; x.strokeText(ch, 0, 0); x.fillStyle = on ? '#fff' : '#222'; x.globalAlpha = on ? 0.25 : 1; x.fillText(ch, 0, 0);
+    x.restore();
+  });
+  t.needsUpdate = true;
+}
+function drawMirror(revealed, msg) {
+  const t = W.mirrorTex, x = t.userData.ctx;
+  const g = x.createLinearGradient(0, 0, 256, 230); g.addColorStop(0, '#a8c8d0'); g.addColorStop(1, '#6a8a98'); x.fillStyle = g; x.fillRect(0, 0, 256, 230);
+  x.fillStyle = 'rgba(255,255,255,.15)'; x.fillRect(20, 0, 30, 230);
+  if (revealed) {
+    x.fillStyle = 'rgba(240,250,255,.75)'; x.fillRect(0, 0, 256, 230);
+    x.fillStyle = 'rgba(60,70,80,.85)'; x.font = 'bold 26px Comic Sans MS, cursive'; x.textAlign = 'center';
+    msg.forEach((l, i) => x.fillText(l, 128, 50 + i * 40));
+  }
+  t.needsUpdate = true;
+}
+
+/* ============================================================================================
+   LAST STOP: the night shift that never ends.
+   Walk out to the road and the road walks you back in through the front door. Every lap is a
+   LOOP and the store changes a little. Solve the store to get out.
+   ============================================================================================ */
+const $ = (s) => document.querySelector(s);
+const SAVE = 'kaifun-laststop-v1';
+const COLORS = [['red', '#ff2a3a', 0xff2a3a], ['green', '#2aff6a', 0x2aff6a], ['blue', '#3a8aff', 0x3a8aff], ['yellow', '#ffe02a', 0xffe02a], ['purple', '#c04aff', 0xc04aff]];
+
+const SOUVENIRS = [
+  { id: 'globe', name: 'Snow Globe', desc: 'A tiny gas station in a tiny snowstorm. Shake it and a tiny you walks out the door, and back in.', pos: [-4.8, 1.86, -3.0], shape: 'globe', when: () => true },
+  { id: 'penny', name: 'Lucky Penny', desc: 'Heads on both sides. Tails on both sides. Depends when you look.', pos: [-1.5, 0.03, 13.0], shape: 'coin', when: () => true },
+  { id: 'jerky', name: 'Infinity Jerky', desc: '"NOW WITH MORE." The bag has no bottom. Do not reach in past the elbow.', pos: [0.4, 1.84, 0.6], shape: 'bag', when: () => S.loop >= 2 },
+  { id: 'cactus', name: 'Tiny Cactus', desc: 'It grew out of the asphalt by the price sign. Thrives on neon and nothing else.', pos: [10.7, 0.12, 8.9], shape: 'cactus', when: () => S.loop >= 4 },
+  { id: 'postcard', name: 'Postcard', desc: '"Wish you were here!" It\'s addressed to you. It is postmarked tomorrow.', pos: [4.3, 1.08, 2.6], shape: 'card', when: () => S.loop >= 3 },
+  { id: 'polaroid', name: 'Polaroid of You', desc: 'Pinned to the board. It\'s you, from behind, looking at the board. Flash and everything.', mesh: 'polaroid', when: () => S.loop >= 5 },
+  { id: 'duck', name: 'Rubber Duck', desc: 'Found it in the restroom. It squeaks in Morse code. The message is "QUACK".', pos: [-7.3, 1.06, -8.35], shape: 'duck', when: () => S.f.restroom },
+  { id: 'fog', name: 'Bottled Fog', desc: 'Bottled at the source: the road outside. Do not open indoors.', pos: [-7.35, 0.9, 1.4], shape: 'bottle', when: () => S.f.fridge },
+  { id: 'pager', name: 'The Pager', desc: 'Vibrates every 11:52 PM. The screen only ever says ∞.', pos: [3.8, 1.02, -9.4], shape: 'pager', when: () => S.f.staff },
+  { id: 'cap', name: "Earl's Cap", desc: '"EARL\'S HAULING · NO JOB TOO FAR". Still warm. Earl never takes it off.', pos: [-5.7, 1.06, 4.6], shape: 'cap', when: () => S.f.earlCoffee },
+];
+const NOTES = [
+  { id: 'rules', pos: [7.2, 1.1, 0.25], title: 'NIGHT SHIFT RULES (taped to the shelf)', text: '1. The coffee is always fresh. Do not ask who makes it.\n2. Earl is a regular. Earl does not buy anything. Be nice to Earl.\n3. If the register asks for a code, it wants the total.\n4. Never sit on the stool after the 6th loop.' },
+  { id: 'road', pos: [-7.95, 1.5, -7.2], title: 'Scratched into the restroom tiles', text: 'Day ?? : walked to the road 40 times.\nThe road walks back.\nThe mirror knows something. It only talks when it\'s steamy in here.' },
+  { id: 'soda', pos: [-7.0, 0.05, -1.0], title: 'Note under the fridges', text: 'The sodas only line up if you see the sign the way the cars see it.\n(Go look at the neon from the lot. From in here it\'s backwards.)' },
+  { id: 'pump', pos: [-4.5, 0.05, 11.2], title: 'Note stuck to pump 1', text: 'Pump 4 never stops counting. Funny number for a pump.\nSounds like a radio station.' },
+  { id: 'close', pos: [6.0, 0.05, -7.0], title: 'Note in the back room', text: 'To whoever\'s next:\nyou don\'t ESCAPE a store.\nyou CLOSE it.\nhang the sign. then walk. don\'t stop.' },
+  { id: 'earl', pos: [-7.0, 1.0, 4.95], title: 'Coffee station receipt (back)', text: 'Earl takes it black.\nHe says thank you, which is more than most.\nHe says his truck keys are "on ice".' },
+];
+const ENDINGS = [
+  { id: 'closing', name: 'Closing Time', text: 'You hung the sign and walked. The neon died behind you. The road kept going, for once, all the way to a sunrise.' },
+  { id: 'hire', name: 'New Hire', text: 'You sat on the stool. It fit. A bell rang, the door slid open, and a tired stranger walked in. "Can I help you?" you said. You meant it, forever.' },
+  { id: 'earl', name: "Earl's Ride", text: 'The truck started first try. Earl rode shotgun and didn\'t say a word for a hundred miles. Then he said "thanks for the coffee, kid", and he wasn\'t there anymore.' },
+];
+const EARL_SPOTS = [[-5.6, 3.6, 0.4], [-3.5, -2, 1.57], [-6.4, -1.5, 1.57], [1.6, 7.6, Math.PI], [2.4, -4.8, 0], [-1, 2.2, Math.PI], [6.8, 4.6, Math.PI], [-0.9, 4.2, Math.PI]];
+const ANOMALIES = ['', 'Earl moved.', 'The products are upside down.', 'The fog outside is red.', 'The lights won\'t stop flickering.', 'The board has new words on it.', 'Every product is facing the wall.', 'The neon is buzzing a tune.'];
+
+/* ---------- save ---------- */
+function freshRun() { return { seed: Math.floor(Math.random() * 2 ** 31), loop: 1, inv: [], f: {}, fridge: [0, 0, 0, 0], lights: null, time: 0 }; }
+let SAVED = (() => { try { return JSON.parse(localStorage.getItem(SAVE)) || {}; } catch (e) { return {}; } })();
+SAVED.souvenirs = SAVED.souvenirs || {}; SAVED.endings = SAVED.endings || {}; SAVED.notes = SAVED.notes || {};
+let S = SAVED.run || null;
+function save() { SAVED.run = S; try { localStorage.setItem(SAVE, JSON.stringify(SAVED)); } catch (e) {} }
+
+/* ---------- the puzzle answers, rolled per run ---------- */
+let P = null;
+function rollPuzzles(seed) {
+  const r = rngFrom(seed * 3 + 1), pick = (a) => a[Math.floor(r() * a.length)];
+  const prices = { coffee: pick([125, 149, 175, 199]), jerky: pick([349, 425, 499, 550]), map: pick([299, 375, 450]), ice: pick([199, 225, 250]) };
+  const total = prices.coffee + prices.jerky + prices.map + prices.ice;
+  const perm = [0, 1, 2, 3, 4].sort(() => r() - 0.5).slice(0, 4);
+  const lights = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const press = (L, i) => { const x = i % 3, y = Math.floor(i / 3); [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const X = x + dx, Y = y + dy; if (X >= 0 && X < 3 && Y >= 0 && Y < 3) L[Y * 3 + X] ^= 1; }); };
+  const presses = new Set(); while (presses.size < 4) presses.add(Math.floor(r() * 9));
+  presses.forEach(i => press(lights, i));
+  return { prices, code: String(total).padStart(4, '0'), hour: pick([11, 11, 10, 9]), minute: pick([5, 10, 20, 25, 35, 40, 50, 55]), neon: perm,
+    freq: (88 + Math.floor(r() * 190) / 10 + 0.1).toFixed(1), lights, press };
+}
+const money = (c) => '$' + (c / 100).toFixed(2);
+
+/* ---------- three.js ---------- */
+const canvas = $('#cv');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+let pixel = SAVED.pixel !== false;
+function applySize() { renderer.setPixelRatio(pixel ? 0.42 : Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); canvas.style.imageRendering = pixel ? 'pixelated' : 'auto'; }
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 120);
+addEventListener('resize', applySize);
+const world = buildWorld(1234);
+applySize();
+
+/* ---------- souvenir and note meshes ---------- */
+function souvenirMesh(s) {
+  const g = new THREE.Group(); const m = (c) => new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.25 });
+  const add = (geo, c, x = 0, y = 0, z = 0) => { const k = new THREE.Mesh(geo, m(c)); k.position.set(x, y, z); g.add(k); return k; };
+  if (s.shape === 'globe') { add(new THREE.CylinderGeometry(0.1, 0.12, 0.06, 10), 0x6a4a2a); const b = add(new THREE.SphereGeometry(0.11, 10, 8), 0xbfe8ff, 0, 0.12); b.material.transparent = true; b.material.opacity = 0.6; add(new THREE.BoxGeometry(0.06, 0.05, 0.05), 0xff3050, 0, 0.1); }
+  if (s.shape === 'coin') add(new THREE.CylinderGeometry(0.06, 0.06, 0.012, 12), 0xc88a3a);
+  if (s.shape === 'bag') add(new THREE.BoxGeometry(0.16, 0.22, 0.06), 0x8a3a1a);
+  if (s.shape === 'cactus') { add(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 8), 0x2a8a3a, 0, 0.1); add(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 6), 0x2a8a3a, 0.06, 0.13); }
+  if (s.shape === 'card') add(new THREE.BoxGeometry(0.2, 0.01, 0.14), 0xffe0a0);
+  if (s.shape === 'duck') { add(new THREE.SphereGeometry(0.07, 8, 6), 0xffe02a); add(new THREE.SphereGeometry(0.045, 8, 6), 0xffe02a, 0.05, 0.07); add(new THREE.BoxGeometry(0.05, 0.02, 0.03), 0xff8a1a, 0.1, 0.07); }
+  if (s.shape === 'bottle') { const b = add(new THREE.CylinderGeometry(0.06, 0.07, 0.24, 8), 0xd0d8e0); b.material.transparent = true; b.material.opacity = 0.55; add(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 6), 0x6a4a2a, 0, 0.14); }
+  if (s.shape === 'pager') { add(new THREE.BoxGeometry(0.12, 0.04, 0.07), 0x222228); add(new THREE.PlaneGeometry(0.07, 0.03), 0x7aff8a, 0, 0.021).rotation.x = -Math.PI / 2; }
+  if (s.shape === 'cap') { add(new THREE.SphereGeometry(0.1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xd8d040); add(new THREE.BoxGeometry(0.12, 0.01, 0.1), 0xd8d040, 0, 0, 0.1); }
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.08; g.add(hit);
+  g.position.set(...s.pos); W.scene.add(g);
+  interact(hit, 'Take: ' + s.name, () => takeSouvenir(s));
+  return g;
+}
+const souvMeshes = {};
+SOUVENIRS.forEach(s => { if (s.mesh) { souvMeshes[s.id] = W[s.mesh]; interact(W[s.mesh], 'Take: ' + s.name, () => takeSouvenir(s)); } else souvMeshes[s.id] = souvenirMesh(s); });
+const noteMeshes = {};
+NOTES.forEach(n => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.01, 0.28), new THREE.MeshLambertMaterial({ color: 0xfff6d8, emissive: 0x332a10 }));
+  m.position.set(...n.pos); m.rotation.y = 0.3; W.scene.add(m); raycastables.push(m);
+  interact(m, 'Read the note', () => readNote(n)); noteMeshes[n.id] = m;
+});
+
+/* ---------- interactables in the store ---------- */
+function has(item) { return S.inv.includes(item); }
+function give(item) { if (!has(item)) { S.inv.push(item); Snd.play('pickup'); toast('Got: ' + item); drawInv(); refreshWorld(); save(); } }
+function takeItem(item) { S.inv = S.inv.filter(i => i !== item); drawInv(); }
+
+interact(W.receipt, 'Pick up the receipt', () => showPaper('RECEIPT', [`GAS-N-GO  #4  ROUTE ∞`, `${P.hour}:${String(P.minute).padStart(2, '0')} PM`, '', '1  COFFEE (LG)', '1  BEEF JERKY', '1  ROAD MAP', '1  BAG OF ICE', '', 'TOTAL ........ $??.??', '', '*** THANK YOU, COME AGAIN ***', '*** AND AGAIN ***', '*** AND AGAIN ***'].join('\n'), 'receipt'));
+interact(W.register, 'Use the register', () => { if (S.f.register) return say('The drawer is open. It\'s empty now, apart from a sticky note: "TOTAL".'); keypad(); });
+interact(W.coffee, 'Coffee machine', () => {
+  if (has('Empty cup')) { takeItem('Empty cup'); give('Hot coffee'); Snd.play('pour'); say('The pot is fresh. It\'s always fresh. Nobody has made a pot in years.'); }
+  else say('A full pot, steaming. "LARGE COFFEE ' + money(P.prices.coffee) + '". You\'d need a cup.');
+});
+interact(W.cups, 'Take a cup', () => { if (has('Empty cup') || has('Hot coffee')) return say('You already have one.'); give('Empty cup'); });
+interact(W.earlHit, 'Talk to Earl', () => talkEarl());
+interact(W.rDoor, 'Restroom door', () => {
+  if (S.f.restroom) return;
+  if (has('Restroom key')) { S.f.restroom = 1; takeItem('Restroom key'); Snd.play('unlock'); openDoors(); say('The key turns. The restroom smells like pine and the sea.'); save(); }
+  else say('Locked. "KEY AT REGISTER". Typical.');
+});
+interact(W.sink, 'Turn on the hot tap', () => {
+  if (S.f.steam) return say('The mirror still says it. ' + mirrorMsg().join(' '));
+  S.f.steam = 1; Snd.play('steam'); setTimeout(() => { drawMirror(true, mirrorMsg()); say('Steam rolls up the mirror. Words appear in it, written from the other side.'); }, 1200); save();
+});
+interact(W.mirror, 'Look in the mirror', () => say(S.f.steam ? mirrorMsg().join(' ') : 'You look tired. Behind you the restroom door is... still open. Good.'));
+interact(W.clock, 'Set the clock', () => { if (S.f.clock) return say('The clock ticks properly now. Forwards, even.'); clockUI(); });
+W.fridgeSlots.forEach((slot, i) => interact(slot.glass, 'Swap the sodas', () => {
+  if (S.f.fridge) return say('The fridges hum happily. The freezer is open.');
+  if (!S.f.clock) return say('The fridge is dark and silent, like it\'s waiting for the right time.');
+  S.fridge[i] = (S.fridge[i] + 1) % COLORS.length; Snd.play('clink'); paintFridges(); checkFridge(); save();
+}));
+interact(W.freezerDoor, 'Freezer', () => {
+  if (!S.f.fridge) return say('Chained shut. The padlock has four little coloured lights on it.');
+  if (!S.f.knob) { S.f.knob = 1; give('Radio knob'); say('Inside, frozen in a block of ice: a radio knob. Somebody really didn\'t want this radio played.'); }
+  if (S.f.earlCoffee && !has('Truck keys') && !S.f.truckTaken) { give('Truck keys'); say('...and a set of truck keys on a keyring that says EARL\'S HAULING.'); }
+  if (S.f.knob && has('Radio knob') === false && !S.f.earlCoffee) say('Just ice now.');
+});
+interact(W.radio, 'Radio', () => {
+  if (S.f.radio) return say('Static. And under it, very quietly, somebody humming.');
+  if (!has('Radio knob') && !S.f.knobOn) return say('An old radio. The tuning knob has been pulled off. A sticky note says TUNE TO THE NUMBER ON PUMP 4.');
+  if (has('Radio knob')) { takeItem('Radio knob'); S.f.knobOn = 1; save(); }
+  radioUI();
+});
+interact(W.radioNote, 'Sticky note', () => say('"TUNE TO THE NUMBER ON PUMP 4."'));
+interact(W.switchPanel, 'Light switches', () => {
+  if (S.f.lights) return say('Every switch is down. The store is dark. That\'s how you want it.');
+  if (!S.f.radio) return say('Nine switches. Someone has scratched DON\'T above them. You don\'t.');
+  lightsUI();
+});
+interact(W.sDoor, 'Staff only', () => { if (!S.f.lights) return say('STAFF ONLY. Locked with a keypad that\'s been smashed. It does have a light-sensor, oddly.'); });
+interact(W.closedSign, 'Take the CLOSED sign', () => { if (has('CLOSED sign') || S.f.signHung) return; give('CLOSED sign'); W.closedSign.visible = false; say('A sign that says CLOSED. It\'s heavier than it should be.'); });
+interact(W.exitDoor, 'EXIT', () => { say('You push the bar. Cold air. Fluorescent light. You\'re walking in the front door again.'); setTimeout(() => nextLoop(), 900); });
+interact(W.hook, 'Door hook', () => {
+  if (S.f.signHung) return say('CLOSED. The road is waiting.');
+  if (!has('CLOSED sign')) return say('A hook on the door. Something hangs here, at closing time.');
+  takeItem('CLOSED sign'); S.f.signHung = 1; save(); hangSign();
+});
+interact(W.doorSign, 'Door sign', () => say(S.f.signHung ? 'CLOSED.' : 'OPEN 24 HOURS. "24" has been crossed out and someone has written ∞.'));
+interact(W.stool, 'The stool', () => {
+  if (S.loop < 6) return say('A cashier\'s stool. Still warm. You don\'t feel like sitting yet.');
+  confirmUI('Sit on the stool?', 'The rules said never after the 6th loop. It looks so comfortable.', 'Sit down', () => ending('hire'));
+});
+interact(W.truckHit, "Earl's truck", () => { if (!has('Truck keys')) return say('A blue pickup. EARL\'S HAULING. Locked.'); takeItem('Truck keys'); S.f.truckTaken = 1; ending('earl'); });
+W.pumps.forEach((p, i) => interact(p, 'Pump ' + (i + 1), () => say(i === 3 ? `Pump 4. The counter reads ${P.freq} and won't stop ticking. The tenths digit never changes.` : `Pump ${i + 1}. ${['$0.00. Nobody\'s pumped gas here in a long time.', 'The nozzle is warm.', 'A sticker: "PAY INSIDE. STAY INSIDE."'][i]}`)));
+interact(W.priceSign, 'Price sign', () => say(`The sign says LOOP ${S.loop}. It used to say prices.`));
+interact(W.neon, 'Neon sign', () => say(S.f.signHung ? 'Dark. Finally.' : 'OPEN, in four colours. It hums like it\'s thinking.'));
+interact(W.board, 'Bulletin board', () => say(boardLine()));
+interact(W.jerkyTag, 'Price tag', () => say(`BEEF JERKY ${money(P.prices.jerky)}.`));
+interact(W.mapTag, 'Price tag', () => say(`ROAD MAPS ${money(P.prices.map)}. "ALL ROADS LEAD HERE".`));
+interact(W.iceTag, 'Ice chest', () => say(`BAG OF ICE ${money(P.prices.ice)}. The ice inside is perfectly clear, like it was never water.`));
+interact(W.coffeeSign, 'Coffee sign', () => say(`LARGE COFFEE ${money(P.prices.coffee)}. FRESH 24/7/∞.`));
+
+function mirrorMsg() { return ['THE CLOCK LIES', 'SET IT TO THE', 'TIME YOU CAME IN', '(CHECK YOUR RECEIPT)']; }
+function boardLine() { return S.loop >= 6 && S.loop % 2 === 0 ? 'The board says: YOU SHOULD HAVE LEFT. Underneath, smaller: "you couldn\'t have, though. sorry."' : `LOOPS WITHOUT ESCAPE: ${S.loop}. Employee of the month: EARL (customer).`; }
+
+/* ---------- painting the clues ---------- */
+const STUB = { loop: 1, f: {}, fridge: [0, 0, 0, 0], inv: [] };
+const cur = () => S || STUB;
+function paintClues() {
+  const S = cur();
+  const tagTex = (l1, l2, bg = '#fff36b') => textTex([l1, l2], { w: 128, h: 64, bg, font: 'bold 18px Arial' });
+  W.jerkyTag.material.map = tagTex('BEEF JERKY', money(P.prices.jerky)); W.jerkyTag.material.needsUpdate = true;
+  W.mapTag.material.map = tagTex('ROAD MAPS', money(P.prices.map)); W.mapTag.material.needsUpdate = true;
+  W.iceTag.material.map = textTex(['ICE  ' + money(P.prices.ice)], { w: 256, h: 64, bg: '#2a6aa8', fg: '#fff', font: 'bold 34px Arial' }); W.iceTag.material.needsUpdate = true;
+  W.coffeeSign.material.map = textTex(['LARGE COFFEE', money(P.prices.coffee)], { w: 160, h: 80, bg: '#3a1e10', fg: '#ffd890', font: 'bold 20px Georgia' }); W.coffeeSign.material.needsUpdate = true;
+  const nums = ['00.0', '73.4', P.freq === '73.4' ? '12.0' : '0.4', P.freq];
+  W.pumps.forEach((p, i) => { p.material.map = textTex([nums[i], 'GAL'], { w: 128, h: 72, bg: '#06120a', fg: '#4aff7a', font: 'bold 26px Courier New' }); p.material.needsUpdate = true; });
+  drawNeon(P.neon.map(i => COLORS[i][1]), S.f.signHung ? 0 : 1);
+  drawMirror(!!S.f.steam, mirrorMsg());
+  drawClock(S.f.clock ? P.hour : 3, S.f.clock ? P.minute : 15);
+  paintSign(); paintBoard(); paintFridges();
+}
+function paintSign() {
+  const S = cur();
+  W.priceSign.material.map = tex(256, 220, (x) => {
+    x.fillStyle = '#c81e2a'; x.fillRect(0, 0, 256, 220); x.fillStyle = '#fff'; x.font = 'bold 34px Arial Black, Arial'; x.textAlign = 'center'; x.fillText('GAS-N-GO', 128, 40);
+    x.fillStyle = '#0a0a0a'; x.fillRect(16, 56, 224, 150); x.fillStyle = '#ff6a2a'; x.font = 'bold 26px Courier New';
+    x.fillText('REGULAR  ∞.99', 128, 92); x.fillText('PREMIUM  ∞.99', 128, 128); x.fillStyle = '#ffe02a'; x.font = 'bold 34px Courier New'; x.fillText('LOOP ' + S.loop, 128, 180);
+  });
+  W.priceSign.material.needsUpdate = true;
+}
+function paintBoard() {
+  const S = cur();
+  W.board.material.map = textTex(S.loop >= 6 && S.loop % 2 === 0 ? ['YOU SHOULD', 'HAVE LEFT'] : ['LOOPS WITHOUT', 'ESCAPE: ' + S.loop], { w: 256, h: 160, bg: '#8a6a3a', fg: '#fff6d8', font: 'bold 28px Courier New', border: '#5a3a1a' });
+  W.board.material.needsUpdate = true;
+}
+function paintFridges() {
+  const S = cur();
+  W.fridgeSlots.forEach((slot, i) => {
+    const c = COLORS[S.fridge[i]];
+    slot.bottles.forEach(b => { b.material.color.setHex(S.f.clock ? c[2] : 0x333333); b.material.emissive = new THREE.Color(S.f.clock ? c[2] : 0); b.material.emissiveIntensity = S.f.clock ? 0.35 : 0; });
+  });
+  W.chain.visible = !S.f.fridge;
+}
+function checkFridge() {
+  if (S.fridge.every((c, i) => c === P.neon[i])) {
+    S.f.fridge = 1; Snd.play('solve'); flashScreen('#a8f0ff');
+    say('Every bottle clicks. The chain on the freezer falls away with a clank.'); paintFridges(); refreshWorld(); save();
+  }
+}
+function hangSign() {
+  drawNeon(P.neon.map(i => COLORS[i][1]), 0); W.neonLight.intensity = 0;
+  W.doorSign.material.map = textTex(['CLOSED'], { w: 128, h: 64, bg: '#a81d1d', fg: '#fff', font: 'bold 30px Arial' }); W.doorSign.material.needsUpdate = true;
+  Snd.play('solve'); flashScreen('#ffd8a0');
+  say('You hang the CLOSED sign. The neon dies. Out past the pumps, the fog is going pink. Is that... morning?');
+  dawn = 1;
+}
+
+/* ---------- doors, lights, loops ---------- */
+let dawn = 0;
+function openDoors() {
+  W.rDoorCol.on = !S.f.restroom; W.sDoorCol.on = !S.f.staff;
+}
+function refreshWorld() {
+  openDoors();
+  for (const s of SOUVENIRS) souvMeshes[s.id].visible = s.when() && !SAVED.souvenirs[s.id];
+  for (const n of NOTES) noteMeshes[n.id].visible = !(n.id === 'close' && !S.f.staff);
+  W.truck.visible = has('Truck keys'); W.truckCol.on = W.truck.visible;
+  W.closedSign.visible = !has('CLOSED sign') && !S.f.signHung;
+  dawn = S.f.signHung ? 1 : 0;
+}
+function applyLoop() {
+  const n = S.loop;
+  const spot = EARL_SPOTS[(n - 1) % EARL_SPOTS.length];
+  W.earl.position.set(spot[0], 0, spot[1]); W.earl.rotation.y = spot[2];
+  W.earlCol.minX = spot[0] - 0.3; W.earlCol.maxX = spot[0] + 0.3; W.earlCol.minZ = spot[1] - 0.3; W.earlCol.maxZ = spot[1] + 0.3;
+  W.earlCap.visible = !S.f.earlCoffee;
+  const an = n >= 2 ? ANOMALIES[(n - 1) % ANOMALIES.length] : '';
+  W.products.forEach((p, i) => { p.rotation.set(an.includes('upside') && i % 2 === 0 ? Math.PI : 0, an.includes('wall') ? Math.PI / 2 : 0, 0); });
+  W.scene.fog.color.setHex(an.includes('red') ? 0x2a0508 : 0x07080f);
+  W.scene.fog.density = Math.min(0.08, 0.04 + n * 0.002);
+  S.anomaly = an;
+  paintSign(); paintBoard();
+}
+let looping = false;
+function nextLoop() {
+  if (looping) return; looping = true;
+  fade(() => {
+    looping = false;
+    S.loop++; player.pos.set(0, 0, 4.6); player.yaw = 0; player.pitch = 0; player.vel.set(0, 0, 0);
+    applyLoop(); refreshWorld(); save(); Snd.play('chime');
+    loopBanner(S.loop, S.anomaly);
+  });
+}
+
+/* ---------- Earl ---------- */
+function talkEarl() {
+  if (S.f.earlCoffee) return say(pick(['"Keys are on ice, kid. Like I said."', '"Coffee\'s good. Can\'t taste it, but it\'s good."', '"You ever see the sun come up out here? Me neither."']));
+  if (has('Hot coffee')) { takeItem('Hot coffee'); S.f.earlCoffee = 1; save(); refreshWorld(); applyLoop(); Snd.play('solve'); return say('Earl takes the coffee. "Black. Thanks, kid. Nobody\'s done that in... a while. Tell you what: my truck\'s out back of the pumps. Keys are on ice." He sets his cap down on the coffee counter.'); }
+  const lines = ['Earl doesn\'t move. Up close, he smells like diesel and rain. "...Coffee\'d be nice," he says, without moving his mouth.', '"Been here a while. You get used to the loops. You get used to the hum."', '"Night shift girl used to put the radio on. Station on the pump, she said."', '"Don\'t sit on that stool, kid."'];
+  say(lines[(S.loop + (S.earlTalk = (S.earlTalk || 0) + 1)) % lines.length]);
+}
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+/* ---------- player ---------- */
+const player = { pos: new THREE.Vector3(0, 0, 4.6), vel: new THREE.Vector3(), yaw: 0, pitch: 0, bob: 0, step: 0 };
+const keys = {};
+let playing = false, overlayOpen = false, locked = false, sens = SAVED.sens || 0.0022;
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (!playing) return;
+  if (e.code === 'KeyE' && !overlayOpen) use();
+  if ((e.code === 'KeyJ' || e.code === 'Tab') && !overlayOpen) { e.preventDefault(); notebook(); }
+  if (e.code === 'Escape' && overlayOpen) closeOverlay();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+canvas.addEventListener('click', () => { if (playing && !overlayOpen && !touch) { if (!locked) canvas.requestPointerLock(); else use(); } });
+document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (!locked && playing && !overlayOpen && !touch) pauseMenu(); });
+document.addEventListener('mousemove', e => { if (!locked || overlayOpen) return; player.yaw -= e.movementX * sens; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * sens)); });
+
+// touch: left stick, right drag to look, USE button
+const touch = matchMedia('(pointer: coarse)').matches;
+const stick = { id: null, x: 0, y: 0, ox: 0, oy: 0 }, look = { id: null, x: 0, y: 0 };
+if (touch) {
+  $('#touchUI').hidden = false;
+  canvas.addEventListener('touchstart', e => { for (const t of e.changedTouches) { if (t.clientX < innerWidth * 0.4 && stick.id == null) { stick.id = t.identifier; stick.ox = t.clientX; stick.oy = t.clientY; stick.x = stick.y = 0; } else if (look.id == null) { look.id = t.identifier; look.x = t.clientX; look.y = t.clientY; } } }, { passive: true });
+  canvas.addEventListener('touchmove', e => { for (const t of e.changedTouches) { if (t.identifier === stick.id) { stick.x = Math.max(-1, Math.min(1, (t.clientX - stick.ox) / 50)); stick.y = Math.max(-1, Math.min(1, (t.clientY - stick.oy) / 50)); } if (t.identifier === look.id) { player.yaw -= (t.clientX - look.x) * 0.006; player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch - (t.clientY - look.y) * 0.006)); look.x = t.clientX; look.y = t.clientY; } } }, { passive: true });
+  canvas.addEventListener('touchend', e => { for (const t of e.changedTouches) { if (t.identifier === stick.id) { stick.id = null; stick.x = stick.y = 0; } if (t.identifier === look.id) look.id = null; } });
+  $('#useBtn').onclick = () => use(); $('#bookBtn').onclick = () => notebook();
+}
+
+function collide(p) {
+  const r = 0.3;
+  for (const c of colliders) {
+    if (!c.on) continue;
+    const qx = Math.max(c.minX, Math.min(p.x, c.maxX)), qz = Math.max(c.minZ, Math.min(p.z, c.maxZ));
+    const dx = p.x - qx, dz = p.z - qz, d2 = dx * dx + dz * dz;
+    if (d2 < r * r) {
+      if (d2 > 1e-8) { const d = Math.sqrt(d2); p.x += dx / d * (r - d); p.z += dz / d * (r - d); }
+      else { const L = p.x - c.minX, Rr = c.maxX - p.x, B = p.z - c.minZ, T = c.maxZ - p.z, m = Math.min(L, Rr, B, T); if (m === L) p.x = c.minX - r; else if (m === Rr) p.x = c.maxX + r; else if (m === B) p.z = c.minZ - r; else p.z = c.maxZ + r; }
+    }
+  }
+}
+
+/* ---------- looking at things ---------- */
+const ray = new THREE.Raycaster(); ray.far = 2.7;
+let target = null;
+function updateTarget() {
+  ray.setFromCamera({ x: 0, y: 0 }, camera);
+  const hits = ray.intersectObjects(raycastables.filter(o => o.visible && isShown(o)), false);
+  target = null;
+  if (hits.length && hits[0].object.userData.use) target = hits[0].object;
+  $('#prompt').textContent = target ? (touch ? '' : '[E] ') + target.userData.label : '';
+  $('#cross').classList.toggle('on', !!target);
+}
+function isShown(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
+function use() { if (target && !overlayOpen) { Snd.play('click'); target.userData.use(); } }
+
+/* ---------- the frame ---------- */
+let last = performance.now(), flick = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (playing && !overlayOpen) {
+    S.time += dt;
+    const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - stick.y;
+    const side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + stick.x;
+    const sp = (keys.ShiftLeft ? 4.6 : 2.9);
+    const sx = Math.sin(player.yaw), cz = Math.cos(player.yaw);
+    let mx = -sx * fwd + cz * side, mz = -cz * fwd - sx * side;
+    const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
+    player.pos.x += mx * sp * dt; player.pos.z += mz * sp * dt;
+    collide(player.pos);
+    const moving = l > 0.1;
+    if (moving) { player.bob += dt * sp * 2.6; if (Math.sin(player.bob) < -0.95 && player.step <= 0) { Snd.play(player.pos.z > 6.3 ? 'stepOut' : 'step'); player.step = 0.25; } }
+    player.step -= dt;
+    // the automatic doors
+    const nearDoor = Math.hypot(player.pos.x, player.pos.z - 6.1) < 2.4;
+    const o = nearDoor ? 1 : 0; W.doorOpen = (W.doorOpen || 0) + (o - (W.doorOpen || 0)) * Math.min(1, dt * 6);
+    W.doorL.position.x = -0.6 - W.doorOpen * 1.1; W.doorR.position.x = 0.6 + W.doorOpen * 1.1; W.doorCol.on = W.doorOpen < 0.7;
+    if (nearDoor && !W.wasNear) Snd.play('whoosh'); W.wasNear = nearDoor;
+    // the road brings you back
+    const out = player.pos.z > 6.3 || Math.abs(player.pos.x) > 8.25 || player.pos.z < -10.3;
+    Snd.outside(out);
+    if (out && (player.pos.z > 19.5 || Math.abs(player.pos.x) > 15 || player.pos.z < -12)) {
+      if (S.f.signHung) { if (!looping) { looping = true; ending('closing'); } } else nextLoop();
+    }
+    player.pos.x = Math.max(-16, Math.min(16, player.pos.x)); player.pos.z = Math.min(21, player.pos.z);
+  }
+  camera.position.set(player.pos.x, 1.62 + Math.sin(player.bob * 2) * 0.03, player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  // flicker
+  flick -= dt;
+  const flickery = S && (S.anomaly || '').includes('flicker') ? 6 : 1;
+  if (S && !S.f.lights && flick < 0) {
+    flick = 0.05 + Math.random() * (3 / flickery);
+    const on = Math.random() > 0.08 * flickery;
+    W.lights.forEach((L, i) => { if (i < 5) L.intensity = on ? 7 : 1.5; }); W.panels.forEach(p => p.visible = on);
+    if (!on) Snd.play('buzz');
+  }
+  if (S && S.f.lights) { W.lights.forEach((L, i) => { if (i < 5) L.intensity = 0; }); W.panels.forEach(p => p.visible = false); W.emergency.intensity = 3 + Math.sin(now / 400); W.amb.intensity = 0.12; W.backLight.intensity = 6; }
+  // dawn after the sign is hung
+  if (dawn) { W.scene.fog.color.lerp(new THREE.Color(0xd8a0b8), dt * 0.3); W.scene.background.lerp(new THREE.Color(0xe8b0a0), dt * 0.3); W.scene.fog.density += (0.018 - W.scene.fog.density) * dt * 0.4; }
+  if (W.glow) W.glow.forEach((g, i) => g.material.opacity = 0.6 + Math.sin(now / 300 + i) * 0.3);
+  // title camera
+  if (!playing) { const t = now / 9000; camera.position.set(Math.sin(t) * 3 + 2, 2.4, 17 + Math.cos(t) * 2); camera.lookAt(0, 1.8, 6); }
+  else updateTarget();
+  renderer.render(W.scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- sound: hum, wind, drone, chimes, all synthesized ---------- */
+const Snd = {
+  ctx: null, on: SAVED.sound !== false,
+  init() {
+    if (this.ctx) return; try { this.ctx = new AudioContext(); } catch (e) { return; }
+    const c = this.ctx; this.master = c.createGain(); this.master.gain.value = this.on ? 0.7 : 0; this.master.connect(c.destination);
+    // fluorescent hum
+    this.hum = c.createGain(); this.hum.gain.value = 0.025; this.hum.connect(this.master);
+    [60, 120, 180].forEach((f, i) => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const fl = c.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 500; const g = c.createGain(); g.gain.value = [0.6, 0.3, 0.15][i]; o.connect(fl); fl.connect(g); g.connect(this.hum); o.start(); });
+    // wind
+    const n = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = n.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = n; src.loop = true; this.windF = c.createBiquadFilter(); this.windF.type = 'lowpass'; this.windF.frequency.value = 420;
+    this.wind = c.createGain(); this.wind.gain.value = 0.0; src.connect(this.windF); this.windF.connect(this.wind); this.wind.connect(this.master); src.start();
+    // the drone that grows with every loop
+    this.drone = c.createGain(); this.drone.gain.value = 0; this.drone.connect(this.master);
+    [55, 55.7, 82.4].forEach(f => { const o = c.createOscillator(); o.frequency.value = f; o.connect(this.drone); o.start(); });
+    this.noiseBuf = n;
+  },
+  toggle() { this.on = !this.on; SAVED.sound = this.on; if (this.master) this.master.gain.value = this.on ? 0.7 : 0; },
+  outside(o) { if (!this.ctx) return; const t = this.ctx.currentTime; this.wind.gain.setTargetAtTime(o ? 0.16 : 0.03, t, 0.4); this.hum.gain.setTargetAtTime(o || (S && S.f.lights) ? 0.003 : 0.025, t, 0.3); this.drone.gain.setTargetAtTime(Math.min(0.06, (S ? S.loop : 1) * 0.006), t, 2); },
+  tone(f, t, d, type = 'sine', g = 0.15) { const c = this.ctx; const o = c.createOscillator(), a = c.createGain(); o.type = type; o.frequency.value = f; a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(g, t + 0.01); a.gain.exponentialRampToValueAtTime(0.0008, t + d); o.connect(a); a.connect(this.master); o.start(t); o.stop(t + d + 0.05); },
+  noise(t, d, g, f, type = 'bandpass') { const c = this.ctx; const s = c.createBufferSource(); s.buffer = this.noiseBuf; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const a = c.createGain(); a.gain.setValueAtTime(g, t); a.gain.exponentialRampToValueAtTime(0.0008, t + d); s.connect(fl); fl.connect(a); a.connect(this.master); s.start(t, Math.random()); s.stop(t + d + 0.05); },
+  play(n) {
+    this.init(); if (!this.ctx) return; const t = this.ctx.currentTime;
+    if (n === 'chime') { this.tone(1046, t, 1.1, 'sine', 0.18); this.tone(830, t + 0.42, 1.4, 'sine', 0.18); }
+    if (n === 'click') this.tone(1400, t, 0.04, 'square', 0.03);
+    if (n === 'step') this.noise(t, 0.07, 0.12, 900);
+    if (n === 'stepOut') this.noise(t, 0.09, 0.14, 500);
+    if (n === 'pickup') { this.tone(880, t, 0.12, 'triangle', 0.12); this.tone(1320, t + 0.08, 0.2, 'triangle', 0.1); }
+    if (n === 'solve') [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, t + i * 0.09, 0.6, 'triangle', 0.1));
+    if (n === 'wrong') { this.tone(180, t, 0.25, 'square', 0.06); this.tone(150, t + 0.12, 0.3, 'square', 0.06); }
+    if (n === 'beep') this.tone(1800, t, 0.06, 'square', 0.04);
+    if (n === 'unlock') { this.noise(t, 0.1, 0.3, 2000); this.noise(t + 0.15, 0.12, 0.3, 1200); }
+    if (n === 'steam') this.noise(t, 2.4, 0.18, 3000, 'highpass');
+    if (n === 'pour') this.noise(t, 1.2, 0.15, 700);
+    if (n === 'clink') this.tone(2400 + Math.random() * 400, t, 0.15, 'sine', 0.08);
+    if (n === 'buzz') this.tone(60, t, 0.12, 'sawtooth', 0.05);
+    if (n === 'whoosh') this.noise(t, 0.5, 0.08, 400, 'lowpass');
+    if (n === 'static') this.noise(t, 0.8, 0.12, 2500);
+    if (n === 'thunk') { this.tone(70, t, 0.6, 'sine', 0.4); this.noise(t, 0.4, 0.3, 200, 'lowpass'); }
+  },
+  speak(text) {
+    try { if (!('speechSynthesis' in window) || !this.on) return; const u = new SpeechSynthesisUtterance(text); u.rate = 0.88; u.pitch = 0.55; u.volume = 0.8; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+  },
+};
+document.addEventListener('pointerdown', () => { Snd.init(); if (Snd.ctx && Snd.ctx.state === 'suspended') Snd.ctx.resume(); });
+
+/* ---------- UI bits ---------- */
+let sayTimer = null;
+function say(text, ms = 5200) { const el = $('#say'); el.textContent = text; el.classList.add('on'); clearTimeout(sayTimer); sayTimer = setTimeout(() => el.classList.remove('on'), ms); }
+function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; $('#toasts').append(el); setTimeout(() => el.remove(), 2600); }
+function flashScreen(c) { const f = $('#flash'); f.style.background = c; f.style.transition = 'none'; f.style.opacity = 0.7; requestAnimationFrame(() => { f.style.transition = 'opacity 1s'; f.style.opacity = 0; }); }
+function fade(mid) { const f = $('#fade'); f.style.opacity = 1; setTimeout(() => { mid(); setTimeout(() => f.style.opacity = 0, 250); }, 650); }
+function drawInv() { const el = $('#inv'); el.innerHTML = ''; (S ? S.inv : []).forEach(i => { const d = document.createElement('span'); d.className = 'chip'; d.textContent = i; el.append(d); }); $('#loop').textContent = S ? 'LOOP ' + S.loop : ''; }
+function loopBanner(n, an) { const b = $('#banner'); b.innerHTML = `<b>LOOP ${n}</b>${an ? `<span>${an}</span>` : ''}`; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); drawInv(); }
+
+function openOverlay(html, cls = '') {
+  overlayOpen = true; if (document.pointerLockElement) document.exitPointerLock();
+  const o = $('#overlay'); o.className = 'overlay ' + cls; o.innerHTML = html; o.hidden = false;
+  const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.onclick = closeOverlay; o.firstElementChild && o.firstElementChild.prepend(x);
+  return o;
+}
+function closeOverlay() { $('#overlay').hidden = true; overlayOpen = false; if (playing && !touch) canvas.requestPointerLock(); }
+
+function showPaper(title, text, noteId) {
+  if (noteId) SAVED.notes[noteId] = { title, text };
+  openOverlay(`<div class="paper"><h3>${title}</h3><pre>${text}</pre></div>`);
+}
+function readNote(n) { SAVED.notes[n.id] = n; save(); showPaper(n.title, n.text); }
+
+function keypad() {
+  let entry = '';
+  const o = openOverlay(`<div class="device register"><div class="lcd" id="lcd">ENTER TOTAL</div><div class="keys">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, 'OK'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div><p class="hint">The drawer wants a 4-digit code. ($12.34 → 1234)</p></div>`, 'dim');
+  const lcd = o.querySelector('#lcd');
+  o.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+    const k = b.dataset.k; Snd.play('beep');
+    if (k === 'C') entry = ''; else if (k === 'OK') {
+      if (entry === P.code) { S.f.register = 1; Snd.play('solve'); lcd.textContent = 'THANK YOU'; setTimeout(() => { closeOverlay(); give('Restroom key'); say('Ka-CHING. The drawer slides out: no money, just a key on a big plastic tag that says RESTROOM.'); save(); }, 700); return; }
+      Snd.play('wrong'); lcd.textContent = 'NO SALE'; entry = ''; setTimeout(() => lcd.textContent = 'ENTER TOTAL', 800); return;
+    } else if (entry.length < 4) entry += k;
+    lcd.textContent = '$' + (entry.padStart(4, '_').slice(0, 2) + '.' + entry.padStart(4, '_').slice(2));
+  });
+}
+function clockUI() {
+  let hh = 3, mm = 15;
+  const o = openOverlay(`<div class="device clock"><canvas id="ck" width="220" height="220"></canvas><div class="row"><button data-d="h-">◀ hour</button><button data-d="h+">hour ▶</button></div><div class="row"><button data-d="m-">◀ 5 min</button><button data-d="m+">5 min ▶</button></div><button class="ok">Leave it like that</button></div>`, 'dim');
+  const ck = o.querySelector('#ck'), x = ck.getContext('2d');
+  const draw = () => { drawClock(hh, mm); x.clearRect(0, 0, 220, 220); x.drawImage(W.clockTex.userData.canvas, 0, 0, 220, 220); };
+  draw();
+  o.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const d = b.dataset.d; Snd.play('beep'); if (d === 'h+') hh = hh % 12 + 1; if (d === 'h-') hh = (hh + 10) % 12 + 1; if (d === 'm+') mm = (mm + 5) % 60; if (d === 'm-') mm = (mm + 55) % 60; draw(); });
+  o.querySelector('.ok').onclick = () => {
+    if (hh === P.hour && mm === P.minute) { S.f.clock = 1; Snd.play('thunk'); closeOverlay(); paintFridges(); flashScreen('#a8f0ff'); say('The clock clunks and starts ticking forwards. Across the store, the fridges flicker on with a deep hum.'); save(); }
+    else { Snd.play('wrong'); drawClock(3, 15); closeOverlay(); say('The hands spin back to 3:15 by themselves. Wrong time.'); }
+  };
+}
+function radioUI() {
+  let f = 96.0;
+  const o = openOverlay(`<div class="device radio"><div class="dial"><div class="needle" id="needle"></div><div class="scale">88 · 92 · 96 · 100 · 104 · 108</div></div><div class="freq" id="freq">96.0 FM</div><input type="range" id="tune" min="880" max="1080" value="960"><div class="row"><button data-s="-1">− 0.1</button><button data-s="1">+ 0.1</button></div><p class="hint" id="sub">Static.</p></div>`, 'dim');
+  const tune = o.querySelector('#tune'), fq = o.querySelector('#freq'), nd = o.querySelector('#needle'), sub = o.querySelector('#sub');
+  let done = false;
+  const set = (v) => {
+    f = Math.round(v) / 10; tune.value = Math.round(v); fq.textContent = f.toFixed(1) + ' FM'; nd.style.left = ((f - 88) / 20 * 100) + '%'; Snd.play('static');
+    if (!done && Math.abs(f - parseFloat(P.freq)) < 0.05) {
+      done = true; S.f.radio = 1; save();
+      const lines = ['...is somebody there? Okay. Okay. Listen.', 'I was the night clerk. I\'ve been here a while.', 'The store won\'t let you go while it\'s open. Every road comes back to the door.', 'Kill the lights. All of them. The panel on the wall behind the counter.', 'Every switch flips its neighbours too. Think about it.', 'Then the back room. There\'s a sign. You know the one.', 'Hang it on the door, and walk. Don\'t stop at the pumps.'];
+      let i = 0; const next = () => { if (!o.isConnected || $('#overlay').hidden) return; if (i >= lines.length) { sub.textContent += '  (the station goes quiet)'; return; } sub.textContent = '📻 ' + lines[i]; Snd.speak(lines[i]); i++; setTimeout(next, 3600); };
+      next();
+    }
+  };
+  tune.oninput = () => set(+tune.value);
+  o.querySelectorAll('[data-s]').forEach(b => b.onclick = () => set(+tune.value + +b.dataset.s));
+  set(960);
+}
+function lightsUI() {
+  if (!S.lights) S.lights = P.lights.slice();
+  const o = openOverlay(`<div class="device switches"><p class="hint">Turn every light OFF. Each switch also flips the ones next to it.</p><div class="grid" id="sw"></div><button class="reset">Reset</button></div>`, 'dim');
+  const g = o.querySelector('#sw');
+  const draw = () => { g.innerHTML = ''; S.lights.forEach((v, i) => { const b = document.createElement('button'); b.className = 'sw' + (v ? ' on' : ''); b.onclick = () => { P.press(S.lights, i); Snd.play('beep'); W.lights.forEach(L => L.intensity = Math.random() * 7); draw(); check(); }; g.append(b); }); };
+  const check = () => { if (S.lights.every(v => !v)) { S.f.lights = 1; S.f.staff = 1; save(); setTimeout(() => { closeOverlay(); blackout(); }, 500); } };
+  o.querySelector('.reset').onclick = () => { S.lights = P.lights.slice(); draw(); };
+  draw();
+}
+function blackout() {
+  Snd.play('thunk'); flashScreen('#000');
+  W.lights.forEach((L, i) => { if (i < 5) L.intensity = 0; }); W.panels.forEach(p => p.visible = false);
+  // glowing arrows on the floor to the staff door
+  W.glow = [];
+  const gm = () => new THREE.MeshBasicMaterial({ color: 0x7aff9a, transparent: true, opacity: 0.8 });
+  for (let i = 0; i < 6; i++) { const a = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 3), gm()); a.rotation.x = -Math.PI / 2; a.rotation.z = Math.PI; a.position.set(5, 0.02, 1 - i * 1.1); W.scene.add(a); W.glow.push(a); }
+  refreshWorld(); openSDoor();
+  say('Everything goes dark. A red emergency light blinks on. Glowing arrows on the floor point to the STAFF ONLY door, which clicks open by itself.');
+}
+function openSDoor() { W.sDoorCol.on = false; W.sDoorTarget = -1.6; }
+function confirmUI(title, text, yes, fn) {
+  const o = openOverlay(`<div class="paper"><h3>${title}</h3><p>${text}</p><div class="row"><button class="yes">${yes}</button><button class="no">Not yet</button></div></div>`, 'dim');
+  o.querySelector('.yes').onclick = () => { closeOverlay(); fn(); }; o.querySelector('.no').onclick = closeOverlay;
+}
+function takeSouvenir(s) {
+  S.got = S.got || {}; S.got[s.id] = 1; SAVED.souvenirs[s.id] = 1; save();
+  souvMeshes[s.id].visible = false; Snd.play('pickup');
+  toast('Souvenir: ' + s.name); say(s.desc);
+}
+function objective() {
+  if (!S.f.register) return 'The register wants a code. Somebody dropped a receipt by the door.';
+  if (!S.f.restroom) return 'You have the restroom key.';
+  if (!S.f.steam) return 'The restroom. Something about steam and mirrors.';
+  if (!S.f.clock) return 'The mirror says the clock lies. Set it to the time you came in.';
+  if (!S.f.fridge) return 'The fridges are on. Line the sodas up with the neon, the way the cars see it.';
+  if (!S.f.radio) return 'You found a radio knob. The radio is on the shelf behind the counter.';
+  if (!S.f.lights) return 'The radio said: kill the lights.';
+  if (!has('CLOSED sign') && !S.f.signHung) return 'The staff door is open. The back room.';
+  if (!S.f.signHung) return 'Hang the sign on the front door.';
+  return 'Walk out. Past the pumps. Don\'t stop.';
+}
+function notebook() {
+  const notes = Object.values(SAVED.notes);
+  const o = openOverlay(`<div class="paper book"><h3>Notebook · Loop ${S.loop}</h3><p class="obj">➜ ${objective()}</p><h4>Carrying</h4><p>${S.inv.length ? S.inv.join(' · ') : 'nothing'}</p><h4>Notes found (${notes.length}/${NOTES.length + 1})</h4>${notes.map(n => `<details><summary>${n.title}</summary><pre>${n.text}</pre></details>`).join('') || '<p>none yet</p>'}<h4>Souvenirs ${Object.keys(SAVED.souvenirs).length}/${SOUVENIRS.length}</h4><div class="row"><button class="menu">Pause menu</button></div></div>`);
+  o.querySelector('.menu').onclick = () => { closeOverlay(); pauseMenu(); };
+}
+function pauseMenu() {
+  const o = openOverlay(`<div class="paper"><h3>Paused · Loop ${S.loop}</h3><div class="col"><button class="resume">Resume</button><label>Mouse speed <input type="range" id="sens" min="8" max="50" value="${Math.round(sens * 10000)}"></label><button class="px">Chunky pixels: ${pixel ? 'ON' : 'OFF'}</button><button class="snd">Sound: ${Snd.on ? 'ON' : 'OFF'}</button><button class="quit">Back to title</button></div><p class="hint">WASD move · mouse look · E / click use · J notebook · Shift run</p></div>`);
+  o.querySelector('.resume').onclick = closeOverlay;
+  o.querySelector('#sens').oninput = (e) => { sens = e.target.value / 10000; SAVED.sens = sens; save(); };
+  o.querySelector('.px').onclick = (e) => { pixel = !pixel; SAVED.pixel = pixel; applySize(); e.target.textContent = 'Chunky pixels: ' + (pixel ? 'ON' : 'OFF'); save(); };
+  o.querySelector('.snd').onclick = (e) => { Snd.toggle(); e.target.textContent = 'Sound: ' + (Snd.on ? 'ON' : 'OFF'); save(); };
+  o.querySelector('.quit').onclick = () => { closeOverlay(); playing = false; save(); title(); };
+}
+
+/* ---------- endings ---------- */
+function ending(id) {
+  const e = ENDINGS.find(x => x.id === id);
+  playing = false; if (document.pointerLockElement) document.exitPointerLock();
+  SAVED.endings[id] = 1;
+  const loops = S.loop, mins = Math.round(S.time / 60);
+  SAVED.run = null; S.done = true; save();
+  Snd.play('solve');
+  const f = $('#fade'); f.style.background = id === 'hire' ? '#000' : '#ffe2c8'; f.style.opacity = 1;
+  setTimeout(() => {
+    $('#hud').hidden = true;
+    const el = $('#title'); el.hidden = false;
+    el.innerHTML = `<div class="ending"><div class="eyebrow">ENDING ${ENDINGS.indexOf(e) + 1} / ${ENDINGS.length}</div><h1>${e.name}</h1><p>${e.text}</p><p class="stats">${loops} loop${loops === 1 ? '' : 's'} · ${mins} minute${mins === 1 ? '' : 's'} on the night shift · ${Object.keys(SAVED.souvenirs).length}/${SOUVENIRS.length} souvenirs</p><button class="big" id="again">Back to the road</button></div>`;
+    $('#again').onclick = () => { f.style.background = '#000'; title(); };
+    setTimeout(() => f.style.opacity = 0, 400);
+  }, 1600);
+}
+
+/* ---------- title ---------- */
+function title() {
+  playing = false; $('#hud').hidden = true; S = SAVED.run || null;
+  P = rollPuzzles(S ? S.seed : 99); if (S) { applyLoop(); refreshWorld(); } paintClues();
+  const el = $('#title'); el.hidden = false;
+  const ends = ENDINGS.map(e => `<span class="end ${SAVED.endings[e.id] ? 'got' : ''}">${SAVED.endings[e.id] ? e.name : '???'}</span>`).join('');
+  el.innerHTML = `<div class="logo"><div class="eyebrow">GAS-N-GO #4 · ROUTE ∞ · 11:52 PM</div><h1>LAST STOP</h1><h2>the gas station at the end of the world</h2></div>
+    <div class="menu">${S ? `<button class="big" id="cont">Continue · Loop ${S.loop}</button>` : ''}<button class="${S ? '' : 'big'}" id="new">${S ? 'Start over' : 'Start your shift'}</button><button id="souv">Souvenirs ${Object.keys(SAVED.souvenirs).length}/${SOUVENIRS.length}</button></div>
+    <div class="endings">Endings: ${ends}</div>
+    <p class="blurb">You pulled in for gas. You can't pull out. Walk to the road and you're back at the door. Solve the store to get out. Headphones recommended.</p>`;
+  if (S) $('#cont').onclick = () => start(false);
+  $('#new').onclick = () => start(true);
+  $('#souv').onclick = () => {
+    el.innerHTML = `<div class="paper wide"><h3>Souvenirs</h3><div class="souvs">${SOUVENIRS.map(s => SAVED.souvenirs[s.id] ? `<div class="sv"><b>${s.name}</b><p>${s.desc}</p></div>` : `<div class="sv locked"><b>???</b><p>Still somewhere on the night shift.</p></div>`).join('')}</div><button id="back">Back</button></div>`;
+    $('#back').onclick = title;
+  };
+}
+function start(fresh) {
+  looping = false;
+  Snd.init(); if (Snd.ctx && Snd.ctx.state === 'suspended') Snd.ctx.resume();
+  if (fresh || !S) { S = freshRun(); SAVED.run = S; }
+  P = rollPuzzles(S.seed);
+  // undo any previous run's state in the world
+  W.scene.fog.color.setHex(0x07080f); W.scene.background.setHex(0x05060c); W.emergency.intensity = 0; W.amb.intensity = 0.55; W.backLight.intensity = 0; W.neonLight.intensity = 3;
+  if (W.glow) { W.glow.forEach(g => W.scene.remove(g)); W.glow = null; }
+  W.sDoorPivot.rotation.y = 0; W.rDoorPivot.rotation.y = 0; W.sDoorTarget = 0;
+  W.doorSign.material.map = textTex(['OPEN 24H'], { w: 128, h: 64, bg: '#1d6b3a', fg: '#fff', font: 'bold 26px Arial' }); W.doorSign.material.needsUpdate = true;
+  applyLoop(); refreshWorld(); paintClues();
+  if (S.f.lights) blackoutQuiet();
+  player.pos.set(0, 0, 4.6); player.yaw = 0; player.pitch = 0;
+  $('#title').hidden = true; $('#hud').hidden = false; playing = true; drawInv(); save();
+  if (!touch) canvas.requestPointerLock();
+  Snd.play('chime'); loopBanner(S.loop, S.loop === 1 ? 'You pulled in for gas.' : S.anomaly);
+  if (S.loop === 1 && !S.f.register) setTimeout(() => say('11:52 PM. You only stopped for gas. There\'s a receipt on the floor by the door... it has your name on it.'), 1600);
+}
+function blackoutQuiet() { W.glow = []; refreshWorld(); openSDoor(); }
+
+// doors swing smoothly
+setInterval(() => {
+  if (S && S.f.restroom) W.rDoorPivot.rotation.y += (-1.6 - W.rDoorPivot.rotation.y) * 0.15;
+  if (W.sDoorTarget) W.sDoorPivot.rotation.y += (W.sDoorTarget - W.sDoorPivot.rotation.y) * 0.15;
+}, 30);
+
+if (location.hash === '#test') window.__ls = { get S() { return S; }, get P() { return P; }, W, player, start, use, ending, nextLoop, interactables };
+title();
+requestAnimationFrame(frame);
+
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
