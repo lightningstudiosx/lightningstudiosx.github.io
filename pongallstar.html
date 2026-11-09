@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pong Allstar · Kai.fun</title>
+<meta property="og:title" content="Pong Allstar">
+<meta property="og:description" content="Play Pong online. Bots, ratings, 14 variants, tournaments, puzzles, game review and multiplayer. It gets faster every hit.">
+<meta property="og:image" content="pongallstar.png">
+<style>
+  :root{--bg:#302e2b;--side:#262421;--panel:#262522;--card:#1f1e1b;--card2:#3c3a37;--line:#3d3b38;--text:#fff;--dim:#bababa;--dim2:#8b8987;--green:#81b64c;--green2:#45753c;--red:#e02828;--gold:#f7c045}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;overflow-x:hidden}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select{font:inherit}
+  .app{display:grid;grid-template-columns:180px 1fr;min-height:100vh}
+  /* ---------------- sidebar ---------------- */
+  .side{background:var(--side);display:flex;flex-direction:column;padding:12px 0;position:sticky;top:0;height:100vh}
+  .logo{display:flex;align-items:center;gap:8px;padding:6px 16px 16px;font-weight:900;font-size:21px;letter-spacing:-.5px;text-decoration:none;color:#fff}
+  .logo svg{width:30px;height:30px;flex:0 0 auto}
+  .logo span{color:var(--green)}
+  .nav a,.nav button{display:flex;align-items:center;gap:12px;width:100%;padding:9px 16px;font-weight:700;font-size:16.5px;color:#fff;text-decoration:none;text-align:left}
+  .nav a:hover,.nav button:hover{background:#1b1a18}
+  .nav .ic{width:24px;text-align:center;font-size:19px}
+  .side .grow{flex:1}
+  .me{margin:8px 12px;padding:10px;border-radius:8px;background:#1b1a18;font-size:13px}
+  .me b{display:block;font-size:15px}
+  .me .r{color:var(--dim);display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+  .side .home{margin:4px 12px;padding:9px;border-radius:6px;background:var(--card2);text-align:center;font-weight:800;color:#fff;text-decoration:none;font-size:14px}
+  /* ---------------- main ---------------- */
+  .main{display:grid;grid-template-columns:minmax(300px,calc(100vh - 110px)) minmax(320px,520px);gap:24px;padding:16px 24px;justify-content:center;align-items:start}
+  .boardcol{display:flex;flex-direction:column;gap:8px;max-width:calc(100vh - 110px);width:100%}
+  .pbar{display:flex;align-items:center;gap:10px;height:44px}
+  .pbar .av{width:40px;height:40px;border-radius:4px;background:#585654;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}
+  .pbar .nm{font-weight:800;font-size:15px;line-height:1.1}
+  .pbar .nm small{font-weight:600;color:var(--dim);margin-left:4px;font-size:14px}
+  .pbar .nm em{display:block;font-style:normal;font-weight:600;font-size:12px;color:var(--dim2)}
+  .pbar .grow{flex:1}
+  .score{min-width:40px;text-align:center;font-weight:900;font-size:22px;background:#21201d;border-radius:4px;padding:2px 8px}
+  .clock{min-width:96px;text-align:right;font-weight:800;font-size:24px;padding:4px 12px;border-radius:4px;background:#21201d;color:#9a9998;font-variant-numeric:tabular-nums}
+  .clock.on{background:#fff;color:#21201d}
+  .clock.low{background:var(--red);color:#fff}
+  .board{position:relative;width:100%;aspect-ratio:1;border-radius:3px;overflow:hidden;touch-action:none;cursor:none;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+  .board.rev{cursor:default}
+  .board canvas{width:100%;height:100%;display:block}
+  .board.pong{background:#000;box-shadow:0 0 0 3px #1a1a1a,0 0 30px rgba(255,255,255,.08)}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:default}
+  .overlay[hidden]{display:none}
+  .modal{background:var(--panel);border-radius:10px;width:min(340px,88%);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center}
+  .modal .hd{padding:18px 14px 12px;background:linear-gradient(#3a3835,#2a2926)}
+  .modal .hd h3{font-size:26px;font-weight:900}
+  .modal .hd p{color:var(--dim);font-size:14px;font-weight:600}
+  .modal .bd{padding:14px}
+  .modal .rc{font-size:30px;font-weight:900;margin:4px 0 6px}
+  .modal .rc .up{color:var(--green)} .modal .rc .dn{color:#e86b6b}
+  .modal .row{display:flex;gap:8px;margin-top:8px}
+  .modal .accs{display:flex;justify-content:center;gap:14px;margin:6px 0 4px;font-weight:800;color:var(--dim);font-size:13px}
+  .modal .accs b{display:block;color:#fff;font-size:20px}
+  .btn{display:block;width:100%;padding:12px 10px;border-radius:8px;font-weight:900;font-size:17px;background:var(--card2);box-shadow:0 4px 0 #262421;transition:filter .1s}
+  .btn:hover{filter:brightness(1.15)}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #262421}
+  .btn.go{background:var(--green);box-shadow:0 5px 0 var(--green2);font-size:21px;padding:14px}
+  .btn.sm{font-size:14px;padding:8px}
+  .btn.danger{background:#b33a3a;box-shadow:0 4px 0 #6d1f1f}
+  .count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:110px;font-weight:900;color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.35)}
+  .board.pong .count{font-family:"Courier New",Consolas,monospace;text-shadow:0 0 18px rgba(255,255,255,.7)}
+  .modtag{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:3px 12px;pointer-events:none;white-space:nowrap}
+  /* ---------------- right panel ---------------- */
+  .panel{background:var(--panel);border-radius:8px;min-height:540px;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 32px)}
+  .ph{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px 16px 14px;font-size:30px;font-weight:900;border-bottom:1px solid var(--line);position:relative}
+  .ph .back{position:absolute;left:12px;font-size:22px;color:var(--dim);padding:4px 8px}
+  .ph .back:hover{color:#fff}
+  .pb{padding:16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px}
+  .card{display:flex;align-items:center;gap:16px;padding:16px 18px;background:#2e2c29;border-radius:8px;text-align:left;width:100%;box-shadow:0 3px 0 #1c1b19;transition:background .1s}
+  .card:hover{background:#383633}
+  .card .ci{font-size:40px;width:52px;text-align:center;flex:0 0 auto}
+  .card b{display:block;font-size:22px;font-weight:900}
+  .card span{color:var(--dim);font-size:14.5px;font-weight:600}
+  .vgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .vgrid .card{padding:12px;gap:10px}
+  .vgrid .card .ci{font-size:30px;width:36px}
+  .vgrid .card b{font-size:16px}
+  .vgrid .card span{font-size:12.5px}
+  .links{display:flex;justify-content:center;gap:26px;padding:10px 0 4px;font-weight:800;color:var(--dim)}
+  .links button:hover{color:#fff}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .seg button{padding:10px 6px;border-radius:6px;background:#2e2c29;font-weight:800;font-size:14px;border:2px solid transparent}
+  .seg button.on{border-color:var(--green);background:#3a3835}
+  .seg button small{display:block;color:var(--dim2);font-size:11.5px;font-weight:700}
+  .lbl{color:var(--dim);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  .bots{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .bot{aspect-ratio:1;border-radius:8px;background:#2e2c29;font-size:30px;display:flex;align-items:center;justify-content:center;position:relative;border:2px solid transparent}
+  .bot.on{border-color:var(--green);background:#3a3835}
+  .bot small{position:absolute;bottom:2px;left:0;right:0;font-size:10.5px;font-weight:800;color:var(--dim)}
+  .botinfo{display:flex;gap:14px;align-items:center;background:#2e2c29;border-radius:8px;padding:14px}
+  .botinfo .big{font-size:52px}
+  .botinfo b{font-size:21px;display:block}
+  .bubble{background:#fff;color:#21201d;border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px;position:relative;line-height:1.4}
+  .moves{background:#21201d;border-radius:6px;font-family:Consolas,monospace;font-size:14px;overflow-y:auto;max-height:260px;min-height:120px}
+  .moves div{display:grid;grid-template-columns:40px 1fr 1fr;padding:3px 10px;align-items:center}
+  .moves div:nth-child(odd){background:#262522}
+  .moves i{color:var(--dim2);font-style:normal}
+  .moves .pt{grid-template-columns:1fr;color:var(--gold);font-weight:700;text-align:center}
+  .moves .mv{cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:1px 5px;border-radius:4px;width:max-content}
+  .moves .mv:hover{background:#3c3a37}
+  .moves .mv.sel{background:#5d5b57}
+  .stat{display:flex;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-weight:700}
+  .stat span{color:var(--dim);text-align:right}
+  .tbl{width:100%;border-collapse:collapse;font-size:14px}
+  .tbl td,.tbl th{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line)}
+  .tbl th{color:var(--dim);font-size:12px;text-transform:uppercase}
+  .tbl tr.me td{background:#3a4a2c}
+  .w{color:var(--green);font-weight:900} .l{color:#e86b6b;font-weight:900} .d{color:var(--dim);font-weight:900}
+  .note{color:var(--dim);font-size:13.5px;line-height:1.5}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field input,.field select{background:#1b1a18;border:1px solid var(--line);color:#fff;border-radius:6px;padding:9px 10px}
+  .code{font-family:Consolas,monospace;font-size:28px;font-weight:900;letter-spacing:4px;text-align:center;background:#1b1a18;border-radius:8px;padding:10px}
+  .spinner{width:46px;height:46px;border-radius:50%;border:5px solid #444;border-top-color:var(--green);animation:spin .9s linear infinite;margin:10px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .puz{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .puz button{padding:12px 4px;border-radius:8px;background:#2e2c29;font-weight:900;font-size:18px}
+  .puz button small{display:block;font-size:11px;color:var(--dim)}
+  .puz button.done{background:#3a4a2c}
+  .puz button.locked{opacity:.4;cursor:not-allowed}
+  .tourn{display:flex;flex-direction:column;gap:6px}
+  .tourn div{display:flex;align-items:center;gap:10px;background:#2e2c29;border-radius:8px;padding:8px 12px;font-weight:700}
+  .tourn div.cur{outline:2px solid var(--green)}
+  .tourn div .res{margin-left:auto}
+  .offer{background:#3a4a2c;border-radius:8px;padding:10px;display:flex;gap:8px;align-items:center;font-weight:800}
+  .offer .btn{width:auto;padding:6px 12px;font-size:13px}
+  /* ---------------- game review ---------------- */
+  .revctl{display:flex;gap:6px;position:sticky;top:-16px;z-index:2;background:var(--panel);padding:4px 0}
+  .revctl button{flex:1;padding:10px 0;border-radius:6px;background:#3c3a37;font-size:17px;font-weight:900;box-shadow:0 3px 0 #1c1b19}
+  .revctl button:hover{background:#4a4845}
+  .graph{width:100%;height:96px;display:block;border-radius:6px;cursor:pointer;background:#403d39}
+  .accrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .acc{background:#2e2c29;border-radius:8px;padding:10px;text-align:center}
+  .acc b{display:block;font-size:30px;font-weight:900}
+  .acc span{color:var(--dim);font-size:13px;font-weight:700}
+  .cls{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 3px;border-radius:999px;font-size:11px;font-weight:900;color:#fff;flex:0 0 auto;font-family:"Segoe UI",sans-serif;line-height:1}
+  .counts{width:100%;border-collapse:collapse;font-size:14px}
+  .counts td{padding:4px 6px}
+  .counts td.n{text-align:center;font-weight:900;width:44px}
+  .counts td.k{font-weight:700}
+  .counts td.k span{display:inline-flex;align-items:center;gap:8px}
+  .moment{display:flex;gap:10px;align-items:center;background:#2e2c29;border-radius:8px;padding:8px 10px;cursor:pointer;font-weight:700;font-size:14px}
+  .moment:hover{background:#383633}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,150%);background:#fff;color:#21201d;font-weight:800;border-radius:8px;padding:10px 16px;transition:transform .25s;z-index:99;max-width:90vw;text-align:center}
+  #toast.on{transform:translate(-50%,0)}
+  @media(max-width:1020px){.app{grid-template-columns:1fr}.side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:6px}.side .nav{display:flex;flex-wrap:wrap}.nav a,.nav button{padding:6px 10px;font-size:14px;width:auto}.nav .ic{width:auto}.side .grow,.me{display:none}.logo{padding:6px 10px}.main{grid-template-columns:1fr;padding:10px}.boardcol{max-width:none}.panel{max-height:none;min-height:0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="logo" href="#" id="logoHome"><svg viewBox="0 0 32 32"><rect x="3" y="6" width="5" height="20" fill="#81b64c"/><rect x="24" y="6" width="5" height="20" fill="#fff"/><rect x="13" y="10" width="6" height="6" fill="#fff"/></svg>Pong<span>Allstar</span></a>
+    <nav class="nav">
+      <button data-go="home"><span class="ic">🏓</span>Play</button>
+      <button data-go="puzzles"><span class="ic">🧩</span>Puzzles</button>
+      <button data-go="learn"><span class="ic">🎓</span>Learn</button>
+      <button data-go="watch"><span class="ic">📺</span>Watch</button>
+      <button data-go="leaderboard"><span class="ic">🏆</span>Community</button>
+      <button data-go="settings"><span class="ic">⚙️</span>Other</button>
+    </nav>
+    <div class="grow"></div>
+    <div class="me" id="meBox"></div>
+    <a class="home" href="index.html">&larr; Kai.fun</a>
+  </aside>
+
+  <div class="main">
+    <div class="boardcol">
+      <div class="pbar" id="barTop"></div>
+      <div class="board" id="board">
+        <canvas id="cv"></canvas>
+        <div class="count" id="count"></div>
+        <div class="modtag" id="modtag" hidden></div>
+        <div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+      </div>
+      <div class="pbar" id="barBot"></div>
+    </div>
+    <div class="panel">
+      <div class="ph" id="ph"></div>
+      <div class="pb" id="pb"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+// =====================================================================================
+//  Data: time controls, variants, bots, move classifications
+// =====================================================================================
+const TC = {
+  bullet: {name: "Bullet", icon: "🚀", speed: 0.78, accel: 1.075, to: 3, clock: 60},
+  blitz:  {name: "Blitz",  icon: "⚡", speed: 0.62, accel: 1.05,  to: 5, clock: 180},
+  rapid:  {name: "Rapid",  icon: "🕒", speed: 0.5,  accel: 1.035, to: 7, clock: 360},
+};
+const VARIANTS = {
+  classic: {name: "Classic",           icon: "🏓", desc: "Normal pong. Faster every hit.", mods: {}},
+  multi:   {name: "Multiball",         icon: "🎱", desc: "Two balls at once.", mods: {multi: 1}},
+  tiny:    {name: "Tiny Paddles",      icon: "🤏", desc: "Paddles half the size.", mods: {tiny: 1}},
+  giant:   {name: "Giant Ball",        icon: "🌕", desc: "A huge, slightly slower ball.", mods: {giant: 1}},
+  ghost:   {name: "Ghost Ball",        icon: "👻", desc: "The ball vanishes in the middle of the court.", mods: {ghost: 1}},
+  speed:   {name: "Speed Demon",       icon: "🔥", desc: "The ball speeds up way more every hit.", mods: {speed: 1}},
+  shrink:  {name: "Shrinking Paddles", icon: "📉", desc: "Your paddle shrinks every hit. Resets each point.", mods: {shrink: 1}},
+  curve:   {name: "Curveball",         icon: "🌪️", desc: "Move while you hit to put spin on the ball.", mods: {curve: 1}},
+  portals: {name: "Portals",           icon: "🌀", desc: "The middle of each side wall teleports to the other side.", mods: {portals: 1}},
+  bricks:  {name: "Brick Wall",        icon: "🧱", desc: "Smash through rows of bricks to reach your opponent.", mods: {bricks: 1}},
+  bumpers: {name: "Bumpers",           icon: "🔴", desc: "Pinball bumpers fling the ball off at new angles.", mods: {bumpers: 1}},
+  wind:    {name: "Windy",             icon: "💨", desc: "Gusts of wind push the ball sideways.", mods: {wind: 1}},
+  chaos:   {name: "Chaos",             icon: "🎲", desc: "A different variant every point.", mods: "chaos"},
+  p960:    {name: "Pong960",           icon: "🔀", desc: "Random paddles, ball size, speed and two rules every game.", mods: "960"},
+};
+const MOD_KEYS = ["multi", "tiny", "giant", "ghost", "speed", "shrink", "curve", "portals", "bricks", "bumpers", "wind"];
+const MOD_NAME = {};
+for (const v of Object.values(VARIANTS)) if (typeof v.mods === "object"){ const k = Object.keys(v.mods)[0]; if (k) MOD_NAME[k] = v.icon + " " + v.name; }
+const BOTS = [
+  {id: "pebble",   name: "Pebble",        elo: 250,  icon: "🪨", bio: "Is a rock. Moves like one."},
+  {id: "wobbles",  name: "Sir Wobbles",   elo: 500,  icon: "🐧", bio: "Waddles to the ball. Usually a bit late."},
+  {id: "doris",    name: "Doris",         elo: 800,  icon: "👵", bio: "Played pong in 1972 and never stopped."},
+  {id: "spin",     name: "Captain Spin",  elo: 1100, icon: "🏴‍☠️", bio: "Loves hitting with the edge of the paddle. Arrr."},
+  {id: "lil",      name: "Lil Paddle",    elo: 1400, icon: "👶", bio: "Seven years old. Already better than your uncle."},
+  {id: "rebound",  name: "Dr. Rebound",   elo: 1700, icon: "🧪", bio: "Calculates every bounce. Wears goggles indoors."},
+  {id: "wall",     name: "The Wall",      elo: 2000, icon: "🧱", bio: "Nothing gets past. Almost nothing."},
+  {id: "ninja",    name: "Neon Ninja",    elo: 2300, icon: "🥷", bio: "You won't see the ball coming. Or him."},
+  {id: "overlord", name: "Pong Overlord", elo: 2700, icon: "🤖", bio: "Trained on every rally ever played."},
+  {id: "kai",      name: "Kai",           elo: 3000, icon: "😎", bio: "Made this website. Will not let you win."},
+];
+const COACH = {id: "coach", name: "Coach Pongo", elo: 900, icon: "🧑‍🏫", bio: "Plays gently and tells you what to do better."};
+const COACH_TIPS = [
+  "Hit the ball with the edge of your paddle to send it at an angle.",
+  "Hitting with the middle sends the ball straight back. Easy for me!",
+  "Aim away from me. If my paddle is on the right, send the ball left.",
+  "Bounce it off the side walls. Bank shots are hard to read.",
+  "Watch where the ball will land, not where it is now.",
+  "Every hit makes the ball faster. Long rallies get scary.",
+  "Stay near the middle after you hit. You'll reach both sides.",
+];
+// chess-style move grades for every hit
+const CLS = {
+  brilliant:  {n: "Brilliant",  s: "!!", c: "#1baca6", acc: 100},
+  great:      {n: "Great",      s: "!",  c: "#5c8bb0", acc: 100},
+  best:       {n: "Best",       s: "★",  c: "#81b64c", acc: 100},
+  excellent:  {n: "Excellent",  s: "👍", c: "#96bc4b", acc: 92},
+  good:       {n: "Good",       s: "✓",  c: "#77915f", acc: 80},
+  book:       {n: "Book",       s: "B",  c: "#a88865", acc: 100},
+  inaccuracy: {n: "Inaccuracy", s: "?!", c: "#f7c045", acc: 65},
+  mistake:    {n: "Mistake",    s: "?",  c: "#ffa459", acc: 42},
+  miss:       {n: "Miss",       s: "✗",  c: "#ff7769", acc: 0},
+  blunder:    {n: "Blunder",    s: "??", c: "#fa412d", acc: 10},
+  forced:     {n: "Forced",     s: "□",  c: "#8b8987", acc: null},
+};
+const CLS_ORDER = ["brilliant", "great", "best", "excellent", "good", "book", "inaccuracy", "mistake", "miss", "blunder"];
+const badge = k => `<span class="cls" style="background:${CLS[k].c}" title="${CLS[k].n}">${CLS[k].s}</span>`;
+
+// =====================================================================================
+//  Saving
+// =====================================================================================
+const KEY = "pongallstar_v1";
+function fresh(){ return {name: "Guest" + Math.floor(1000 + Math.random() * 9000), ratings: {bullet: 800, blitz: 800, rapid: 800}, games: {bullet: 0, blitz: 0, rapid: 0}, history: [], puzzle: 800, puzSolved: {}, tourn: null, tournWins: 0, theme: "pong", v2: true, sound: true}; }
+let P = (() => { try { const j = JSON.parse(localStorage.getItem(KEY) || "null"); if (j) { const f = fresh(); return {...f, ...j, v2: !!j.v2, ratings: {...f.ratings, ...j.ratings}, games: {...f.games, ...j.games}}; } } catch (e) {} return fresh(); })();
+if (!P.v2){ P.v2 = true; P.theme = "pong"; }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
+const THEMES = {pong: ["#000", "#000"], green: ["#ebecd0", "#739552"], brown: ["#f0d9b5", "#b58863"], blue: ["#dee3e6", "#8ca2ad"], purple: ["#efefef", "#8877b7"], neon: ["#1d1f33", "#2c2f4d"]};
+const isPong = () => P.theme === "pong";
+
+// =====================================================================================
+//  Sound
+// =====================================================================================
+let ac = null;
+function audio(){ if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); }
+function tone(f, d, type, v, slide){
+  if (!ac || !P.sound) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || "sine"; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(v || .12, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + .02);
+}
+function knock(v){
+  if (!ac || !P.sound) return;
+  const t = ac.currentTime, len = ac.sampleRate * .06, b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  f.type = "bandpass"; f.frequency.value = 900; f.Q.value = 1.4; g.gain.value = v || .7;
+  s.buffer = b; s.connect(f); f.connect(g); g.connect(ac.destination); s.start(t);
+}
+// Pong mode uses the original arcade bleeps; the chessboards use soft wooden knocks
+const SFX = {
+  hit: () => isPong() ? tone(459, .045, "square", .07) : knock(.6),
+  wall: () => isPong() ? tone(226, .035, "square", .06) : knock(.25),
+  point: () => { if (isPong()) tone(490, .26, "square", .07); else { knock(1); tone(220, .25, "triangle", .1, 110); } },
+  brick: () => tone(660 + Math.random() * 200, .06, "square", .05),
+  bump: () => tone(880, .08, "triangle", .08, 1320),
+  portal: () => tone(300, .18, "sine", .08, 1200),
+  start: () => { tone(523, .12, "triangle", .1); setTimeout(() => tone(784, .2, "triangle", .1), 110); },
+  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .25, "triangle", .11), i * 110)),
+  lose: () => [392, 330, 262].forEach((f, i) => setTimeout(() => tone(f, .3, "triangle", .1), i * 140)),
+  draw: () => [440, 440].forEach((f, i) => setTimeout(() => tone(f, .2, "triangle", .09), i * 160)),
+  tick: () => tone(1200, .03, "square", .03),
+};
+
+// =====================================================================================
+//  Geometry helpers
+// =====================================================================================
+const BR0 = 0.018, PY = [0.935, 0.065], PH = 0.022, MAXV = 4.6;
+const BUMPERS = [{x: .27, y: .5, r: .048, glow: 0}, {x: .73, y: .5, r: .048, glow: 0}];
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const files = "abcdefgh";
+const sq = (x, side) => "P" + files[clamp(Math.floor(x * 8), 0, 7)] + (side === 0 ? 1 : 8);
+// where a ball reaches a horizontal line, bouncing off the side walls
+function predictPath(x, y, vx, vy, lineY, r){
+  if ((lineY - y) * vy <= 0) return null;
+  const t = (lineY - y) / vy, L = 1 - 2 * r, raw = x + vx * t - r;
+  const n = Math.floor(raw / L); let u = raw - n * L;
+  if (((n % 2) + 2) % 2 === 1) u = L - u;
+  return {x: u + r, t, bounces: Math.abs(n)};
+}
+// the same path as a list of points, for drawing shot arrows
+function pathPts(x, y, vx, vy, lineY, r){
+  const pts = [[x, y]];
+  for (let g = 0; g < 14; g++){
+    if ((lineY - y) * vy <= 0) break;
+    const tl = (lineY - y) / vy, tw = vx > 0 ? (1 - r - x) / vx : vx < 0 ? (r - x) / vx : Infinity;
+    if (tw < tl){ x += vx * tw; y += vy * tw; pts.push([x, y]); vx = -vx; }
+    else { x += vx * tl; y = lineY; pts.push([x, y]); break; }
+  }
+  return pts;
+}
+
+// =====================================================================================
+//  The game
+// =====================================================================================
+class Game {
+  // o: {tc, variant, players:[bottom, top], rated, kind, net, puzzle}
+  // player: {name, rating, icon, ctrl: 'mouse'|'keysTop'|'bot'|'remote'|'none', bot}
+  constructor(o){
+    this.o = o; this.tc = TC[o.tc]; this.score = [0, 0]; this.clock = this.tc.clock;
+    this.pads = [{x: .5, tx: .5, v: 0}, {x: .5, tx: .5, v: 0}];
+    this.balls = []; this.state = "countdown"; this.timer = 2.4; this.lastCount = 4;
+    this.log = []; this.frames = []; this.frameT = 0;
+    this.rally = 0; this.points = 0; this.sudden = false; this.over = false;
+    this.stats = {hits: [0, 0], longest: 0, top: 0};
+    this.serveDir = Math.random() < .5 ? 1 : -1;
+    this.botMem = [{t: 0, x: .5}, {t: 0, x: .5}];
+    this.flash = 0; this.shake = 0; this.trail = [];
+    this.shrink = [1, 1]; this.scale = {pad: 1, ball: 1, accel: 0};
+    this.wind = 0; this.windTarget = 0; this.windT = 0; this.bricks = []; this.mods = {};
+    if (o.puzzle){ this.state = "play"; this.timer = 0; const pz = o.puzzle; this.balls = [{x: pz.start[0], y: pz.start[1], vx: pz.v[0], vy: pz.v[1], hit: false}]; }
+    else this.setMods(true);
+  }
+  setMods(first){
+    const v = VARIANTS[this.o.variant] || VARIANTS.classic;
+    if (v.mods === "chaos"){ const k = MOD_KEYS[Math.floor(Math.random() * MOD_KEYS.length)]; this.mods = {[k]: 1}; }
+    else if (v.mods === "960"){
+      if (first){
+        const ks = MOD_KEYS.slice().sort(() => Math.random() - .5).slice(0, 2);
+        this.mods = Object.fromEntries(ks.map(k => [k, 1]));
+        this.scale = {pad: .7 + Math.random() * .6, ball: .8 + Math.random() * .8, accel: 1.02 + Math.random() * .07};
+      }
+    } else this.mods = {...v.mods};
+    this.bricks = this.mods.bricks ? this.makeBricks() : [];
+  }
+  makeBricks(){
+    const out = [];
+    for (const y of [.3, .7]) for (let k = 0; k < 8; k++){
+      if ((k + (y < .5 ? 0 : 2)) % 4 === 3) continue;        // leave gaps so it's never fully blocked
+      const x0 = .012 + k * .1235; out.push({x0, x1: x0 + .112, y0: y - .013, y1: y + .013, on: true});
+    }
+    return out;
+  }
+  modLabel(){ const k = Object.keys(this.mods); return k.length ? k.map(x => MOD_NAME[x]).join(" + ") : "🏓 Classic"; }
+  br(){ return BR0 * (this.mods.giant ? 2.1 : 1) * this.scale.ball; }
+  padW(i){ return (this.mods.tiny ? .11 : .2) * this.scale.pad * this.shrink[i] * (this.o.puzzle && this.o.puzzle.tiny ? .55 : 1); }
+  accel(){ return this.mods.speed ? 1.12 : (this.scale.accel || this.tc.accel); }
+  baseSpeed(){ return this.tc.speed * (1 + .045 * this.points) * (this.mods.giant ? .88 : 1); }   // the whole game speeds up point by point
+  effSpeed(i){ const pl = this.o.players[i]; return pl.ctrl === "bot" ? pl.bot.speed : 1.7; }
+  serve(){
+    const sp = this.baseSpeed(), mk = (dir, off) => { const a = (Math.random() - .5) * .9; return {x: .5 + (off || 0), y: .5, vx: Math.sin(a) * sp, vy: Math.cos(a) * sp * dir}; };
+    this.balls = [mk(this.serveDir)];
+    if (this.mods.multi) this.balls.push(mk(-this.serveDir, (Math.random() - .5) * .3));
+    this.shrink = [1, 1];
+    if (this.mods.bricks) this.bricks = this.makeBricks();
+    this.rally = 0; this.state = "play";
+  }
+  step(dt){
+    if (this.over) return;
+    if (this.state === "countdown" || this.state === "pause"){
+      this.timer -= dt;
+      if (this.state === "countdown"){ const n = Math.ceil(this.timer / .8); if (n !== this.lastCount && n > 0){ this.lastCount = n; SFX.tick(); } }
+      if (this.timer <= 0){ if (this.state === "countdown") SFX.start(); this.serve(); }
+      this.moveAll(dt); this.record(dt); return;
+    }
+    if (!this.o.puzzle){
+      this.clock -= dt;
+      if (this.clock <= 0){ this.clock = 0; if (this.score[0] !== this.score[1]) return this.finish(this.score[0] > this.score[1] ? 0 : 1, "on time"); if (!this.sudden){ this.sudden = true; toast("Time's up! Next point wins."); } }
+    }
+    if (this.mods.wind){
+      this.windT -= dt;
+      if (this.windT <= 0){ this.windTarget = (Math.random() * 2 - 1) * .7; this.windT = 2.5 + Math.random() * 3; }
+      this.wind += (this.windTarget - this.wind) * Math.min(1, dt * 1.6);
+    }
+    this.moveAll(dt);
+    let fastest = 0; for (const b of this.balls) fastest = Math.max(fastest, Math.hypot(b.vx, b.vy));
+    const steps = Math.max(1, Math.ceil(fastest * dt / .006)), h = dt / steps;
+    for (let s = 0; s < steps && this.state === "play"; s++) for (const b of this.balls) this.moveBall(b, h);
+    this.flash = Math.max(0, this.flash - dt * 3); this.shake = Math.max(0, this.shake - dt * 4);
+    for (const u of BUMPERS) u.glow = Math.max(0, u.glow - dt * 4);
+    const b0 = this.balls[0]; if (b0){ this.trail.push([b0.x, b0.y]); if (this.trail.length > 10) this.trail.shift(); }
+    this.record(dt);
+  }
+  record(dt){
+    // a 30-per-second recording of the game, used for the replay in Game Review
+    this.frameT += dt;
+    if (this.frameT < 1 / 30 || this.o.puzzle) return;
+    this.frameT = 0; this.recordNow();
+  }
+  recordNow(){
+    const b0 = this.balls[0], b1 = this.balls[1], k = v => Math.round(v * 1000);
+    this.frames.push([b0 ? k(b0.x) : -1, b0 ? k(b0.y) : -1, b1 ? k(b1.x) : -1, b1 ? k(b1.y) : -1, k(this.pads[0].x), k(this.pads[1].x), this.score[0], this.score[1], k(this.padW(0)), k(this.padW(1))]);
+  }
+  moveAll(dt){
+    for (let i = 0; i < 2; i++){
+      const pl = this.o.players[i], p = this.pads[i];
+      if (pl.ctrl === "bot") this.think(i, dt);
+      const max = pl.ctrl === "bot" ? pl.bot.speed : pl.ctrl === "remote" ? 99 : 3.6;
+      const half = this.padW(i) / 2, before = p.x;
+      p.tx = clamp(p.tx, half, 1 - half);
+      p.x += clamp(p.tx - p.x, -max * dt, max * dt);
+      p.x = clamp(p.x, half, 1 - half);
+      p.v = dt > 0 ? (p.x - before) / dt : 0;
+    }
+  }
+  moveBall(b, h){
+    const r = this.br();
+    if (this.mods.curve && b.spin){ b.vx += b.spin * h; b.spin *= Math.exp(-1.1 * h); }
+    if (this.mods.wind) b.vx += this.wind * h;
+    b.x += b.vx * h; b.y += b.vy * h;
+    // side walls, or portals in the middle of them
+    if (b.x < r){
+      if (this.mods.portals && b.y > .4 && b.y < .6){ b.x = 1 - r - .002; SFX.portal(); this.flash = .4; }
+      else { b.x = r; b.vx = Math.abs(b.vx); SFX.wall(); }
+    }
+    if (b.x > 1 - r){
+      if (this.mods.portals && b.y > .4 && b.y < .6){ b.x = r + .002; SFX.portal(); this.flash = .4; }
+      else { b.x = 1 - r; b.vx = -Math.abs(b.vx); SFX.wall(); }
+    }
+    if (this.mods.bricks) for (const k of this.bricks){
+      if (!k.on || b.x + r < k.x0 || b.x - r > k.x1 || b.y + r < k.y0 || b.y - r > k.y1) continue;
+      const px = Math.min(b.x + r - k.x0, k.x1 - (b.x - r)), py = Math.min(b.y + r - k.y0, k.y1 - (b.y - r));
+      if (px < py) b.vx = -b.vx; else b.vy = -b.vy;
+      k.on = false; SFX.brick(); this.shake = .5; break;
+    }
+    if (this.mods.bumpers) for (const u of BUMPERS){
+      const dx = b.x - u.x, dy = b.y - u.y, d = Math.hypot(dx, dy);
+      if (d >= u.r + r || d === 0) continue;
+      const nx = dx / d, ny = dy / d, dot = b.vx * nx + b.vy * ny;
+      if (dot < 0){
+        b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny;
+        let sp = Math.min(MAXV, Math.hypot(b.vx, b.vy) * 1.06);
+        // never let the ball end up crawling sideways forever
+        if (Math.abs(b.vy) < sp * .3){ b.vy = Math.sign(b.vy || 1) * sp * .3; }
+        const cur = Math.hypot(b.vx, b.vy); b.vx *= sp / cur; b.vy *= sp / cur;
+        u.glow = 1; SFX.bump();
+      }
+      b.x = u.x + nx * (u.r + r + .001); b.y = u.y + ny * (u.r + r + .001);
+    }
+    for (let i = 0; i < 2; i++){
+      if (this.o.puzzle && i === 1) continue;
+      const p = this.pads[i], dir = i === 0 ? 1 : -1, w = this.padW(i);
+      if (b.vy * dir > 0 && Math.abs(b.y - PY[i]) <= PH / 2 + r && Math.abs(b.x - p.x) <= w / 2 + r){
+        const off = clamp((b.x - p.x) / (w / 2), -1, 1), ang = off * Math.PI / 3;
+        const sp = Math.min(MAXV, Math.hypot(b.vx, b.vy) * (this.o.puzzle ? 1 : this.accel()));
+        b.vx = Math.sin(ang) * sp; b.vy = -dir * Math.cos(ang) * sp;
+        b.y = PY[i] - dir * (PH / 2 + r + .001);
+        b.hit = true;
+        if (this.mods.curve) b.spin = clamp(p.v * 1.5, -2.4, 2.4);
+        this.rally++; this.stats.hits[i]++; this.stats.longest = Math.max(this.stats.longest, this.rally); this.stats.top = Math.max(this.stats.top, sp);
+        const an = this.analyze(i, b, off);
+        this.log.push({side: i, sq: sq(b.x, i), f: this.frames.length, x: +b.x.toFixed(3), y: +b.y.toFixed(3), vx: +b.vx.toFixed(3), vy: +b.vy.toFixed(3), r: this.rally, ...an});
+        if (this.mods.shrink) this.shrink[i] = Math.max(.45, this.shrink[i] * .9);
+        SFX.hit(); this.shake = Math.min(1, sp / 3);
+        if (this.onHit) this.onHit(i);
+      }
+    }
+    if (this.o.puzzle){
+      const pz = this.o.puzzle, f = files.indexOf(pz.target[0]), rk = +pz.target[1];
+      const x0 = f / 8, y0 = (8 - rk) / 8;
+      if (b.hit && b.x >= x0 && b.x <= x0 + .125 && b.y >= y0 && b.y <= y0 + .125) return this.finish(0, "solved");
+      if (b.y > 1 + r || (b.hit && b.y < -r)) return this.finish(1, b.hit ? "missed the square" : "missed the ball");
+      return;
+    }
+    if (b.y > 1 + r) this.point(1);
+    else if (b.y < -r) this.point(0);
+  }
+  // How hard was this shot to return, compared with the hardest shot available from the same spot?
+  analyze(i, b, off){
+    const opp = 1 - i, line = PY[opp], v = this.effSpeed(opp), ox = this.pads[opp].x, r = this.br();
+    const sp = Math.hypot(b.vx, b.vy), dir = i === 0 ? 1 : -1;
+    const diff = (vx, vy) => { const pr = predictPath(b.x, b.y, vx, vy, line, r); return pr ? {d: Math.abs(pr.x - ox) / Math.max(.06, pr.t * v), w: pr.bounces} : {d: 0, w: 0}; };
+    const act = diff(b.vx, b.vy);
+    let best = {d: -1, w: 0}, bo = 0;
+    for (let k = -24; k <= 24; k++){ const o = k / 24, a = o * Math.PI / 3, dd = diff(Math.sin(a) * sp, -dir * Math.cos(a) * sp); if (dd.d > best.d){ best = dd; bo = o; } }
+    return {a: +act.d.toFixed(3), b: +best.d.toFixed(3), bo: +bo.toFixed(3), o: +off.toFixed(3), sp: +sp.toFixed(3), wb: act.w};
+  }
+  point(winner){
+    if (this.state !== "play") return;
+    this.score[winner]++; this.points++;
+    this.log.push({point: winner, score: this.score.slice(), f: this.frames.length});
+    SFX.point(); this.flash = 1;
+    this.recordNow();
+    if (this.onPoint) this.onPoint(winner);
+    if (this.score[winner] >= this.tc.to || this.sudden) return this.finish(winner, "by points");
+    this.serveDir = winner === 0 ? 1 : -1;
+    if (VARIANTS[this.o.variant] && VARIANTS[this.o.variant].mods === "chaos"){ this.setMods(false); toast("🎲 Chaos: " + this.modLabel() + "!"); }
+    this.shrink = [1, 1];
+    this.balls = []; this.state = "pause"; this.timer = .9;
+  }
+  finish(winner, reason){                 // winner: 0 bottom, 1 top, -1 draw
+    if (this.over) return;
+    this.over = true; this.state = "over"; this.winner = winner; this.reason = reason;
+    if (this.onEnd) this.onEnd(winner, reason);
+  }
+  // ---------- bot brain ----------
+  think(i, dt){
+    const bot = this.o.players[i].bot, mem = this.botMem[i], p = this.pads[i];
+    mem.t -= dt;
+    if (mem.t > 0){ p.tx = mem.x; return; }
+    mem.t = bot.react * (0.7 + Math.random() * 0.6);
+    let best = null; const r = this.br();
+    for (const b of this.balls){ const pr = predictPath(b.x, b.y, b.vx, b.vy, PY[i], r); if (pr && (!best || pr.t < best.t)) best = pr; }
+    if (!best){ mem.x = .5 + (Math.random() - .5) * .1; p.tx = mem.x; return; }
+    const w = this.padW(i), opp = this.pads[1 - i].x;
+    const aim = bot.skill * .38 * (w / 2) * (opp > .5 ? 1 : -1) * (Math.random() < .85 ? 1 : -1);
+    let sp = 0; for (const b of this.balls) sp = Math.max(sp, Math.hypot(b.vx, b.vy));
+    const pressure = Math.max(0, sp / this.tc.speed - 1);
+    mem.x = best.x + aim + gauss() * (bot.err * (1 + best.t * .2) * (1 + pressure * .5) + .014 * pressure * pressure);
+    p.tx = mem.x;
+  }
+}
+function makeBot(def){ const s = def.elo / 3000; return {...def, skill: s, speed: .42 + 1.95 * s, err: .19 * Math.pow(1 - s, 1.6) + .006, react: .34 - .27 * s}; }
+
+// =====================================================================================
+//  Move analysis (Game Review)
+// =====================================================================================
+function classify(log){
+  const out = [];
+  let lastHit = null, rallyStart = true;
+  for (let k = 0; k < log.length; k++){
+    const e = log[k];
+    if (e.point != null){
+      const loser = 1 - e.point;
+      if (lastHit && lastHit.side === e.point) out[k] = {side: loser, c: lastHit.a >= .7 ? "forced" : "miss"};
+      else if (!lastHit) out[k] = {side: loser, c: "miss"};        // didn't even return the serve
+      else out[k] = null;
+      lastHit = null; rallyStart = true; continue;
+    }
+    const next = log[k + 1], winner = next && next.point === e.side;
+    const ratio = e.b > 0.02 ? e.a / e.b : 1;
+    let c;
+    if (winner && e.a >= .7) c = ratio >= .8 && e.a >= .9 && (e.wb > 0 || e.r >= 8) ? "brilliant" : "great";
+    else if (ratio >= .75) c = "best";
+    else if (ratio >= .55) c = "excellent";
+    else if (ratio >= .38) c = "good";
+    else if (rallyStart && ratio >= .2) c = "book";
+    else if (ratio >= .24) c = "inaccuracy";
+    else if (ratio >= .1 || e.b < .9) c = "mistake";
+    else c = "blunder";
+    out[k] = {side: e.side, c};
+    lastHit = e; rallyStart = false;
+  }
+  return out;
+}
+function accuracy(cls, side){
+  let s = 0, n = 0;
+  for (const x of cls) if (x && x.side === side && CLS[x.c].acc != null){ s += CLS[x.c].acc; n++; }
+  return n ? Math.round(s / n * 10) / 10 : null;
+}
+function evalSeries(log){
+  // a pretend "evaluation" from the bottom player's point of view: score difference plus the pressure of the last shot
+  const ev = [0];
+  for (const e of log){
+    const sd = e.point != null ? e.score[0] - e.score[1] : null;
+    const prev = ev.length ? ev._sd || 0 : 0;
+    if (sd != null){ ev._sd = sd; ev.push(clamp(sd, -6, 6)); }
+    else ev.push(clamp((ev._sd || 0) + (e.side === 0 ? 1 : -1) * Math.min(1.6, e.a) * .9, -6, 6));
+  }
+  return ev;
+}
+
+// =====================================================================================
+//  Drawing the board
+// =====================================================================================
+const cv = $("cv"), ctx = cv.getContext("2d");
+let G = null, flipped = false, watchMode = false, REV = null;
+function fit(){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = r.width * d; cv.height = r.height * d; }
+addEventListener("resize", fit);
+const DIGITS = ["111101101101111", "010010010010010", "111001111100111", "111001111001111", "101101111001001", "111100111001111", "111100111101111", "111001001001001", "111101111101111", "111101111001111"];
+function pixelNumber(n, cx, cy, px){
+  const s = String(n), w = 3 * px, gap = px;
+  let x = cx - (s.length * w + (s.length - 1) * gap) / 2;
+  for (const ch of s){
+    const bits = DIGITS[+ch] || DIGITS[0];
+    for (let i = 0; i < 15; i++) if (bits[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * px), Math.round(cy - 2.5 * px + Math.floor(i / 3) * px), Math.ceil(px), Math.ceil(px));
+    x += w + gap;
+  }
+}
+let scan = null;
+function scanlines(S){
+  if (!scan || scan.width !== S){
+    scan = document.createElement("canvas"); scan.width = scan.height = S;
+    const g = scan.getContext("2d"), step = Math.max(3, Math.round(S / 220));
+    g.fillStyle = "rgba(0,0,0,.28)"; for (let y = 0; y < S; y += step) g.fillRect(0, y, S, Math.max(1, step / 3));
+    const v = g.createRadialGradient(S / 2, S / 2, S * .35, S / 2, S / 2, S * .75); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.55)");
+    g.fillStyle = v; g.fillRect(0, 0, S, S);
+  }
+  ctx.drawImage(scan, 0, 0);
+}
+let windDots = Array.from({length: 26}, () => [Math.random(), Math.random()]);
+// what to draw: the live game, or a frame from the recording during Game Review
+function scene(){
+  if (REV && G && G.frames.length){
+    const fr = G.frames[clamp(Math.floor(REV.frame), 0, G.frames.length - 1)], balls = [];
+    if (fr[0] >= 0) balls.push({x: fr[0] / 1000, y: fr[1] / 1000});
+    if (fr[2] >= 0) balls.push({x: fr[2] / 1000, y: fr[3] / 1000});
+    return {balls, pads: [{x: fr[4] / 1000, w: fr[8] / 1000}, {x: fr[5] / 1000, w: fr[9] / 1000}], score: [fr[6], fr[7]], live: false};
+  }
+  return {balls: G.balls, pads: [0, 1].map(i => ({x: G.pads[i].x, w: G.padW(i)})), score: G.score, live: true};
+}
+function draw(){
+  const S = cv.width, pong = isPong(), [light, dark] = THEMES[P.theme] || THEMES.green, c = S / 8;
+  $("board").classList.toggle("pong", pong);
+  $("board").classList.toggle("rev", !!REV);
+  ctx.save();
+  if (G && G.shake > 0.05 && !pong && !REV){ ctx.translate((Math.random() - .5) * G.shake * S * .008, (Math.random() - .5) * G.shake * S * .008); }
+  const X = x => (flipped ? 1 - x : x) * S, Y = y => (flipped ? 1 - y : y) * S;
+  const sc = G ? scene() : null;
+  if (pong){
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, S, S);
+    ctx.fillStyle = "#fff";
+    const dash = S / 40;
+    for (let x = dash / 2; x < S; x += dash * 2) ctx.fillRect(Math.round(x), Math.round(S / 2 - S * .006), Math.round(dash), Math.round(S * .012));
+    if (G && !G.o.puzzle){
+      const top = flipped ? 0 : 1, bot = flipped ? 1 : 0;
+      ctx.globalAlpha = .9;
+      pixelNumber(sc.score[top], S * .2, S * .5 - S * .1, S * .022);
+      pixelNumber(sc.score[bot], S * .2, S * .5 + S * .1, S * .022);
+      ctx.globalAlpha = 1;
+    }
+  } else {
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++){ ctx.fillStyle = (r + f) % 2 ? dark : light; ctx.fillRect(f * c, r * c, c + 1, c + 1); }
+    ctx.font = `700 ${S * .024}px Segoe UI, sans-serif`;
+    for (let i = 0; i < 8; i++){
+      const rank = flipped ? i + 1 : 8 - i, file = flipped ? files[7 - i] : files[i];
+      ctx.fillStyle = i % 2 ? light : dark; ctx.textAlign = "left"; ctx.fillText(rank, S * .006, i * c + S * .028);
+      ctx.fillStyle = i % 2 ? dark : light; ctx.textAlign = "right"; ctx.fillText(file, (i + 1) * c - S * .006, S - S * .008);
+    }
+  }
+  if (G){
+    const ink = pong ? "#fff" : "rgba(30,30,30,.85)";
+    // variant decorations (live only)
+    if (sc.live && !G.o.puzzle){
+      if (G.mods.portals){
+        for (const [x, col] of [[0, "#ff9a3c"], [1, "#3cb4ff"]]){ ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = S * .02; ctx.fillRect(X(x) - (flipped ? -1 : 1) * 0 - S * .006, Y(.4), S * .012, S * .2 * (flipped ? -1 : 1)); }
+        ctx.shadowBlur = 0;
+      }
+      if (G.mods.bricks) for (const k of G.bricks){
+        if (!k.on) continue;
+        const x0 = Math.min(X(k.x0), X(k.x1)), y0 = Math.min(Y(k.y0), Y(k.y1));
+        ctx.fillStyle = pong ? "#fff" : "#c8553d"; ctx.fillRect(x0, y0, (k.x1 - k.x0) * S, (k.y1 - k.y0) * S);
+        if (!pong){ ctx.strokeStyle = "#5b2416"; ctx.lineWidth = S * .003; ctx.strokeRect(x0, y0, (k.x1 - k.x0) * S, (k.y1 - k.y0) * S); }
+      }
+      if (G.mods.bumpers) for (const u of BUMPERS){
+        ctx.strokeStyle = pong ? "#fff" : "#d92b2b"; ctx.lineWidth = S * .008; ctx.fillStyle = pong ? `rgba(255,255,255,${.1 + u.glow * .5})` : `rgba(255,${90 + u.glow * 120},80,.9)`;
+        ctx.beginPath(); ctx.arc(X(u.x), Y(u.y), u.r * S * (1 + u.glow * .12), 0, 7); ctx.fill(); ctx.stroke();
+      }
+      if (G.mods.wind && Math.abs(G.wind) > .02){
+        ctx.strokeStyle = pong ? "rgba(255,255,255,.35)" : "rgba(255,255,255,.7)"; ctx.lineWidth = S * .003;
+        for (const d of windDots){
+          d[0] = (d[0] + G.wind * .012 + 1) % 1;
+          const x = X(d[0]), y = Y(d[1]), len = G.wind * S * .06 * (flipped ? -1 : 1);
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len, y); ctx.stroke();
+        }
+      }
+    }
+    if (G.o.puzzle){
+      const f = files.indexOf(G.o.puzzle.target[0]), r = +G.o.puzzle.target[1];
+      if (pong){
+        ctx.strokeStyle = `rgba(255,255,255,${.55 + .45 * Math.sin(performance.now() / 160)})`; ctx.lineWidth = S * .006; ctx.setLineDash([S * .015, S * .012]);
+        ctx.strokeRect(f * c + S * .006, (8 - r) * c + S * .006, c - S * .012, c - S * .012); ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = "rgba(255,200,40,.6)"; ctx.fillRect(f * c, (8 - r) * c, c, c);
+        ctx.strokeStyle = "#f7c045"; ctx.lineWidth = S * .008; ctx.strokeRect(f * c + 2, (8 - r) * c + 2, c - 4, c - 4);
+      }
+    }
+    // shot arrows in Game Review: what you played (solid) and the best shot (dashed)
+    if (REV && REV.sel != null){
+      const e = G.log[REV.sel], k = REV.cls[REV.sel];
+      if (e && e.point == null){
+        const r = G.br(), line = PY[1 - e.side], dir = e.side === 0 ? 1 : -1, a = e.bo * Math.PI / 3;
+        const arrow = (pts, col, dashed) => {
+          ctx.strokeStyle = col; ctx.lineWidth = S * .012; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.globalAlpha = .85;
+          ctx.setLineDash(dashed ? [S * .02, S * .016] : []);
+          ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.stroke(); ctx.setLineDash([]);
+          const [x1, y1] = pts[pts.length - 1], [x0, y0] = pts[pts.length - 2] || pts[0], ang = Math.atan2(Y(y1) - Y(y0), X(x1) - X(x0)), hs = S * .03;
+          ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x1) - hs * Math.cos(ang - .5), Y(y1) - hs * Math.sin(ang - .5)); ctx.lineTo(X(x1) - hs * Math.cos(ang + .5), Y(y1) - hs * Math.sin(ang + .5)); ctx.fill();
+          ctx.globalAlpha = 1;
+        };
+        if (k && !["best", "brilliant", "great"].includes(k.c)) arrow(pathPts(e.x, e.y, Math.sin(a) * e.sp, -dir * Math.cos(a) * e.sp, line, r), "#81b64c", true);
+        arrow(pathPts(e.x, e.y, e.vx, e.vy, line, r), k ? CLS[k.c].c : "#fff", false);
+        if (k){
+          const bx = X(e.x), by = Y(e.y) + (e.side === 0 ? -1 : 1) * (flipped ? -1 : 1) * S * .05, rr = S * .028;
+          ctx.fillStyle = CLS[k.c].c; ctx.beginPath(); ctx.arc(bx, by, rr, 0, 7); ctx.fill();
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = S * .004; ctx.stroke();
+          ctx.fillStyle = "#fff"; ctx.font = `900 ${S * .028}px Segoe UI, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(CLS[k.c].s, bx, by + S * .002); ctx.textBaseline = "alphabetic";
+        }
+      }
+    }
+    if (pong){ ctx.shadowColor = "rgba(255,255,255,.75)"; ctx.shadowBlur = S * .012; }
+    for (let i = 0; i < 2; i++){
+      if (G.o.puzzle && i === 1) continue;
+      const p = sc.pads[i], w = p.w * S, h = PH * S, x = X(p.x) - w / 2, y = Y(PY[i]) - h / 2;
+      if (pong){ ctx.fillStyle = "#fff"; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); continue; }
+      ctx.fillStyle = "rgba(0,0,0,.25)"; roundRect(x + S * .004, y + S * .005, w, h, h / 2); ctx.fill();
+      ctx.fillStyle = i === 0 ? "#f9f9f9" : "#343230"; ctx.strokeStyle = i === 0 ? "#3a3a3a" : "#e0e0e0"; ctx.lineWidth = S * .003;
+      roundRect(x, y, w, h, h / 2); ctx.fill(); ctx.stroke();
+    }
+    const ghostOn = sc.live && G.mods.ghost, br = G.br();
+    if (!pong && sc.live) for (const [k, t] of G.trail.entries()){ if (ghostOn && t[1] > .3 && t[1] < .7) continue; ctx.fillStyle = `rgba(255,255,255,${k / G.trail.length * .35})`; ctx.beginPath(); ctx.arc(X(t[0]), Y(t[1]), br * S * (k / G.trail.length), 0, 7); ctx.fill(); }
+    for (const b of sc.balls){
+      if (ghostOn && b.y > .3 && b.y < .7) continue;
+      const r = br * S;
+      if (pong){ ctx.fillStyle = "#fff"; ctx.fillRect(Math.round(X(b.x) - r), Math.round(Y(b.y) - r), Math.round(r * 2), Math.round(r * 2)); continue; }
+      ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.beginPath(); ctx.arc(X(b.x) + S * .004, Y(b.y) + S * .006, r, 0, 7); ctx.fill();
+      const g = ctx.createRadialGradient(X(b.x) - r * .35, Y(b.y) - r * .35, 1, X(b.x), Y(b.y), r);
+      g.addColorStop(0, "#fff"); g.addColorStop(1, "#d8d8d8");
+      ctx.fillStyle = g; ctx.strokeStyle = "#333"; ctx.lineWidth = S * .0025;
+      ctx.beginPath(); ctx.arc(X(b.x), Y(b.y), r, 0, 7); ctx.fill(); ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    if (sc.live && G.flash > 0){ ctx.fillStyle = `rgba(255,255,255,${G.flash * (pong ? .12 : .25)})`; ctx.fillRect(0, 0, S, S); }
+    if (sc.live && G.state === "countdown"){ const n = Math.ceil(G.timer / .8); $("count").textContent = n > 0 ? n : ""; } else $("count").textContent = "";
+    void ink;
+  } else $("count").textContent = "";
+  if (pong) scanlines(S);
+  ctx.restore();
+}
+function roundRect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+// player bars (top = opponent, bottom = you)
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+function bar(el, pl, scoreV, clockV, active){
+  const t = Math.max(0, Math.ceil(clockV)), m = Math.floor(t / 60), s = t % 60;
+  el.innerHTML = `<div class="av">${pl.icon || "👤"}</div><div class="nm">${esc(pl.name)}<small>${pl.rating != null ? "(" + pl.rating + ")" : ""}</small><em>${esc(pl.tag || "")}</em></div><div class="grow"></div>
+    <div class="score">${scoreV}</div><div class="clock ${active ? "on" : ""} ${active && t <= 10 && clockV > 0 ? "low" : ""}">${clockV == null ? "-" : m + ":" + String(s).padStart(2, "0")}</div>`;
+}
+function renderBars(){
+  if (!G){
+    bar($("barTop"), {name: "Opponent", icon: "👤"}, "-", null, false);
+    bar($("barBot"), {name: P.name, rating: P.ratings[sel.tc], icon: "🙂", tag: "You"}, "-", null, false);
+    $("modtag").hidden = true;
+    return;
+  }
+  const top = flipped ? 0 : 1, bot = flipped ? 1 : 0, live = G.state === "play" && !REV, sc = scene();
+  bar($("barTop"), G.o.players[top], sc.score[top], G.o.puzzle ? null : G.clock, live);
+  bar($("barBot"), G.o.players[bot], sc.score[bot], G.o.puzzle ? null : G.clock, live);
+  const v = VARIANTS[G.o.variant], showMods = !REV && !G.o.puzzle && v && v.mods !== undefined && (typeof v.mods === "string" || Object.keys(v.mods).length);
+  $("modtag").hidden = !showMods;
+  if (showMods) $("modtag").textContent = G.modLabel() + (G.mods.wind ? `  ·  wind ${G.wind > 0 ? "→" : "←"} ${Math.round(Math.abs(G.wind) * 100)}` : "");
+}
+
+// =====================================================================================
+//  Input
+// =====================================================================================
+const keys = {};
+addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (G && !G.over && !REV && ["arrowleft", "arrowright", " "].includes(e.key.toLowerCase())) e.preventDefault();
+  if (REV && (e.key === "ArrowLeft" || e.key === "ArrowRight")){ e.preventDefault(); revStep(e.key === "ArrowLeft" ? -1 : 1); }
+});
+addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+let pointerX = null;
+$("board").addEventListener("pointermove", e => { const r = cv.getBoundingClientRect(); pointerX = (e.clientX - r.left) / r.width; });
+$("board").addEventListener("pointerdown", e => { audio(); const r = cv.getBoundingClientRect(); pointerX = (e.clientX - r.left) / r.width; });
+const localTwo = () => G && G.o.players.some(p => p.ctrl === "keysTop");
+function applyInput(){
+  if (!G) return;
+  for (let i = 0; i < 2; i++){
+    const pl = G.o.players[i], p = G.pads[i];
+    if (pl.ctrl === "mouse"){
+      const kx = (keys.arrowleft || (!localTwo() && keys.a) ? -1 : 0) + (keys.arrowright || (!localTwo() && keys.d) ? 1 : 0);
+      if (kx){ p.tx = p.x + (flipped ? -kx : kx) * .06; pointerX = null; }
+      else if (pointerX != null) p.tx = flipped ? 1 - pointerX : pointerX;
+    } else if (pl.ctrl === "keysTop"){
+      const kx = (keys.a ? 1 : 0) - (keys.d ? 1 : 0);   // the top player faces the other way
+      if (kx) p.tx = p.x + kx * .06;
+    }
+  }
+}
+
+// =====================================================================================
+//  Main loop
+// =====================================================================================
+let lastT = performance.now();
+function loop(now){
+  const dt = Math.min(.05, (now - lastT) / 1000); lastT = now;
+  if (G){
+    if (!REV){
+      applyInput();
+      if (!(G.o.net && G.o.net.role === "client")) G.step(dt);
+    }
+    if (G.o.net) netTick(dt);
+    if (REV && REV.playing){
+      REV.frame += dt * 30 * REV.speed;
+      if (REV.frame >= G.frames.length - 1){ REV.frame = G.frames.length - 1; REV.playing = false; renderRevCtl(); }
+      syncSelToFrame();
+    }
+    if (watchMode && G.over && !watchNext){ watchNext = setTimeout(startWatch, 2500); }
+  }
+  draw(); renderBarsThrottled(now); if (!REV) updateLiveLog();
+  requestAnimationFrame(loop);
+}
+let lastBars = 0;
+function renderBarsThrottled(now){ if (now - lastBars > 100){ lastBars = now; renderBars(); } }
+
+// =====================================================================================
+//  Starting and ending games
+// =====================================================================================
+const human = () => ({name: P.name, rating: null, icon: "🙂", ctrl: "mouse", tag: "You"});
+function startGame(o){
+  closeOverlay(); watchMode = false; clearTimeout(watchNext); watchNext = null; REV = null;
+  if (G && G.o.net && o.net !== G.o.net) netClose();
+  G = new Game(o); flipped = !!(o.net && o.net.role === "client");
+  G.onEnd = (w, r) => endGame(w, r);
+  if (o.kind === "coach"){ G.onPoint = winner => coachSay(winner === 1 ? COACH_TIPS[Math.floor(Math.random() * COACH_TIPS.length)] : ["Nice shot!", "Great angle!", "You're getting it!", "Ooh, I didn't see that coming."][Math.floor(Math.random() * 4)]); }
+  audio(); fit(); renderBars();
+  if (!o.puzzle){
+    showGamePanel();
+    const v = VARIANTS[o.variant];
+    if (v && v.mods === "960") toast("🔀 Pong960: " + G.modLabel() + ", paddles ×" + G.scale.pad.toFixed(2) + ", ball ×" + G.scale.ball.toFixed(2));
+  }
+}
+function playBot(def, tc, variant, extra){
+  const b = makeBot(def);
+  const me = {...human(), rating: P.ratings[tc]};
+  startGame({tc, variant, rated: !extra || extra.rated !== false, kind: extra && extra.kind || "bot", players: [me, {name: def.name, rating: def.elo, icon: def.icon, ctrl: "bot", bot: b, tag: "Bot"}], botDef: def, tourn: extra && extra.tourn});
+}
+function eloChange(me, opp, score, games){ const k = games < 10 ? 40 : 32, exp = 1 / (1 + Math.pow(10, (opp - me) / 400)); return Math.round(k * (score - exp)); }
+const meSide = () => G && G.o.net && G.o.net.role === "client" ? 1 : 0;
+function endGame(winner, reason){
+  if (watchMode) return;
+  const o = G.o;
+  if (o.puzzle) return puzzleDone(winner === 0);
+  if (reason === "aborted"){
+    showOverlay(`<div class="hd"><h3>Game Aborted</h3><p>No rating change</p></div><div class="bd"><button class="btn go" data-go="home" id="newBtn">New Game</button></div>`);
+    $("newBtn").onclick = () => closeOverlay();
+    showGamePanel(); return;
+  }
+  const me = meSide(), draw = winner === -1, won = winner === me;
+  let change = 0;
+  if (o.rated){
+    const opp = o.players[1 - me].rating || 800;
+    change = eloChange(P.ratings[o.tc], opp, draw ? .5 : won ? 1 : 0, P.games[o.tc]);
+    P.ratings[o.tc] = Math.max(100, P.ratings[o.tc] + change); P.games[o.tc]++;
+  }
+  const opp = o.players[1 - me];
+  P.history.unshift({d: Date.now(), opp: opp.name, oppR: opp.rating, oppIcon: opp.icon, tc: o.tc, v: o.variant, res: draw ? "D" : won ? "W" : "L", sc: G.score[me] + "-" + G.score[1 - me], ch: change, kind: o.kind, reason});
+  P.history = P.history.slice(0, 60);
+  if (o.tourn) tournResult(won);
+  save(); renderMe();
+  draw ? SFX.draw() : won ? SFX.win() : SFX.lose();
+  const cls = classify(G.log), accMe = accuracy(cls, me), accOpp = accuracy(cls, 1 - me);
+  const title = draw ? "Draw" : won ? "You Won!" : o.players[1 - me].name + " Won";
+  const how = {"on time": "on time", "resignation": "by resignation", "abandoned": "opponent left", "agreement": "by agreement", "by points": "by points"}[reason] || reason;
+  showOverlay(`<div class="hd"><h3>${title}</h3><p>${how} · ${G.score[me]}-${G.score[1 - me]}</p></div>
+    <div class="bd">${o.rated ? `<div class="rc">${P.ratings[o.tc]} <span class="${change >= 0 ? "up" : "dn"}">${change >= 0 ? "+" : ""}${change}</span></div><div class="note">${TC[o.tc].name} rating</div>` : `<div class="note" style="margin-bottom:6px">Unrated game</div>`}
+    ${accMe != null ? `<div class="accs"><div><b>${accMe}</b>Your accuracy</div><div><b>${accOpp ?? "-"}</b>${esc(opp.name)}</div></div>` : ""}
+    <button class="btn go" style="margin-top:12px" id="reviewBtn">⭐ Game Review</button>
+    <div class="row"><button class="btn sm" id="rematchBtn">Rematch</button><button class="btn sm" id="newBtn">New Game</button></div></div>`);
+  $("reviewBtn").onclick = () => { closeOverlay(); view("review"); };
+  $("newBtn").onclick = () => { closeOverlay(); view(o.tourn ? "tournaments" : "home"); };
+  $("rematchBtn").onclick = () => {
+    if (o.net) return rematchOnline();
+    if (o.kind === "local") return startLocal(o.tc, o.variant);
+    if (o.tourn) return view("tournaments");
+    if (o.botDef) return playBot(o.botDef, o.tc, o.variant, {kind: o.kind, rated: o.rated});
+    view("home");
+  };
+  showGamePanel();
+}
+function showOverlay(html){ $("modal").innerHTML = html; $("overlay").hidden = false; }
+function closeOverlay(){ $("overlay").hidden = true; }
+
+// resign / abort / draw
+let resignArmed = 0;
+function canAbort(){ return G && !G.over && G.points === 0 && G.log.length < 2 && G.o.kind !== "online"; }
+function onResign(){
+  if (!G || G.over) return;
+  if (canAbort()){ G.finish(-1, "aborted"); return; }
+  if (Date.now() - resignArmed > 3000){
+    resignArmed = Date.now();
+    const b = $("resignBtn"); if (b){ b.textContent = "Click again to resign"; b.classList.add("danger"); }
+    setTimeout(() => { const b2 = $("resignBtn"); if (b2 && G && !G.over){ b2.textContent = "🏳 Resign"; b2.classList.remove("danger"); } }, 3000);
+    return;
+  }
+  resignArmed = 0;
+  const me = meSide();
+  if (G.o.net) netSend2({t: "resign"});
+  G.finish(G.o.kind === "local" ? 1 : 1 - me, "resignation");
+}
+function onDraw(){
+  if (!G || G.over) return;
+  const o = G.o;
+  if (o.kind === "local"){ G.finish(-1, "agreement"); return; }
+  if (o.net){ netSend2({t: "drawoffer"}); toast("Draw offered."); return; }
+  const botSide = o.players.findIndex(p => p.ctrl === "bot");
+  if (botSide < 0) return;
+  const bot = o.players[botSide], lead = G.score[botSide] - G.score[1 - botSide];
+  const accept = bot.bot.id !== "kai" && (lead <= -2 || (lead === 0 && G.clock < 30 && bot.rating < 2000));
+  if (accept){ toast(bot.icon + " " + bot.name + " accepts the draw."); G.finish(-1, "agreement"); }
+  else toast(bot.icon + " " + (bot.bot.id === "kai" ? "Kai laughs at your draw offer." : lead > 0 ? bot.name + " is winning. No draw." : bot.name + " wants to keep playing."));
+}
+
+// =====================================================================================
+//  Right panel views
+// =====================================================================================
+let curView = "home";
+function panel(title, icon, body, back){
+  $("ph").innerHTML = (back ? `<button class="back" data-go="${back}">&#10094;</button>` : "") + (icon ? `<span>${icon}</span>` : "") + title;
+  $("pb").innerHTML = body;
+}
+document.addEventListener("click", e => { const g = e.target.closest("[data-go]"); if (g){ e.preventDefault(); view(g.dataset.go); } });
+$("logoHome").onclick = e => { e.preventDefault(); view("home"); };
+let sel = {tc: "blitz", variant: "classic", bot: 2};
+const tcSeg = () => `<div class="lbl">Time control</div><div class="seg" id="tcSeg">${Object.entries(TC).map(([k, t]) => `<button data-tc="${k}" class="${sel.tc === k ? "on" : ""}">${t.icon} ${t.name}<small>first to ${t.to} · ${t.clock / 60} min</small></button>`).join("")}</div>`;
+const varSel = () => `<div class="field"><span class="lbl">Variant</span><select id="varSel">${Object.entries(VARIANTS).map(([k, v]) => `<option value="${k}" ${sel.variant === k ? "selected" : ""}>${v.icon} ${v.name}: ${v.desc}</option>`).join("")}</select></div>`;
+function wireSel(){
+  document.querySelectorAll("[data-tc]").forEach(b => b.onclick = () => { sel.tc = b.dataset.tc; document.querySelectorAll("[data-tc]").forEach(x => x.classList.toggle("on", x === b)); renderMe(); });
+  const v = $("varSel"); if (v) v.onchange = () => { sel.variant = v.value; };
+}
+function view(name){
+  curView = name;
+  if (name !== "review") REV = null;
+  if (name !== "watch"){ clearTimeout(watchNext); watchNext = null; if (G && G.o.kind === "watch"){ G = null; watchMode = false; renderBars(); } }
+  if (name !== "online" && name !== "friend") cancelSearch();
+  (VIEWS[name] || VIEWS.home)();
+}
+const VIEWS = {
+  home(){
+    panel("Play Pong", "🏓", `
+      <button class="card" data-go="online"><span class="ci">⚡</span><div><b>Play Online</b><span>Play a real person, live</span></div></button>
+      <button class="card" data-go="bots"><span class="ci">🤖</span><div><b>Play Bots</b><span>Challenge a bot from Pebble to Kai</span></div></button>
+      <button class="card" data-go="coach"><span class="ci">🧑‍🏫</span><div><b>Play Coach</b><span>Learn as you play with Coach Pongo</span></div></button>
+      <button class="card" data-go="friend"><span class="ci">🤝</span><div><b>Play a Friend</b><span>Same keyboard, or send a link</span></div></button>
+      <button class="card" data-go="tournaments"><span class="ci">🏅</span><div><b>Tournaments</b><span>Beat 5 bots in a row to win the Arena</span></div></button>
+      <button class="card" data-go="variants"><span class="ci">🎲</span><div><b>Pong Variants</b><span>14 ways to play: Portals, Bricks, Curveball, Pong960...</span></div></button>
+      <div class="links"><button data-go="history">📜 Game History</button><button data-go="leaderboard">📊 Leaderboard</button></div>`);
+  },
+  bots(){
+    const b = BOTS[sel.bot];
+    panel("Play Bots", "🤖", `
+      <div class="botinfo"><div class="big">${b.icon}</div><div><b>${b.name} <span style="color:var(--dim);font-size:16px">(${b.elo})</span></b><div class="bubble" style="margin-top:6px">${b.bio}</div></div></div>
+      <div class="bots">${BOTS.map((x, i) => `<button class="bot ${i === sel.bot ? "on" : ""}" data-bot="${i}">${x.icon}<small>${x.elo}</small></button>`).join("")}</div>
+      ${tcSeg()}${varSel()}
+      <button class="btn go" id="playBtn">Play</button>`, "home");
+    document.querySelectorAll("[data-bot]").forEach(x => x.onclick = () => { sel.bot = +x.dataset.bot; VIEWS.bots(); });
+    wireSel(); $("playBtn").onclick = () => playBot(BOTS[sel.bot], sel.tc, sel.variant, {rated: sel.variant === "classic"});
+  },
+  coach(){
+    panel("Play Coach", "🧑‍🏫", `
+      <div class="botinfo"><div class="big">${COACH.icon}</div><div><b>${COACH.name}</b><div class="bubble" style="margin-top:6px">Hi! I'll play nice and give you a tip after every point. Afterwards, check the Game Review to see every shot graded.</div></div></div>
+      ${tcSeg()}
+      <button class="btn go" id="playBtn">Start Lesson</button>`, "home");
+    wireSel(); $("playBtn").onclick = () => playBot(COACH, sel.tc, "classic", {kind: "coach", rated: false});
+  },
+  online(){
+    panel("Play Online", "⚡", `${tcSeg()}${varSel()}
+      <div class="note">You'll be matched with someone looking for the same time control and variant right now. Your ${TC[sel.tc].name} rating: <b>${P.ratings[sel.tc]}</b></div>
+      <button class="btn go" id="playBtn">Play</button><div id="searchBox"></div>`, "home");
+    wireSel(); $("playBtn").onclick = () => findMatch(sel.tc, sel.variant);
+  },
+  friend(){
+    panel("Play a Friend", "🤝", `
+      <button class="card" id="localBtn"><span class="ci">⌨️</span><div><b>Same Keyboard</b><span>You: ← → or mouse · Friend (top): A D</span></div></button>
+      <button class="card" id="linkBtn"><span class="ci">🔗</span><div><b>Send a Link</b><span>Your friend opens it and you play online</span></div></button>
+      ${tcSeg()}${varSel()}<div id="searchBox"></div>`, "home");
+    wireSel();
+    $("localBtn").onclick = () => startLocal(sel.tc, sel.variant);
+    $("linkBtn").onclick = () => hostRoom(sel.tc, sel.variant);
+  },
+  variants(){
+    panel("Pong Variants", "🎲", `<p class="note">Pick a variant to play a bot near your rating. Variant games are unrated, and you can also choose any variant when you play online or with a friend.</p>
+      <div class="vgrid">${Object.entries(VARIANTS).map(([k, v]) => `<button class="card" data-var="${k}"><span class="ci">${v.icon}</span><div><b>${v.name}</b><span>${v.desc}</span></div></button>`).join("")}</div>`, "home");
+    document.querySelectorAll("[data-var]").forEach(b => b.onclick = () => {
+      const r = P.ratings[sel.tc]; let bi = 0; BOTS.forEach((x, i) => { if (Math.abs(x.elo - r) < Math.abs(BOTS[bi].elo - r)) bi = i; });
+      sel.variant = b.dataset.var;
+      playBot(BOTS[bi], sel.tc, b.dataset.var, {rated: false, kind: "variant"});
+    });
+  },
+  tournaments(){
+    const T = P.tourn, ladder = [1, 3, 5, 7, 9].map(i => BOTS[i]);
+    let body = `<p class="note">The Pong Arena: beat five bots in a row in Blitz. Lose once and you're out. Arenas won: <b>${P.tournWins}</b> 🏆</p><div class="tourn">`;
+    ladder.forEach((b, i) => { const st = T ? (i < T.round ? "✅" : i === T.round ? "▶" : "") : ""; body += `<div class="${T && i === T.round ? "cur" : ""}"><span style="font-size:22px">${b.icon}</span>Round ${i + 1}: ${b.name} (${b.elo})<span class="res">${st}</span></div>`; });
+    body += `</div>` + (T ? `<button class="btn go" id="tBtn">Play Round ${T.round + 1}</button><button class="btn sm" id="tQuit">Leave Arena</button>` : `<button class="btn go" id="tBtn">Enter the Arena</button>`);
+    panel("Tournaments", "🏅", body, "home");
+    $("tBtn").onclick = () => { if (!P.tourn){ P.tourn = {round: 0}; save(); } playBot(ladder[P.tourn.round], "blitz", "classic", {tourn: true, kind: "tournament"}); };
+    const q = $("tQuit"); if (q) q.onclick = () => { P.tourn = null; save(); VIEWS.tournaments(); };
+  },
+  history(){
+    const rows = P.history.map(h => `<tr><td>${h.oppIcon || "👤"} ${esc(h.opp)} <span style="color:var(--dim)">(${h.oppR ?? "?"})</span></td><td>${TC[h.tc] ? TC[h.tc].icon : ""} ${VARIANTS[h.v] ? VARIANTS[h.v].name : ""}</td><td class="${h.res === "W" ? "w" : h.res === "D" ? "d" : "l"}">${h.res === "W" ? "Won" : h.res === "D" ? "Draw" : "Lost"} ${h.sc}</td><td class="${h.ch > 0 ? "w" : h.ch < 0 ? "l" : "d"}">${h.ch ? (h.ch > 0 ? "+" : "") + h.ch : "-"}</td></tr>`).join("");
+    panel("Game History", "📜", P.history.length ? `<table class="tbl"><tr><th>Opponent</th><th>Game</th><th>Result</th><th>Elo</th></tr>${rows}</table>` : `<p class="note">No games yet. Go play!</p>`, "home");
+  },
+  leaderboard(){
+    const list = BOTS.map(b => ({name: b.name, icon: b.icon, r: b.elo, bot: true})).concat([{name: P.name, icon: "🙂", r: P.ratings[sel.tc], me: true}]).sort((a, b) => b.r - a.r);
+    panel("Leaderboard", "📊", `${tcSeg()}<table class="tbl"><tr><th>#</th><th>Player</th><th>Rating</th></tr>${list.map((x, i) => `<tr class="${x.me ? "me" : ""}"><td>${i + 1}</td><td>${x.icon} ${esc(x.name)} ${x.bot ? '<span style="color:var(--dim);font-size:11px">BOT</span>' : ""}</td><td><b>${x.r}</b></td></tr>`).join("")}</table>`, "home");
+    document.querySelectorAll("[data-tc]").forEach(b => b.onclick = () => { sel.tc = b.dataset.tc; VIEWS.leaderboard(); });
+  },
+  puzzles(){
+    panel("Puzzles", "🧩", `<p class="note">The ball comes at you. Return it so it flies through the <b style="color:var(--gold)">marked square</b>. Hit with the paddle's edge to angle it, and use the walls. Puzzle rating: <b>${P.puzzle}</b></p>
+      <div class="puz">${PUZZLES.map((p, i) => { const done = P.puzSolved[i], locked = i > 0 && !P.puzSolved[i - 1] && !done; return `<button class="${done ? "done" : ""} ${locked ? "locked" : ""}" data-pz="${i}">${i + 1}<small>${p.name}</small></button>`; }).join("")}</div>
+      <div id="pzBox"></div>`, "home");
+    document.querySelectorAll("[data-pz]").forEach(b => b.onclick = () => { if (b.classList.contains("locked")) return toast("Solve the puzzle before it first."); startPuzzle(+b.dataset.pz); });
+  },
+  learn(){
+    panel("Learn", "🎓", `
+      <div class="stat"><b>Move</b><span>Mouse or finger anywhere on the board, or ← →</span></div>
+      <div class="stat"><b>Score</b><span>Get the ball past the other paddle</span></div>
+      <div class="stat"><b>Angles</b><span>Edge of the paddle = sharp angle, middle = straight</span></div>
+      <div class="stat"><b>Speed</b><span>Faster every hit, and every point</span></div>
+      <div class="stat"><b>Bullet / Blitz / Rapid</b><span>First to 3 / 5 / 7, with a 1 / 3 / 6 minute clock</span></div>
+      <div class="stat"><b>Clock</b><span>Time runs out: the leader wins. A tie means sudden death</span></div>
+      <div class="stat"><b>Resign, Draw, Abort</b><span>Buttons under the move list. Abort only works before the first point</span></div>
+      <div class="stat"><b>Game Review</b><span>After each game, every hit is graded from Brilliant to Blunder</span></div>
+      <p class="note">The move list writes each hit like chess: <b>Pe1</b> means the bottom paddle hit the ball on the e-file. In Game Review, a dashed green arrow shows the best shot you could have played.</p>
+      <div class="lbl">Move grades</div>
+      <table class="counts">${CLS_ORDER.map(k => `<tr><td class="k"><span>${badge(k)} ${CLS[k].n}</span></td></tr>`).join("")}</table>
+      <button class="btn go" data-go="coach">Practice with Coach</button>`, "home");
+  },
+  watch(){
+    panel("Watch", "📺", `<p class="note">Bots playing bots, live, in random variants. A new match starts after each one ends.</p><div id="watchInfo"></div><div class="moves" id="moves"></div>`, "home");
+    startWatch();
+  },
+  settings(){
+    panel("Other", "⚙️", `
+      <div class="field"><span class="lbl">Your name</span><input id="nameIn" maxlength="18" value="${esc(P.name)}"></div>
+      <div class="field"><span class="lbl">Board</span><select id="themeSel">${Object.keys(THEMES).map(k => `<option value="${k}" ${P.theme === k ? "selected" : ""}>${k === "pong" ? "Classic Pong" : k[0].toUpperCase() + k.slice(1) + " chessboard"}</option>`).join("")}</select></div>
+      <div class="field"><span class="lbl">Sound</span><select id="sndSel"><option value="1" ${P.sound ? "selected" : ""}>On</option><option value="0" ${P.sound ? "" : "selected"}>Off</option></select></div>
+      <button class="btn sm danger" id="resetBtn">Reset ratings and history</button>
+      <p class="note">Pong Allstar is a Kai.fun game. It isn't affiliated with any chess website, it just really wishes it was one.</p>`, "home");
+    $("nameIn").onchange = () => { P.name = $("nameIn").value.trim().slice(0, 18) || P.name; save(); renderMe(); renderBars(); };
+    $("themeSel").onchange = () => { P.theme = $("themeSel").value; save(); };
+    $("sndSel").onchange = () => { P.sound = $("sndSel").value === "1"; save(); };
+    let armed = 0;
+    $("resetBtn").onclick = () => {
+      if (Date.now() - armed > 3000){ armed = Date.now(); $("resetBtn").textContent = "Click again to reset everything"; return; }
+      const n = P.name; P = fresh(); P.name = n; save(); renderMe(); toast("Fresh start!"); VIEWS.settings();
+    };
+  },
+  review(){ openReview(); },
+};
+
+// the in-game panel: move list, ball speed, resign/draw
+function showGamePanel(){
+  if (!G) return;
+  const o = G.o;
+  panel(o.puzzle ? "Puzzle" : TC[o.tc].icon + " " + TC[o.tc].name, "", `
+    <div class="note">${VARIANTS[o.variant] ? VARIANTS[o.variant].icon + " " + VARIANTS[o.variant].name : ""} · ${o.rated ? "Rated" : "Unrated"} · first to ${TC[o.tc].to}</div>
+    ${o.kind === "coach" ? `<div class="bubble" id="coachSay">${COACH_TIPS[0]}</div>` : ""}
+    <div id="offerBox"></div>
+    <div class="moves" id="moves"></div>
+    <div class="stat"><b>Ball speed</b><span id="spd">1.00×</span></div>
+    ${G.over ? `<button class="btn go" id="revBtn2">⭐ Game Review</button><button class="btn sm" data-go="home">New Game</button>` : `<div style="display:flex;gap:8px"><button class="btn sm" id="resignBtn">🏳 Resign</button><button class="btn sm" id="drawBtn">½ Draw</button></div>`}`, G.over ? "home" : null);
+  const rs = $("resignBtn"); if (rs) rs.onclick = onResign;
+  const dr = $("drawBtn"); if (dr) dr.onclick = onDraw;
+  const rv = $("revBtn2"); if (rv) rv.onclick = () => view("review");
+  lastLogLen = -1;
+}
+function coachSay(t){ const b = $("coachSay"); if (b) b.textContent = t; }
+let lastLogLen = -1;
+function updateLiveLog(){
+  const m = $("moves"); if (!m || !G) return;
+  if (G.log.length !== lastLogLen){
+    lastLogLen = G.log.length;
+    let h = "", n = 1, row = [];
+    const flush = () => { if (row.length){ h += `<div><i>${n++}.</i><span>${row[0] || ""}</span><span>${row[1] || ""}</span></div>`; row = []; } };
+    for (const e of G.log){
+      if (e.point != null){ flush(); h += `<div class="pt">${esc(G.o.players[e.point].name)} scores · ${e.score[0]}-${e.score[1]}</div>`; n = 1; }
+      else { row.push(e.sq); if (row.length === 2) flush(); }
+    }
+    flush(); m.innerHTML = h || `<div class="pt" style="color:var(--dim)">Waiting for the first hit...</div>`; m.scrollTop = m.scrollHeight;
+  }
+  const sp = $("spd"); if (sp && G.balls[0]) sp.textContent = (Math.hypot(G.balls[0].vx, G.balls[0].vy) / G.tc.speed).toFixed(2) + "×";
+  const rs = $("resignBtn"); if (rs && !rs.classList.contains("danger")) rs.textContent = canAbort() ? "✖ Abort" : "🏳 Resign";
+}
+
+// =====================================================================================
+//  Game Review
+// =====================================================================================
+function openReview(){
+  if (!G || !G.over || G.o.puzzle){ toast("Finish a game first, then review it."); return VIEWS.home(); }
+  closeOverlay();
+  const cls = classify(G.log);
+  REV = {sel: null, frame: G.frames.length - 1, playing: false, speed: 1, cls, ev: evalSeries(G.log)};
+  renderReview();
+}
+function moveText(k){
+  const e = G.log[k], c = REV.cls[k];
+  if (!c) return "";
+  const who = G.o.players[c.side].name, opp = G.o.players[1 - c.side].name;
+  const where = e.point == null ? (Math.abs(e.bo) > .3 ? "the edge of the paddle" : "the middle of the paddle") : "";
+  return {
+    brilliant: `Brilliant! ${who} found a winner${e.wb ? " off the wall" : ""} that was almost impossible to return.`,
+    great: `Great shot! ${opp} couldn't get there in time.`,
+    best: `The best shot available. Nothing harder to return from there.`,
+    excellent: `Excellent. Very close to the best shot.`,
+    good: `A solid return, but there was a harder shot (dashed arrow).`,
+    book: `A standard return of serve.`,
+    inaccuracy: `An inaccuracy. Hitting with ${where} (dashed arrow) would have pulled ${opp} much further.`,
+    mistake: `A mistake. This went close to ${opp}. The dashed arrow shows the better shot.`,
+    blunder: `A blunder! There was a winner available (dashed arrow), but this was an easy ball for ${opp}.`,
+    miss: `${who} missed it. That ball was returnable.`,
+    forced: `Nothing ${who} could do. That shot was out of reach.`,
+  }[c.c];
+}
+function renderReview(){
+  const me = meSide(), pl = G.o.players, cls = REV.cls;
+  const accs = [accuracy(cls, 0), accuracy(cls, 1)];
+  const counts = [{}, {}]; for (const x of cls) if (x) counts[x.side][x.c] = (counts[x.side][x.c] || 0) + 1;
+  // the coach's summary
+  const myAcc = accs[me], mine = cls.map((x, k) => x && x.side === me ? {k, c: x.c} : null).filter(Boolean);
+  const bril = mine.filter(x => x.c === "brilliant").length, worst = mine.find(x => x.c === "blunder") || mine.find(x => x.c === "miss") || mine.find(x => x.c === "mistake");
+  let summary = myAcc == null ? "Not enough hits to grade this one." :
+    (myAcc >= 85 ? `Superb game! ${myAcc}% accuracy.` : myAcc >= 70 ? `Well played. ${myAcc}% accuracy.` : myAcc >= 50 ? `A decent game with ${myAcc}% accuracy, and room to improve.` : `A tough one: ${myAcc}% accuracy. Let's see what went wrong.`);
+  if (bril) summary += ` You found ${bril} brilliant shot${bril > 1 ? "s" : ""}!`;
+  if (worst) summary += ` Your biggest slip was hit #${hitNo(worst.k)} (${CLS[worst.c].n}). Click it below to see it.`;
+  // key moments: brilliants, greats and the worst errors
+  const pick = (c, max) => cls.map((x, k) => x && x.c === c ? k : -1).filter(k => k >= 0).slice(0, max);
+  const keyIdx = [...pick("brilliant", 4), ...pick("great", 3), ...pick("blunder", 3), ...pick("mistake", 2), ...pick("miss", 3)].slice(0, 8).sort((a, b) => a - b);
+  panel("Game Review", "⭐", `
+    <div class="revctl" id="revctl"></div>
+    <div class="bubble" id="revSay">${summary}</div>
+    <svg class="graph" id="graph" viewBox="0 0 300 96" preserveAspectRatio="none"></svg>
+    <div class="accrow">${[me, 1 - me].map(s => `<div class="acc"><span>${pl[s].icon} ${esc(pl[s].name)}</span><b>${accs[s] ?? "-"}</b><span>Accuracy</span></div>`).join("")}</div>
+    <table class="counts"><tr><td class="n">${esc(pl[me].name).slice(0, 8)}</td><td></td><td class="n">${esc(pl[1 - me].name).slice(0, 8)}</td></tr>
+      ${CLS_ORDER.map(k => `<tr><td class="n" style="color:${CLS[k].c}">${counts[me][k] || 0}</td><td class="k"><span>${badge(k)} ${CLS[k].n}</span></td><td class="n" style="color:${CLS[k].c}">${counts[1 - me][k] || 0}</td></tr>`).join("")}</table>
+    ${keyIdx.length ? `<div class="lbl">Key moments</div>` + keyIdx.map(k => `<div class="moment" data-mv="${k}">${badge(cls[k].c)} ${esc(pl[cls[k].side].name)}: ${G.log[k].point != null ? "missed" : G.log[k].sq} <span style="color:var(--dim);margin-left:auto">hit #${hitNo(k)}</span></div>`).join("") : ""}
+    <div class="lbl">Moves</div>
+    <div class="moves" id="moves" style="max-height:none"></div>
+    <div class="stat"><b>Longest rally</b><span>${G.stats.longest} hits</span></div>
+    <div class="stat"><b>Top ball speed</b><span>${(G.stats.top / G.tc.speed).toFixed(2)}×</span></div>
+    <button class="btn go" data-go="home">New Game</button>`, "home");
+  renderRevCtl(); renderGraph(); renderRevMoves();
+  $("pb").addEventListener("click", e => { const m = e.target.closest("[data-mv]"); if (m) selectMove(+m.dataset.mv); });
+}
+const hitNo = k => G.log.slice(0, k + 1).filter(e => e.point == null).length;
+function renderRevCtl(){
+  const c = $("revctl"); if (!c) return;
+  c.innerHTML = `<button id="rvFirst" title="Start">⏮</button><button id="rvPrev" title="Previous hit (←)">◀</button><button id="rvPlay" title="Play">${REV.playing ? "❚❚" : "▶"}</button><button id="rvNext" title="Next hit (→)">▶|</button><button id="rvLast" title="End">⏭</button>`;
+  $("rvFirst").onclick = () => { REV.playing = false; REV.frame = 0; REV.sel = null; renderRevCtl(); renderRevMoves(); };
+  $("rvLast").onclick = () => { REV.playing = false; REV.frame = G.frames.length - 1; REV.sel = null; renderRevCtl(); renderRevMoves(); };
+  $("rvPrev").onclick = () => revStep(-1);
+  $("rvNext").onclick = () => revStep(1);
+  $("rvPlay").onclick = () => { if (REV.frame >= G.frames.length - 1) REV.frame = 0; REV.playing = !REV.playing; REV.sel = null; renderRevCtl(); };
+}
+function revStep(d){
+  if (!REV) return;
+  const idx = REV.cls.map((x, k) => x ? k : -1).filter(k => k >= 0);
+  if (!idx.length) return;
+  let cur = REV.sel == null ? (d > 0 ? -1 : idx.length) : idx.indexOf(REV.sel);
+  cur = clamp(cur + d, 0, idx.length - 1);
+  selectMove(idx[cur]);
+}
+function selectMove(k){
+  REV.playing = false; REV.sel = k;
+  const e = G.log[k];
+  REV.frame = clamp(e.f, 0, G.frames.length - 1);
+  renderRevCtl(); renderRevMoves(); renderGraph();
+  const say = $("revSay"); if (say && REV.cls[k]) say.innerHTML = `${badge(REV.cls[k].c)} <b>${e.point != null ? "Missed ball" : "Hit #" + hitNo(k) + " " + e.sq}</b> is ${/^[aeiou]/i.test(CLS[REV.cls[k].c].n) ? "an" : "a"} <b style="color:${CLS[REV.cls[k].c].c}">${CLS[REV.cls[k].c].n}</b>. ${moveText(k)}`;
+}
+function syncSelToFrame(){
+  let k = null;
+  for (let i = 0; i < G.log.length; i++){ if (G.log[i].f <= REV.frame && REV.cls[i]) k = i; else if (G.log[i].f > REV.frame) break; }
+  if (k !== REV.sel){ REV.sel = k; renderRevMoves(); }
+}
+function renderRevMoves(){
+  const m = $("moves"); if (!m || !REV) return;
+  let h = "", n = 1, row = [];
+  const flush = () => { if (row.length){ h += `<div><i>${n++}.</i>${row[0] || "<span></span>"}${row[1] || "<span></span>"}</div>`; row = []; } };
+  G.log.forEach((e, k) => {
+    const c = REV.cls[k];
+    if (e.point != null){
+      flush();
+      if (c) h += `<div class="pt"><span class="mv ${REV.sel === k ? "sel" : ""}" data-mv="${k}" style="margin:auto">${badge(c.c)} ${esc(G.o.players[c.side].name)} missed</span></div>`;
+      h += `<div class="pt">${esc(G.o.players[e.point].name)} scores · ${e.score[0]}-${e.score[1]}</div>`; n = 1;
+    } else {
+      row.push(`<span class="mv ${REV.sel === k ? "sel" : ""}" data-mv="${k}">${c ? badge(c.c) : ""}${e.sq}</span>`);
+      if (row.length === 2) flush();
+    }
+  });
+  flush();
+  m.innerHTML = h || `<div class="pt" style="color:var(--dim)">No hits in this game.</div>`;
+  const s = m.querySelector(".sel"); if (s) s.scrollIntoView({block: "nearest"});
+}
+function renderGraph(){
+  const g = $("graph"); if (!g) return;
+  const ev = REV.ev, n = Math.max(1, ev.length - 1), sign = meSide() === 0 ? 1 : -1;
+  const Y = v => 48 - clamp(v * sign, -6, 6) / 6 * 44, Xg = i => i / n * 300;
+  let d = `M0 96 L0 ${Y(ev[0])}`; ev.forEach((v, i) => { d += ` L${Xg(i).toFixed(1)} ${Y(v).toFixed(1)}`; }); d += ` L300 96 Z`;
+  let dots = "";
+  REV.cls.forEach((c, k) => { if (c && ["brilliant", "great", "blunder", "miss", "mistake"].includes(c.c)) dots += `<circle cx="${Xg(k + 1)}" cy="${Y(ev[k + 1])}" r="3.2" fill="${CLS[c.c].c}" stroke="#fff" stroke-width="1"/>`; });
+  const selX = REV.sel != null ? `<line x1="${Xg(REV.sel + 1)}" x2="${Xg(REV.sel + 1)}" y1="0" y2="96" stroke="#f7c045" stroke-width="2"/>` : "";
+  g.innerHTML = `<path d="${d}" fill="#fff"/><line x1="0" x2="300" y1="48" y2="48" stroke="#888" stroke-width=".6" stroke-dasharray="3 3"/>${selX}${dots}`;
+  g.onclick = e => {
+    const r = g.getBoundingClientRect(), i = Math.round((e.clientX - r.left) / r.width * n) - 1;
+    let best = null; for (let k = 0; k < REV.cls.length; k++) if (REV.cls[k] && (best == null || Math.abs(k - i) < Math.abs(best - i))) best = k;
+    if (best != null) selectMove(best);
+  };
+}
+
+// =====================================================================================
+//  Local 2 player, puzzles, tournaments, watching
+// =====================================================================================
+function startLocal(tc, variant){
+  startGame({tc, variant, rated: false, kind: "local", players: [{name: P.name, icon: "🙂", ctrl: "mouse", tag: "← → or mouse"}, {name: "Friend", icon: "😃", ctrl: "keysTop", tag: "A D"}]});
+}
+const PUZZLES = [
+  {name: "Straight", start: [.56, .2], v: [0, .45], target: "e8"},
+  {name: "Angle", start: [.5, .2], v: [0, .45], target: "g8"},
+  {name: "Other way", start: [.62, .2], v: [.05, .5], target: "b8"},
+  {name: "Corner", start: [.25, .15], v: [-.05, .5], target: "h8"},
+  {name: "Fast", start: [.5, .15], v: [.15, .9], target: "c8"},
+  {name: "Mid-air", start: [.7, .2], v: [-.1, .55], target: "d5"},
+  {name: "Bank", start: [.15, .15], v: [-.12, .6], target: "d6", tiny: true},
+  {name: "Sniper", start: [.85, .1], v: [.2, .95], target: "f7", tiny: true},
+];
+let puzIdx = 0;
+function startPuzzle(i){
+  puzIdx = i;
+  const pz = PUZZLES[i];
+  startGame({tc: "blitz", variant: "classic", rated: false, kind: "puzzle", puzzle: pz, players: [{...human(), rating: P.puzzle, tag: "Puzzle " + (i + 1)}, {name: "Puzzle " + (i + 1) + ": " + pz.name, icon: "🧩", ctrl: "none"}]});
+  const box = $("pzBox"); if (box) box.innerHTML = `<div class="bubble">Puzzle ${i + 1}: send the ball through ${pz.target}.</div>`;
+}
+function puzzleDone(ok){
+  const was = !!P.puzSolved[puzIdx];
+  if (ok){ if (!was) P.puzzle += 12 + puzIdx * 3; P.puzSolved[puzIdx] = true; SFX.win(); }
+  else { P.puzzle = Math.max(100, P.puzzle - 8); SFX.lose(); }
+  save(); renderMe();
+  showOverlay(`<div class="hd"><h3>${ok ? "Solved! ✅" : "Incorrect ❌"}</h3><p>${ok ? "Great shot." : G.reason}</p></div><div class="bd"><div class="rc">${P.puzzle}</div><div class="note">Puzzle rating</div>
+    <div class="row" style="margin-top:14px"><button class="btn sm" id="pzRetry">Retry</button>${ok && puzIdx + 1 < PUZZLES.length ? `<button class="btn sm" id="pzNext">Next</button>` : ""}</div><button class="btn go" style="margin-top:10px" id="pzList">Puzzles</button></div>`);
+  $("pzRetry").onclick = () => startPuzzle(puzIdx);
+  const nx = $("pzNext"); if (nx) nx.onclick = () => startPuzzle(puzIdx + 1);
+  $("pzList").onclick = () => closeOverlay();
+  VIEWS.puzzles();
+}
+function tournResult(won){
+  if (!P.tourn) return;
+  if (won){ P.tourn.round++; if (P.tourn.round >= 5){ P.tournWins++; P.tourn = null; toast("🏆 You won the Pong Arena!"); } }
+  else { P.tourn = null; toast("Knocked out of the Arena. Try again!"); }
+  save();
+}
+let watchNext = null;
+function startWatch(){
+  watchNext = null;
+  if (curView !== "watch") return;
+  let a = Math.floor(Math.random() * BOTS.length), b = Math.floor(Math.random() * BOTS.length); if (a === b) b = (b + 3) % BOTS.length;
+  const tcs = Object.keys(TC), tc = tcs[Math.floor(Math.random() * 3)], vs = Object.keys(VARIANTS), v = Math.random() < .4 ? "classic" : vs[Math.floor(Math.random() * vs.length)];
+  const mk = d => ({name: d.name, rating: d.elo, icon: d.icon, ctrl: "bot", bot: makeBot(d), tag: "Bot"});
+  closeOverlay(); REV = null;
+  G = new Game({tc, variant: v, rated: false, kind: "watch", players: [mk(BOTS[a]), mk(BOTS[b])]});
+  G.onEnd = () => {}; flipped = false; watchMode = true; lastLogLen = -1;
+  const wi = $("watchInfo"); if (wi) wi.innerHTML = `<div class="stat"><b>${BOTS[a].icon} ${BOTS[a].name} vs ${BOTS[b].icon} ${BOTS[b].name}</b><span>${TC[tc].name} · ${VARIANTS[v].name}</span></div>`;
+}
+
+// =====================================================================================
+//  Online multiplayer (peer to peer, through the free PeerJS broker)
+// =====================================================================================
+let Peer_ = null, net = null, searching = null;
+function loadPeer(){
+  if (window.Peer) return Promise.resolve(window.Peer);
+  if (Peer_) return Peer_;
+  Peer_ = new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"; s.onload = () => res(window.Peer); s.onerror = () => { Peer_ = null; rej(new Error("load")); }; document.head.appendChild(s); });
+  return Peer_;
+}
+function peerOpen(id){
+  return new Promise((res, rej) => {
+    const p = id ? new window.Peer(id) : new window.Peer();
+    let opened = false;
+    const to = setTimeout(() => { if (!opened){ rej(new Error("timeout")); try { p.destroy(); } catch (e) {} } }, 9000);
+    p.on("open", () => { opened = true; clearTimeout(to); res(p); });
+    // only give up on errors before we're connected; later errors (like "nobody is waiting in that lobby") are normal
+    p.on("error", err => { if (opened) return; clearTimeout(to); rej(err); try { p.destroy(); } catch (e) {} });
+    // if the broker connection drops mid-game, quietly reconnect
+    p.on("disconnected", () => { if (opened && !p.destroyed) try { p.reconnect(); } catch (e) {} });
+  });
+}
+function searchUI(html){ const b = $("searchBox"); if (b) b.innerHTML = html; }
+function onClick(id, fn){ const el = $(id); if (el) el.onclick = fn; }
+function cancelSearch(){
+  if (!searching) return;
+  searching.cancelled = true;
+  for (const p of searching.peers) try { p.destroy(); } catch (e) {}
+  searching = null;
+}
+async function findMatch(tc, variant){
+  cancelSearch();
+  const me = searching = {cancelled: false, peers: []};
+  searchUI(`<div class="spinner"></div><p class="note" style="text-align:center">Looking for an opponent in ${TC[tc].name} · ${VARIANTS[variant].name}...</p><button class="btn sm" id="cancelBtn">Cancel</button>`);
+  onClick("cancelBtn", () => { cancelSearch(); searchUI(""); });
+  try { await loadPeer(); } catch (e) { return searchFail("Couldn't load the multiplayer system. Check your internet."); }
+  const lobby = s => `pongallstar-v2-${tc}-${variant}-${s}`;
+  let mine;
+  try { mine = await peerOpen(); me.peers.push(mine); } catch (e) { return searchFail("Couldn't reach the matchmaking server."); }
+  for (let s = 0; s < 4 && !me.cancelled; s++){
+    const res = await tryJoin(mine, lobby(s), 2600, tc);
+    if (me.cancelled) return;
+    if (res){ me.peers = me.peers.filter(p => p !== mine); searching = null; return beginNet(res.conn, "client", tc, variant, res.hello, mine); }
+  }
+  if (me.cancelled) return;
+  for (let s = 0; s < 4 && !me.cancelled; s++){
+    let host;
+    try { host = await peerOpen(lobby(s)); } catch (e) { continue; }
+    if (me.cancelled){ host.destroy(); return; }
+    me.peers.push(host);
+    searchUI(`<div class="spinner"></div><p class="note" style="text-align:center">Waiting for an opponent... (keep this tab open)</p><p class="note" style="text-align:center">Tip: send a friend a link with Play a Friend to play right away.</p><button class="btn sm" id="cancelBtn">Cancel</button>`);
+    onClick("cancelBtn", () => { cancelSearch(); searchUI(""); });
+    return waitForGuest(host, tc, variant, me);
+  }
+  searchFail("The lobby is full right now. Try again in a moment.");
+}
+function searchFail(msg){ cancelSearch(); searchUI(`<p class="note" style="color:#e86b6b">${msg}</p><button class="btn sm" data-go="bots">Play a bot instead</button>`); }
+function tryJoin(peer, id, ms, tc){
+  return new Promise(res => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; clearTimeout(to); res(v); };
+    const to = setTimeout(() => { finish(null); try { conn.close(); } catch (e) {} }, ms);
+    let conn;
+    try { conn = peer.connect(id, {reliable: true}); } catch (e) { return finish(null); }
+    if (!conn) return finish(null);
+    peer.on("error", err => { if (err && err.type === "peer-unavailable" && String(err.message || "").includes(id)) finish(null); });
+    conn.on("open", () => conn.send({t: "hello", name: P.name, rating: P.ratings[tc || sel.tc], v: 2}));
+    conn.on("data", d => { if (d && d.t === "accept") finish({conn, hello: d}); else if (d && d.t === "busy") finish(null); });
+  });
+}
+function waitForGuest(host, tc, variant, me){
+  let taken = false;
+  host.on("connection", conn => {
+    conn.on("data", d => {
+      if (!d || d.t !== "hello") return;
+      if (taken || me.cancelled){ conn.send({t: "busy"}); setTimeout(() => conn.close(), 300); return; }
+      taken = true;
+      conn.send({t: "accept", name: P.name, rating: P.ratings[tc], tc, variant});
+      searching = null;
+      beginNet(conn, "host", tc, variant, d, host);
+    });
+  });
+}
+async function hostRoom(tc, variant){
+  cancelSearch();
+  const me = searching = {cancelled: false, peers: []};
+  searchUI(`<div class="spinner"></div><p class="note" style="text-align:center">Making a room...</p>`);
+  try { await loadPeer(); } catch (e) { return searchFail("Couldn't load the multiplayer system."); }
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  let host;
+  try { host = await peerOpen("pongallstar-room-" + code); me.peers.push(host); } catch (e) { return searchFail("Couldn't make a room. Try again."); }
+  const link = location.href.split("#")[0].split("?")[0] + "?room=" + code;
+  searchUI(`<div class="lbl">Send this link to your friend</div><div class="code">${code}</div><div class="field"><input id="linkIn" readonly value="${link}"></div><button class="btn sm" id="copyBtn">Copy link</button><div class="spinner"></div><p class="note" style="text-align:center">Waiting for your friend to open it...</p><button class="btn sm" id="cancelBtn">Cancel</button>`);
+  onClick("copyBtn", () => { navigator.clipboard && navigator.clipboard.writeText(link).then(() => toast("Link copied!")); $("linkIn").select(); });
+  onClick("cancelBtn", () => { cancelSearch(); searchUI(""); });
+  waitForGuest(host, tc, variant, me);
+}
+async function joinRoom(code){
+  view("friend");
+  searchUI(`<div class="spinner"></div><p class="note" style="text-align:center">Joining room ${esc(code)}...</p>`);
+  try { await loadPeer(); } catch (e) { return searchFail("Couldn't load the multiplayer system."); }
+  let mine; try { mine = await peerOpen(); } catch (e) { return searchFail("Couldn't reach the server."); }
+  const res = await tryJoin(mine, "pongallstar-room-" + code, 8000);
+  if (!res){ try { mine.destroy(); } catch (e) {} return searchFail("That room isn't open anymore. Ask your friend for a new link."); }
+  beginNet(res.conn, "client", res.hello.tc || "blitz", res.hello.variant || "classic", res.hello, mine);
+}
+function beginNet(conn, role, tc, variant, hello, peer){
+  net = {conn, role, peer, lastRecv: Date.now(), acc: 0, sent: 0, tc, variant, oppHello: hello, mine: false, theirs: false};
+  conn.on("data", d => onNet(d));
+  conn.on("close", () => { if (G && G.o.net === net && !G.over){ G.finish(meSide(), "abandoned"); } toast("Your opponent left."); });
+  startNetGame();
+  toast("Matched with " + String(hello.name || "Opponent") + " (" + (+hello.rating || 800) + ")!");
+}
+function startNetGame(){
+  const opp = {name: String(net.oppHello.name || "Opponent").slice(0, 18), rating: +net.oppHello.rating || 800, icon: "🧑", ctrl: "remote", tag: "Online"};
+  const me = {...human(), rating: P.ratings[net.tc]};
+  const players = net.role === "host" ? [me, opp] : [opp, me];
+  net.sent = 0; net.mine = net.theirs = false;
+  startGame({tc: net.tc, variant: net.variant, rated: true, kind: "online", net, players});
+}
+function rematchOnline(){ if (!net) return; net.mine = true; netSend2({t: "rematch"}); toast("Rematch offered. Waiting for your opponent..."); tryRestart(); }
+function tryRestart(){ if (net && net.mine && net.theirs && net.role === "host"){ netSend2({t: "restart"}); startNetGame(); } }
+function netSend2(m){ try { net && net.conn.open && net.conn.send(m); } catch (e) {} }
+function netTick(dt){
+  if (!net || !G) return;
+  if (net.role === "client" && !G.over){
+    const r = G.br();
+    for (const b of G.balls){ b.x += b.vx * dt; b.y += b.vy * dt; if (b.x < r){ b.x = r; b.vx = Math.abs(b.vx); } if (b.x > 1 - r){ b.x = 1 - r; b.vx = -Math.abs(b.vx); } }
+    applyInput();
+    const half = G.padW(1) / 2, p = G.pads[1];
+    p.tx = clamp(p.tx, half, 1 - half); p.x += clamp(p.tx - p.x, -3.6 * dt, 3.6 * dt);
+  }
+  if (Date.now() - net.lastRecv > 20000 && !G.over){ G.finish(meSide(), "abandoned"); }
+  net.acc += dt;
+  if (net.acc < 1 / 30) return;
+  net.acc = 0;
+  if (net.role === "host"){
+    if (G.over && net.sentOver) return;
+    netSend2({t: "s", b: G.balls.map(b => [+b.x.toFixed(4), +b.y.toFixed(4), +b.vx.toFixed(3), +b.vy.toFixed(3)]), p: [G.pads[0].x, G.pads[1].x], sc: G.score, c: Math.round(G.clock * 10) / 10, st: G.state, tm: G.timer, pts: G.points,
+      m: Object.keys(G.mods), scl: G.scale, sh: G.shrink, bk: G.bricks.map(k => k.on ? 1 : 0).join(""), wd: +G.wind.toFixed(3), lg: G.log.slice(net.sent), ov: G.over ? [G.winner, G.reason] : null});
+    net.sent = G.log.length;
+    if (G.over) net.sentOver = true;
+  } else if (!G.over){
+    netSend2({t: "x", x: G.pads[1].tx});
+  }
+}
+function onNet(d){
+  if (!net || !d) return;
+  net.lastRecv = Date.now();
+  if (d.t === "rematch"){ net.theirs = true; toast(G ? G.o.players[1 - meSide()].name + " wants a rematch!" : "Rematch?"); tryRestart(); return; }
+  if (d.t === "restart" && net.role === "client"){ net.sentOver = false; startNetGame(); return; }
+  if (!G) return;
+  if (d.t === "x" && net.role === "host"){ G.pads[1].tx = clamp(+d.x || .5, 0, 1); }
+  else if (d.t === "s" && net.role === "client"){
+    if (G.over) return;
+    G.balls = d.b.map(a => ({x: a[0], y: a[1], vx: a[2], vy: a[3]}));
+    G.pads[0].x = d.p[0];
+    const prevScore = G.score.join();
+    G.score = d.sc; G.clock = d.c; G.state = d.st; G.timer = d.tm; G.points = d.pts;
+    G.mods = Object.fromEntries((d.m || []).map(k => [k, 1])); G.scale = d.scl || G.scale; G.shrink = d.sh || G.shrink; G.wind = d.wd || 0;
+    if (G.mods.bricks){ if (G.bricks.length !== (d.bk || "").length) G.bricks = G.makeBricks(); G.bricks.forEach((k, i) => { k.on = d.bk[i] === "1"; }); }
+    for (const e of d.lg || []){ G.log.push(e); if (e.side != null){ SFX.hit(); G.stats.hits[e.side]++; G.stats.longest = Math.max(G.stats.longest, e.r || 0); G.stats.top = Math.max(G.stats.top, e.sp || 0); } }
+    if (prevScore !== G.score.join()){ SFX.point(); G.flash = 1; }
+    G.recordNow();
+    if (d.ov && !G.over) G.finish(d.ov[0], d.ov[1]);
+  } else if (d.t === "resign" && !G.over){ G.finish(meSide(), "resignation"); }
+  else if (d.t === "drawoffer" && !G.over){
+    const box = $("offerBox"); if (!box) return;
+    box.innerHTML = `<div class="offer">½ ${esc(G.o.players[1 - meSide()].name)} offers a draw <span style="flex:1"></span><button class="btn go" id="dAcc">Accept</button><button class="btn" id="dDec">Decline</button></div>`;
+    $("dAcc").onclick = () => { box.innerHTML = ""; if (net.role === "host") G.finish(-1, "agreement"); else netSend2({t: "drawaccept"}); };
+    $("dDec").onclick = () => { box.innerHTML = ""; netSend2({t: "drawdecline"}); };
+  }
+  else if (d.t === "drawaccept" && net.role === "host" && !G.over){ G.finish(-1, "agreement"); }
+  else if (d.t === "drawdecline"){ toast("Draw declined."); }
+}
+// a heartbeat on a timer keeps going even when the tab is in the background, so a quick tab switch never counts as leaving
+setInterval(() => { if (net && net.conn && net.conn.open) netSend2({t: "hb"}); }, 1000);
+function netClose(){ try { net && net.conn.close(); } catch (e) {} try { net && net.peer && net.peer.destroy(); } catch (e) {} net = null; }
+
+// =====================================================================================
+//  Bits and pieces
+// =====================================================================================
+let toastT = 0;
+function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+function renderMe(){ $("meBox").innerHTML = `<b>🙂 ${esc(P.name)}</b><div class="r"><span>🚀 ${P.ratings.bullet}</span><span>⚡ ${P.ratings.blitz}</span><span>🕒 ${P.ratings.rapid}</span><span>🧩 ${P.puzzle}</span></div>`; }
+
+renderMe(); renderBars(); fit(); view("home");
+const room = new URLSearchParams(location.search).get("room");
+if (room) joinRoom(room.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase());
+requestAnimationFrame(loop);
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
