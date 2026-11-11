@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Crash Helicopters</title>
+<meta name="description" content="Fly helicopters over the real Earth: real elevation and satellite imagery of the Grand Canyon, the Matterhorn, Mount Fuji, Yosemite and more. Land on helipads, thread rings, see the sights, and crash in a collection of creative ways.">
+<meta name="theme-color" content="#ff7a1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rajdhani:wght@500;600;700&display=swap">
+<style>
+/* Crash Helicopters — "Hazard Stripe Aviation": cockpit instruments, safety orange, black/yellow hazard stripes,
+   stencil-ish display type, and a crash report that reads like an insurance claim. */
+:root { --ink:#0d0f14; --orange:#ff7a1a; --yellow:#ffd23a; --green:#4cff8a; --red:#ff3b3b; --panel:rgba(10,14,22,.82); --text:#eef3ff }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html, body { margin:0; height:100%; overflow:hidden; background:#9cc8ef; color:var(--text); font:600 16px/1.25 Rajdhani, "Segoe UI", system-ui, sans-serif; user-select:none; -webkit-tap-highlight-color:transparent; touch-action:none; overscroll-behavior:none }
+button { font:inherit; color:inherit; cursor:pointer }
+#gl, #hud { position:fixed; inset:0; width:100vw; height:100vh; display:block }
+#hud { pointer-events:none; z-index:5 }
+.stripes { background:repeating-linear-gradient(-45deg, var(--yellow) 0 14px, var(--ink) 14px 28px) }
+.home { position:fixed; top:max(8px, env(safe-area-inset-top)); left:8px; z-index:30; color:var(--ink); background:var(--yellow); text-decoration:none; font:700 14px Rajdhani; padding:3px 12px; border-radius:999px; border:2px solid var(--ink) }
+.hbtn { position:fixed; z-index:20; top:max(8px, env(safe-area-inset-top)); border:2px solid var(--ink); background:var(--panel); color:var(--text); border-radius:10px; padding:4px 12px; font:700 15px Rajdhani }
+#bMenu { right:8px } #bCam { right:86px } #bMute { right:172px }
+#attrib { position:fixed; left:8px; bottom:4px; z-index:6; font:500 11px Rajdhani; color:rgba(255,255,255,.85); text-shadow:0 1px 2px #000; pointer-events:none; max-width:70vw }
+/* menu */
+#menu { position:fixed; inset:0; z-index:40; overflow:auto; background:linear-gradient(180deg, rgba(8,12,20,.94), rgba(8,12,20,.86)); padding:18px 16px 40px }
+#menu .wrap { max-width:1040px; margin:0 auto }
+#menu h1 { margin:26px 0 0; font:clamp(38px, 8vw, 86px)/1 Bungee, Impact, sans-serif; color:var(--orange); letter-spacing:1px; text-shadow:4px 4px 0 var(--ink), 0 0 30px rgba(255,122,26,.35) }
+#menu .tag { font:600 19px Rajdhani; color:#b8c4dc; margin:6px 0 14px }
+#menu .bar { height:12px; border-radius:6px; margin:6px 0 14px }
+.sect { font:20px Bungee; color:var(--yellow); margin:16px 0 8px }
+.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px }
+.card { text-align:left; border:2px solid #2a3550; background:#121a2b; border-radius:12px; padding:10px 12px; color:var(--text) }
+.card b { display:block; font:17px Bungee; color:#fff; margin-bottom:3px }
+.card small { color:#9fb0d0; font-size:14px }
+.card.on { border-color:var(--orange); background:#2a1a0e; box-shadow:0 0 0 2px var(--orange) inset }
+.card.lock { opacity:.45 }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+.seg button { border:2px solid #2a3550; background:#121a2b; border-radius:10px; padding:5px 14px; font:700 16px Rajdhani }
+.seg button.on { border-color:var(--orange); background:#2a1a0e; color:var(--yellow) }
+#go { margin-top:18px; font:26px Bungee; padding:12px 34px; border-radius:14px; border:3px solid var(--ink); background:var(--orange); color:var(--ink); box-shadow:5px 5px 0 var(--ink) }
+#go:active { transform:translate(3px,3px); box-shadow:2px 2px 0 var(--ink) }
+.small { font-size:14px; color:#9fb0d0 }
+input[type=text] { background:#0a0f1a; color:var(--text); border:2px solid #2a3550; border-radius:8px; padding:5px 8px; font:600 15px Rajdhani; width:110px }
+.keys { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:4px 16px; font-size:15px; color:#cdd6ea }
+.keys kbd { display:inline-block; min-width:24px; text-align:center; background:#e9eefb; color:var(--ink); border-radius:5px; padding:0 5px; margin-right:4px; font:700 13px Rajdhani; box-shadow:0 2px 0 #7a86a0 }
+.gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px }
+.gallery div { border:2px dashed #2a3550; border-radius:10px; padding:6px 9px; font-size:14px; color:#6c7894 }
+.gallery div.got { border-style:solid; border-color:var(--red); color:var(--text); background:#2a1014 }
+.gallery div b { display:block; font:15px Bungee }
+/* loading + crash report */
+#loading { position:fixed; inset:0; z-index:35; display:grid; place-items:center; background:rgba(8,12,20,.9); text-align:center; padding:20px }
+#loading b { font:26px Bungee; color:var(--yellow) }
+#lbar { width:min(420px, 80vw); height:16px; border:2px solid var(--yellow); border-radius:8px; margin:14px auto 6px; overflow:hidden }
+#lbar i { display:block; height:100%; width:0; background:var(--orange) }
+#report { position:fixed; inset:0; z-index:36; display:grid; place-items:center; background:rgba(40,0,0,.45); padding:14px }
+#rbox { width:min(560px, 100%); background:#f4efe2; color:var(--ink); border-radius:6px; padding:0 0 16px; box-shadow:8px 8px 0 rgba(0,0,0,.5); transform:rotate(-1deg) }
+#rbox .stripes { height:16px }
+#rbox h2 { margin:12px 18px 2px; font:30px Bungee; color:#c1121f }
+#rbox .claim { margin:0 18px; font:600 15px/1.35 Rajdhani }
+#rbox table { margin:8px 18px; border-collapse:collapse; width:calc(100% - 36px); font:600 15px Rajdhani }
+#rbox td { border-bottom:1px dashed #b8ad94; padding:3px 0 } #rbox td:last-child { text-align:right; font-weight:700 }
+#rbox .stamp { display:inline-block; margin:6px 18px; padding:2px 12px; border:4px solid #c1121f; color:#c1121f; font:22px Bungee; transform:rotate(-6deg); border-radius:6px }
+#rbox .row { margin:8px 18px 0 }
+.rbtn { border:3px solid var(--ink); background:var(--orange); color:var(--ink); border-radius:10px; padding:6px 16px; font:18px Bungee; box-shadow:3px 3px 0 var(--ink) }
+.rbtn.alt { background:#fff }
+#toast { position:fixed; left:50%; top:max(58px, env(safe-area-inset-top)); transform:translateX(-50%); z-index:30; background:var(--panel); border:2px solid var(--yellow); color:var(--yellow); border-radius:10px; padding:6px 16px; font:700 18px Rajdhani; opacity:0; transition:opacity .3s; pointer-events:none; text-align:center; max-width:92vw }
+#toast.show { opacity:1 }
+/* touch sticks */
+.stick { position:fixed; z-index:15; bottom:calc(max(18px, env(safe-area-inset-bottom)) + 10px); width:132px; height:132px; border-radius:50%; border:3px solid rgba(255,255,255,.55); background:rgba(10,14,22,.3) }
+.stick i { position:absolute; left:40px; top:40px; width:52px; height:52px; border-radius:50%; background:rgba(255,210,58,.9); border:3px solid var(--ink) }
+.stick span { position:absolute; width:100%; top:-22px; text-align:center; font:700 13px Rajdhani; color:#fff; text-shadow:0 1px 2px #000 }
+#stL { left:16px } #stR { right:16px }
+body:not(.touch) .stick { display:none }
+body.touch #attrib { left:auto; right:8px; bottom:auto; top:max(44px, env(safe-area-inset-top)); max-width:48vw; text-align:right; font-size:9px }
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="hud"></canvas>
+<a class="home" href="index.html">← Kai.fun</a>
+<button class="hbtn" id="bMenu">MENU</button><button class="hbtn" id="bCam">CAM (C)</button><button class="hbtn" id="bMute">SOUND</button>
+<div id="attrib"></div>
+<div class="stick" id="stL"><span>collective · pedals</span><i></i></div>
+<div class="stick" id="stR"><span>cyclic</span><i></i></div>
+<div id="toast"></div>
+<div id="loading" hidden><div><b>DOWNLOADING THE PLANET</b><div id="lbar"><i></i></div><div class="small" id="ltxt">real elevation + satellite imagery</div></div></div>
+<div id="report" hidden><div id="rbox"><div class="stripes"></div><h2 id="rtitle">CRASH!</h2><div class="claim" id="rclaim"></div><table id="rtable"></table><div class="stamp" id="rstamp">CLAIM DENIED</div>
+  <div class="row"><button class="rbtn" id="rRetry">FLY AGAIN</button><button class="rbtn alt" id="rMenu">MENU</button></div></div></div>
+<div id="menu">
+  <div class="wrap">
+    <h1>CRASH<br>HELICOPTERS</h1>
+    <div class="tag">The whole real Earth, in real elevation and satellite photos. Fly a helicopter over it. Try not to... no, actually, do whatever you want.</div>
+    <div class="bar stripes"></div>
+    <div class="sect">1. WHERE</div><div class="cards" id="locs"></div>
+    <div class="row" style="margin-top:8px"><span class="small">or anywhere on Earth:</span><input type="text" id="lat" placeholder="latitude"><input type="text" id="lon" placeholder="longitude"><button class="card" id="custom" style="padding:4px 12px"><b style="font-size:14px;margin:0">FLY HERE</b></button></div>
+    <div class="sect">2. WHAT</div><div class="cards" id="helis"></div>
+    <div class="sect">3. HOW</div>
+    <div class="row seg" id="missions"></div>
+    <div class="row seg" style="margin-top:8px" id="modes"></div>
+    <div class="row seg" style="margin-top:8px" id="imagery"></div>
+    <button id="go">TAKE OFF ▶</button>
+    <div class="sect">CONTROLS</div>
+    <div class="keys">
+      <div><kbd>W</kbd><kbd>S</kbd> collective (up / down)</div><div><kbd>↑</kbd><kbd>↓</kbd> cyclic: nose down / nose up</div>
+      <div><kbd>←</kbd><kbd>→</kbd> cyclic: bank left / right</div><div><kbd>A</kbd><kbd>D</kbd> pedals: turn left / right</div>
+      <div><kbd>C</kbd> camera · <kbd>R</kbd> restart · <kbd>P</kbd> pause</div><div><kbd>Esc</kbd> menu · gamepad works · touch sticks on phones</div>
+    </div>
+    <p class="small">EASY mode holds your altitude and levels the helicopter when you let go. REAL mode doesn't: you hold the collective, fight the torque with the pedals, and land it like a pilot.</p>
+    <div class="sect">CRASH COLLECTION</div><div class="gallery" id="gallery"></div>
+    <p class="small" id="stats"></p>
+    <p class="small">Terrain: AWS Terrain Tiles (Mapzen / USGS / SRTM / others). Imagery: Esri World Imagery (Esri, Maxar, Earthstar Geographics, the GIS user community) or Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2020). There are no 3D buildings or trees: it's the ground itself. Helicopters are fictional.</p>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const R_EARTH = 6378137, PI_R = Math.PI * R_EARTH, G = 9.81;
+const DEG = Math.PI / 180;
+
+// =================================================================== data
+const LOCS = [
+  { id: 'canyon', name: 'Grand Canyon', sub: 'Arizona · drop off the South Rim', lat: 36.0565, lon: -112.1215, hdg: 0, mark: [36.0984, -112.0925, 'Inside the canyon'] },
+  { id: 'matter', name: 'Matterhorn', sub: 'Swiss Alps · from Zermatt up to 4,478 m', lat: 46.0186, lon: 7.7470, hdg: 225, mark: [45.9763, 7.6586, 'The Matterhorn summit'] },
+  { id: 'fuji', name: 'Mount Fuji', sub: 'Japan · lake to crater', lat: 35.5008, lon: 138.7640, hdg: 190, mark: [35.3606, 138.7274, "Fuji's crater"] },
+  { id: 'yose', name: 'Yosemite Valley', sub: 'California · granite walls, waterfalls', lat: 37.7406, lon: -119.5800, hdg: 270, mark: [37.7459, -119.5332, 'Half Dome'] },
+  { id: 'rio', name: 'Rio de Janeiro', sub: 'Brazil · beaches and big hills', lat: -22.9711, lon: -43.1863, hdg: 300, mark: [-22.9519, -43.2105, 'Corcovado'] },
+  { id: 'napali', name: 'Nā Pali Coast', sub: 'Kauaʻi, Hawaiʻi · sea cliffs', lat: 22.2205, lon: -159.5770, hdg: 260, mark: [22.1708, -159.6466, 'The Nā Pali cliffs'] },
+  { id: 'sf', name: 'San Francisco', sub: 'California · bay and bridges (flat, no buildings)', lat: 37.8035, lon: -122.4600, hdg: 300, mark: [37.8199, -122.4783, 'Golden Gate'] },
+  { id: 'ice', name: 'Kirkjufell', sub: 'Iceland · the arrowhead mountain', lat: 64.9250, lon: -23.3050, hdg: 330, mark: [64.9415, -23.3065, 'Kirkjufell summit'] },
+  { id: 'ever', name: 'Everest Base Camp', sub: 'Nepal · 5,364 m. Thin air. Good luck.', lat: 28.0026, lon: 86.8528, hdg: 90, mark: [27.9881, 86.9250, 'Everest summit'], thin: true },
+];
+const HELIS = {
+  skeeter: { name: 'Skeeter', sub: 'two-seat trainer · light, twitchy, cheap', mass: 750, tw: 1.85, agi: 1.25, yawA: 1.7, torque: .55, drag: 1.0, blades: 2, R: 4.3, rpm: 520, color: 0xffc21a, skid: 1.25, need: 0 },
+  mule: { name: 'Mule', sub: 'utility workhorse · steady and strong', mass: 2300, tw: 1.7, agi: .95, yawA: 1.3, torque: .6, drag: 1.1, blades: 4, R: 6.2, rpm: 390, color: 0xe63946, skid: 1.45, need: 3 },
+  banana: { name: 'Twin Banana', sub: 'tandem-rotor heavy · no tail rotor, no torque', mass: 9500, tw: 1.6, agi: .65, yawA: .9, torque: 0, drag: 1.3, blades: 3, R: 7.5, rpm: 240, color: 0x6a994e, skid: 1.7, tandem: true, need: 8 },
+  gnat: { name: 'Gnat', sub: 'racing helicopter · way too much engine', mass: 600, tw: 2.6, agi: 1.7, yawA: 2.2, torque: .7, drag: .85, blades: 3, R: 3.8, rpm: 600, color: 0x2ec4ff, skid: 1.15, need: 15 },
+};
+const MISSIONS = [['free', 'Free flight'], ['pad', 'Helipad hop'], ['rings', 'Ring run'], ['sight', 'Sightseeing']];
+const CRASHES = [
+  ['pancake', 'Pancake', 'came down flat and fast'], ['dart', 'Lawn Dart', 'nose first into the ground'], ['rotor', 'Rotor Strike', 'the blades met the planet'],
+  ['splash', 'Submarine', 'landed in water'], ['tip', 'Tip-Over', 'landed on a slope at an angle'], ['wall', 'Mountain Hug', 'flew into a hillside'],
+  ['vrs', 'Settling with Power', 'fell through your own downwash'], ['high', 'Free Fall', 'impact over 40 m/s'], ['cartwheel', 'Cartwheel', 'skidded along too fast'],
+  ['taxi', 'Fender Bender', 'crashed under 3 m/s. impressive.'], ['spin', 'Torque Roll', 'spun out with no pedal'], ['summit', 'Summit Fever', 'crashed above 4,000 m']];
+const KEY = 'crashheli_v1';
+const save0 = { landings: 0, crashes: 0, crashTypes: {}, pads: 0, rings: 0, sights: 0, best: {}, loc: 'canyon', heli: 'skeeter', mission: 'pad', mode: 'easy', imagery: 'esri', muted: false, claims: 0 };
+let SV = save0;
+try { SV = Object.assign({}, save0, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+const store = () => { try { localStorage.setItem(KEY, JSON.stringify(SV)); } catch (e) {} };
+
+// =================================================================== renderer, scene
+const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: true, logarithmicDepthBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const SKY = new THREE.Color(0xa6cdee);
+scene.background = SKY; scene.fog = new THREE.Fog(0xa6cdee, 7000, 40000);
+const camera = new THREE.PerspectiveCamera(62, 1, .4, 90000);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(.5, 1, .35); scene.add(sun);
+const SUNDIR = sun.position.clone().normalize();
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); const h = $('#hud'), d = Math.min(2, devicePixelRatio || 1); h.width = innerWidth * d; h.height = innerHeight * d; }
+addEventListener('resize', resize); resize();
+
+// =================================================================== the real Earth: streamed tiles
+let X0 = 0, Y0 = 0, K = 1;                 // world origin in web-mercator meters, and the scale fix at that latitude
+const merc = (lat, lon) => [R_EARTH * lon * DEG, R_EARTH * Math.log(Math.tan(Math.PI / 4 + lat * DEG / 2))];
+const toWorld = (lat, lon) => { const [X, Y] = merc(lat, lon); return [(X - X0) * K, -(Y - Y0) * K]; };
+const worldToMerc = (x, z) => [X0 + x / K, Y0 - z / K];
+const tileSize = z => 2 * PI_R / 2 ** z;
+const IMG = {
+  esri: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
+  eox: (z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/${z}/${y}/${x}.jpg`,
+};
+const ATTR = { esri: 'Imagery: Esri, Maxar, Earthstar Geographics, GIS User Community', eox: 'Imagery: Sentinel-2 cloudless – s2maps.eu by EOX IT Services GmbH (modified Copernicus Sentinel data 2020)' };
+const TERRAIN = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+const LEVELS = [{ z: 14, r: 2, n: 64, lower: 0 }, { z: 12, r: 3, n: 32, lower: 8 }];
+const tiles = new Map();
+const NEAR_CLIP = { value: new THREE.Vector4(1e9, 1e9, -1e9, -1e9) };     // world-space rectangle covered by sharp tiles
+function clipFar(mat){
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uNear = NEAR_CLIP;
+    sh.vertexShader = 'varying vec3 vWPos;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'varying vec3 vWPos;\nuniform vec4 uNear;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n  if (vWPos.x > uNear.x && vWPos.x < uNear.z && vWPos.z > uNear.y && vWPos.z < uNear.w) discard;');
+  };
+  mat.customProgramCacheKey = () => 'farclip';
+}
+let loadQ = [], active = 0, loadedCount = 0;
+function loadImage(url) {
+  return new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = url; });
+}
+function queue(job, pri) { loadQ.push({ job, pri }); pump(); }
+function pump() {
+  while (active < 12 && loadQ.length) {
+    loadQ.sort((a, b) => a.pri - b.pri); const { job } = loadQ.shift(); active++;
+    job().finally(() => { active--; loadedCount++; pump(); });
+  }
+}
+const decodeCanvas = document.createElement('canvas'); decodeCanvas.width = decodeCanvas.height = 256;
+const dctx = decodeCanvas.getContext('2d', { willReadFrequently: true });
+function decodeHeights(im) {
+  const H = new Float32Array(65536);
+  if (!im) return H;
+  dctx.drawImage(im, 0, 0); const d = dctx.getImageData(0, 0, 256, 256).data;
+  for (let i = 0; i < 65536; i++) H[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768;
+  return H;
+}
+function sampleH(H, u, v) {   // u, v in 0..1 across the tile
+  const fx = clamp(u * 256 - .5, 0, 255), fy = clamp(v * 256 - .5, 0, 255);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(255, x0 + 1), y1 = Math.min(255, y0 + 1), tx = fx - x0, ty = fy - y0;
+  const a = H[y0 * 256 + x0], b = H[y0 * 256 + x1], c = H[y1 * 256 + x0], d = H[y1 * 256 + x1];
+  return lerp(lerp(a, b, tx), lerp(c, d, tx), ty);
+}
+function tileGeometry(H, n, w, lower) {      // a height grid with skirts that hide cracks between tiles
+  const m = n + 3, pos = new Float32Array(m * m * 3), uv = new Float32Array(m * m * 2), col = new Float32Array(m * m * 3), idx = [];
+  const hs = new Float32Array(m * m);
+  for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
+    const gi = clamp(i - 1, 0, n), gj = clamp(j - 1, 0, n), u = gi / n, v = gj / n, k = j * m + i;
+    let h = Math.max(-2, sampleH(H, u, v)) - lower;
+    if (i === 0 || j === 0 || i === m - 1 || j === m - 1) h -= 80;
+    hs[k] = h; pos[k * 3] = (u - .5) * w; pos[k * 3 + 1] = h; pos[k * 3 + 2] = (v - .5) * w; uv[k * 2] = u; uv[k * 2 + 1] = 1 - v;
+  }
+  const step = w / n;
+  for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {        // cheap sun shading baked into vertex colors
+    const k = j * m + i, l = hs[j * m + Math.max(1, Math.min(m - 2, i - 1))], r = hs[j * m + Math.max(1, Math.min(m - 2, i + 1))];
+    const u_ = hs[Math.max(1, Math.min(m - 2, j - 1)) * m + i], d_ = hs[Math.max(1, Math.min(m - 2, j + 1)) * m + i];
+    const nx = (l - r) / (2 * step), nz = (u_ - d_) / (2 * step), len = Math.hypot(nx, 1, nz);
+    const lit = clamp(.62 + .5 * ((nx * SUNDIR.x + SUNDIR.y + nz * SUNDIR.z) / len), .55, 1.12);
+    col[k * 3] = col[k * 3 + 1] = col[k * 3 + 2] = lit;
+  }
+  for (let j = 0; j < m - 1; j++) for (let i = 0; i < m - 1; i++) { const a = j * m + i, b = a + 1, c = a + m, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeBoundingSphere(); return g;
+}
+function makeTile(L, tx, ty) {
+  const key = `${L.z}/${tx}/${ty}`;
+  const t = { key, z: L.z, tx, ty, L, H: null, mesh: null, dead: false };
+  tiles.set(key, t);
+  const s = tileSize(L.z), Xc = -PI_R + (tx + .5) * s, Yc = PI_R - (ty + .5) * s, cxw = (Xc - X0) * K, czw = -(Yc - Y0) * K;
+  const dist = Math.hypot(cxw - (heli ? heli.pos.x : 0), czw - (heli ? heli.pos.z : 0));
+  queue(async () => {
+    if (t.dead) return;
+    const im = await loadImage(TERRAIN(L.z, tx, ty)); if (t.dead) return;
+    t.H = decodeHeights(im);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x8a9a78, vertexColors: true, polygonOffset: L.lower > 0, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
+    if (L.lower) clipFar(mat);
+    t.mesh = new THREE.Mesh(tileGeometry(t.H, L.n, s * K, L.lower), mat); t.mesh.position.set(cxw, 0, czw); t.mesh.renderOrder = L.lower ? -1 : 0; scene.add(t.mesh);
+    // imagery: 4 child tiles stitched into one 512px texture
+    const c = document.createElement('canvas'); c.width = c.height = 512; const cc = c.getContext('2d');
+    const zi = Math.min(L.z + 1, 17);
+    const ims = await Promise.all([[0, 0], [1, 0], [0, 1], [1, 1]].map(([dx, dy]) => loadImage(IMG[SV.imagery](zi, tx * 2 + dx, ty * 2 + dy))));
+    if (t.dead) return;
+    ims.forEach((im2, k) => { const dx = k % 2, dy = k >> 1; if (im2) cc.drawImage(im2, dx * 256, dy * 256); else { cc.fillStyle = '#4a6a8a'; cc.fillRect(dx * 256, dy * 256, 256, 256); } });
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAniso;
+    mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true;
+  }, dist + (L.lower ? 4000 : 0));
+  return t;
+}
+async function sharpen(t) {          // the 3x3 tiles around you get 4x4 child imagery (about 2.4 m per pixel)
+  t.hi = true;
+  const c = document.createElement('canvas'); c.width = c.height = 1024; const cc = c.getContext('2d'), z = t.z + 2, jobs = [];
+  for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) jobs.push(loadImage(IMG[SV.imagery](z, t.tx * 4 + dx, t.ty * 4 + dy)).then(im => { if (im) cc.drawImage(im, dx * 256, dy * 256); return !!im; }));
+  const ok = await Promise.all(jobs);
+  if (t.dead || !t.mesh || ok.filter(Boolean).length < 12) return;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAniso;
+  const old = t.mesh.material.map; t.mesh.material.map = tex; t.mesh.material.color.set(0xffffff); t.mesh.material.needsUpdate = true; if (old) old.dispose();
+}
+function dropTile(t) { t.dead = true; tiles.delete(t.key); if (t.mesh) { scene.remove(t.mesh); t.mesh.geometry.dispose(); if (t.mesh.material.map) t.mesh.material.map.dispose(); t.mesh.material.dispose(); } }
+let ringCenter = '';
+function updateTiles(force) {
+  const [X, Y] = worldToMerc(heli.pos.x, heli.pos.z);
+  const want = new Set(); let sig = '';
+  for (const L of LEVELS) {
+    const s = tileSize(L.z), cxT = Math.floor((X + PI_R) / s), cyT = Math.floor((PI_R - Y) / s); sig += cxT + ',' + cyT + ';';
+    for (let dy = -L.r; dy <= L.r; dy++) for (let dx = -L.r; dx <= L.r; dx++) { const key = `${L.z}/${cxT + dx}/${cyT + dy}`; want.add(key); if (!tiles.has(key)) makeTile(L, cxT + dx, cyT + dy); }
+    for (const t of [...tiles.values()]) if (t.z === L.z && (Math.abs(t.tx - cxT) > L.r + 1 || Math.abs(t.ty - cyT) > L.r + 1)) dropTile(t);
+    if (L.z === 14){        // the largest fully-loaded square of sharp tiles around you hides the blurry layer underneath
+      let r = 0; for (const rr of [2, 1]){ let ok = true; for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr; dx++){ const t = tiles.get(`14/${cxT + dx}/${cyT + dy}`); if (!t || !t.mesh){ ok = false; break; } } if (ok){ r = rr; break; } }
+      if (r){ const x0 = (-PI_R + (cxT - r) * s - X0) * K, x1 = (-PI_R + (cxT + r + 1) * s - X0) * K, z0 = -((PI_R - (cyT - r) * s) - Y0) * K, z1 = -((PI_R - (cyT + r + 1) * s) - Y0) * K; NEAR_CLIP.value.set(Math.min(x0, x1) + 20, Math.min(z0, z1) + 20, Math.max(x0, x1) - 20, Math.max(z0, z1) - 20); }
+      else NEAR_CLIP.value.set(1e9, 1e9, -1e9, -1e9);
+    }
+    if (L.z === 14) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = tiles.get(`14/${cxT + dx}/${cyT + dy}`); if (t && t.mesh && t.mesh.material.map && !t.hi) { t.hi = true; queue(() => sharpen(t), 6000 + Math.hypot(dx, dy) * 1000); } }
+  }
+  if (sig !== ringCenter) { ringCenter = sig; loadQ = loadQ.filter(q => true); }
+}
+function clearTiles() { for (const t of [...tiles.values()]) dropTile(t); loadQ = []; ringCenter = ''; NEAR_CLIP.value.set(1e9, 1e9, -1e9, -1e9); }
+let lastH = 0;
+function terrainRaw(x, z) {        // real elevation at a world point (m), from the best tile loaded there
+  const [X, Y] = worldToMerc(x, z);
+  for (const L of LEVELS) {
+    const s = tileSize(L.z), fx = (X + PI_R) / s, fy = (PI_R - Y) / s, t = tiles.get(`${L.z}/${Math.floor(fx)}/${Math.floor(fy)}`);
+    if (t && t.H) return sampleH(t.H, fx - Math.floor(fx), fy - Math.floor(fy));
+  }
+  return null;
+}
+function ground(x, z) { const h = terrainRaw(x, z); if (h == null) return lastH; return Math.max(0, h); }
+const isWater = (x, z) => { const h = terrainRaw(x, z); return h != null && h <= .3; };
+function nearReady(x, z) { const [X, Y] = worldToMerc(x, z), s = tileSize(14), cx = Math.floor((X + PI_R) / s), cy = Math.floor((PI_R - Y) / s); let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = tiles.get(`14/${cx + dx}/${cy + dy}`); if (t && t.H) n++; } return n; }
+
+// =================================================================== helicopters (original designs, built from shapes)
+function std(color, o = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: .55, metalness: .15 }, o)); }
+function buildHeli(type) {
+  const H = HELIS[type], grp = new THREE.Group(), parts = [];
+  const body = std(H.color), dark = std(0x2b2f3a), metal = std(0xb8bec8, { metalness: .6, roughness: .35 }), glass = std(0x6fb7ff, { transparent: true, opacity: .55, roughness: .1 });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = grp) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); parts.push(m); return m; };
+  const rotors = [];
+  const rotor = (x, y, z, R, n, dir) => {
+    const hub = new THREE.Group(); hub.position.set(x, y, z); grp.add(hub);
+    for (let k = 0; k < n; k++) { const b = add(new THREE.BoxGeometry(.32, .06, R), dark, 0, 0, -R / 2, 0, 0, 0, new THREE.Group()); const arm = b.parent; arm.rotation.y = k / n * Math.PI * 2; hub.add(arm); }
+    add(new THREE.CylinderGeometry(.25, .25, .35, 10), metal, 0, 0, 0, 0, 0, 0, hub);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 40), new THREE.MeshBasicMaterial({ color: 0x222833, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+    disc.rotation.x = -Math.PI / 2; hub.add(disc);
+    rotors.push({ hub, disc, dir }); return hub;
+  };
+  let tail = null;
+  if (type === 'banana') {
+    add(new THREE.CapsuleGeometry(1.3, 10, 6, 14), body, 0, 0, 0, Math.PI / 2, 0, 0);
+    add(new THREE.BoxGeometry(1.6, 1.4, 2.6), dark, 0, 1.6, 5.3); add(new THREE.BoxGeometry(1.2, .8, 1.6), dark, 0, 1.25, -5);
+    add(new THREE.SphereGeometry(1.1, 14, 10), glass, 0, .3, -6.1).scale.set(1, .7, .7);
+    for (const z of [-4, 3.6]) for (const x of [-1.1, 1.1]) add(new THREE.CylinderGeometry(.35, .35, .3, 12), dark, x, -1.45, z, 0, 0, Math.PI / 2);
+    rotor(0, 1.75, -5, H.R, H.blades, 1); rotor(0, 3.0, 5.3, H.R, H.blades, -1);
+  } else {
+    const L = type === 'mule' ? 3.6 : 2.6, W = type === 'mule' ? 1.7 : 1.3;
+    if (type === 'mule') { add(new THREE.BoxGeometry(W, 1.6, L), body, 0, 0, 0); add(new THREE.BoxGeometry(W * .95, 1.1, 1.1), glass, 0, .15, -L / 2 - .4); add(new THREE.BoxGeometry(W, .3, L), dark, 0, .9, 0); }
+    else { add(new THREE.SphereGeometry(1, 18, 14), glass, 0, .15, -.4).scale.set(W * .85, .95, 1.25); add(new THREE.BoxGeometry(W * 1.1, .7, 1.8), body, 0, -.45, .25); add(new THREE.BoxGeometry(W * .9, .9, 1.2), body, 0, .2, 1.1); }
+    if (type === 'gnat') { add(new THREE.BoxGeometry(.1, .9, 1.2), std(0xffffff), 0, .9, .7); }
+    const boomL = type === 'mule' ? 6.5 : type === 'gnat' ? 4.2 : 4.8;
+    add(new THREE.CylinderGeometry(.14, .3, boomL, 10), body, 0, .35, L / 2 + boomL / 2 - .3, Math.PI / 2, 0, 0);
+    add(new THREE.BoxGeometry(.12, 1.3, .8), body, 0, .9, L / 2 + boomL - .5);
+    add(new THREE.BoxGeometry(1.6, .08, .5), body, 0, .35, L / 2 + boomL - 1.5);
+    tail = new THREE.Group(); tail.position.set(.25, .9, L / 2 + boomL - .4); grp.add(tail);
+    for (let k = 0; k < 2; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.05, 1.3, .14), dark); b.rotation.x = k * Math.PI / 2; tail.add(b); parts.push(b); }
+    add(new THREE.CylinderGeometry(.12, .12, 1.2, 8), metal, 0, 1, 0);
+    rotor(0, 1.65, 0, H.R, H.blades, 1);
+    for (const x of [-1, 1]) { add(new THREE.CylinderGeometry(.06, .06, L + 1.4, 8), metal, x * (W * .55 + .2), -H.skid + .05, -.1, Math.PI / 2, 0, 0); for (const z of [-.8, .8]) add(new THREE.CylinderGeometry(.05, .05, H.skid - .6, 6), metal, x * (W * .45 + .1), -H.skid / 2 - .2, z, 0, 0, x * .3); }
+  }
+  grp.traverse(o => { if (o.isMesh) o.castShadow = false; });
+  return { grp, parts, rotors, tail };
+}
+// a blob shadow on the ground, very helpful for landing
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35, depthWrite: false }));
+shadow.rotation.x = -Math.PI / 2; scene.add(shadow);
+
+// =================================================================== the helicopter
+let heli = null, model = null, loc = null, mission = null, paused = false, inMenu = true, camMode = 0, startT = 0;
+function newHeli(type, x, z, yaw) {
+  if (model) scene.remove(model.grp);
+  model = buildHeli(type); scene.add(model.grp);
+  const H = HELIS[type];
+  heli = { type, H, pos: new THREE.Vector3(x, 0, z), vel: new THREE.Vector3(), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ')), w: new THREE.Vector3(),
+    col: 0, rpm: 0, landed: true, crashed: false, grace: 3, rotorAng: 0, tailAng: 0, maxAlt: 0, dist: 0, flightT: 0, vrs: 0, spin: 0 };
+  heli.pos.y = ground(x, z) + H.skid;
+}
+const input = { col: 0, pitch: 0, roll: 0, yaw: 0 };
+function step(dt) {
+  const h = heli, H = h.H, easy = SV.mode === 'easy';
+  if (h.crashed) return;
+  h.flightT += dt; if (h.grace > 0) h.grace -= dt;
+  h.rpm = Math.min(1, h.rpm + dt / 3.2);                       // spin-up when you start
+  const e = new THREE.Euler().setFromQuaternion(h.q, 'YXZ');
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(h.q), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(h.q), right = new THREE.Vector3(1, 0, 0).applyQuaternion(h.q);
+  const gH = ground(h.pos.x, h.pos.z), agl = h.pos.y - H.skid - gH;
+  const hs = Math.hypot(h.vel.x, h.vel.z);
+  const thin = loc.thin ? clamp(1 - Math.max(0, h.pos.y - 2000) / 12000, .45, 1) : clamp(1 - Math.max(0, h.pos.y - 2500) / 14000, .55, 1);   // air thins with altitude
+  const ige = agl < H.R * 2 ? .14 * (1 - agl / (H.R * 2)) : 0;
+  const etl = .1 * clamp((hs - 7) / 8, 0, 1) * clamp((40 - hs) / 20, 0, 1);
+  let tf = H.tw * (1 + ige + etl) * thin * h.rpm * h.rpm;
+  // vortex ring state: descending fast into your own downwash with little forward speed
+  if (h.vel.y < -6 && hs < 8 && agl > 5) { h.vrs = Math.min(1, h.vrs + dt * .8); } else h.vrs = Math.max(0, h.vrs - dt * 1.5);
+  if (!easy) tf *= 1 - .35 * h.vrs;
+  // collective
+  if (easy) {
+    const target = input.col * 8, cosT = Math.max(.35, up.y);
+    let c = 1 / (tf * cosT || 1) + (target - h.vel.y) * .09;
+    if (h.landed && input.col <= .05) c = 0;
+    h.col = clamp(lerp(h.col, c, Math.min(1, dt * 6)), 0, 1);
+  } else h.col = clamp(h.col + input.col * dt * .55, 0, 1);
+  // attitude
+  const ag = H.agi, w = h.w;
+  if (easy) {
+    const pT = -input.pitch * 26 * DEG, rT = -input.roll * 32 * DEG;
+    const wx = clamp((pT - e.x) * 3.2, -1.6, 1.6) * ag, wz = clamp((rT - e.z) * 3.2, -1.6, 1.6) * ag;
+    const wy = input.yaw * H.yawA * .75 + (-e.z) * clamp(hs / 25, 0, 1) * .9;      // coordinated turns
+    w.x = lerp(w.x, wx, Math.min(1, dt * 7)); w.z = lerp(w.z, wz, Math.min(1, dt * 7)); w.y = lerp(w.y, wy, Math.min(1, dt * 5));
+  } else {
+    w.x += (-input.pitch * 2.3 * ag - w.x * 1.6 - e.x * .25) * dt;
+    w.z += (-input.roll * 2.7 * ag - w.z * 1.6 - e.z * .2) * dt;
+    const torq = H.torque * h.col * h.rpm * 1.4;                                   // the main rotor wants to spin you; pedals fight it
+    const beta = Math.atan2(h.vel.clone().dot(right), Math.max(1, -h.vel.clone().dot(fwd)));
+    w.y += (input.yaw * H.yawA * 1.6 - torq - w.y * 1.4 - beta * clamp(hs / 30, 0, 1) * 1.2) * dt;
+  }
+  if (Math.abs(w.y) > 3) h.spin += dt; else h.spin = Math.max(0, h.spin - dt);
+  if (!h.landed) {
+    const dq = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.x * dt, w.y * dt, w.z * dt, 'YXZ'));
+    h.q.multiply(dq).normalize();
+  } else {      // sitting on the ground: settle level, only yaw
+    const e2 = new THREE.Euler().setFromQuaternion(h.q, 'YXZ'); e2.x *= Math.exp(-dt * 6); e2.z *= Math.exp(-dt * 6); if (h.col > .3) e2.y += w.y * dt * .3; h.q.setFromEuler(e2); w.set(0, w.y * .9, 0);
+  }
+  // forces
+  const m = H.mass, thrust = up.clone().multiplyScalar(h.col * tf * m * G);
+  const vb = h.vel.clone().applyQuaternion(h.q.clone().invert());
+  const c = m * .0011 * H.drag;
+  const db = new THREE.Vector3(-c * 2.4 * vb.x * Math.abs(vb.x), -c * 3.2 * vb.y * Math.abs(vb.y), -c * 1.0 * vb.z * Math.abs(vb.z)).applyQuaternion(h.q);
+  const acc = thrust.add(db).multiplyScalar(1 / m); acc.y -= G;
+  h.vel.addScaledVector(acc, dt);
+  const before = h.pos.clone(); h.pos.addScaledVector(h.vel, dt); h.dist += h.pos.distanceTo(before);
+  h.maxAlt = Math.max(h.maxAlt, h.pos.y);
+  // ground and water contact
+  const g2 = ground(h.pos.x, h.pos.z), water = isWater(h.pos.x, h.pos.z), floor = water ? 0 : g2;
+  const tilt = Math.acos(clamp(up.y, -1, 1)) / DEG;
+  // rotor strike: blade tips into the terrain
+  if (!h.landed && h.grace <= 0) {
+    for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const tip = h.pos.clone().addScaledVector(up, 1.6).addScaledVector(right, a * H.R * .95).addScaledVector(fwd, b * H.R * .95);
+      if (tip.y < ground(tip.x, tip.z) && !isWater(tip.x, tip.z)) return crash(tilt > 40 ? 'rotor' : 'wall', h.vel.length());
+    }
+  }
+  if (h.pos.y - H.skid <= floor) {
+    const vs = -h.vel.y, speed = h.vel.length();
+    if (water && h.grace <= 0) return crash('splash', speed);
+    if (!h.landed) {
+      const nose = (-e.x / DEG);
+      if (h.grace > 0) { h.landed = true; }
+      else if (speed > 40) return crash('high', speed);
+      else if (hs > 9 && vs < 4) return crash(hs > 18 ? 'wall' : 'cartwheel', speed);
+      else if (vs > 4.5 || hs > 9 || tilt > 26) {
+        const type = tilt > 26 ? (nose > 25 ? 'dart' : speed < 3 ? 'taxi' : 'tip') : h.vrs > .5 ? 'vrs' : h.spin > .5 ? 'spin' : 'pancake';
+        return crash(type, speed);
+      } else { h.landed = true; touchdown(vs, hs); }
+    }
+    h.pos.y = floor + H.skid; if (h.vel.y < 0) h.vel.y = 0;
+    h.vel.x *= Math.exp(-dt * 5); h.vel.z *= Math.exp(-dt * 5);
+  }
+  if (h.landed && h.col * tf * up.y > 1.02 && h.pos.y - H.skid > floor + .05) h.landed = false;
+  if (h.landed && h.col * tf * up.y > 1.02) { h.pos.y += .1; h.landed = false; }
+}
+function touchdown(vs, hs) {
+  const soft = vs < 1.2 ? 'BUTTER' : vs < 2.5 ? 'nice landing' : 'firm landing';
+  toast(`${soft} (${vs.toFixed(1)} m/s)`); sfx('land');
+  if (mission) mission.onLand(vs, hs);
+}
+
+// =================================================================== crashes
+const debris = [], fx = [];
+let crashInfo = null;
+function crash(type, speed) {
+  const h = heli; if (h.crashed) return; h.crashed = true;
+  if (h.pos.y > 4000 && type !== 'splash') type = Math.random() < .5 ? 'summit' : type;
+  SV.crashes++; SV.crashTypes[type] = (SV.crashTypes[type] || 0) + 1; const claim = Math.round((speed * speed * HELIS[h.type].mass * .4 + 25000) / 100) * 100; SV.claims += claim; store();
+  crashInfo = { type, speed, claim, first: SV.crashTypes[type] === 1 };
+  sfx('crash'); shake = 2.5;
+  // the helicopter comes apart
+  model.grp.updateMatrixWorld(true);
+  for (const p of model.parts) {
+    const m = p.clone(); p.getWorldPosition(m.position); p.getWorldQuaternion(m.quaternion); p.getWorldScale(m.scale); scene.add(m);
+    debris.push({ m, v: h.vel.clone().multiplyScalar(.35).add(new THREE.Vector3(rnd(-9, 9), rnd(4, 16), rnd(-9, 9))), w: new THREE.Vector3(rnd(-6, 6), rnd(-6, 6), rnd(-6, 6)), life: 30 });
+  }
+  scene.remove(model.grp);
+  for (let k = 0; k < 14; k++) fx.push(blob(h.pos, type === 'splash' ? 0xffffff : pick([0xffa21a, 0xff5a1a, 0xffd23a]), rnd(1.5, 4), new THREE.Vector3(rnd(-5, 5), rnd(2, 12), rnd(-5, 5)), type === 'splash' ? 1.4 : 1.1, true));
+  for (let k = 0; k < 18; k++) fx.push(blob(h.pos, 0x333338, rnd(2, 5), new THREE.Vector3(rnd(-2, 2), rnd(3, 8), rnd(-2, 2)), 5, false));
+  setTimeout(showReport, 2600);
+}
+function blob(p, color, size, v, life, add) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .9, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending }));
+  m.position.copy(p); m.scale.setScalar(size); scene.add(m); return { m, v, life, max: life, size, grow: add ? 4 : 2.5 };
+}
+function updateFx(dt) {
+  for (let i = debris.length - 1; i >= 0; i--) {
+    const d = debris[i]; d.v.y -= G * dt; d.m.position.addScaledVector(d.v, dt);
+    d.m.rotation.x += d.w.x * dt; d.m.rotation.y += d.w.y * dt; d.m.rotation.z += d.w.z * dt;
+    const gy = isWater(d.m.position.x, d.m.position.z) ? -1.5 : ground(d.m.position.x, d.m.position.z);
+    if (d.m.position.y < gy + .2) { d.m.position.y = gy + .2; d.v.y = Math.abs(d.v.y) * .3; d.v.x *= .6; d.v.z *= .6; d.w.multiplyScalar(.6); }
+    d.life -= dt; if (d.life <= 0) { scene.remove(d.m); debris.splice(i, 1); }
+  }
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i]; f.life -= dt; f.m.position.addScaledVector(f.v, dt); f.v.multiplyScalar(Math.exp(-dt * .8));
+    const k = 1 - f.life / f.max; f.m.scale.setScalar(f.size * (1 + k * f.grow)); f.m.material.opacity = .9 * (1 - k);
+    if (f.life <= 0) { scene.remove(f.m); f.m.geometry.dispose(); f.m.material.dispose(); fx.splice(i, 1); }
+  }
+}
+const QUIPS = {
+  pancake: 'The helicopter is now significantly flatter than the manufacturer intended.', dart: 'Pilot attempted to plant the helicopter. It did not grow.',
+  rotor: 'Rotor blades were used to mow a mountain.', splash: 'Helicopter was converted into a submarine without the necessary paperwork.', tip: 'Aircraft was parked on its side, which is not a side.',
+  wall: 'Pilot reports the mountain "came out of nowhere". The mountain has been there for 10 million years.', vrs: 'Pilot fell through their own air. This is a real thing. Look it up.',
+  high: 'Aircraft reached terminal velocity, then the terminal.', cartwheel: 'Helicopter performed an unsanctioned gymnastics routine.', taxi: 'Crashed at walking speed. The adjuster laughed for six minutes.',
+  spin: 'Pilot forgot that the tail rotor is not decorative.', summit: 'Pilot planted a flag. The flag was the helicopter.' };
+function showReport() {
+  const c = crashInfo, info = CRASHES.find(x => x[0] === c.type);
+  $('#rtitle').textContent = info[1].toUpperCase() + '!';
+  $('#rclaim').textContent = QUIPS[c.type] || '';
+  $('#rtable').innerHTML = [['Aircraft', HELIS[heli.type].name], ['Location', loc.name], ['Impact speed', `${c.speed.toFixed(1)} m/s (${Math.round(c.speed * 1.944)} kt)`], ['Flight time', `${heli.flightT.toFixed(0)} s`], ['Highest point', `${Math.round(heli.maxAlt)} m`],
+    ['Insurance claim', '$' + c.claim.toLocaleString()], ['Your lifetime crashes', SV.crashes]].map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('') + (c.first ? `<tr><td colspan="2" style="color:#c1121f">NEW CRASH TYPE FOR THE COLLECTION</td></tr>` : '');
+  $('#rstamp').textContent = pick(['CLAIM DENIED', 'CLAIM DENIED', 'NOT COVERED', 'PILOT ERROR', 'ACT OF GRAVITY']);
+  $('#report').hidden = false;
+}
+$('#rRetry').onclick = () => { $('#report').hidden = true; startFlight(); };
+$('#rMenu').onclick = () => { $('#report').hidden = true; openMenu(); };
+
+// =================================================================== missions
+const marks = new THREE.Group(); scene.add(marks);
+function clearMarks() { while (marks.children.length) { const m = marks.children.pop(); m.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } }
+function padTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#2b2f3a'; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill(); g.strokeStyle = '#ffd23a'; g.lineWidth = 10; g.beginPath(); g.arc(128, 128, 110, 0, 7); g.stroke();
+  g.fillStyle = '#fff'; g.font = 'bold 150px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('H', 128, 136);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const PADTEX = padTexture();
+function findFlat(x0, z0, rMin, rMax) {
+  for (let k = 0; k < 400; k++) {
+    const a = rnd(0, Math.PI * 2), r = rnd(rMin, rMax), x = x0 + Math.cos(a) * r, z = z0 + Math.sin(a) * r;
+    const hs = []; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const v = terrainRaw(x + i * 10, z + j * 10); if (v == null) { hs.length = 0; break; } hs.push(v); }
+    if (hs.length < 9) continue; const mn = Math.min(...hs), mx = Math.max(...hs);
+    if (mn > 1 && mx - mn < 1.6) return [x, z, mx];
+  }
+  return null;
+}
+function beam(x, z, y, color, h = 900) { const m = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, h, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .35, depthWrite: false, side: THREE.DoubleSide })); m.position.set(x, y + h / 2, z); marks.add(m); return m; }
+function makeMission(kind) {
+  clearMarks();
+  const h = heli, M = { kind, t: 0, text: '', done: false, target: null, onLand() {}, tick() {} };
+  if (kind === 'pad') {
+    let f = findFlat(h.pos.x, h.pos.z, 700, 2200) || findFlat(h.pos.x, h.pos.z, 300, 3500);
+    if (!f) { f = [h.pos.x + 900, h.pos.z, ground(h.pos.x + 900, h.pos.z)]; }
+    const [x, z, y] = f, pad = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, .6, 32), [new THREE.MeshBasicMaterial({ color: 0x2b2f3a }), new THREE.MeshBasicMaterial({ map: PADTEX }), new THREE.MeshBasicMaterial({ color: 0x2b2f3a })]);
+    pad.position.set(x, y + .3, z); marks.add(pad); beam(x, z, y, 0xffd23a, 500);
+    M.target = new THREE.Vector3(x, y, z); M.text = 'Land on the helipad';
+    M.onLand = () => { if (Math.hypot(h.pos.x - x, h.pos.z - z) < 12) { M.done = true; SV.pads++; SV.landings++; win(`Helipad! ${M.t.toFixed(1)} s`, 'pad'); } else SV.landings++; store(); };
+  } else if (kind === 'rings') {
+    const pts = []; let x = h.pos.x, z = h.pos.z, a = -new THREE.Euler().setFromQuaternion(h.q, 'YXZ').y - Math.PI / 2;
+    for (let k = 0; k < 8; k++) { a += rnd(-.6, .6); x += Math.cos(a) * rnd(380, 520); z += Math.sin(a) * rnd(380, 520); const y = ground(x, z) + rnd(50, 130); pts.push(new THREE.Vector3(x, y, z)); }
+    M.rings = pts.map((p, k) => { const r = new THREE.Mesh(new THREE.TorusGeometry(18, 1.6, 10, 40), new THREE.MeshBasicMaterial({ color: k ? 0xff7a1a : 0x4cff8a })); r.position.copy(p); const nx = (pts[k + 1] || p).clone().sub(pts[k - 1] || h.pos); r.lookAt(p.clone().add(nx)); marks.add(r); return r; });
+    M.i = 0; M.target = pts[0]; M.text = 'Fly through the rings: 0 / 8';
+    M.tick = () => { const r = M.rings[M.i]; if (!r) return; if (h.pos.distanceTo(r.position) < 17) { r.material.color.set(0x4cff8a); r.visible = false; sfx('ring'); M.i++; if (M.rings[M.i]) { M.rings[M.i].material.color.set(0x4cff8a); M.target = M.rings[M.i].position; } M.text = `Fly through the rings: ${M.i} / 8`; if (M.i >= 8) { M.done = true; SV.rings++; store(); win(`All rings! ${M.t.toFixed(1)} s`, 'rings'); } } };
+  } else if (kind === 'sight') {
+    const [x, z] = toWorld(loc.mark[0], loc.mark[1]); const y = Math.max(0, terrainRaw(x, z) ?? 0);
+    beam(x, z, y, 0x2ec4ff, 1500); M.target = new THREE.Vector3(x, y, z); M.hold = 0; M.text = `See the sights: ${loc.mark[2]}`;
+    M.tick = () => { const d = Math.hypot(h.pos.x - x, h.pos.z - z); if (d < 500) { M.hold += 1 / 60; M.text = `${loc.mark[2]}: hold here ${Math.max(0, 6 - M.hold).toFixed(1)} s`; if (M.hold > 6 && !M.done) { M.done = true; SV.sights++; store(); win(`You saw ${loc.mark[2]}`, 'sight'); } } else M.text = `See the sights: ${loc.mark[2]} (${(d / 1000).toFixed(1)} km)`; };
+  } else M.text = 'Free flight: go anywhere';
+  return M;
+}
+function win(msg, kind) {
+  const key = `${loc.id}:${kind}:${heli.type}`, prev = SV.best[key];
+  if (!prev || mission.t < prev) { SV.best[key] = +mission.t.toFixed(1); store(); msg += prev ? ' (new best!)' : ''; }
+  toast(msg + ' · keep flying, or press R for a new one', 4500); sfx('win');
+  for (const [id, H] of Object.entries(HELIS)) if (H.need && SV.landings >= H.need && !SV['u_' + id]) { SV['u_' + id] = 1; store(); setTimeout(() => toast(`NEW HELICOPTER UNLOCKED: ${H.name}`, 4000), 2500); }
+}
+
+// =================================================================== sound (rotor whop, turbine whine, wind, booms)
+let AC = null, nodes = null;
+function audio() {
+  if (AC || SV.muted) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  const len = AC.sampleRate * 2, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const master = AC.createGain(); master.gain.value = .55; master.connect(AC.destination);
+  const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+  const thump = AC.createGain(); thump.gain.value = 0;
+  const lfo = AC.createOscillator(); lfo.type = 'sawtooth'; lfo.frequency.value = 10; const lfoG = AC.createGain(); lfoG.gain.value = 0; lfo.connect(lfoG).connect(thump.gain);
+  src.connect(lp).connect(thump).connect(master);
+  const whine = AC.createOscillator(); whine.type = 'sawtooth'; whine.frequency.value = 900; const wg = AC.createGain(); wg.gain.value = 0; const whp = AC.createBiquadFilter(); whp.type = 'bandpass'; whp.frequency.value = 1400; whp.Q.value = 6; whine.connect(whp).connect(wg).connect(master);
+  const wsrc = AC.createBufferSource(); wsrc.buffer = buf; wsrc.loop = true; const wbp = AC.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 700; wbp.Q.value = .5; const windG = AC.createGain(); windG.gain.value = 0; wsrc.connect(wbp).connect(windG).connect(master);
+  src.start(); lfo.start(); whine.start(); wsrc.start();
+  nodes = { master, thump, lfo, lfoG, whine, wg, windG, buf };
+}
+function updateAudio() {
+  if (!nodes) return; const t = AC.currentTime, h = heli && heli.H ? heli : null, on = h && !h.crashed && !inMenu && !paused;
+  const rpm = on ? h.rpm : 0, bp = (h ? h.H.rpm * h.H.blades / 60 : 10) * Math.max(.2, rpm);
+  nodes.lfo.frequency.setTargetAtTime(bp, t, .1);
+  nodes.thump.gain.setTargetAtTime(on ? .25 + .35 * h.col : 0, t, .1); nodes.lfoG.gain.setTargetAtTime(on ? .3 + .3 * h.col : 0, t, .1);
+  nodes.whine.frequency.setTargetAtTime(500 + 900 * rpm, t, .2); nodes.wg.gain.setTargetAtTime(on ? .03 + .03 * h.col : 0, t, .2);
+  nodes.windG.gain.setTargetAtTime(on ? Math.min(.35, h.vel.length() ** 2 / 9000) : 0, t, .2);
+}
+function sfx(k) {
+  if (!AC || SV.muted) return; const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.connect(g).connect(nodes.master);
+  if (k === 'crash') {
+    const s = AC.createBufferSource(); s.buffer = nodes.buf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(2000, t); f.frequency.exponentialRampToValueAtTime(80, t + 2); const sg = AC.createGain(); sg.gain.setValueAtTime(1.4, t); sg.gain.exponentialRampToValueAtTime(.001, t + 2.4); s.connect(f).connect(sg).connect(nodes.master); s.start(t); s.stop(t + 2.5);
+    o.type = 'sine'; o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(30, t + 1); g.gain.setValueAtTime(.9, t); g.gain.exponentialRampToValueAtTime(.001, t + 1.2);
+  } else if (k === 'ring') { o.type = 'triangle'; o.frequency.setValueAtTime(880, t); o.frequency.setValueAtTime(1320, t + .08); g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.001, t + .3); }
+  else if (k === 'win') { o.type = 'square'; [523, 659, 784, 1047].forEach((f, i) => o.frequency.setValueAtTime(f, t + i * .1)); g.gain.setValueAtTime(.1, t); g.gain.exponentialRampToValueAtTime(.001, t + .6); }
+  else if (k === 'land') { o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(60, t + .2); g.gain.setValueAtTime(.4, t); g.gain.exponentialRampToValueAtTime(.001, t + .3); }
+  else if (k === 'warn') { o.type = 'square'; o.frequency.setValueAtTime(1000, t); g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + .15); }
+  o.start(t); o.stop(t + 2.6);
+}
+$('#bMute').onclick = () => { SV.muted = !SV.muted; store(); if (SV.muted && nodes) nodes.master.gain.value = 0; else { audio(); if (nodes) nodes.master.gain.value = .55; } $('#bMute').textContent = SV.muted ? 'MUTED' : 'SOUND'; };
+$('#bMute').textContent = SV.muted ? 'MUTED' : 'SOUND';
+
+// =================================================================== input: keyboard, gamepad, touch sticks
+const keys = {};
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return; keys[e.code] = true;
+  if (e.code === 'KeyC') camMode = (camMode + 1) % 3;
+  if (e.code === 'KeyR' && !inMenu) { $('#report').hidden = true; startFlight(); }
+  if (e.code === 'KeyP' && !inMenu) { paused = !paused; toast(paused ? 'PAUSED' : 'GO'); }
+  if (e.code === 'Escape') { if (inMenu && heli) closeMenu(); else openMenu(); }
+  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+const sticks = { L: [0, 0], R: [0, 0] };
+for (const [id, k] of [['#stL', 'L'], ['#stR', 'R']]) {
+  const el = $(id), knob = el.querySelector('i'); let pid = null;
+  const mv = e => { const r = el.getBoundingClientRect(); let dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2; const d = Math.hypot(dx, dy), m = 50; if (d > m) { dx *= m / d; dy *= m / d; } sticks[k] = [dx / m, dy / m]; knob.style.transform = `translate(${dx}px,${dy}px)`; };
+  el.addEventListener('pointerdown', e => { pid = e.pointerId; el.setPointerCapture(pid); mv(e); audio(); });
+  el.addEventListener('pointermove', e => { if (e.pointerId === pid) mv(e); });
+  const end = () => { pid = null; sticks[k] = [0, 0]; knob.style.transform = ''; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+if (matchMedia('(pointer:coarse)').matches) document.body.classList.add('touch');
+let orbit = { yaw: 0, pitch: .3, drag: null };
+$('#gl').addEventListener('pointerdown', e => { audio(); orbit.drag = [e.clientX, e.clientY]; });
+addEventListener('pointermove', e => { if (orbit.drag && camMode === 2) { orbit.yaw -= (e.clientX - orbit.drag[0]) * .006; orbit.pitch = clamp(orbit.pitch + (e.clientY - orbit.drag[1]) * .004, -.2, 1.4); orbit.drag = [e.clientX, e.clientY]; } });
+addEventListener('pointerup', () => orbit.drag = null);
+$('#bCam').onclick = () => camMode = (camMode + 1) % 3;
+function readInput() {
+  const k = c => keys[c] ? 1 : 0, dz = v => Math.abs(v) < .12 ? 0 : v;
+  input.col = k('KeyW') + k('ShiftLeft') - k('KeyS') - k('ControlLeft');
+  input.pitch = k('ArrowUp') - k('ArrowDown');
+  input.roll = k('ArrowLeft') - k('ArrowRight');
+  input.yaw = k('KeyA') - k('KeyD');
+  const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(Boolean) : null;
+  if (gp) { input.col += dz(-gp.axes[1]); input.yaw += dz(-gp.axes[0]); input.roll += dz(-(gp.axes[2] || 0)); input.pitch += dz(-(gp.axes[3] || 0)); }
+  if (sticks.L[0] || sticks.L[1]) { input.col = -sticks.L[1]; input.yaw = -sticks.L[0]; }
+  if (sticks.R[0] || sticks.R[1]) { input.pitch = -sticks.R[1]; input.roll = -sticks.R[0]; }
+  for (const k2 of ['col', 'pitch', 'roll', 'yaw']) input[k2] = clamp(input[k2], -1, 1);
+}
+
+// =================================================================== camera
+let shake = 0;
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+function updateCamera(dt) {
+  const h = heli; const yaw = new THREE.Euler().setFromQuaternion(h.q, 'YXZ').y;
+  const size = h.H.tandem ? 2 : 1;
+  let want, look;
+  if (camMode === 0) {          // chase
+    const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    want = h.pos.clone().addScaledVector(back, 17 * size).add(new THREE.Vector3(0, 5.5 * size, 0));
+    look = h.pos.clone().addScaledVector(back, -8).add(new THREE.Vector3(0, 1.5, 0));
+  } else if (camMode === 1) {   // cockpit
+    want = h.pos.clone().add(new THREE.Vector3(0, .9, h.H.tandem ? -5.6 : -.6).applyQuaternion(h.q));
+    look = want.clone().add(new THREE.Vector3(0, -.12, -1).applyQuaternion(h.q).multiplyScalar(30));
+  } else {                       // orbit (drag to look around)
+    const d = 26 * size; want = h.pos.clone().add(new THREE.Vector3(Math.sin(yaw + orbit.yaw) * Math.cos(orbit.pitch) * d, Math.sin(orbit.pitch) * d, Math.cos(yaw + orbit.yaw) * Math.cos(orbit.pitch) * d));
+    look = h.pos.clone();
+  }
+  if (h.crashed) { const away = camPos.clone().sub(h.pos); away.y = 0; if (away.lengthSq() < 1) away.set(0, 0, 1); away.normalize(); want = h.pos.clone().addScaledVector(away, 42).add(new THREE.Vector3(0, 16, 0)); look = h.pos.clone(); }
+  const k = camMode === 1 && !h.crashed ? 1 : Math.min(1, dt * (h.crashed ? 1.5 : 4.5));
+  camPos.lerp(want, k); camLook.lerp(look, camMode === 1 ? 1 : Math.min(1, dt * 8));
+  const gy = ground(camPos.x, camPos.z) + 2; if (camPos.y < gy) camPos.y = gy;
+  camera.position.copy(camPos);
+  if (shake > .01) { camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).multiplyScalar(shake)); shake *= Math.exp(-dt * 2.5); }
+  if (camMode === 1 && !h.crashed) { camera.quaternion.copy(h.q); camera.rotateX(-.12); } else camera.lookAt(camLook);
+  if (model) model.grp.visible = camMode !== 1 || h.crashed;
+}
+
+// =================================================================== HUD (instruments drawn on a 2D canvas)
+const hud = $('#hud'), hx = hud.getContext('2d');
+let warnT = 0;
+function drawHUD() {
+  const d = hud.width / innerWidth, W = innerWidth, Hh = innerHeight; hx.setTransform(d, 0, 0, d, 0, 0); hx.clearRect(0, 0, W, Hh);
+  if (inMenu || !heli || !heli.H) return;
+  const h = heli, e = new THREE.Euler().setFromQuaternion(h.q, 'YXZ');
+  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(h.q), hdg = ((Math.atan2(fwd.x, -fwd.z) / DEG) + 360) % 360;
+  const ias = h.vel.length() * 1.944, agl = Math.max(0, h.pos.y - h.H.skid - ground(h.pos.x, h.pos.z)), msl = h.pos.y, vs = h.vel.y;
+  const sm = W < 640, sc = sm ? .78 : 1;
+  hx.save(); hx.font = '700 15px Rajdhani'; hx.textAlign = 'center';
+  // heading tape
+  const tw = sm ? W * .9 : Math.min(420, W * .6), tx = W / 2, ty = sm ? 96 : 10;
+  hx.translate(0, ty - 10);
+  panel(tx - tw / 2, 10, tw, 34);
+  hx.save(); hx.beginPath(); hx.rect(tx - tw / 2, 10, tw, 34); hx.clip();
+  for (let a = -60; a <= 60; a += 5) { const v = Math.round(hdg / 5) * 5 + a, x = tx + (v - hdg) * tw / 120, n = ((v % 360) + 360) % 360; hx.fillStyle = '#eef3ff'; hx.fillRect(x, 10, 1.5, n % 15 ? 6 : 11); if (n % 30 === 0) hx.fillText(['N', '30', '60', 'E', '120', '150', 'S', '210', '240', 'W', '300', '330'][n / 30], x, 38); }
+  hx.restore(); hx.fillStyle = '#ffd23a'; hx.beginPath(); hx.moveTo(tx, 46); hx.lineTo(tx - 7, 54); hx.lineTo(tx + 7, 54); hx.fill(); hx.fillText(Math.round(hdg) + '°', tx, 70); hx.translate(0, -(ty - 10));
+  // instrument cluster bottom center
+  const scl = sm ? Math.min(.66, (W - 16) / 510) : sc, cy = sm ? 140 + 62 * scl + 40 : Hh - 95, cx0 = W / 2;
+  hx.save(); hx.translate(cx0, cy); hx.scale(scl, scl);
+  panel(-250, -62, 500, 124);
+  // attitude indicator
+  hx.save(); hx.beginPath(); hx.arc(0, 0, 52, 0, 7); hx.clip(); hx.rotate(e.z); const py = clamp(e.x / DEG * 2, -60, 60);
+  hx.fillStyle = '#3b8bd8'; hx.fillRect(-90, -150 + py, 180, 150); hx.fillStyle = '#8a5a2b'; hx.fillRect(-90, py, 180, 150); hx.strokeStyle = '#fff'; hx.lineWidth = 2; hx.beginPath(); hx.moveTo(-90, py); hx.lineTo(90, py); hx.stroke();
+  for (let p = -30; p <= 30; p += 10) if (p) { hx.beginPath(); hx.moveTo(-14, py - p * 2); hx.lineTo(14, py - p * 2); hx.stroke(); }
+  hx.restore(); hx.strokeStyle = '#ffd23a'; hx.lineWidth = 3; hx.beginPath(); hx.moveTo(-30, 0); hx.lineTo(-10, 0); hx.lineTo(0, 8); hx.lineTo(10, 0); hx.lineTo(30, 0); hx.stroke();
+  hx.strokeStyle = '#eef3ff'; hx.lineWidth = 2; hx.beginPath(); hx.arc(0, 0, 52, 0, 7); hx.stroke();
+  // readouts
+  const rd = (x, label, val, unit, col = '#eef3ff') => { hx.fillStyle = '#8fa0c4'; hx.font = '600 13px Rajdhani'; hx.fillText(label, x, -36); hx.fillStyle = col; hx.font = '700 30px Rajdhani'; hx.fillText(val, x, -6); hx.fillStyle = '#8fa0c4'; hx.font = '600 13px Rajdhani'; hx.fillText(unit, x, 12); };
+  rd(-120, 'AIRSPEED', Math.round(ias), 'knots'); rd(-190, 'V/S', (vs >= 0 ? '+' : '') + vs.toFixed(1), 'm/s', vs < -4 ? '#ff3b3b' : '#eef3ff');
+  rd(120, 'RADAR ALT', agl < 300 ? agl.toFixed(1) : Math.round(agl), 'm above ground', agl < 15 && vs < -3 ? '#ff3b3b' : '#4cff8a'); rd(200, 'ALTITUDE', Math.round(msl), 'm (sea level)');
+  // collective + rotor bars
+  const bar = (x, label, v, col) => { hx.fillStyle = '#8fa0c4'; hx.font = '600 12px Rajdhani'; hx.fillText(label, x, 50); hx.strokeStyle = '#2a3550'; hx.lineWidth = 2; hx.strokeRect(x - 40, 28, 80, 10); hx.fillStyle = col; hx.fillRect(x - 39, 29, 78 * clamp(v, 0, 1), 8); };
+  bar(-160, 'COLLECTIVE', h.col, '#ffd23a'); bar(160, h.rpm < 1 ? 'ROTOR SPIN-UP' : 'ROTOR RPM', h.rpm, h.rpm < 1 ? '#ff7a1a' : '#4cff8a');
+  hx.restore();
+  // mission + radar
+  if (mission) {
+    const mtxt = mission.text + (mission.done ? ' ✓' : '');
+    hx.font = '700 17px Rajdhani'; const mw = hx.measureText(mtxt).width + 24; panel(8, 40, mw, 30); hx.fillStyle = mission.done ? '#4cff8a' : '#ffd23a'; hx.textAlign = 'left'; hx.fillText(mtxt, 20, 61);
+    hx.fillStyle = '#8fa0c4'; hx.font = '600 13px Rajdhani'; hx.fillText(`${loc.name} · ${h.H.name} · ${SV.mode.toUpperCase()} · ${mission.t.toFixed(1)} s`, 12, 86);
+    if (mission.target && !mission.done) {
+      const rr = sm ? 44 : 64, rx = W - rr - 14, ry = sm ? 140 + 124 * Math.min(.66, (W - 16) / 510) + 70 + rr : Hh - 88; panel(rx - rr - 6, ry - rr - 6, rr * 2 + 12, rr * 2 + 12, true);
+      const dx = mission.target.x - h.pos.x, dz = mission.target.z - h.pos.z, dist = Math.hypot(dx, dz), ang = Math.atan2(dx, -dz) - hdg * DEG;
+      const rr2 = Math.min(rr - 8, dist / 40); hx.fillStyle = '#ffd23a'; hx.beginPath(); hx.arc(rx + Math.sin(ang) * rr2, ry - Math.cos(ang) * rr2, 6, 0, 7); hx.fill();
+      hx.fillStyle = '#eef3ff'; hx.beginPath(); hx.moveTo(rx, ry - 9); hx.lineTo(rx - 6, ry + 7); hx.lineTo(rx + 6, ry + 7); hx.fill();
+      hx.textAlign = 'center'; hx.font = '700 14px Rajdhani'; hx.fillText(dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m', rx, ry + rr - 6);
+    }
+  }
+  // warnings
+  const warns = [];
+  if (!h.crashed) {
+    if (agl < 25 && vs < -4.5) warns.push('SINK RATE');
+    if (h.vrs > .4 && SV.mode !== 'easy') warns.push('VORTEX RING STATE');
+    if (SV.mode !== 'easy' && Math.abs(h.w.y) > 2) warns.push('PEDAL! YOU ARE SPINNING');
+    if (h.pos.y > 3500) warns.push('THIN AIR');
+  }
+  if (warns.length) { warnT += 1 / 60; if (Math.floor(warnT * 3) % 2 === 0) { hx.textAlign = 'center'; hx.font = '700 26px Bungee'; hx.fillStyle = '#ff3b3b'; hx.strokeStyle = '#000'; hx.lineWidth = 4; hx.strokeText(warns[0], W / 2, Hh * .3); hx.fillText(warns[0], W / 2, Hh * .3); } if (Math.random() < .03) sfx('warn'); } else warnT = 0;
+  if (paused) { hx.textAlign = 'center'; hx.font = '700 40px Bungee'; hx.fillStyle = '#ffd23a'; hx.fillText('PAUSED', W / 2, Hh * .45); }
+  hx.restore();
+}
+function panel(x, y, w, h, round) { hx.fillStyle = 'rgba(10,14,22,.72)'; hx.strokeStyle = 'rgba(255,210,58,.6)'; hx.lineWidth = 2; hx.beginPath(); if (round) hx.arc(x + w / 2, y + h / 2, w / 2, 0, 7); else hx.roundRect ? hx.roundRect(x, y, w, h, 10) : hx.rect(x, y, w, h); hx.fill(); hx.stroke(); }
+
+// =================================================================== flow: menu → loading → flight
+let toastT = 0;
+function toast(m, ms = 2400) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const unlocked = id => !HELIS[id].need || SV['u_' + id] || SV.landings >= HELIS[id].need;
+function renderMenu() {
+  $('#locs').innerHTML = LOCS.map(l => `<button class="card ${SV.loc === l.id ? 'on' : ''}" data-loc="${l.id}"><b>${l.name}</b><small>${l.sub}</small></button>`).join('');
+  $('#helis').innerHTML = Object.entries(HELIS).map(([id, H]) => `<button class="card ${SV.heli === id ? 'on' : ''} ${unlocked(id) ? '' : 'lock'}" data-heli="${id}"><b>${H.name}</b><small>${unlocked(id) ? H.sub : `🔒 land ${H.need} times to unlock (${SV.landings}/${H.need})`}</small></button>`).join('');
+  $('#missions').innerHTML = MISSIONS.map(([id, n]) => `<button class="${SV.mission === id ? 'on' : ''}" data-mis="${id}">${n}</button>`).join('');
+  $('#modes').innerHTML = [['easy', 'EASY (assisted)'], ['real', 'REAL (no assists)']].map(([id, n]) => `<button class="${SV.mode === id ? 'on' : ''}" data-mode="${id}">${n}</button>`).join('');
+  $('#imagery').innerHTML = [['esri', 'Sharp imagery (Esri)'], ['eox', 'Sentinel-2 imagery (EOX)']].map(([id, n]) => `<button class="${SV.imagery === id ? 'on' : ''}" data-img="${id}">${n}</button>`).join('');
+  $('#gallery').innerHTML = CRASHES.map(([id, n, d]) => SV.crashTypes[id] ? `<div class="got"><b>${n}</b>${d} · ×${SV.crashTypes[id]}</div>` : `<div><b>???</b>${d}</div>`).join('');
+  $('#stats').textContent = `${SV.landings} landings · ${SV.crashes} crashes · ${Object.keys(SV.crashTypes).length}/${CRASHES.length} crash types · $${SV.claims.toLocaleString()} in denied insurance claims`;
+  document.querySelectorAll('[data-loc]').forEach(b => b.onclick = () => { SV.loc = b.dataset.loc; store(); renderMenu(); });
+  document.querySelectorAll('[data-heli]').forEach(b => b.onclick = () => { if (!unlocked(b.dataset.heli)) return toast('Locked: land more!'); SV.heli = b.dataset.heli; store(); renderMenu(); });
+  document.querySelectorAll('[data-mis]').forEach(b => b.onclick = () => { SV.mission = b.dataset.mis; store(); renderMenu(); });
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { SV.mode = b.dataset.mode; store(); renderMenu(); });
+  document.querySelectorAll('[data-img]').forEach(b => b.onclick = () => { if (SV.imagery !== b.dataset.img) { SV.imagery = b.dataset.img; store(); clearTiles(); } renderMenu(); });
+}
+$('#custom').onclick = () => {
+  const lat = parseFloat($('#lat').value), lon = parseFloat($('#lon').value);
+  if (!(Math.abs(lat) <= 84) || !(Math.abs(lon) <= 180)) return toast('Type a latitude (-84 to 84) and longitude (-180 to 180)');
+  const c = LOCS.find(l => l.id === 'custom') || (LOCS.push({ id: 'custom', name: 'Custom spot', sub: '', lat, lon, hdg: 0, mark: [lat, lon, 'your spot'] }), LOCS[LOCS.length - 1]);
+  Object.assign(c, { lat, lon, sub: `${lat.toFixed(3)}, ${lon.toFixed(3)}`, mark: [lat + .02, lon + .02, 'a spot 2 km away'] }); SV.loc = 'custom'; store(); renderMenu();
+};
+function openMenu() { inMenu = true; paused = false; $('#menu').hidden = false; renderMenu(); }
+function closeMenu() { inMenu = false; $('#menu').hidden = true; }
+$('#bMenu').onclick = () => openMenu();
+$('#go').onclick = () => { audio(); closeMenu(); startFlight(true); };
+let curLocId = null;
+async function startFlight(fromMenu) {
+  for (const d of debris) scene.remove(d.m); debris.length = 0; for (const f of fx) scene.remove(f.m); fx.length = 0; $('#report').hidden = true;
+  loc = LOCS.find(l => l.id === SV.loc) || LOCS[0];
+  if (curLocId !== loc.id) {
+    clearTiles(); curLocId = loc.id;
+    const [X, Y] = merc(loc.lat, loc.lon); X0 = X; Y0 = Y; K = Math.cos(loc.lat * DEG);
+  }
+  $('#attrib').textContent = 'Terrain: AWS Terrain Tiles · ' + ATTR[SV.imagery];
+  heli = heli || { pos: new THREE.Vector3() }; heli.pos.set(0, 0, 0);
+  updateTiles(true);
+  $('#loading').hidden = false; const t0 = performance.now();
+  while (nearReady(0, 0) < 9 && performance.now() - t0 < 20000) { $('#lbar i').style.width = Math.min(100, nearReady(0, 0) / 9 * 100) + '%'; $('#ltxt').textContent = `real elevation + satellite imagery around ${loc.name}`; await new Promise(r => setTimeout(r, 100)); }
+  $('#loading').hidden = true;
+  let sx = 0, sz = 0;
+  if (isWater(0, 0) || (terrainRaw(0, 0) ?? 0) <= .3) { const f = findFlat(0, 0, 50, 3000); if (f) { sx = f[0]; sz = f[1]; } }
+  newHeli(SV.heli, sx, sz, -loc.hdg * DEG);
+  lastH = ground(sx, sz); camPos.copy(heli.pos).add(new THREE.Vector3(0, 8, 20)); camLook.copy(heli.pos);
+  mission = makeMission(SV.mission); startT = performance.now(); inMenu = false; paused = false;
+  toast(SV.mode === 'easy' ? 'Hold W to lift off. Arrows fly, A/D turn.' : 'REAL mode: W/S collective, arrows cyclic, A/D pedals (hold right-ish pedal against torque).', 4200);
+}
+
+// =================================================================== main loop
+let last = performance.now(), tileT = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (!inMenu && heli && heli.H && !paused) {
+    readInput();
+    const n = 4; for (let k = 0; k < n; k++) step(dt / n);
+    if (mission && !heli.crashed && !mission.done) { mission.t += dt; mission.tick(); }
+    tileT -= dt; if (tileT <= 0) { tileT = .5; updateTiles(); }
+    const gh = terrainRaw(heli.pos.x, heli.pos.z); if (gh != null) lastH = Math.max(0, gh);
+  }
+  if (heli && heli.H) {
+    if (!heli.crashed) {
+      model.grp.position.copy(heli.pos); model.grp.quaternion.copy(heli.q);
+      heli.rotorAng += dt * heli.H.rpm / 60 * Math.PI * 2 * heli.rpm;
+      for (const r of model.rotors) { r.hub.rotation.y = heli.rotorAng * r.dir * .2 + (heli.rpm > .7 ? Math.random() : 0); r.disc.material.opacity = .22 * clamp((heli.rpm - .5) * 2, 0, 1); r.hub.children.forEach(c => { if (c.isGroup) c.visible = heli.rpm < .7 || Math.random() < .5; }); }
+      if (model.tail) model.tail.rotation.x += dt * 60 * heli.rpm;
+      const gy = isWater(heli.pos.x, heli.pos.z) ? .15 : ground(heli.pos.x, heli.pos.z) + .15, aglS = heli.pos.y - gy;
+      shadow.visible = aglS < 400; shadow.position.set(heli.pos.x, gy, heli.pos.z); shadow.scale.setScalar(heli.H.R * (1 + aglS / 120)); shadow.material.opacity = .4 * clamp(1 - aglS / 400, 0, 1);
+    } else shadow.visible = false;
+    updateCamera(dt); updateFx(dt);
+  } else { camera.position.set(0, 600, 1200); camera.lookAt(0, 0, 0); }
+  renderer.render(scene, camera);
+  drawHUD(); updateAudio();
+}
+renderMenu();
+requestAnimationFrame(frame);
+window.__dbg = { step: dt => step(dt), get heli() { return heli; }, get mission() { return mission; }, tiles, input, terrainRaw, ground, startFlight, SV, crash, keys };
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
