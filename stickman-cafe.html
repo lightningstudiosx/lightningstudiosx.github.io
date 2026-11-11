@@ -703,7 +703,7 @@
             <div class="tray" aria-hidden="true"></div>
         </section>
         <p class="note">
-                paid items open PayPal in a new tab as a tip &mdash; nothing ships, it's a tip jar with a menu.<br>
+                <span id="payNote">paid items open a secure card checkout (Stripe) in a new tab as a tip &mdash; nothing ships, it's a tip jar with a menu.</span><br>
                 water is, and will always be, free.
             </p>
     </div>
@@ -714,8 +714,16 @@
     </div>
 
     <script>
-        // ====== EDIT THIS: your PayPal.Me username ======
-        const PAYPAL_USER = "YOURPAYPALNAME";   // <-- replace with your paypal.me name
+        // ====== EDIT THIS: your Stripe Payment Link (card, Apple Pay, Google Pay) ======
+        // In the Stripe dashboard: Payment Links -> New -> "Customers choose what to pay", then copy the
+        // https://buy.stripe.com/... address and paste it between the quotes. Stripe handles the card, not this page.
+        const CARD_LINK = "";   // <-- paste your buy.stripe.com link here
+        // Optional: a fixed-price Payment Link for a price, so that item opens with the amount already set,
+        // e.g. { 2: "https://buy.stripe.com/...", 5: "https://buy.stripe.com/..." }. Other prices use CARD_LINK.
+        const CARD_LINKS_BY_PRICE = {};
+        const cardLinkFor = p => CARD_LINKS_BY_PRICE[p] || CARD_LINK;
+        if (!CARD_LINK && !Object.keys(CARD_LINKS_BY_PRICE).length)
+            document.getElementById("payNote").innerHTML = "card tips are coming soon &mdash; for now the stickman is serving everything <b>on the house</b>.";
 
         const MENU = {
             drinks: [
@@ -757,6 +765,12 @@
         async function order(item) {
             if (busy) return;
             busy = true;
+            // open the card checkout straight from the click, so popup blockers allow it
+            const link = item.p ? cardLinkFor(item.p) : "";
+            if (link) {
+                try { const u = new URL(link); u.searchParams.set("client_reference_id", "cafe-" + item.n.toLowerCase().replace(/[^a-z0-9]+/g, "-")); window.open(u.toString(), "_blank", "noopener"); }
+                catch (e) { window.open(link, "_blank", "noopener"); }
+            }
             speechEl.innerHTML = "one <b>" + item.n.toLowerCase() + "</b>, coming up…";
             setPose(POSE_MAKE);
             await sleep(1100);
@@ -764,8 +778,9 @@
             if (item.p === 0) {
                 speechEl.innerHTML = "here you go. <b>on the house.</b> always.";
             } else {
-                speechEl.innerHTML = "that'll be <b>$" + item.p + "</b> — opening the register…";
-                window.open("https://www.paypal.me/" + PAYPAL_USER + "/" + item.p, "_blank");
+                if (!link) speechEl.innerHTML = "that'll be <b>$" + item.p + "</b>… oh. the card reader isn't plugged in yet. <b>on the house</b> today.";
+                else if (CARD_LINKS_BY_PRICE[item.p]) speechEl.innerHTML = "that'll be <b>$" + item.p + "</b> — tap your card in the new tab.";
+                else speechEl.innerHTML = "that'll be <b>$" + item.p + "</b> — pop <b>$" + item.p + "</b> in on the card page.";
             }
             await sleep(1600);
             setPose(POSE_IDLE);
