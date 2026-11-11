@@ -628,7 +628,7 @@ function scene(){
     if (fr[2] >= 0) balls.push({x: fr[2] / 1000, y: fr[3] / 1000});
     return {balls, pads: [{x: fr[4] / 1000, w: fr[8] / 1000}, {x: fr[5] / 1000, w: fr[9] / 1000}], score: [fr[6], fr[7]], live: false};
   }
-  return {balls: G.balls, pads: [0, 1].map(i => ({x: G.pads[i].x, w: G.padW(i)})), score: G.score, live: true};
+  return {balls: admHideBall() ? [] : G.balls, pads: [0, 1].map(i => ({x: G.pads[i].x, w: G.padW(i)})), score: G.score, live: true};
 }
 function draw(){
   const S = cv.width, pong = isPong(), [light, dark] = THEMES[P.theme] || THEMES.green, c = S / 8;
@@ -811,7 +811,7 @@ function loop(now){
   if (G){
     if (!REV){
       applyInput();
-      if (!(G.o.net && G.o.net.role === "client")){ admApply(dt); G.step(dt); }
+      if (!(G.o.net && G.o.net.role === "client")){ const ts = admApply(dt); if (ts){ G.step(dt * ts); admAfter(dt); } }
     }
     if (G.o.net) netTick(dt);
     if (REV && REV.playing){
@@ -821,7 +821,7 @@ function loop(now){
     }
     if (watchMode && G.over && !watchNext){ watchNext = setTimeout(startWatch, 2500); }
   }
-  draw(); renderBarsThrottled(now); if (!REV) updateLiveLog();
+  draw(); if (!REV) admDraw(); renderBarsThrottled(now); if (!REV) updateLiveLog();
   requestAnimationFrame(loop);
 }
 let lastBars = 0;
@@ -1414,11 +1414,11 @@ function netTick(dt){
   if (net.role === "host"){
     if (G.over && net.sentOver) return;
     netSend2({t: "s", b: G.balls.map(b => [+b.x.toFixed(4), +b.y.toFixed(4), +b.vx.toFixed(3), +b.vy.toFixed(3)]), p: [G.pads[0].x, G.pads[1].x], sc: G.score, c: Math.round(G.clock * 10) / 10, st: G.state, tm: G.timer, pts: G.points,
-      m: Object.keys(G.mods), scl: G.scale, sh: G.shrink, bk: G.bricks.map(k => k.on ? 1 : 0).join(""), wd: +G.wind.toFixed(3), lg: G.log.slice(net.sent), tr: G.trolled ? 1 : 0, ov: G.over ? [G.winner, G.reason] : null});
+      m: Object.keys(G.mods), scl: G.scale, sh: G.shrink, bk: G.bricks.map(k => k.on ? 1 : 0).join(""), wd: +G.wind.toFixed(3), lg: G.log.slice(net.sent), tr: G.trolled ? 1 : 0, ax: ADMX.X, ov: G.over ? [G.winner, G.reason] : null});
     net.sent = G.log.length;
     if (G.over) net.sentOver = true;
   } else if (!G.over){
-    netSend2({t: "x", x: G.pads[1].tx, adm: ADM.active() ? admState() : 0});
+    netSend2({t: "x", x: G.pads[1].tx, cur: ADMX.cur[1]});
   }
 }
 function onNet(d){
@@ -1427,9 +1427,11 @@ function onNet(d){
   if (d.t === "rematch"){ net.theirs = true; toast(G ? G.o.players[1 - meSide()].name + " wants a rematch!" : "Rematch?"); tryRestart(); return; }
   if (d.t === "restart" && net.role === "client"){ net.sentOver = false; startNetGame(); return; }
   if (!G) return;
-  if (d.t === "x" && net.role === "host"){ G.pads[1].tx = clamp(+d.x || .5, 0, 1); ADM.remote = d.adm || null; if (d.adm) G.trolled = true; }
+  if (d.t === "admc" && net.role === "host"){ admRun(d.id, 1); return; }
+  if (d.t === "x" && net.role === "host"){ G.pads[1].tx = clamp(+d.x || .5, 0, 1); if (d.cur) ADMX.cur[1] = d.cur; }
   else if (d.t === "s" && net.role === "client"){
     if (d.tr) G.trolled = true;
+    if (d.ax){ syncGame(); ADMX.X = d.ax; }
     if (G.over) return;
     G.balls = d.b.map(a => ({x: a[0], y: a[1], vx: a[2], vy: a[3]}));
     G.pads[0].x = d.p[0];
@@ -1461,60 +1463,362 @@ function netClose(){ try { net && net.conn.close(); } catch (e) {} try { net && 
 let toastT = 0;
 
 // =====================================================================================
-//  Secret admin panel: type joessoks3 anywhere. Troll the ball during any match.
-//  A game where admin powers were used never changes anyone's rating.
+//  Secret admin panel. Type joessoks3 anywhere to turn it on (and again to turn it off).
+//  About 100 troll commands, every one with a keybind (click a key chip to rebind it).
+//  Online, the host's game is the real one: a guest's commands are sent to the host.
+//  Any game where a command was used never changes anyone's rating.
 // =====================================================================================
-const ADM = { unlocked: false, slow: false, turbo: false, freeze: false, magnet: false, remote: null, buf: "", saved: null,
-  active(){ return this.unlocked && (this.slow || this.turbo || this.freeze || this.magnet); } };
-try { ADM.unlocked = localStorage.getItem("pong_admin") === "1"; } catch (e) {}
-function admState(){ const f = flipped; return { s: ADM.slow ? 1 : 0, t: ADM.turbo ? 1 : 0, f: ADM.freeze ? 1 : 0, m: ADM.magnet ? 1 : 0, mx: f ? 1 - (pointerX ?? .5) : (pointerX ?? .5), my: f ? 1 - pointerY : pointerY }; }
-function admApply(dt){
-  if (!G || G.over) return;
-  const st = ADM.active() ? admState() : ADM.remote;
-  if (!st) { if (ADM.saved) { for (const b of G.balls) if (!b.vx && !b.vy) { b.vx = ADM.saved[0]; b.vy = ADM.saved[1]; } ADM.saved = null; } return; }
+function freshX(){ return { t: {}, gary: null, clones: [0, 0], walls: [], walker: null, cs: null, n: 0, boost: -1, bonk: [0, 0], frozenX: [null, null] }; }
+const ADMX = { unlocked: false, open: true, tab: "Ball", q: "", buf: "", cur: [[.5, .5], [.5, .5]], X: freshX(), g: null, binds: {}, rebinding: null, timers: [], parts: [], lastCs: 0, prev: [0, 0] };
+try { ADMX.unlocked = localStorage.getItem("pong_admin") === "1"; ADMX.binds = JSON.parse(localStorage.getItem("pong_admin_binds") || "{}"); ADMX.open = localStorage.getItem("pong_admin_open") !== "0"; } catch (e) {}
+const admOpp = s => 1 - s;
+const goalDir = s => s === 0 ? -1 : 1;               // which way the ball travels toward side s's OPPONENT's goal
+const later = (t, fn) => ADMX.timers.push({ t, fn });
+const ballsLive = () => G && G.balls.length;
+function eachBall(fn){ if (G) for (const b of G.balls) fn(b); }
+function setSpeed(b, sp){ const c = Math.hypot(b.vx, b.vy) || 1; b.vx *= sp / c; b.vy *= sp / c; }
+function addBall(s, sp){
+  const base = G.baseSpeed(), a = (Math.random() - .5) * 1.4, d = Math.random() < .5 ? 1 : -1;
+  if (G.balls.length >= 40) return;
+  G.balls.push({ x: .5 + (Math.random() - .5) * .3, y: .5 + (Math.random() - .5) * .1, vx: Math.sin(a) * base * (sp || 1), vy: Math.cos(a) * base * (sp || 1) * d });
+  if (G.state !== "play"){ G.state = "play"; G.timer = 0; }
+}
+// ---------- cutscenes ----------
+const CS = {
+  jutsu: ["SHADOW CLONE JUTSU", "your paddle has friends now", "🥷", "#2b1055"], power: ["POWER LEVEL: RIDICULOUS", "the next hit is going to hurt", "⚡", "#ff7a00"],
+  gary: ["A WILD THIRD PLAYER APPEARS", "his name is Gary. nobody invited him.", "🧍", "#1b7a3a"], garyleave: ["GARY HAS LEFT", "he said he had a thing", "🚶", "#444"],
+  walk: ["THE BALL HAS LEFT THE CHAT", "it just walked away. respect its decision.", "🚶", "#2a2a6a"], back: ["THE BALL CAME BACK", "it forgot its phone", "🏃", "#2a2a6a"],
+  bonk: ["BONK", "straight to paddle jail", "🔨", "#7a1b1b"], nuke: ["TACTICAL PONG NUKE", "incoming", "☢️", "#5a5a00"], meteor: ["METEOR INCOMING", "it's a big ball", "☄️", "#6a2a00"],
+  ggez: ["GG EZ", "(it was not ez)", "😎", "#003a6a"], skill: ["SKILL ISSUE", "diagnosis: confirmed", "🩺", "#6a005a"], emo: ["EMOTIONAL DAMAGE", "critical hit", "💔", "#6a0010"],
+  bruh: ["BRUH", "", "😐", "#333"], ratio: ["L + RATIO", "+ the ball fell off", "📉", "#3a3a3a"], grass: ["GO TOUCH GRASS", "please. for both of us.", "🌱", "#1b5a1b"],
+  sus: ["SUS", "that paddle is acting kinda sus", "🤨", "#5a1b1b"], w: ["W", "massive W", "🏆", "#5a4a00"], npc: ["NPC MODE ACTIVATED", "beep boop, I walk in straight lines", "🤖", "#2a3a4a"],
+  sigma: ["SIGMA GRINDSET", "rule 1: never miss the ball", "🗿", "#222"], bullet: ["BULLET TIME", "everything... is... slow...", "⏳", "#003a3a"], hacker: ["I'M IN", "hacking the mainframe (the ball)", "💻", "#002a00"],
+  nou: ["NO U", "reverse card played", "🔄", "#4a0a4a"], noscope: ["360 NO SCOPE", "pro gamer move", "🎯", "#2a2a2a"], rage: ["RAGE QUIT?", "(please don't)", "😤", "#6a1b00"],
+  lag: ["CONNECTION UNSTABLE", "(it isn't. we're lying.)", "📶", "#222"], party: ["PARTY MODE", "everybody dance now", "🎉", "#4a005a"], storm: ["BALL STORM", "forecast: 100% balls", "🌧️", "#1b2a4a"],
+  wall: ["THE WALL", "you shall not pass (the ball)", "🧱", "#4a2a1b"], ohio: ["ONLY IN OHIO", "physics took the day off", "🌽", "#4a4a1b"], clutch: ["CLUTCH OR KICK", "no pressure", "😰", "#3a1b4a"],
+};
+function cutscene(id, s){ const X = ADMX.X; X.cs = { id, s, n: ++X.n, left: 1.7 }; }
+// ---------- the commands ----------
+// kind "t": toggle (stays on until pressed again) · kind "o": does it once · ui:true marks visual-only effects
+const C = [];
+const T = (cat, id, name, extra = {}) => C.push({ cat, id, name, kind: "t", ...extra });
+const O = (cat, id, name, fn, extra = {}) => C.push({ cat, id, name, kind: "o", fn, ...extra });
+// BALL
+T("Ball", "slow", "🐌 Slow ball"); T("Ball", "turbo", "🚀 Turbo ball"); T("Ball", "freeze", "🧊 Freeze ball"); T("Ball", "magnet", "🧲 Ball follows your cursor");
+T("Ball", "repel", "🙅 Ball runs from your cursor"); T("Ball", "zigzag", "⚡ Zigzag"); T("Ball", "snake", "🐍 Wiggle"); T("Ball", "grav", "⬆️ Gravity toward their goal");
+T("Ball", "drunk", "🍺 Drunk ball"); T("Ball", "homing", "🎯 Homing (aims at their goal)"); T("Ball", "orbit", "🪐 Orbit the middle"); T("Ball", "ramp", "📈 Keeps speeding up");
+T("Ball", "stutter", "📼 Stutter"); T("Ball", "slowmo", "🐢 Slow motion (everything)", { ts: .35 }); T("Ball", "fastfwd", "⏩ Fast forward (everything)", { ts: 1.8 });
+O("Ball", "reverse", "↩️ Reverse", () => eachBall(b => { b.vx = -b.vx; b.vy = -b.vy; }));
+O("Ball", "stop", "✋ Stop for a second", () => eachBall(b => { const v = [b.vx, b.vy]; b.vx = b.vy = 0; later(1, () => { b.vx = v[0]; b.vy = v[1]; }); }));
+O("Ball", "smash", "💥 Smash at their goal", s => eachBall(b => { b.vx = (Math.random() - .5) * .4; b.vy = goalDir(s) * Math.min(MAXV, G.baseSpeed() * 2.6); }));
+O("Ball", "lob", "🎈 Lazy lob", () => eachBall(b => setSpeed(b, G.baseSpeed() * .45)));
+O("Ball", "center", "📍 Teleport to the middle", () => eachBall(b => { b.x = .5; b.y = .5; }));
+O("Ball", "rand", "🎲 Teleport somewhere random", () => eachBall(b => { b.x = .1 + Math.random() * .8; b.y = .3 + Math.random() * .4; }));
+O("Ball", "doorstep", "🚪 Teleport to their doorstep", s => eachBall(b => { b.x = .5 + (Math.random() - .5) * .6; b.y = s === 0 ? .2 : .8; b.vy = goalDir(s) * Math.abs(b.vy || G.baseSpeed()); }));
+O("Ball", "plus1", "➕ One more ball", () => addBall()); O("Ball", "plus5", "🖐️ Five more balls", () => { for (let k = 0; k < 5; k++) addBall(); });
+O("Ball", "storm", "🌧️ BALL STORM (20 balls)", () => { for (let k = 0; k < 20; k++) addBall(0, .7 + Math.random() * .6); }, { cs: "storm" });
+O("Ball", "clear", "🧹 Back to one ball", () => { if (G.balls.length > 1) G.balls.length = 1; });
+O("Ball", "shatter", "🔨 Shatter into 8", () => { const b = G.balls[0]; if (!b) return; for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2, sp = G.baseSpeed() * .8; G.balls.push({ x: b.x, y: b.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp || .2 }); } G.balls.shift(); });
+O("Ball", "boomerang", "🪃 Boomerang", () => later(.6, () => eachBall(b => { b.vx = -b.vx; b.vy = -b.vy; })));
+O("Ball", "walk", "🚶 The ball just walks away", () => { const b = G.balls[0]; if (!b || ADMX.X.walker) return; ADMX.X.walker = { x: b.x, y: b.y, dir: b.x < .5 ? -1 : 1, t: 0 }; G.balls = []; }, { cs: "walk" });
+O("Ball", "meteor", "☄️ Meteor (giant ball)", () => { const old = G.scale.ball; G.scale.ball = 3; later(7, () => { G.scale.ball = old; }); }, { cs: "meteor" });
+O("Ball", "nuke", "☢️ Tactical nuke", () => { G.balls = []; later(1.2, () => { if (G && !G.over) G.serve(); }); }, { cs: "nuke" });
+O("Ball", "power", "⚡ Anime power-up (next hit 3×)", s => { ADMX.X.boost = s; }, { cs: "power" });
+O("Ball", "noscope", "🎯 360 no scope", s => eachBall(b => { const tx = 1 - G.pads[admOpp(s)].x, ty = s === 0 ? -.05 : 1.05, dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(MAXV, G.baseSpeed() * 2.2); b.vx = dx / d * sp; b.vy = dy / d * sp; }), { cs: "noscope" });
+// PADDLES
+T("Paddles", "aimbot", "🤖 Aimbot (your paddle plays itself)"); T("Paddles", "giantme", "🦣 Giant paddle (you)"); T("Paddles", "tinyopp", "🐜 Tiny paddle (them)");
+T("Paddles", "giantopp", "🎁 Giant paddle (them, why?)"); T("Paddles", "tinyme", "🙃 Tiny paddle (you, why??)"); T("Paddles", "freezeopp", "🥶 Freeze their paddle");
+T("Paddles", "invertopp", "🔀 Reverse their controls"); T("Paddles", "drunkopp", "🥴 Their paddle is drunk"); T("Paddles", "npc", "🤖 NPC mode (them)", { cs: "npc" });
+T("Paddles", "jutsu", "🥷 Shadow Clone Jutsu (you)", { cs: "jutsu" }); T("Paddles", "jutsuopp", "👥 Give THEM clones");
+O("Paddles", "bonk", "🔨 Bonk them (tiny for 8 s)", s => { ADMX.X.bonk[admOpp(s)] = 8; }, { cs: "bonk" });
+O("Paddles", "swap", "🔄 Swap paddle spots", () => { const a = G.pads[0].x; G.pads[0].x = G.pads[0].tx = G.pads[1].x; G.pads[1].x = G.pads[1].tx = a; });
+O("Paddles", "tpme", "✨ Teleport your paddle to the ball", s => { const b = G.balls[0]; if (b){ G.pads[s].x = G.pads[s].tx = clamp(b.x, .1, .9); } });
+O("Paddles", "tpopp", "📦 Shove their paddle to the edge", s => { const p = G.pads[admOpp(s)]; p.x = p.tx = p.x < .5 ? .95 : .05; });
+// FIELD
+T("Field", "gary", "🧍 Gary (a 3rd player) joins", { cs: "gary" }); T("Field", "garymad", "😡 Gary gets fast"); T("Field", "garyteam", "🤝 Gary is on your team");
+T("Field", "wallme", "🧱 Wall in front of your goal", { cs: "wall" }); T("Field", "wallopp", "🧱 Wall in front of THEIR goal"); T("Field", "midwall", "🚧 Wall across the middle");
+T("Field", "maze", "🌀 Maze walls"); T("Field", "movewall", "↔️ Sliding wall");
+for (const k of MOD_KEYS) O("Field", "mod_" + k, (MOD_NAME[k] || k) + " (on/off)", () => { if (G.mods[k]) delete G.mods[k]; else { G.mods[k] = 1; if (k === "bricks") G.bricks = G.makeBricks(); if (k === "multi") addBall(); } }, { mod: k });
+// SCORE + CLOCK
+O("Score", "me1", "➕ +1 point for you", s => { G.score[s]++; }); O("Score", "opp1", "🎁 +1 point for them", s => { G.score[admOpp(s)]++; });
+O("Score", "steal", "🦝 Steal a point", s => { if (G.score[admOpp(s)] > 0){ G.score[admOpp(s)]--; G.score[s]++; } });
+O("Score", "reset", "0️⃣ Reset the score", () => { G.score = [0, 0]; }); O("Score", "swapsc", "🔁 Swap the scores", () => { G.score = [G.score[1], G.score[0]]; });
+O("Score", "clockup", "⏰ +30 seconds", () => { G.clock += 30; }); O("Score", "clockdn", "⌛ -30 seconds", () => { G.clock = Math.max(1, G.clock - 30); });
+T("Score", "clockfreeze", "⏸️ Freeze the clock"); O("Score", "sudden", "☠️ Sudden death (next point wins)", () => { G.sudden = true; toast("SUDDEN DEATH"); });
+O("Score", "win", "🏆 Win right now", s => G.finish(s, "admin"), { cs: "w" }); O("Score", "draw", "🤝 Call it a draw", () => G.finish(-1, "admin"));
+O("Score", "clutch", "😰 Clutch time (set to match point)", s => { G.score[s] = Math.max(0, G.tc.to - 1); G.score[admOpp(s)] = Math.max(0, G.tc.to - 1); }, { cs: "clutch" });
+// VISUAL (everyone sees these)
+T("Visual", "invis", "👻 Invisible ball", { ui: 1 }); T("Visual", "blink", "💡 Blinking ball", { ui: 1 }); T("Visual", "rainbow", "🌈 Rainbow ball", { ui: 1 });
+T("Visual", "flip", "🙃 Upside-down board", { ui: 1 }); T("Visual", "spin", "💫 Spinning board", { ui: 1 }); T("Visual", "tilt", "🌽 Ohio tilt", { ui: 1, cs: "ohio" });
+T("Visual", "mirror", "🪞 Mirror", { ui: 1 }); T("Visual", "disco", "🪩 Disco", { ui: 1 }); T("Visual", "dark", "🔦 Lights out (spotlight)", { ui: 1 });
+T("Visual", "zoom", "🔍 Zoom pulse", { ui: 1 }); T("Visual", "quake", "🌋 Earthquake", { ui: 1 }); T("Visual", "gray", "📺 Old TV", { ui: 1 });
+T("Visual", "blur", "👓 Forgot glasses", { ui: 1 }); T("Visual", "tiny", "🤏 Tiny board", { ui: 1 }); T("Visual", "confetti", "🎊 Confetti rain", { ui: 1 });
+T("Visual", "fakelag", "📶 Fake lag", { ui: 1, cs: "lag" }); T("Visual", "dc", "🔌 Fake disconnect screen", { ui: 1 }); T("Visual", "party", "🎉 Party mode", { ui: 1, cs: "party" });
+T("Visual", "hacker", "💻 Hacker mode", { ui: 1, cs: "hacker" }); T("Visual", "bullet", "⏳ Bullet time", { ts: .2, cs: "bullet" });
+// MEMES (a cutscene + a sound)
+for (const [id, nm] of [["ggez", "😎 GG EZ"], ["skill", "🩺 Skill issue"], ["emo", "💔 Emotional damage"], ["bruh", "😐 Bruh"], ["ratio", "📉 L + ratio"], ["grass", "🌱 Touch grass"],
+  ["sus", "🤨 Sus"], ["w", "🏆 W"], ["sigma", "🗿 Sigma grindset"], ["nou", "🔄 No u (reverses the ball)"], ["rage", "😤 Rage quit?"]])
+  O("Memes", "m_" + id, nm, id === "nou" ? () => eachBall(b => { b.vx = -b.vx; b.vy = -b.vy; }) : () => {}, { cs: id });
+O("Memes", "airhorn", "📯 Airhorn", () => {}, { snd: "airhorn" }); O("Memes", "boom", "💥 Dramatic boom", () => {}, { snd: "boom" });
+O("Memes", "trombone", "🎺 Sad trombone", () => {}, { snd: "trombone" }); O("Memes", "drumroll", "🥁 Drum roll", () => {}, { snd: "drumroll" });
+O("Memes", "respect", "🫡 Press F to pay respects", () => {}, { cs: "bruh", text: "F" });
+const CMD = Object.fromEntries(C.map(c => [c.id, c]));
+// ---------- default keybinds: 1-0, then Shift+digits, Alt+digits, Shift+letters, Alt+letters, Alt+Shift+letters ----------
+(function defaults(){
+  const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map(d => "Digit" + d), letters = "QWERTYUIOPGHJKLZXCVBNMFSAD".split("").map(l => "Key" + l), combos = [];
+  for (const d of digits) combos.push(d); for (const d of digits) combos.push("Shift+" + d); for (const d of digits) combos.push("Alt+" + d);
+  for (const l of letters) combos.push("Shift+" + l); for (const l of letters) combos.push("Alt+" + l); for (const l of letters) combos.push("Alt+Shift+" + l); for (const d of digits) combos.push("Alt+Shift+" + d);
+  C.forEach((c, i) => { c.def = combos[i] || ""; });
+})();
+const bindOf = c => ADMX.binds[c.id] ?? c.def;
+const prettyKey = k => k ? k.replace("Alt+", "⌥").replace("Shift+", "⇧").replace("Digit", "").replace("Key", "") : "—";
+function comboOf(e){ if (["Shift", "Alt", "Control", "Meta"].includes(e.key)) return null; return (e.altKey ? "Alt+" : "") + (e.shiftKey ? "Shift+" : "") + e.code; }
+// ---------- running commands ----------
+const isOn = c => c.mod ? !!(G && G.mods[c.mod]) : c.kind === "t" && ADMX.X.t[c.id] != null;
+function admInvoke(id){
+  const c = CMD[id]; if (!c || !G || G.over) return;
+  if (G.o.puzzle) return toast("Not in puzzles");
   G.trolled = true;
-  const base = G.tc.speed;
+  if (G.o.net && G.o.net.role === "client"){ netSend2({ t: "admc", id }); admSound(c, true); return; }
+  admRun(id, meSide());
+}
+function admRun(id, s){
+  const c = CMD[id], X = ADMX.X; if (!c || !G || G.over) return;
+  G.trolled = true;
+  if (c.kind === "t"){
+    if (X.t[id] != null){ delete X.t[id]; if (id === "freeze") eachBall(b => { if (b._fv){ b.vx = b._fv[0]; b.vy = b._fv[1]; b._fv = null; } }); if (id === "gary") cutscene("garyleave", s); if (id === "freezeopp") X.frozenX = [null, null]; }
+    else { X.t[id] = s; if (c.cs) cutscene(c.cs, s); if (id === "gary") X.gary = { x: .5, v: 0 }; }
+    if (id === "jutsu") X.clones[s] = X.t[id] != null ? 3 : 0;
+    if (id === "jutsuopp") X.clones[admOpp(s)] = X.t[id] != null ? 3 : 0;
+  } else { c.fn && c.fn(s); if (c.cs) cutscene(c.cs, s); }
+  admSound(c, true);
+}
+// ---------- per-frame effects (only where the game is simulated: offline, or the online host) ----------
+function syncGame(){ if (ADMX.g !== G){ ADMX.g = G; ADMX.X = freshX(); ADMX.timers = []; ADMX.parts = []; } }
+function admApply(dt){
+  if (!G) return 1; syncGame();
+  const X = ADMX.X, t = X.t;
+  for (let i = ADMX.timers.length - 1; i >= 0; i--){ const tm = ADMX.timers[i]; tm.t -= dt; if (tm.t <= 0){ ADMX.timers.splice(i, 1); try { tm.fn(); } catch (e) {} } }
+  if (X.cs && X.cs.left > 0){ X.cs.left -= dt; return 0; }          // cutscene: the game holds still
+  if (G.over) return 1;
+  const now = performance.now() / 1000, base = G.baseSpeed();
+  ADMX.prev = [G.pads[0].x, G.pads[1].x];
   for (const b of G.balls){
-    if (st.f){ if (b.vx || b.vy) ADM.saved = [b.vx, b.vy]; b.vx = 0; b.vy = 0; continue; }
-    if (ADM.saved && !b.vx && !b.vy){ b.vx = ADM.saved[0]; b.vy = ADM.saved[1]; ADM.saved = null; }
-    let sp = Math.hypot(b.vx, b.vy) || base;
-    if (st.m){ const dx = st.mx - b.x, dy = st.my - b.y, d = Math.hypot(dx, dy) || 1, v = Math.max(sp, base); b.vx += (dx / d * v - b.vx) * Math.min(1, dt * 7); b.vy += (dy / d * v - b.vy) * Math.min(1, dt * 7); sp = Math.hypot(b.vx, b.vy); }
-    const want = st.s ? base * .3 : st.t ? base * 2.4 : 0;
-    if (want && sp > 0){ const k = st.s ? Math.min(1, want / sp) : Math.max(1, want / sp); b.vx *= k; b.vy *= k; }
+    b._py = b.y; b._px = b.x;
+    if (t.freeze != null){ if (b.vx || b.vy) b._fv = [b.vx, b.vy]; b.vx = 0; b.vy = 0; continue; }
+    if (t.stutter != null){ if (Math.sin(now * 9 + b.x * 7) > .35){ if (b.vx || b.vy) b._sv = [b.vx, b.vy]; b.vx = b.vy = 0; continue; } else if (b._sv && !b.vx && !b.vy){ b.vx = b._sv[0]; b.vy = b._sv[1]; } }
+    const cur = s => ADMX.cur[s];
+    if (t.magnet != null){ const [mx_, my_] = cur(t.magnet), dx = mx_ - b.x, dy = my_ - b.y, d = Math.hypot(dx, dy) || 1, v = Math.max(Math.hypot(b.vx, b.vy), base); b.vx += (dx / d * v - b.vx) * Math.min(1, dt * 7); b.vy += (dy / d * v - b.vy) * Math.min(1, dt * 7); }
+    if (t.repel != null){ const [mx_, my_] = cur(t.repel), dx = b.x - mx_, dy = b.y - my_, d = Math.hypot(dx, dy) || 1; if (d < .3){ b.vx += dx / d * 4 * dt; b.vy += dy / d * 4 * dt; } }
+    if (t.zigzag != null){ b._zz = (b._zz || 0) + dt; if (b._zz > .22){ b._zz = 0; b.vx = -b.vx || .5; } }
+    if (t.snake != null) b.vx += Math.cos(now * 9) * 3 * dt;
+    if (t.grav != null) b.vy += goalDir(t.grav) * 1.6 * dt;
+    if (t.drunk != null){ b.vx += (Math.random() - .5) * 6 * dt; b.vy += (Math.random() - .5) * 3 * dt; }
+    if (t.homing != null){ const s = t.homing, o = G.pads[admOpp(s)], tx = o.x > .5 ? .08 : .92, ty = s === 0 ? -.1 : 1.1, dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, v = Math.max(Math.hypot(b.vx, b.vy), base); b.vx += (dx / d * v - b.vx) * Math.min(1, dt * 2.5); b.vy += (dy / d * v - b.vy) * Math.min(1, dt * 2.5); }
+    if (t.orbit != null){ const dx = b.x - .5, dy = b.y - .5, d = Math.hypot(dx, dy) || 1, v = Math.max(Math.hypot(b.vx, b.vy), base); b.vx += (-dy / d * v - b.vx) * Math.min(1, dt * 3); b.vy += (dx / d * v - b.vy) * Math.min(1, dt * 3); }
+    let sp = Math.hypot(b.vx, b.vy);
+    if (t.ramp != null && sp) setSpeed(b, Math.min(MAXV, sp * (1 + .3 * dt)));
+    sp = Math.hypot(b.vx, b.vy);
+    if (t.slow != null && sp > base * .3) setSpeed(b, base * .3);
+    if (t.turbo != null && sp && sp < base * 2.4) setSpeed(b, Math.min(MAXV, base * 2.4));
+    if (Math.hypot(b.vx, b.vy) > MAXV * 1.4) setSpeed(b, MAXV * 1.4);
+    if (Math.abs(b.vy) < .05 && Math.hypot(b.vx, b.vy) > 0 && t.orbit == null) b.vy = .05 * (b.y < .5 ? 1 : -1);
+  }
+  if (t.freeze == null) eachBall(b => { if (b._fv){ b.vx = b._fv[0]; b.vy = b._fv[1]; b._fv = null; } });
+  // paddles
+  for (let s = 0; s < 2; s++){
+    let sh = 1;
+    if (t.giantme === s || t.giantopp === admOpp(s)) sh = 2.3;
+    if (t.tinyme === s || t.tinyopp === admOpp(s) || X.bonk[s] > 0) sh = .35;
+    if (sh !== 1) G.shrink[s] = sh;
+    if (X.bonk[s] > 0) X.bonk[s] -= dt;
+  }
+  if (t.aimbot != null){ const s = t.aimbot; let best = null; for (const b of G.balls){ const pr = predictPath(b.x, b.y, b.vx, b.vy, PY[s], G.br()); if (pr && (!best || pr.t < best.t)) best = pr; } if (best) G.pads[s].tx = best.x; }
+  if (t.npc != null){ const p = G.pads[admOpp(t.npc)]; p.tx = .5 + Math.sin(now * 1.3) * .42; }
+  // Gary, the third player, wanders after the nearest ball in the middle of the court
+  if (t.gary != null){ const g = X.gary || (X.gary = { x: .5, v: 0 }); let tx = .5, best = 9; for (const b of G.balls){ const d = Math.abs(b.y - .5); if (d < best){ best = d; tx = b.x; } } const sp = t.garymad != null ? 2.6 : .9; g.x = clamp(g.x + clamp(tx - g.x, -sp * dt, sp * dt), .09, .91); }
+  else X.gary = null;
+  // walls
+  const W = [];
+  if (t.wallme != null) W.push({ x0: 0, x1: 1, y: t.wallme === 0 ? .975 : .025, k: "goal" });
+  if (t.wallopp != null) W.push({ x0: 0, x1: 1, y: t.wallopp === 0 ? .025 : .975, k: "goal" });
+  if (t.midwall != null) W.push({ x0: 0, x1: .38, y: .5 }, { x0: .62, x1: 1, y: .5 });
+  if (t.maze != null) W.push({ x0: .1, x1: .45, y: .3 }, { x0: .55, x1: .9, y: .3 }, { x0: 0, x1: .3, y: .5 }, { x0: .7, x1: 1, y: .5 }, { x0: .2, x1: .5, y: .7 }, { x0: .6, x1: .85, y: .7 });
+  if (t.movewall != null){ const c = .5 + Math.sin(now * 1.2) * .35; W.push({ x0: c - .15, x1: c + .15, y: .5 }); }
+  X.walls = W;
+  // the ball that walked away
+  if (X.walker){ const w = X.walker; w.t += dt; w.x += w.dir * .1 * dt; if (w.x < -.1 || w.x > 1.1){ X.walker = null; cutscene("back", 0); later(.2, () => { if (G && !G.over) G.serve(); }); } }
+  if (t.clockfreeze != null && G.clock != null) G.clock += dt;
+  let ts = 1; for (const c of C) if (c.ts && t[c.id] != null) ts = Math.min(ts, c.ts) === c.ts && c.ts < 1 ? c.ts : Math.max(ts, c.ts);
+  return ts;
+}
+function bounceLine(b, y0, x0, x1, dirOnly, angled, cx, w){
+  const r = G.br(), py = b._py ?? b.y;
+  if (b.x < x0 - r || b.x > x1 + r) return false;
+  const before = py - y0, after = b.y - y0;
+  if (Math.sign(before) === Math.sign(after) && Math.abs(after) > PH / 2 + r) return false;
+  if (dirOnly && Math.sign(b.vy) !== dirOnly) return false;
+  if (Math.sign(before) === Math.sign(after) && Math.sign(b.vy) === Math.sign(before)) return false;
+  const side = Math.sign(before) || -Math.sign(b.vy) || 1;
+  if (angled){ const off = clamp((b.x - cx) / (w / 2), -1, 1), ang = off * Math.PI / 3, sp = Math.min(MAXV, Math.hypot(b.vx, b.vy) * 1.03); b.vx = Math.sin(ang) * sp; b.vy = side * Math.cos(ang) * sp; }
+  else b.vy = side * Math.abs(b.vy);
+  b.y = y0 + side * (PH / 2 + r + .002);
+  return true;
+}
+function admAfter(dt){
+  if (!G || G.over) return;
+  const X = ADMX.X, t = X.t;
+  // clones, Gary, walls block the ball
+  for (const b of G.balls){
+    for (let s = 0; s < 2; s++) for (let k = 1; k <= X.clones[s]; k++){
+      const y = PY[s] + (s === 0 ? -1 : 1) * k * .085, p = G.pads[s], cx = clamp(p.x + Math.sin(performance.now() / 300 + k * 2) * .12 * k, .1, .9), w = G.padW(s);
+      if (bounceLine(b, y, cx - w / 2, cx + w / 2, s === 0 ? 1 : -1, true, cx, w)) SFX.hit();
+    }
+    if (X.gary){ const w = .18, team = t.garyteam; if (bounceLine(b, .5, X.gary.x - w / 2, X.gary.x + w / 2, team != null ? (team === 0 ? 1 : -1) : 0, true, X.gary.x, w)) SFX.hit(); }
+    for (const w of X.walls) if (bounceLine(b, w.y, w.x0, w.x1, 0, false)) SFX.wall();
+  }
+  // a boosted (power-up) hit: the next paddle hit by that side goes 3x
+  if (X.boost >= 0) for (const b of G.balls){ const s = X.boost; if (b.y !== b._py && Math.sign(b.vy) === goalDir(s) && Math.abs(b.y - PY[s]) < .06){ setSpeed(b, Math.min(MAXV, Math.hypot(b.vx, b.vy) * 3)); X.boost = -1; G.shake = 1; G.flash = 1; break; } }
+  // their paddle: frozen / reversed / drunk (applied after they moved, so it works on bots and online players)
+  for (let s = 0; s < 2; s++){
+    const o = admOpp(s), p = G.pads[o], half = G.padW(o) / 2;
+    if (t.freezeopp === s){ if (X.frozenX[o] == null) X.frozenX[o] = ADMX.prev[o]; p.x = p.tx = X.frozenX[o]; }
+    if (t.invertopp === s){ const dx = p.x - ADMX.prev[o]; p.x = clamp(ADMX.prev[o] - dx, half, 1 - half); }
+    if (t.drunkopp === s) p.x = clamp(p.x + Math.sin(performance.now() / 180) * .006, half, 1 - half);
   }
 }
-function admReverse(){
-  if (!G || G.over) return;
-  if (G.o.net && G.o.net.role === "client"){ toast("Reverse only works when you're the host (or offline)"); return; }
-  for (const b of G.balls){ b.vx = -b.vx; b.vy = -b.vy; } G.trolled = true;
+// ---------- drawing on top of the board ----------
+function admDraw(){
+  if (!G) return; syncGame();
+  const X = ADMX.X, t = X.t, S = cv.width, Xp = x => (flipped ? 1 - x : x) * S, Yp = y => (flipped ? 1 - y : y) * S, now = performance.now() / 1000, pong = isPong();
+  // client: play cutscenes the host started
+  if (X.cs && X.cs.n !== ADMX.lastCs){ ADMX.lastCs = X.cs.n; showCutscene(X.cs.id); }
+  const board = $("board");
+  // whole-board effects (CSS on the board, so both players see the same chaos)
+  let tf = "", fl = "";
+  if (t.flip != null) tf += " rotate(180deg)"; if (t.spin != null) tf += ` rotate(${(now * 40) % 360}deg)`; if (t.tilt != null) tf += ` rotate(${Math.sin(now * 1.5) * 14}deg) skewX(${Math.sin(now) * 8}deg)`;
+  if (t.mirror != null) tf += " scaleX(-1)"; if (t.zoom != null) tf += ` scale(${1 + Math.sin(now * 4) * .08})`; if (t.tiny != null) tf += " scale(.6)";
+  if (t.quake != null) tf += ` translate(${(Math.random() - .5) * 14}px, ${(Math.random() - .5) * 14}px)`;
+  if (t.disco != null || t.party != null) fl += ` hue-rotate(${(now * 240) % 360}deg) saturate(2)`; if (t.gray != null) fl += " grayscale(1) contrast(1.3) sepia(.3)"; if (t.blur != null) fl += " blur(3px)";
+  if (t.hacker != null) fl += " hue-rotate(90deg) saturate(3) brightness(.9)";
+  board.style.transform = tf; board.style.filter = fl; board.style.transition = "none";
+  ctx.save();
+  // walls
+  for (const w of X.walls){ ctx.fillStyle = w.k === "goal" ? "rgba(255,80,80,.9)" : (pong ? "#fff" : "#7a4a2a"); const y = Yp(w.y), x0 = Math.min(Xp(w.x0), Xp(w.x1)); ctx.fillRect(x0, y - S * .008, Math.abs(Xp(w.x1) - Xp(w.x0)), S * .016); }
+  // clones
+  for (let s = 0; s < 2; s++) for (let k = 1; k <= X.clones[s]; k++){
+    const y = PY[s] + (s === 0 ? -1 : 1) * k * .085, p = G.pads[s], cx = clamp(p.x + Math.sin(performance.now() / 300 + k * 2) * .12 * k, .1, .9), w = G.padW(s);
+    ctx.globalAlpha = .55; ctx.fillStyle = s === meSide() ? "#7ad7ff" : "#ff8a8a"; ctx.fillRect(Math.min(Xp(cx - w / 2), Xp(cx + w / 2)), Yp(y) - S * PH / 2, w * S, S * PH); ctx.globalAlpha = 1;
+    ctx.font = `${S * .02}px sans-serif`; ctx.textAlign = "center"; ctx.fillText("🥷", Xp(cx), Yp(y) + S * .007);
+  }
+  // Gary
+  if (X.gary){ const w = .18, x0 = Math.min(Xp(X.gary.x - w / 2), Xp(X.gary.x + w / 2)); ctx.fillStyle = t.garymad != null ? "#ff4040" : "#3ddc84"; ctx.fillRect(x0, Yp(.5) - S * PH / 2, w * S, S * PH);
+    ctx.font = `700 ${S * .026}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.fillText((t.garymad != null ? "😡" : "🧍") + " Gary", Xp(X.gary.x), Yp(.5) - S * .025); }
+  // the walking ball: legs, little arms, a speech bubble
+  if (X.walker){ const w = X.walker, x = Xp(w.x), y = Yp(w.y), r = S * G.br(), step = Math.sin(w.t * 10);
+    ctx.strokeStyle = pong ? "#fff" : "#222"; ctx.lineWidth = S * .005; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x - r * .4, y + r * .6); ctx.lineTo(x - r * .4 + step * r * .6, y + r * 2); ctx.moveTo(x + r * .4, y + r * .6); ctx.lineTo(x + r * .4 - step * r * .6, y + r * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x - r * 1.8, y - step * r * .6); ctx.moveTo(x + r, y); ctx.lineTo(x + r * 1.8, y + step * r * .6); ctx.stroke();
+    ctx.fillStyle = pong ? "#fff" : "#f2f2f2"; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(x + w.dir * r * .35, y - r * .2, r * .15, 0, 7); ctx.fill();
+    ctx.font = `${S * .022}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000"; ctx.lineWidth = S * .004;
+    const msg = ["brb", "I'm done", "this game is mid", "I have a family", "goodbye forever"][Math.floor(w.t / 1.6) % 5]; ctx.strokeText(msg, x, y - r * 2.4); ctx.fillText(msg, x, y - r * 2.4); }
+  // ball effects
+  if (t.rainbow != null) for (const b of G.balls){ ctx.fillStyle = `hsl(${(now * 400) % 360},100%,60%)`; ctx.beginPath(); ctx.arc(Xp(b.x), Yp(b.y), S * G.br() * 1.15, 0, 7); ctx.fill(); }
+  if (t.dark != null){ const b = G.balls[0], g2 = ctx.createRadialGradient(b ? Xp(b.x) : S / 2, b ? Yp(b.y) : S / 2, S * .04, b ? Xp(b.x) : S / 2, b ? Yp(b.y) : S / 2, S * .22); g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(0,0,0,.97)"); ctx.fillStyle = g2; ctx.fillRect(0, 0, S, S); }
+  if (X.boost >= 0){ ctx.fillStyle = "rgba(255,200,0,.25)"; ctx.fillRect(0, X.boost === meSide() ? S * .85 : 0, S, S * .15); ctx.font = `700 ${S * .03}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "#ffd200"; ctx.fillText("⚡ POWERED UP ⚡", S / 2, X.boost === meSide() ? S * .83 : S * .19); }
+  // confetti
+  if (t.confetti != null || t.party != null){ for (let k = 0; k < 3; k++) ADMX.parts.push({ x: Math.random() * S, y: -10, vy: S * (.002 + Math.random() * .004), vx: (Math.random() - .5) * 2, c: `hsl(${Math.random() * 360},90%,60%)`, r: Math.random() * 6 }); }
+  for (let i = ADMX.parts.length - 1; i >= 0; i--){ const p = ADMX.parts[i]; p.x += p.vx; p.y += p.vy; p.r += .1; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-S * .006, -S * .003, S * .012, S * .006); ctx.restore(); if (p.y > S + 10) ADMX.parts.splice(i, 1); }
+  // fake lag: smear + "reconnecting"
+  if (t.fakelag != null && Math.sin(now * 3) > .3){ ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(0, 0, S, S); ctx.font = `700 ${S * .035}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.fillText("📶 reconnecting...", S / 2, S * .5); }
+  if (t.dc != null){ ctx.fillStyle = "rgba(10,10,20,.92)"; ctx.fillRect(S * .15, S * .38, S * .7, S * .24); ctx.strokeStyle = "#ff4040"; ctx.lineWidth = S * .005; ctx.strokeRect(S * .15, S * .38, S * .7, S * .24); ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.font = `700 ${S * .04}px sans-serif`; ctx.fillText("CONNECTION LOST", S / 2, S * .47); ctx.font = `${S * .022}px sans-serif`; ctx.fillText("(just kidding. keep playing.)", S / 2, S * .53); }
+  ctx.restore();
 }
+// hide the ball for "invisible" and "blink" (read by scene())
+const admHideBall = () => { const t = ADMX.X.t; return t.invis != null || (t.blink != null && Math.sin(performance.now() / 110) > 0); };
+// ---------- cutscene overlay ----------
+const csEl = document.createElement("div");
+csEl.style.cssText = "position:fixed;z-index:70;pointer-events:none;display:none;overflow:hidden;border-radius:6px";
+document.body.appendChild(csEl);
+const csStyle = document.createElement("style");
+csStyle.textContent = `@keyframes admLines{from{background-position:0 0}to{background-position:400px 0}}@keyframes admSlam{0%{transform:scale(3) rotate(-8deg);opacity:0}40%{transform:scale(.9) rotate(-3deg);opacity:1}55%{transform:scale(1.06) rotate(-3deg)}100%{transform:scale(1) rotate(-3deg)}}
+@keyframes admActor{0%{transform:translateX(-140%) scale(.6)}35%{transform:translateX(0) scale(1.2)}100%{transform:translateX(12%) scale(1.1)}}@keyframes admFade{0%{opacity:0}10%{opacity:1}85%{opacity:1}100%{opacity:0}}`;
+document.head.appendChild(csStyle);
+let csT = 0;
+function showCutscene(id){
+  const d = CS[id]; if (!d) return; const r = $("board").getBoundingClientRect();
+  Object.assign(csEl.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px", display: "block" });
+  csEl.innerHTML = `<div style="position:absolute;inset:0;background:${d[3]};animation:admFade 1.7s forwards;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2%">
+    <div style="position:absolute;inset:0;opacity:.35;background:repeating-linear-gradient(100deg,#fff 0 3px,transparent 3px 26px);animation:admLines .35s linear infinite"></div>
+    <div style="position:absolute;left:4%;top:50%;transform:translateY(-50%);font-size:${r.width * .3}px;animation:admActor 1.7s ease-out forwards">${d[2]}</div>
+    <div style="position:relative;font:900 ${r.width * .085}px Impact,Arial Black,sans-serif;color:#fff;text-align:center;-webkit-text-stroke:${r.width * .006}px #000;text-shadow:${r.width * .01}px ${r.width * .01}px 0 #000;animation:admSlam .45s ease-out forwards;padding:0 4%">${d[0]}</div>
+    <div style="position:relative;font:700 ${r.width * .035}px system-ui;color:#fff;text-shadow:0 2px 4px #000;text-align:center;padding:0 6%">${d[1]}</div></div>`;
+  clearTimeout(csT); csT = setTimeout(() => { csEl.style.display = "none"; }, 1750);
+  admSound({ id }, false);
+}
+// ---------- sounds (made up on the spot with WebAudio) ----------
+let admAC = null;
+function admSound(c, local){
+  try { admAC = admAC || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  const A = admAC, t0 = A.currentTime, tone = (f, d, type = "square", v = .12, when = 0, slide = 0) => { const o = A.createOscillator(), g = A.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0 + when); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + when + d); g.gain.setValueAtTime(v, t0 + when); g.gain.exponentialRampToValueAtTime(.001, t0 + when + d); o.connect(g).connect(A.destination); o.start(t0 + when); o.stop(t0 + when + d + .05); };
+  const k = c.snd || (local ? null : "boom");
+  if (local && !c.snd) { tone(880, .06, "square", .05); return; }
+  if (k === "boom") { tone(110, 1.1, "sine", .5, 0, -80); tone(55, 1.2, "triangle", .4); }
+  else if (k === "airhorn") { for (let i = 0; i < 3; i++) { tone(466, .22, "sawtooth", .12, i * .26); tone(470, .22, "sawtooth", .1, i * .26); } }
+  else if (k === "trombone") { [[392, .4], [370, .4], [349, .4], [330, 1]].reduce((w, [f, d]) => { tone(f, d, "sawtooth", .1, w, -10); return w + d; }, 0); }
+  else if (k === "drumroll") { for (let i = 0; i < 24; i++) tone(180 + Math.random() * 40, .05, "triangle", .15, i * .06); tone(140, .6, "sine", .4, 1.5, -60); }
+}
+// ---------- the panel ----------
 const admBox = document.createElement("div");
 admBox.id = "admin";
-admBox.style.cssText = "position:fixed;right:12px;bottom:12px;z-index:60;background:#120a1f;border:3px solid #ff3bd4;border-radius:14px;padding:8px 10px;color:#fff;font:600 14px system-ui;box-shadow:0 0 22px #ff3bd488;display:none;max-width:240px";
+admBox.style.cssText = "position:fixed;right:10px;bottom:10px;z-index:60;background:#120a1f;border:3px solid #ff3bd4;border-radius:14px;color:#fff;font:600 13px system-ui;box-shadow:0 0 22px #ff3bd488;display:none;width:min(330px,92vw);max-height:72vh;overflow:hidden;flex-direction:column";
 document.body.appendChild(admBox);
-function renderAdmin(){
-  const on = ADM.unlocked && G && !G.over && !REV;
-  admBox.style.display = on ? "block" : "none"; if (!on) return;
-  const b = (k, label, key) => `<button data-adm="${k}" style="margin:3px;padding:5px 9px;border-radius:9px;border:2px solid #ff3bd4;background:${ADM[k] ? "#ff3bd4" : "#241238"};color:#fff;font:700 13px system-ui;cursor:pointer">${label} <small style="opacity:.7">${key}</small></button>`;
-  const html = `<div style="font:900 15px system-ui;color:#ff3bd4;margin-bottom:4px">ADMIN PANEL</div>` + b("slow", "🐌 Slow ball", "1") + b("turbo", "🚀 Turbo", "2") + b("freeze", "🧊 Freeze", "3") + b("magnet", "🧲 Ball to cursor", "4") +
-    `<button data-adm="rev" style="margin:3px;padding:5px 9px;border-radius:9px;border:2px solid #ff3bd4;background:#241238;color:#fff;font:700 13px system-ui;cursor:pointer">↩ Reverse <small style="opacity:.7">5</small></button>` +
-    `<div style="opacity:.75;font-size:12px;margin-top:4px">${G.trolled ? "This game won't change ratings." : "Using any power makes this game unrated."}</div>`;
-  if (admBox._h !== html){ admBox.innerHTML = html; admBox._h = html; admBox.querySelectorAll("[data-adm]").forEach(x => x.onclick = () => admToggle(x.dataset.adm)); }
+const CATS = ["Ball", "Paddles", "Field", "Score", "Visual", "Memes"];
+function renderAdmin(force){
+  const on = ADMX.unlocked && G && !G.over && !REV;
+  admBox.style.display = on ? "flex" : "none";
+  if (!on){ if (G === null || (G && G.over)) { const b = $("board"); if (b) { b.style.transform = ""; b.style.filter = ""; } } return; }
+  const q = ADMX.q.toLowerCase(), list = C.filter(c => q ? c.name.toLowerCase().includes(q) : c.cat === ADMX.tab);
+  const head = `<div style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:2px solid #ff3bd4"><b style="color:#ff3bd4;font:900 15px system-ui;flex:1">ADMIN · ${C.length} commands</b><button data-a="open" style="background:#241238;color:#fff;border:2px solid #ff3bd4;border-radius:8px;padding:1px 8px;cursor:pointer">${ADMX.open ? "–" : "+"}</button></div>`;
+  if (!ADMX.open){ const h = head + `<div style="padding:4px 9px 8px;opacity:.75">${G.trolled ? "This game is unrated." : "Using a command makes this game unrated."}</div>`; if (admBox._h !== h){ admBox.innerHTML = h; admBox._h = h; wireAdmin(); } return; }
+  const tabs = `<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 8px 2px">${CATS.map(c => `<button data-tab="${c}" style="border:2px solid #ff3bd4;border-radius:8px;padding:1px 7px;cursor:pointer;color:#fff;background:${ADMX.tab === c && !q ? "#ff3bd4" : "#241238"}">${c}</button>`).join("")}</div>`;
+  const rows = list.map(c => `<div style="display:flex;gap:5px;align-items:center;margin:2px 0"><button data-cmd="${c.id}" style="flex:1;text-align:left;border:2px solid ${isOn(c) ? "#ff3bd4" : "#3a2458"};border-radius:8px;padding:4px 7px;cursor:pointer;color:#fff;background:${isOn(c) ? "#ff3bd4" : "#241238"}">${c.name}</button><button data-bind="${c.id}" title="click to rebind" style="min-width:52px;border:2px solid #3a2458;border-radius:8px;padding:3px 4px;cursor:pointer;color:#ffd6f5;background:#0c0716;font:700 11px system-ui">${ADMX.rebinding === c.id ? "press…" : prettyKey(bindOf(c))}</button></div>`).join("");
+  const h = head + tabs + `<div style="padding:4px 8px"><input id="admq" placeholder="search ${C.length} commands" value="${ADMX.q.replace(/"/g, "")}" style="width:100%;background:#0c0716;color:#fff;border:2px solid #3a2458;border-radius:8px;padding:4px 7px;font:600 13px system-ui"></div>` +
+    `<div style="overflow:auto;padding:0 8px 6px;flex:1">${rows || "<div style='opacity:.6;padding:6px'>nothing matches</div>"}</div>` +
+    `<div style="padding:5px 9px 8px;border-top:2px solid #3a2458;font-size:12px;opacity:.85;display:flex;gap:8px;align-items:center"><span style="flex:1">${G.trolled ? "This game is unrated." : "Using a command makes this game unrated."}</span><button data-a="resetbinds" style="background:#241238;color:#fff;border:2px solid #3a2458;border-radius:8px;padding:1px 7px;cursor:pointer">reset keys</button></div>`;
+  if (admBox._h !== h || force){ const focused = document.activeElement && document.activeElement.id === "admq"; admBox.innerHTML = h; admBox._h = h; wireAdmin(); if (focused){ const i = $("admq"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
-function admToggle(k){
-  if (k === "rev") return admReverse();
-  ADM[k] = !ADM[k];
-  if (k === "slow" && ADM.slow) ADM.turbo = false; if (k === "turbo" && ADM.turbo) ADM.slow = false;
-  if (G && ADM[k]) G.trolled = true;
-  renderAdmin();
+function wireAdmin(){
+  admBox.querySelectorAll("[data-cmd]").forEach(x => x.onclick = () => { admInvoke(x.dataset.cmd); renderAdmin(); });
+  admBox.querySelectorAll("[data-bind]").forEach(x => x.onclick = () => { ADMX.rebinding = ADMX.rebinding === x.dataset.bind ? null : x.dataset.bind; renderAdmin(); });
+  admBox.querySelectorAll("[data-tab]").forEach(x => x.onclick = () => { ADMX.tab = x.dataset.tab; ADMX.q = ""; renderAdmin(); });
+  const o = admBox.querySelector("[data-a=open]"); if (o) o.onclick = () => { ADMX.open = !ADMX.open; try { localStorage.setItem("pong_admin_open", ADMX.open ? "1" : "0"); } catch (e) {} renderAdmin(); };
+  const rb = admBox.querySelector("[data-a=resetbinds]"); if (rb) rb.onclick = () => { ADMX.binds = {}; try { localStorage.removeItem("pong_admin_binds"); } catch (e) {} toast("Keybinds reset"); renderAdmin(); };
+  const qi = $("admq"); if (qi) qi.oninput = e => { ADMX.q = e.target.value; renderAdmin(); };
 }
 addEventListener("keydown", e => {
+  if (e.target && e.target.id === "admq") return;
   if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
-  if (e.key.length === 1){ ADM.buf = (ADM.buf + e.key.toLowerCase()).slice(-12);
-    if (ADM.buf.endsWith("joessoks3")){ ADM.buf = ""; ADM.unlocked = !ADM.unlocked; try { localStorage.setItem("pong_admin", ADM.unlocked ? "1" : "0"); } catch (err) {} toast(ADM.unlocked ? "ADMIN PANEL UNLOCKED (shows during matches)" : "Admin panel off"); renderAdmin(); return; } }
-  if (ADM.unlocked && G && !G.over && !REV && ["1", "2", "3", "4", "5"].includes(e.key)) admToggle(["slow", "turbo", "freeze", "magnet", "rev"][+e.key - 1]);
-});
-setInterval(renderAdmin, 250);
+  if (ADMX.rebinding){                                    // capture a new keybind
+    const combo = comboOf(e); if (!combo) return; e.preventDefault(); e.stopImmediatePropagation();
+    if (e.code === "Escape"){ ADMX.rebinding = null; renderAdmin(); return; }
+    for (const c of C) if (bindOf(c) === combo) ADMX.binds[c.id] = "";
+    ADMX.binds[ADMX.rebinding] = combo; ADMX.rebinding = null; try { localStorage.setItem("pong_admin_binds", JSON.stringify(ADMX.binds)); } catch (err) {} toast("Bound to " + prettyKey(combo)); renderAdmin(); return;
+  }
+  if (e.key.length === 1 && !e.altKey){
+    ADMX.buf = (ADMX.buf + e.key.toLowerCase()).slice(-12);
+    if (ADMX.buf.endsWith("joessoks3")){ ADMX.buf = ""; ADMX.unlocked = !ADMX.unlocked; try { localStorage.setItem("pong_admin", ADMX.unlocked ? "1" : "0"); } catch (err) {} toast(ADMX.unlocked ? `ADMIN PANEL UNLOCKED: ${C.length} commands (shows during matches)` : "Admin panel off"); renderAdmin(); return; }
+  }
+  if (!ADMX.unlocked || !G || G.over || REV) return;
+  const combo = comboOf(e); if (!combo) return;
+  const c = C.find(x => bindOf(x) === combo); if (!c) return;
+  e.preventDefault(); e.stopPropagation(); admInvoke(c.id); renderAdmin();
+}, true);
+setInterval(() => renderAdmin(), 250);
+// the board's pointer, in court coordinates, for magnet / repel
+$("board").addEventListener("pointermove", e => { const r = cv.getBoundingClientRect(); let x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; if (flipped){ x = 1 - x; y = 1 - y; } ADMX.cur[meSide()] = [x, y]; });
+
 
 function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
 function renderMe(){ $("meBox").innerHTML = `<b>🙂 ${esc(P.name)}</b><div class="r"><span>🚀 ${P.ratings.bullet}</span><span>⚡ ${P.ratings.blitz}</span><span>🕒 ${P.ratings.rapid}</span><span>🧩 ${P.puzzle}</span></div>`; }
