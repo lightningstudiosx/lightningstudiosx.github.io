@@ -207,6 +207,15 @@
   #article h2,#article h3{margin:18px 0 8px;font-family:var(--serif);font-weight:700;border-bottom:1px solid var(--line);padding-bottom:3px;}
   #article ul,#article ol{margin:0 0 10px 24px;}
   #article .mw-editsection{display:none;}
+  #article .kp-from{font-size:13px;color:#54595d;margin:-6px 0 12px;font-family:system-ui,sans-serif;}
+  #article .kp-ib{float:right;width:250px;margin:0 0 12px 16px;background:#f8f9fa;border:1px solid var(--line);font-size:12.5px;}
+  #article .kp-ib img{display:block;width:100%;height:auto;background:#111;}
+  #article .kp-ib th{text-align:left;vertical-align:top;}
+  #article .kp-ib .kp-ibt{text-align:center;font-weight:700;font-size:14px;padding:6px;}
+  #article .kp-sp{background:#202122;color:#202122;border-radius:2px;padding:0 4px;}
+  #article .kp-nav{border:1px solid var(--line);background:#f8f9fa;padding:6px 10px;text-align:center;font-size:13px;clear:both;margin:14px 0;}
+  #article pre{background:#f8f9fa;border:1px solid var(--line);padding:8px;overflow:auto;font-size:13px;}
+  #article code{background:#f8f9fa;border:1px solid var(--line);padding:0 3px;font-size:13px;}
   .wc-target{
     background:var(--sun);outline:3px solid var(--coral);border-radius:3px;
     padding:0 3px;animation:pulse .8s ease infinite alternate;color:var(--ink) !important;font-weight:700;
@@ -308,6 +317,7 @@
           <option value="https://en.wikibooks.org">Wikibooks</option>
           <option value="https://species.wikimedia.org">Wikispecies</option>
           <option value="https://meta.wikioasis.org">WikiOasis Meta</option>
+          <option value="kaipedia">Kaipedia (Kai.fun)</option>
           <option value="custom">Custom wiki (Miraheze, WikiOasis, etc.)&hellip;</option>
         </select>
       </div>
@@ -341,6 +351,7 @@
     <button class="try" data-a="Pizza" data-b="Moon">Pizza <i>to</i> Moon</button>
     <button class="try" data-a="Cat" data-b="Black hole">Cat <i>to</i> Black hole</button>
     <button class="try" data-a="Minecraft" data-b="Ancient Egypt">Minecraft <i>to</i> Ancient Egypt</button>
+    <button class="try" data-a="https://kaifun.fun/updates.html#/wiki/Main_Page" data-b="https://kaifun.fun/updates.html#/wiki/King_Krok">Kaipedia: Main Page <i>to</i> King Krok</button>
   </div>
 
   <div id="pathBar"></div>
@@ -386,6 +397,9 @@ function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">"
 
 function toTitle(input){
   input = (input||"").trim();
+  // a Kaipedia link: kaifun.fun/updates.html#/wiki/Title (or the old kaipedia.html address)
+  const k = input.match(/(?:updates|kaipedia)\.html#\/(?:wiki|talk|source|history|info|links)\/([^\/?]+)/i);
+  if(k){ try{ input = decodeURIComponent(k[1]); }catch(e){ input = k[1]; } return input.replace(/_/g," ").trim(); }
   // accept a full article URL from the active wiki (or any /wiki/-style URL)
   const m = input.match(/https?:\/\/[^\/]+\/(?:wiki\/|index\.php\?title=)([^#?&]+)/i);
   if(m) input = decodeURIComponent(m[1]);
@@ -415,7 +429,114 @@ async function probeApi(base){
   return null;
 }
 
+// ============ KAIPEDIA ============
+// Kai.fun's own encyclopedia. Its articles are embedded in updates.html, so they are read straight from there.
+let KP = null;
+const isKaipediaUrl = s => /^\s*kaipedia\s*$|kaifun\.fun|updates\.html#\/|kaipedia\.html/i.test(s||"");
+async function fetchKaipedia(){
+  const tries = /(^|\.)kaifun\.fun$/.test(location.hostname) ? ["updates.html"] : ["updates.html", "https://kaifun.fun/updates.html"];
+  for(const url of tries){
+    try{
+      const res = await fetch(url, {cache:"no-cache"}); if(!res.ok) continue;
+      const m = (await res.text()).match(/<script id="kpdata" type="application\/json">([\s\S]*?)<\/script>/);
+      if(m) return { D: JSON.parse(m[1]), base: url.replace(/updates\.html$/, "") };
+    }catch(e){ /* try the next address */ }
+  }
+  throw new Error("couldn't load Kaipedia");
+}
+async function loadKaipedia(){
+  if(KP) return KP;
+  say("loading Kaipedia…");
+  const { D, base } = await fetchKaipedia();
+  const by = new Map(), redir = new Map(), MAIN = "Main Page";
+  for(const a of D.articles) by.set(a.t.toLowerCase(), a);
+  for(const [k, v] of Object.entries(D.redirects || {})) if(!by.has(k.toLowerCase())) redir.set(k.toLowerCase(), v);
+  const find = t => { t = (t||"").replace(/_/g," ").trim().toLowerCase(); return by.get(t) || (redir.has(t) ? by.get(String(redir.get(t)).toLowerCase()) : null); };
+  // the main page links to the big lists; the Kai.fun and Kaipedia articles link back to it
+  const mainLinks = ["Kai.fun", "Kaipedia", "List of Kai.fun games", "Chush walkthrough", "List of secret codes and admin panels", "Timeline of Kai.fun", "List of characters", "List of game modes", "Removed pages"].filter(t => by.has(t.toLowerCase()));
+  const out = new Map(), back = new Map();
+  for(const a of D.articles){
+    const set = new Set(), re = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
+    const src = a.body + "\n" + (a.ib && a.ib.rows ? a.ib.rows.map(r => r[1]).join(" ") : "");
+    let m; while((m = re.exec(src))){ if(/^category:/i.test(m[1])) continue; const b = find(m[1]); if(b && b !== a) set.add(b.t); }
+    if(a.t === "Kai.fun" || a.t === "Kaipedia") set.add(MAIN);
+    out.set(a.t, [...set]);
+  }
+  out.set(MAIN, mainLinks);
+  for(const [t, ls] of out) for(const l of ls){ if(!back.has(l)) back.set(l, []); back.get(l).push(t); }
+  const isPerson = t => { const a = by.get(String(t).toLowerCase()); return !!(a && (a.c || []).includes("Characters")); };
+  KP = { D, base, by, find, out, back, MAIN, mainLinks, isPerson };
+  return KP;
+}
+async function setKaipedia(){
+  try{ await loadKaipedia(); }catch(e){ say("couldn't load Kaipedia from kaifun.fun — check your connection and try again."); return false; }
+  WIKI = { host: "kaifun.fun", kp: true, api: null, articlePath: "/updates.html#/wiki/" };
+  wikiTag.textContent = "wiki: kaifun.fun (Kaipedia · " + KP.D.articles.length + " articles)";
+  document.getElementById("wikiSel").value = "kaipedia";
+  document.getElementById("customRow").classList.remove("show");
+  const sIn = document.getElementById("startIn"), eIn = document.getElementById("endIn");
+  if(!sIn.value.trim() && !eIn.value.trim()){ sIn.value = "Main Page"; eIn.value = "King Krok"; }
+  say("ready — connected to Kaipedia, the free Kai.fun encyclopedia.");
+  return true;
+}
+// Kaipedia's article markup, drawn as plain HTML for the replay browser
+function kpLink(t, label){ return '<a href="/updates.html#/wiki/' + encodeURIComponent(t.replace(/ /g, "_")) + '" title="' + esc(t) + '">' + label + '</a>'; }
+function kpArgs(s){ const out = []; let d = 0, cur = ""; for(const ch of s){ if(ch === "<") d++; if(ch === ">") d--; if(ch === "|" && d === 0){ out.push(cur); cur = ""; continue; } cur += ch; } out.push(cur); return out; }
+function kpInline(s){
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return "\u0000" + (codes.length - 1) + "\u0000"; });
+  s = esc(s);
+  s = s.replace(/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g, (m, t, label) => {
+    const tt = t.split("#")[0].replace(/&amp;/g, "&").replace(/&quot;/g, '"'), lab = label || esc(tt);
+    if(/^category:/i.test(tt)) return lab;
+    const a = KP.find(tt); return a ? kpLink(a.t, lab) : lab;
+  });
+  for(let guard = 0; guard < 20 && /\{\{([^{}]*)\}\}/.test(s); guard++) s = s.replace(/\{\{([^{}]*)\}\}/g, (m, inner) => {
+    const a = kpArgs(inner), name = a[0].trim().toLowerCase();
+    if(name === "spoiler") return '<span class="kp-sp" title="spoiler">' + esc(a[1] || "spoiler") + '</span>';
+    if(name === "nav") return '<div class="kp-nav">' + a.slice(1).filter(x => x.trim()).join(" · ") + '</div>';
+    if(name === "note") return '<p><i>' + a.slice(1).join("|") + '</i></p>';
+    if(name === "quote") return '<blockquote>' + a.slice(1).join("|") + '</blockquote>';
+    if(name === "inferred") return '<sup>[inferred]</sup>';
+    if(name === "cn") return '<sup>[citation needed]</sup>';
+    return "";
+  });
+  s = s.replace(/'{3}(.+?)'{3}/g, "<b>$1</b>").replace(/'{2}(.+?)'{2}/g, "<i>$1</i>");
+  return s.replace(/\u0000(\d+)\u0000/g, (m, i) => "<code>" + esc(codes[+i]) + "</code>");
+}
+function kpRender(src){
+  const L = String(src || "").split("\n"), out = []; let i = 0;
+  const block = l => /^(={2,4}).+\1\s*$/.test(l) || /^[*#] /.test(l) || l.startsWith("{|") || l.startsWith("```");
+  while(i < L.length){
+    const l = L[i]; let m;
+    if(!l.trim()){ i++; continue; }
+    if((m = l.match(/^(={2,4})\s*(.+?)\s*\1\s*$/))){ const n = m[1].length; out.push("<h" + n + ">" + kpInline(m[2]) + "</h" + n + ">"); i++; continue; }
+    if(l.startsWith("```")){ const b = []; i++; while(i < L.length && !L[i].startsWith("```")) b.push(L[i++]); i++; out.push("<pre>" + esc(b.join("\n")) + "</pre>"); continue; }
+    if(l.startsWith("{|")){ const rows = []; i++; while(i < L.length && !L[i].startsWith("|}")){ const r = L[i++]; if(r.startsWith("!")) rows.push("<tr>" + r.slice(1).split(" !! ").map(c => "<th>" + kpInline(c.trim()) + "</th>").join("") + "</tr>"); else if(r.startsWith("|") && !r.startsWith("|-")) rows.push("<tr>" + r.slice(1).split(" || ").map(c => "<td>" + kpInline(c.trim()) + "</td>").join("") + "</tr>"); } i++; out.push("<table>" + rows.join("") + "</table>"); continue; }
+    if(/^[*#] /.test(l)){ const tag = l[0] === "*" ? "ul" : "ol", items = []; while(i < L.length && L[i].startsWith(l[0] + " ")) items.push("<li>" + kpInline(L[i++].slice(2)) + "</li>"); out.push("<" + tag + ">" + items.join("") + "</" + tag + ">"); continue; }
+    const b = []; while(i < L.length && L[i].trim() && !block(L[i])) b.push(L[i++]);
+    const html = kpInline(b.join(" ")); out.push(/^<(div|p|blockquote)/.test(html) ? html : "<p>" + html + "</p>");
+  }
+  return out.join("\n");
+}
+function kpInfobox(a){
+  if(!a.ib) return "";
+  const img = a.img ? '<img src="' + (/^https?:/.test(a.img) ? a.img : (KP.base || "https://kaifun.fun/") + a.img) + '" alt="" loading="lazy">' : "";
+  return '<table class="kp-ib"><tr><td colspan="2" class="kp-ibt">' + esc(a.ib.title || a.t) + '</td></tr>' + (img ? '<tr><td colspan="2">' + img + '</td></tr>' : "")
+    + (a.ib.rows || []).map(([k, v]) => k ? "<tr><th>" + esc(k) + "</th><td>" + kpInline(v) + "</td></tr>" : '<tr><td colspan="2"><b>' + kpInline(v) + "</b></td></tr>").join("") + "</table>";
+}
+function renderKaipedia(title){
+  urlText.textContent = "kaifun.fun/updates.html#/wiki/" + title.replace(/ /g, "_");
+  const a = title === KP.MAIN ? null : KP.by.get(title.toLowerCase());
+  const body = a ? kpInfobox(a) + kpRender(a.body)
+    : '<p><b>Welcome to Kaipedia</b>, the free encyclopedia that anyone can read and nobody can edit: ' + KP.D.articles.length + ' articles about Kai.fun.</p><ul>' + KP.mainLinks.map(t => "<li>" + kpLink(t, esc(t)) + "</li>").join("") + "</ul>";
+  articleEl.innerHTML = '<h1 class="wc-title">' + esc(a ? a.t : KP.MAIN) + '</h1><div class="kp-from">From Kaipedia, the free Kai.fun encyclopedia</div>' + body;
+  articleEl.querySelectorAll("a").forEach(x => x.addEventListener("click", e => e.preventDefault()));
+  articleEl.scrollTop = 0;
+}
+
 async function setWiki(base){
+  if(isKaipediaUrl(base)) return setKaipedia();
   base = base.trim().replace(/\/+$/,"");
   if(!/^https?:\/\//i.test(base)) base = "https://" + base;
   try{ base = new URL(base).origin; }catch(e){ say("that's not a valid URL."); return false; }
@@ -474,6 +595,7 @@ async function api(params, tries=3){
 }
 
 async function linksFast(title){
+  if(WIKI.kp) return KP.out.get(title) || [];
   try{
     const data = await api({action:"query", prop:"links", titles:title,
       pllimit:"500", plnamespace:"0", redirects:"1"});
@@ -484,6 +606,7 @@ async function linksFast(title){
   }catch(e){ return []; }
 }
 async function backlinksFast(title){
+  if(WIKI.kp) return KP.back.get(title) || [];
   try{
     const data = await api({action:"query", prop:"linkshere", titles:title,
       lhlimit:"500", lhnamespace:"0", lhshow:"!redirect"});
@@ -502,6 +625,7 @@ function passesFilter(p){
   return (p.categories||[]).length>0 && !isPerson;   // "thing": known non-person
 }
 async function linksFiltered(title){
+  if(WIKI.kp) return (KP.out.get(title) || []).filter(t => (FILTER === "people") === KP.isPerson(t));
   try{
     const data = await api({action:"query", generator:"links", titles:title,
       gpllimit:"200", gplnamespace:"0", redirects:"1",
@@ -517,6 +641,7 @@ async function linksFiltered(title){
   }catch(e){ return []; }
 }
 async function backlinksFiltered(title){
+  if(WIKI.kp) return (KP.back.get(title) || []).filter(t => (FILTER === "people") === KP.isPerson(t));
   try{
     const data = await api({action:"query", generator:"linkshere", titles:title,
       glhlimit:"200", glhnamespace:"0",
@@ -533,6 +658,7 @@ async function backlinksFiltered(title){
 }
 
 async function resolve(title){
+  if(WIKI.kp){ if(title.trim().toLowerCase() === "main page") return KP.MAIN; const a = KP.find(title); return a ? a.t : null; }
   const data = await api({action:"query", titles:title, redirects:"1"});
   const pages = data?.query?.pages || {};
   for(const id in pages){ if(id==="-1") return null; return pages[id].title; }
@@ -576,7 +702,7 @@ async function findPath(start, end){
   }
 
   async function expandWave(frontier, isFwd){
-    const nodes = frontier.length > LEVEL_SAMPLE
+    const nodes = !WIKI.kp && frontier.length > LEVEL_SAMPLE
       ? frontier.slice().sort(()=>Math.random()-0.5).slice(0, LEVEL_SAMPLE)
       : frontier.slice();
     const nextFrontier = [];
@@ -606,7 +732,7 @@ async function findPath(start, end){
       say((isFwd?"exploring outward":"exploring backward")
         +" \u00b7 depth "+(isFwd?depthF+1:depthB+1)
         +" \u00b7 "+(fwdSeen.size+bwdSeen.size).toLocaleString()+" pages mapped"
-        +" \u00b7 "+apiCalls+" requests"
+        +(WIKI.kp ? "" : " \u00b7 "+apiCalls+" requests")
         +(FILTER!=="all" ? " \u00b7 "+(FILTER==="people"?"\uD83E\uDDCD people-only":"\uD83D\uDCE6 things-only") : ""));
     }
     return {nextFrontier, meetLower};
@@ -634,6 +760,7 @@ async function findPath(start, end){
 
 // ============ ARTICLE RENDERING ============
 async function renderArticle(title){
+  if(WIKI.kp) return renderKaipedia(title);
   urlText.textContent = WIKI.host + WIKI.articlePath + title.replace(/ /g,"_");
   articleEl.innerHTML = '<p style="color:#888">loading article\u2026</p>';
   let data = null;
@@ -721,6 +848,11 @@ async function playDemo(path){
 
 // if the user pastes article links from another wiki, switch to it automatically
 async function maybeAutoSwitch(rawStart, rawEnd){
+  const raws = [rawStart, rawEnd], kp = raws.filter(r => isKaipediaUrl(r) && /https?:\/\/|\.html#/i.test(r || ""));
+  if(kp.length){
+    if(raws.some(r => /https?:\/\//i.test(r || "") && !isKaipediaUrl(r))){ say("those two links are from different wikis \u2014 both pages need to be on the same wiki."); return false; }
+    return WIKI.kp ? true : await setKaipedia();
+  }
   const found = [];
   for(const raw of [rawStart, rawEnd]){
     const m = (raw||"").match(/https?:\/\/([^\/\s]+)\//i);
@@ -763,11 +895,13 @@ async function maybeAutoSwitch(rawStart, rawEnd){
 
 // ============ RANDOM PEOPLE / THINGS ============
 async function randomPages(n){
+  if(WIKI.kp){ const A = KP.D.articles.filter(a => !/^Chush level /.test(a.t)); return Array.from({length: n}, () => A[Math.floor(Math.random() * A.length)].t); }
   const data = await api({action:"query", list:"random", rnnamespace:"0",
     rnfilterredir:"nonredirects", rnlimit:String(n)});
   return (data?.query?.random||[]).map(r=>r.title);
 }
 async function classify(titles){
+  if(WIKI.kp){ const o = {}; for(const t of titles) o[t] = KP.isPerson(t); return o; }
   // biographies almost always carry birth/death-year or Living people categories
   const data = await api({action:"query", prop:"categories", titles:titles.join("|"),
     cllimit:"500", clshow:"!hidden"});
@@ -832,13 +966,13 @@ goBtn.onclick = async () => {
       say(""); return;
     }
     const secs = ((performance.now()-t0)/1000).toFixed(1);
-    say("path found in "+secs+"s ("+apiCalls+" requests) \u2014 running the demo\u2026");
+    say("path found in "+secs+"s"+(WIKI.kp ? "" : " ("+apiCalls+" requests)")+" \u2014 running the demo\u2026");
     await playDemo(path);
     doneCard.className = "card ok"; doneCard.style.display = "block";
     doneCard.innerHTML = '<div class="big">connected! \uD83C\uDF89</div>'
       + esc(path[0]) + " \u2192 " + esc(path[path.length-1])
       + " in " + (path.length-1) + " click" + ((path.length-1)===1?"":"s")
-      + " \u00B7 found in " + secs + "s \u00B7 on " + esc(WIKI.host);
+      + " \u00B7 found in " + secs + "s \u00B7 on " + esc(WIKI.kp ? "Kaipedia" : WIKI.host);
     say("");
   }catch(e){
     say("error: " + (e.message||e) + " \u2014 try again, the wiki hiccuped.");
@@ -859,6 +993,13 @@ document.querySelectorAll(".try").forEach(b=>b.onclick=()=>{
   document.getElementById("endIn").value = b.dataset.b;
   say("loaded \u201C"+b.dataset.a+"\u201D \u2192 \u201C"+b.dataset.b+"\u201D \u2014 hit CONNECT.");
 });
+// ?wiki=kaipedia or ?wiki=<wiki address> picks the wiki on load; ?from=&to= fill the boxes
+(() => {
+  const q = new URLSearchParams(location.search), w = q.get("wiki"), from = q.get("from"), to = q.get("to");
+  if(from) document.getElementById("startIn").value = from;
+  if(to) document.getElementById("endIn").value = to;
+  if(w) setWiki(w);
+})();
 // pressing Enter in either page box connects
 ["startIn","endIn"].forEach(id=>document.getElementById(id).addEventListener("keydown", e=>{
   if(e.key==="Enter" && !goBtn.disabled) goBtn.click();
