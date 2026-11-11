@@ -783,8 +783,8 @@ addEventListener("keydown", e => {
   if (REV && (e.key === "ArrowLeft" || e.key === "ArrowRight")){ e.preventDefault(); revStep(e.key === "ArrowLeft" ? -1 : 1); }
 });
 addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
-let pointerX = null;
-$("board").addEventListener("pointermove", e => { const r = cv.getBoundingClientRect(); pointerX = (e.clientX - r.left) / r.width; });
+let pointerX = null, pointerY = .5;
+$("board").addEventListener("pointermove", e => { const r = cv.getBoundingClientRect(); pointerX = (e.clientX - r.left) / r.width; pointerY = (e.clientY - r.top) / r.height; });
 $("board").addEventListener("pointerdown", e => { audio(); const r = cv.getBoundingClientRect(); pointerX = (e.clientX - r.left) / r.width; });
 const localTwo = () => G && G.o.players.some(p => p.ctrl === "keysTop");
 function applyInput(){
@@ -811,7 +811,7 @@ function loop(now){
   if (G){
     if (!REV){
       applyInput();
-      if (!(G.o.net && G.o.net.role === "client")) G.step(dt);
+      if (!(G.o.net && G.o.net.role === "client")){ admApply(dt); G.step(dt); }
     }
     if (G.o.net) netTick(dt);
     if (REV && REV.playing){
@@ -862,7 +862,7 @@ function endGame(winner, reason){
   }
   const me = meSide(), draw = winner === -1, won = winner === me;
   let change = 0;
-  if (o.rated){
+  if (o.rated && !G.trolled){
     const opp = o.players[1 - me].rating || 800;
     change = eloChange(P.ratings[o.tc], opp, draw ? .5 : won ? 1 : 0, P.games[o.tc]);
     P.ratings[o.tc] = Math.max(100, P.ratings[o.tc] + change); P.games[o.tc]++;
@@ -1414,11 +1414,11 @@ function netTick(dt){
   if (net.role === "host"){
     if (G.over && net.sentOver) return;
     netSend2({t: "s", b: G.balls.map(b => [+b.x.toFixed(4), +b.y.toFixed(4), +b.vx.toFixed(3), +b.vy.toFixed(3)]), p: [G.pads[0].x, G.pads[1].x], sc: G.score, c: Math.round(G.clock * 10) / 10, st: G.state, tm: G.timer, pts: G.points,
-      m: Object.keys(G.mods), scl: G.scale, sh: G.shrink, bk: G.bricks.map(k => k.on ? 1 : 0).join(""), wd: +G.wind.toFixed(3), lg: G.log.slice(net.sent), ov: G.over ? [G.winner, G.reason] : null});
+      m: Object.keys(G.mods), scl: G.scale, sh: G.shrink, bk: G.bricks.map(k => k.on ? 1 : 0).join(""), wd: +G.wind.toFixed(3), lg: G.log.slice(net.sent), tr: G.trolled ? 1 : 0, ov: G.over ? [G.winner, G.reason] : null});
     net.sent = G.log.length;
     if (G.over) net.sentOver = true;
   } else if (!G.over){
-    netSend2({t: "x", x: G.pads[1].tx});
+    netSend2({t: "x", x: G.pads[1].tx, adm: ADM.active() ? admState() : 0});
   }
 }
 function onNet(d){
@@ -1427,8 +1427,9 @@ function onNet(d){
   if (d.t === "rematch"){ net.theirs = true; toast(G ? G.o.players[1 - meSide()].name + " wants a rematch!" : "Rematch?"); tryRestart(); return; }
   if (d.t === "restart" && net.role === "client"){ net.sentOver = false; startNetGame(); return; }
   if (!G) return;
-  if (d.t === "x" && net.role === "host"){ G.pads[1].tx = clamp(+d.x || .5, 0, 1); }
+  if (d.t === "x" && net.role === "host"){ G.pads[1].tx = clamp(+d.x || .5, 0, 1); ADM.remote = d.adm || null; if (d.adm) G.trolled = true; }
   else if (d.t === "s" && net.role === "client"){
+    if (d.tr) G.trolled = true;
     if (G.over) return;
     G.balls = d.b.map(a => ({x: a[0], y: a[1], vx: a[2], vy: a[3]}));
     G.pads[0].x = d.p[0];
@@ -1458,6 +1459,63 @@ function netClose(){ try { net && net.conn.close(); } catch (e) {} try { net && 
 //  Bits and pieces
 // =====================================================================================
 let toastT = 0;
+
+// =====================================================================================
+//  Secret admin panel: type joessoks3 anywhere. Troll the ball during any match.
+//  A game where admin powers were used never changes anyone's rating.
+// =====================================================================================
+const ADM = { unlocked: false, slow: false, turbo: false, freeze: false, magnet: false, remote: null, buf: "", saved: null,
+  active(){ return this.unlocked && (this.slow || this.turbo || this.freeze || this.magnet); } };
+try { ADM.unlocked = localStorage.getItem("pong_admin") === "1"; } catch (e) {}
+function admState(){ const f = flipped; return { s: ADM.slow ? 1 : 0, t: ADM.turbo ? 1 : 0, f: ADM.freeze ? 1 : 0, m: ADM.magnet ? 1 : 0, mx: f ? 1 - (pointerX ?? .5) : (pointerX ?? .5), my: f ? 1 - pointerY : pointerY }; }
+function admApply(dt){
+  if (!G || G.over) return;
+  const st = ADM.active() ? admState() : ADM.remote;
+  if (!st) { if (ADM.saved) { for (const b of G.balls) if (!b.vx && !b.vy) { b.vx = ADM.saved[0]; b.vy = ADM.saved[1]; } ADM.saved = null; } return; }
+  G.trolled = true;
+  const base = G.tc.speed;
+  for (const b of G.balls){
+    if (st.f){ if (b.vx || b.vy) ADM.saved = [b.vx, b.vy]; b.vx = 0; b.vy = 0; continue; }
+    if (ADM.saved && !b.vx && !b.vy){ b.vx = ADM.saved[0]; b.vy = ADM.saved[1]; ADM.saved = null; }
+    let sp = Math.hypot(b.vx, b.vy) || base;
+    if (st.m){ const dx = st.mx - b.x, dy = st.my - b.y, d = Math.hypot(dx, dy) || 1, v = Math.max(sp, base); b.vx += (dx / d * v - b.vx) * Math.min(1, dt * 7); b.vy += (dy / d * v - b.vy) * Math.min(1, dt * 7); sp = Math.hypot(b.vx, b.vy); }
+    const want = st.s ? base * .3 : st.t ? base * 2.4 : 0;
+    if (want && sp > 0){ const k = st.s ? Math.min(1, want / sp) : Math.max(1, want / sp); b.vx *= k; b.vy *= k; }
+  }
+}
+function admReverse(){
+  if (!G || G.over) return;
+  if (G.o.net && G.o.net.role === "client"){ toast("Reverse only works when you're the host (or offline)"); return; }
+  for (const b of G.balls){ b.vx = -b.vx; b.vy = -b.vy; } G.trolled = true;
+}
+const admBox = document.createElement("div");
+admBox.id = "admin";
+admBox.style.cssText = "position:fixed;right:12px;bottom:12px;z-index:60;background:#120a1f;border:3px solid #ff3bd4;border-radius:14px;padding:8px 10px;color:#fff;font:600 14px system-ui;box-shadow:0 0 22px #ff3bd488;display:none;max-width:240px";
+document.body.appendChild(admBox);
+function renderAdmin(){
+  const on = ADM.unlocked && G && !G.over && !REV;
+  admBox.style.display = on ? "block" : "none"; if (!on) return;
+  const b = (k, label, key) => `<button data-adm="${k}" style="margin:3px;padding:5px 9px;border-radius:9px;border:2px solid #ff3bd4;background:${ADM[k] ? "#ff3bd4" : "#241238"};color:#fff;font:700 13px system-ui;cursor:pointer">${label} <small style="opacity:.7">${key}</small></button>`;
+  const html = `<div style="font:900 15px system-ui;color:#ff3bd4;margin-bottom:4px">ADMIN PANEL</div>` + b("slow", "🐌 Slow ball", "1") + b("turbo", "🚀 Turbo", "2") + b("freeze", "🧊 Freeze", "3") + b("magnet", "🧲 Ball to cursor", "4") +
+    `<button data-adm="rev" style="margin:3px;padding:5px 9px;border-radius:9px;border:2px solid #ff3bd4;background:#241238;color:#fff;font:700 13px system-ui;cursor:pointer">↩ Reverse <small style="opacity:.7">5</small></button>` +
+    `<div style="opacity:.75;font-size:12px;margin-top:4px">${G.trolled ? "This game won't change ratings." : "Using any power makes this game unrated."}</div>`;
+  if (admBox._h !== html){ admBox.innerHTML = html; admBox._h = html; admBox.querySelectorAll("[data-adm]").forEach(x => x.onclick = () => admToggle(x.dataset.adm)); }
+}
+function admToggle(k){
+  if (k === "rev") return admReverse();
+  ADM[k] = !ADM[k];
+  if (k === "slow" && ADM.slow) ADM.turbo = false; if (k === "turbo" && ADM.turbo) ADM.slow = false;
+  if (G && ADM[k]) G.trolled = true;
+  renderAdmin();
+}
+addEventListener("keydown", e => {
+  if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  if (e.key.length === 1){ ADM.buf = (ADM.buf + e.key.toLowerCase()).slice(-12);
+    if (ADM.buf.endsWith("joessoks3")){ ADM.buf = ""; ADM.unlocked = !ADM.unlocked; try { localStorage.setItem("pong_admin", ADM.unlocked ? "1" : "0"); } catch (err) {} toast(ADM.unlocked ? "ADMIN PANEL UNLOCKED (shows during matches)" : "Admin panel off"); renderAdmin(); return; } }
+  if (ADM.unlocked && G && !G.over && !REV && ["1", "2", "3", "4", "5"].includes(e.key)) admToggle(["slow", "turbo", "freeze", "magnet", "rev"][+e.key - 1]);
+});
+setInterval(renderAdmin, 250);
+
 function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
 function renderMe(){ $("meBox").innerHTML = `<b>🙂 ${esc(P.name)}</b><div class="r"><span>🚀 ${P.ratings.bullet}</span><span>⚡ ${P.ratings.blitz}</span><span>🕒 ${P.ratings.rapid}</span><span>🧩 ${P.puzzle}</span></div>`; }
 
