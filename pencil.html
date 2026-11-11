@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Pencil Pusher: build a pencil factory by hand</title>
+<meta name="description" content="Start with a pencil stand by the road. Chop cedar, mine graphite, make pencils by hand, then hammer together your own factory: conveyor belts, saws, kilns, glue presses, paint dippers, sharpeners, billboards and a shop that grows into a pencil mall.">
+<meta name="theme-color" content="#7ccf5a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lilita+One&family=Patrick+Hand&family=Permanent+Marker&display=swap">
+<style>
+/* Pencil Pusher — "MS Paint Industrial": flat colors, fat black outlines, round-headed dudes with big oval eyes. */
+:root { --ink:#151515; --paper:#fffdf4; --yellow:#ffd23a; --red:#e8262b; --blue:#3f4fd0; --green:#5cbf3c; --muted:#6b6b75 }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html, body { margin:0; height:100%; overflow:hidden; background:#7ccf5a; font:17px/1.25 Fredoka, "Segoe UI", system-ui, sans-serif; color:var(--ink);
+  -webkit-tap-highlight-color:transparent; user-select:none; overscroll-behavior:none; touch-action:none }
+button { font:inherit; color:inherit; cursor:pointer }
+#cv { position:fixed; inset:0; width:100vw; height:100vh; display:block; touch-action:none }
+.hud { position:fixed; z-index:10; pointer-events:none }
+.hud > * { pointer-events:auto }
+.box { background:#fff; border:3px solid var(--ink); border-radius:12px; box-shadow:3px 3px 0 var(--ink) }
+#tl { top:max(8px, env(safe-area-inset-top)); left:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-start; max-width:min(420px, 62vw) }
+#money { padding:4px 12px; font:30px/1 "Lilita One", Impact, sans-serif }
+#money small { display:block; font:13px Fredoka; color:var(--muted); margin-top:2px }
+#goal { padding:5px 10px; font-size:14px; background:#fff7c2 }
+#goal b { font:15px "Lilita One" }
+.home { font-size:13px; color:var(--ink); text-decoration:none; padding:2px 10px; background:#fff; border:2px solid var(--ink); border-radius:999px; box-shadow:2px 2px 0 var(--ink) }
+#tr { top:max(8px, env(safe-area-inset-top)); right:8px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:45vw }
+.hb { border:3px solid var(--ink); background:#fff; border-radius:12px; padding:3px 11px; box-shadow:3px 3px 0 var(--ink); font:16px "Lilita One" }
+.hb.on { background:var(--yellow) }
+#bag { left:8px; bottom:max(8px, env(safe-area-inset-bottom)); display:flex; gap:4px; flex-wrap:wrap; max-width:46vw }
+.chip { background:#fff; border:2px solid var(--ink); border-radius:9px; padding:0 7px; font-size:14px; white-space:nowrap }
+.chip b { font:14px "Lilita One" }
+#prompt { left:50%; bottom:calc(max(10px, env(safe-area-inset-bottom)) + 8px); transform:translateX(-50%); padding:5px 14px; font:17px "Lilita One"; white-space:nowrap }
+#buildbar { left:50%; transform:translateX(-50%); bottom:max(8px, env(safe-area-inset-bottom)); display:flex; gap:5px; padding:6px; max-width:calc(100vw - 16px); overflow-x:auto; background:#fff7c2 }
+#buildbar button { flex:none; width:74px; border:2px solid var(--ink); background:#fff; border-radius:10px; padding:3px 2px; font-size:12px; line-height:1.1; text-align:center }
+#buildbar button .ic { display:block; font-size:22px; line-height:1.2 }
+#buildbar button .c { display:block; font:13px "Lilita One" }
+#buildbar button.on { background:var(--yellow); box-shadow:inset 0 0 0 2px var(--ink) }
+#buildbar button.lock { opacity:.45 }
+#buildbar .note { flex:none; align-self:center; font-size:13px; max-width:140px; padding:0 6px }
+#touch { right:10px; bottom:calc(max(10px, env(safe-area-inset-bottom)) + 4px); display:flex; gap:8px; align-items:flex-end }
+#touch button { width:74px; height:74px; border-radius:50%; border:4px solid var(--ink); background:var(--yellow); font:18px "Lilita One"; box-shadow:3px 3px 0 var(--ink) }
+#touch #tbuild { background:#fff; width:58px; height:58px; font-size:14px }
+#touch #trot { background:#fff; width:52px; height:52px; font-size:14px }
+#stick { left:16px; bottom:calc(max(16px, env(safe-area-inset-bottom)) + 40px); width:120px; height:120px; border-radius:50%; border:3px solid rgba(21,21,21,.5); background:rgba(255,255,255,.25) }
+#knob { position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%; background:#fff; border:3px solid var(--ink) }
+body:not(.touch) #touch, body:not(.touch) #stick { display:none }
+body.touch #bag { bottom:auto; top:calc(max(8px, env(safe-area-inset-top)) + 150px) }
+#modal { position:fixed; inset:0; background:rgba(21,21,21,.45); display:grid; place-items:center; z-index:40; padding:10px }
+#mbox { background:var(--paper); border:4px solid var(--ink); border-radius:16px; box-shadow:6px 6px 0 var(--ink); width:min(860px, 100%); max-height:94vh; overflow:auto; padding:12px 14px }
+#mhead { display:flex; align-items:center; gap:10px; margin-bottom:8px }
+#mtitle { font:26px "Lilita One"; flex:1 }
+#mclose { border:3px solid var(--ink); background:#fff; border-radius:50%; width:40px; height:40px; font-size:20px; box-shadow:2px 2px 0 var(--ink) }
+#mtabs { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px }
+#mtabs button { border:2px solid var(--ink); background:#fff; border-radius:10px; padding:2px 12px; font:15px "Lilita One" }
+#mtabs button.on { background:var(--yellow) }
+#mcv { border:3px solid var(--ink); border-radius:10px; background:#fffdf6; display:block }
+#mctl { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px }
+#mhint { color:var(--muted); font-size:15px; margin-top:6px }
+.btn { border:3px solid var(--ink); background:var(--yellow); border-radius:12px; padding:4px 13px; box-shadow:3px 3px 0 var(--ink); font:16px "Lilita One" }
+.btn:active { transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink) }
+.btn:disabled { background:#eee; color:#999; box-shadow:1px 1px 0 #999; border-color:#999; cursor:not-allowed; transform:none }
+.btn.pink { background:#ff8fa3 } .btn.white { background:#fff } .btn.green { background:#a6e58a } .btn.small { font-size:13px; padding:2px 9px }
+.card { background:#fff; border:3px solid var(--ink); border-radius:12px; padding:8px 11px; margin-bottom:7px; display:flex; gap:10px; align-items:center }
+.card .t { flex:1; min-width:0 }
+.card .t div:first-child { font:16px "Lilita One" }
+.card .t div+div { color:var(--muted); font-size:14px }
+.card.locked { opacity:.5 } .card.on { background:#fff7c2 }
+.own { font:22px "Lilita One"; min-width:42px; text-align:center }
+.bar { height:12px; border:2px solid var(--ink); border-radius:8px; background:#fff; overflow:hidden; margin-top:3px }
+.bar i { display:block; height:100%; background:var(--yellow) }
+h2 { font:20px "Lilita One"; margin:10px 0 6px }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+.stat { color:var(--muted); font-size:14px }
+.grid { display:grid; gap:3px }
+.cell { aspect-ratio:1; border:2px solid var(--ink); border-radius:6px; display:grid; place-items:center; font-size:11px; background:#eee; color:#aaa }
+.rowlab { font-size:13px; display:grid; place-items:center }
+.nov { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:7px }
+.nov > div { border:2px solid var(--ink); border-radius:10px; padding:5px 8px; background:#fff; font-size:14px }
+.nov > div.no { background:#eee; color:#999; border-style:dashed }
+.nov button { width:100%; margin-top:4px }
+.swatch { width:32px; height:32px; border-radius:50%; border:3px solid var(--ink); padding:0 }
+.swatch.on { outline:3px dashed var(--ink); outline-offset:3px }
+input[type=range] { width:180px; accent-color:#151515 }
+#toast { position:fixed; left:50%; top:max(70px, env(safe-area-inset-top)); transform:translateX(-50%); background:var(--yellow); border:3px solid var(--ink); border-radius:12px; padding:6px 16px; font:18px "Lilita One"; box-shadow:4px 4px 0 var(--ink); opacity:0; transition:opacity .25s; pointer-events:none; z-index:60; max-width:92vw; text-align:center }
+#toast.show { opacity:1 }
+@media (max-width:600px) { #money { font-size:22px } .hb { font-size:13px; padding:2px 7px } #goal { font-size:12px } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hud" id="tl">
+  <a class="home" href="index.html">← Kai.fun</a>
+  <div class="box" id="money">$0</div>
+  <div class="box" id="goal"></div>
+</div>
+<div class="hud" id="tr">
+  <button class="hb" id="bBuild">🔨 Build (B)</button>
+  <button class="hb" id="bCompany">📈 Company</button>
+  <button class="hb" id="bHats">🎩 Hats</button>
+  <button class="hb" id="mute">🔊</button>
+</div>
+<div class="hud" id="bag"></div>
+<div class="hud box" id="prompt" hidden></div>
+<div class="hud box" id="buildbar" hidden></div>
+<div class="hud" id="stick"><div id="knob"></div></div>
+<div class="hud" id="touch"><button id="trot" hidden>↻</button><button id="tbuild">🔨</button><button id="tact">USE</button></div>
+<div id="modal" hidden><div id="mbox"><div id="mhead"><div id="mtitle"></div><button id="mclose" aria-label="close">✕</button></div>
+  <div id="mtabs"></div><canvas id="mcv" hidden></canvas><div id="mctl"></div><div id="mhint"></div><div id="mbody"></div></div></div>
+<div id="toast"></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const INK = '#151515';
+const cv = $('#cv'), cx = cv.getContext('2d'), mcv = $('#mcv'), mx = mcv.getContext('2d');
+const MW = 800, MH = 320;                       // workbench minigame canvas
+let g = cx;                                      // the context the drawing helpers use
+let DT = 1 / 60;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function fmt(n) {
+  if (!isFinite(n)) return '∞';
+  if (n < 1000) return n < 10 && n % 1 ? n.toFixed(2) : Math.floor(n).toString();
+  const u = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx'];
+  let i = -1; while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) + u[i];
+}
+const fi = n => n < 1000 ? Math.floor(n).toString() : fmt(n);
+const money = n => '$' + (n < 100 ? n.toFixed(2) : fmt(n));
+const GRADES = ['4H', '2H', 'H', 'HB', 'B', '2B', '4B', '6B', '8B'];
+const COLORS = [['yellow', '#f5c400'], ['red', '#e2463a'], ['blue', '#3a6fd8'], ['green', '#3c9a4a'], ['black', '#2b2b30'], ['pink', '#ff8fa3'], ['purple', '#8a4fd0'], ['natural', '#e8c08a']];
+
+// ------------------------------------------------------------------ the map and the save
+const TS = 48, MAPW = 48, MAPH = 36, WALK = 31;             // tile size, map size, the sidewalk row
+const KEY = 'pencilpusher_v3';
+const SHOP = [
+  { name: 'Pencil Stand', cap: 20, bulk: 1, mult: 1 },
+  { name: 'Kiosk', cap: 150, bulk: 2, mult: 1.7, cost: 250, sold: 30, time: 6 },
+  { name: 'Corner Shop', cap: 1000, bulk: 5, mult: 3.2, cost: 4000, sold: 400, time: 10 },
+  { name: 'Superstore', cap: 8000, bulk: 15, mult: 6, cost: 120000, sold: 6000, time: 14 },
+  { name: 'Pencil Mall', cap: 60000, bulk: 40, mult: 12, cost: 5e6, sold: 80000, time: 20 }];
+function freshRun() {
+  return { money: 0, logs: 0, graphite: 0, clay: 0, slats: 0, leads: 0, blanks: 0, painted: 0, pencils: 0, pval: 0, shavings: 0, dust: 0, golden: 0,
+    stock: 0, stockVal: 0, priceMult: 1, shopLvl: 0, shopBuild: 0, shopProg: 0, sold: 0, run: 0, research: {}, ads: {}, adsRun: {}, mascot: 0, builders: 0,
+    buildings: null, nextId: 1, goal: 0, grade: 3, color: 0, leadGrade: 3, paintedColor: 0, px: 19.5 * TS, py: 29.3 * TS, lost: 0, trees: null };
+}
+function fresh() { return Object.assign(freshRun(), { shares: 0, cat: {}, nov: {}, hat: 'none', life: { sold: 0, earned: 0, handmade: 0, snaps: 0, streak: 0, bedding: 0, ads: 0, ipos: 0, machineMade: 0, hats: {} }, last: Date.now() }); }
+let S = fresh();
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { S = Object.assign(fresh(), s); S.life = Object.assign(fresh().life, s.life || {}); } } catch (e) {}
+const has = id => !!S.research[id];
+const shareMult = () => 1 + .03 * S.shares;
+const quality = () => (has('q1') ? 1.5 : 1) * (has('q2') ? 2 : 1) * (has('q3') ? 3 : 1) * shareMult();
+const basePrice = () => quality();
+const gradeMult = gr => 1 + .06 * Math.abs(gr - 3);
+
+// =================================================================== sound
+let AC = null, muted = false;
+try { muted = localStorage.getItem(KEY + '_mute') === '1'; } catch (e) {}
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function tone(f, d = .1, type = 'square', v = .05, slide = 0, when = 0) {
+  if (muted || !ac()) return; const t = AC.currentTime + when, o = AC.createOscillator(), gn = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+  gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(gn).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+}
+let NB = null;
+function noise(d = .1, v = .08, f = 1200, q = .8, when = 0) {
+  if (muted || !ac()) return;
+  if (!NB) { NB = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const a = NB.getChannelData(0); for (let i = 0; i < a.length; i++) a[i] = Math.random() * 2 - 1; }
+  const t = AC.currentTime + when, s = AC.createBufferSource(), b = AC.createBiquadFilter(), gn = AC.createGain();
+  s.buffer = NB; b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
+  s.connect(b).connect(gn).connect(AC.destination); s.start(t, Math.random() * .5); s.stop(t + d + .02);
+}
+const sfx = {
+  chop: () => { noise(.12, .25, 300, 1.2); tone(90, .1, 'triangle', .12, -40); }, pick: () => { tone(1400, .06, 'square', .04, -300); noise(.08, .15, 2500, 2); },
+  saw: () => noise(.09, .07, rnd(1500, 2600), 3), crank: () => noise(.04, .05, rnd(3000, 4200), 5), curl: () => tone(rnd(700, 900), .05, 'sine', .03, 300),
+  snap: () => { noise(.18, .35, 3000, .7); tone(500, .2, 'sawtooth', .05, -400); }, coin: () => { tone(988, .07, 'square', .035); tone(1319, .15, 'square', .035, 0, .06); },
+  thunk: () => { tone(140, .12, 'triangle', .15, -60); noise(.06, .1, 600, 1); }, bake: () => { tone(300, .4, 'sine', .04, 200); noise(.4, .05, 800, .5); },
+  done: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .14, 'triangle', .06, 0, i * .08)), fall: () => { noise(.5, .3, 200, .6); tone(120, .5, 'triangle', .12, -80); },
+  nope: () => tone(160, .15, 'square', .04, -40), step: () => noise(.03, .025, 900, 2), bell: () => { tone(1760, .4, 'sine', .05); tone(2637, .3, 'sine', .02); },
+  sad: () => tone(330, .25, 'triangle', .04, -120), buy: () => { tone(660, .06, 'square', .04); tone(990, .1, 'square', .04, 0, .05); tone(1320, .14, 'square', .04, 0, .1); },
+  jingle: () => [[523, .2], [659, .2], [784, .2], [1047, .4], [988, .2], [784, .2], [880, .5]].reduce((t, [f, d]) => { tone(f, d * .9, 'square', .05, 0, t); tone(f / 2, d * .9, 'triangle', .05, 0, t); return t + d; }, 0),
+};
+let beat = 0;
+setInterval(() => {
+  if (muted || !AC || AC.state !== 'running') return;
+  const prog = [[220, 277, 330], [196, 247, 294], [175, 220, 262], [196, 247, 294]], ch = prog[Math.floor(beat / 8) % 4];
+  if (beat % 8 === 0) ch.forEach(f => tone(f, 1.6, 'triangle', .011));
+  if (beat % 2 === 0) tone(ch[0] / 2, .25, 'sine', .028);
+  if (beat % 4 === 2) noise(.05, .018, 5000, 1);
+  if (Math.random() < .22) tone(ch[Math.floor(Math.random() * 3)] * 2, .2, 'sine', .014);
+  beat++;
+}, 230);
+function setMute(m) { muted = m; $('#mute').textContent = m ? '🔇' : '🔊'; try { localStorage.setItem(KEY + '_mute', m ? '1' : '0'); } catch (e) {} }
+$('#mute').onclick = () => { setMute(!muted); if (!muted) ac(); };
+setMute(muted);
+addEventListener('pointerdown', () => ac(), { once: true });
+
+// =================================================================== toast, particles, sketch helpers
+let toastT = 0;
+function toast(msg, ms = 1900) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const PW = [], PM = [];                                   // world particles, minigame particles
+function burst(arr, x, y, n, col, o = {}) {
+  for (let i = 0; i < n; i++) arr.push({ x, y, vx: rnd(-1, 1) * (o.sp || 3), vy: rnd(-1, .3) * (o.sp || 3) - (o.up || 1), life: 1, col: Array.isArray(col) ? col[i % col.length] : col, s: rnd(2, o.size || 5), gr: o.gr ?? .18, rot: rnd(0, 6), vr: rnd(-.3, .3), kind: o.kind || 'chip', floor: o.floor ?? 9999 });
+}
+function floatText(arr, x, y, txt, col = INK) { arr.push({ x, y, vx: 0, vy: -1, life: 1.3, col, txt, kind: 'txt', gr: 0, s: 0, rot: 0, vr: 0, floor: 9999 }); }
+function drawParticles(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const p = arr[i]; p.x += p.vx; p.y += p.vy; p.vy += p.gr; p.rot += p.vr; p.life -= p.kind === 'curl' ? .008 : .02;
+    if (p.y > p.floor) { p.y = p.floor; p.vy = 0; p.vx *= .8; p.vr *= .8; }
+    if (p.life <= 0) { arr.splice(i, 1); continue; }
+    g.save(); g.globalAlpha = clamp(p.life, 0, 1); g.translate(p.x, p.y); g.rotate(p.rot);
+    if (p.kind === 'txt') { g.rotate(-p.rot); g.fillStyle = p.col; g.font = '22px "Permanent Marker"'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeText(p.txt, 0, 0); g.fillText(p.txt, 0, 0); }
+    else if (p.kind === 'curl') {
+      for (let k = 0; k < 2; k++) { g.beginPath(); for (let a = 0; a < 10; a += .2) { const r = 3 + a * 2.2, px = Math.cos(a) * r, py = Math.sin(a) * r * .7; a ? g.lineTo(px, py) : g.moveTo(px, py); } g.strokeStyle = k ? p.col : '#e8c08a'; g.lineWidth = k ? 1.6 : 5; g.stroke(); }
+    } else if (p.kind === 'heart') { g.font = '20px serif'; g.fillText(p.col, 0, 0); }
+    else { g.fillStyle = p.col; g.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .7); }
+    g.restore();
+  }
+}
+const wob = s => Math.sin(s * 12.9898) * 43758.5453 % 1;
+function sk(x, y, w, h, fill, line = INK, lw = 2.5) {
+  if (fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); }
+  g.strokeStyle = line; g.lineWidth = lw; g.lineCap = 'round';
+  for (let k = 0; k < 2; k++) {
+    const j = (k + 1) * 1.2; g.beginPath();
+    g.moveTo(x + wob(x + k) * j, y + wob(y + k) * j); g.lineTo(x + w + wob(w + k) * j, y + wob(x * 2 + k) * j);
+    g.lineTo(x + w + wob(y + k * 3) * j, y + h + wob(h + k) * j); g.lineTo(x + wob(h * 2 + k) * j, y + h + wob(w * 3 + k) * j); g.closePath(); g.stroke(); g.globalAlpha = .45;
+  }
+  g.globalAlpha = 1;
+}
+function txt(t, x, y, size = 20, col = INK, align = 'center', font = 'Patrick Hand') { g.fillStyle = col; g.font = `${size}px "${font}"`; g.textAlign = align; g.fillText(t, x, y); }
+function circ(x, y, r, fill, line = INK, lw = 2.5) { g.beginPath(); g.arc(x, y, r, 0, 7); if (fill) { g.fillStyle = fill; g.fill(); } if (line) { g.strokeStyle = line; g.lineWidth = lw; g.stroke(); } }
+function hatch(x, y, w, h, col = 'rgba(43,43,48,.12)', step = 7) {
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.strokeStyle = col; g.lineWidth = 1.5;
+  for (let i = -h; i < w; i += step) { g.beginPath(); g.moveTo(x + i, y + h); g.lineTo(x + i + h, y); g.stroke(); } g.restore();
+}
+function drawPencil(x, y, len, col, o = {}) {      // horizontal pencil, eraser at x, tip to the right
+  const h = o.h || 26, ph = o.phase || 0, cone = o.cone ?? 34, lead = o.lead ?? 1, sharp = o.sharp ?? 1;
+  g.save();
+  sk(x, y - h / 2, h * .85, h, '#ff8fa3', INK, h > 15 ? 2.5 : 1.5); sk(x + h * .85, y - h / 2, h * .7, h, '#c9ccd3', INK, h > 15 ? 2.5 : 1.5);
+  const bx = x + h * 1.55, bl = len - h * 1.55;
+  g.fillStyle = col; g.fillRect(bx, y - h / 2, bl, h);
+  for (let k = 0; k < 3; k++) { const a = ph + k * Math.PI / 3, yy = y - h / 2 + h * (.5 - .5 * Math.cos(a)); g.fillStyle = k % 2 ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.14)'; g.fillRect(bx, Math.min(yy, y + h / 2 - 3), bl, h / 9); }
+  g.strokeStyle = INK; g.lineWidth = h > 15 ? 2.5 : 1.5; g.strokeRect(bx, y - h / 2, bl, h);
+  if (o.text) txt(o.text, bx + bl / 2, y + 7, 16, 'rgba(0,0,0,.5)');
+  const tx = bx + bl, nar = h * .5 * (1 - sharp * .85) * .35 + 1;
+  g.beginPath(); g.moveTo(tx, y - h / 2); g.lineTo(tx + cone, y - nar); g.lineTo(tx + cone, y + nar); g.lineTo(tx, y + h / 2); g.closePath(); g.fillStyle = '#e8c08a'; g.fill(); g.stroke();
+  if (lead > 0 && cone > 4) { const lw = h * .32 * (1 - sharp * .8) + 1.2, ll = cone * .38 * lead; g.beginPath(); g.moveTo(tx + cone - ll, y - lw * 1.4); g.lineTo(tx + cone + ll * .35, y - lw * .25); g.lineTo(tx + cone + ll * .35, y + lw * .25); g.lineTo(tx + cone - ll, y + lw * 1.4); g.closePath(); g.fillStyle = '#3d3d44'; g.fill(); }
+  g.restore();
+}
+
+
+// =================================================================== the workbench minigames (open in a pop-up)
+let game = null;
+const GAMES = {};
+const sawS = { p: 0, x: 400, lastX: null, split: 0 };
+GAMES.saw = {
+  title: 'The Saw', hint: () => 'Drag back and forth across the log, or tap A / D. One log makes a stack of slats.',
+  draw() {
+    sk(170, 205, 30, 90, '#c49a6c'); sk(600, 205, 30, 90, '#c49a6c'); sk(150, 195, 500, 14, '#c49a6c');
+    if (S.logs < 1 && sawS.split <= 0) { txt('no logs in your bag: chop a cedar first', 400, 140, 24, '#7c7c86'); return; }
+    if (sawS.split > 0) { const n = has('saw2') ? 6 : 4; for (let k = 0; k < n; k++) sk(200 + k * 70, 150 - (1 - sawS.split) * 40 + k * 5, 60, 14, '#e8c08a'); sawS.split -= DT * 1.2; return; }
+    g.save(); g.translate(400, 160);
+    g.fillStyle = '#9a6a3a'; g.fillRect(-230, -32, 460, 64); g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(-230, -32, 460, 64);
+    g.fillStyle = '#e8c08a'; g.beginPath(); g.ellipse(230, 0, 14, 32, 0, 0, 7); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1.5; for (let k = -200; k < 220; k += 37) { g.beginPath(); g.moveTo(k, -28); g.bezierCurveTo(k + 20, -10, k - 10, 10, k + 15, 28); g.stroke(); }
+    g.fillStyle = '#3a2a1a'; g.fillRect(-4, -32, 8, 64 * sawS.p); g.restore();
+    g.save(); g.translate(sawS.x, 160 - 34 + 64 * sawS.p);
+    g.fillStyle = '#c9ccd3'; g.fillRect(-160, -16, 300, 20); g.strokeStyle = INK; g.lineWidth = 2.5; g.strokeRect(-160, -16, 300, 20);
+    g.beginPath(); for (let k = -160; k < 140; k += 10) { g.lineTo(k, 4); g.lineTo(k + 5, 11); } g.stroke(); sk(140, -30, 50, 40, '#c0392b'); g.restore();
+    sk(250, 290, 300, 16, '#fff'); g.fillStyle = '#9a6a3a'; g.fillRect(252, 292, 296 * sawS.p, 12);
+  },
+  move(x, y, d) { if (sawS.split > 0 || S.logs < 1) return; sawS.x = clamp(x, 250, 560); if (d && sawS.lastX !== null) sawStroke(Math.abs(x - sawS.lastX)); sawS.lastX = x; },
+  down(x) { sawS.lastX = x; }, up() { sawS.lastX = null; },
+  key(c) { if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight'].includes(c)) { sawS.x = clamp(400 + (c === 'KeyA' || c === 'ArrowLeft' ? -120 : 120), 250, 560); sawStroke(180); } },
+};
+let sawSnd = 0;
+function sawStroke(dx) {
+  if (S.logs < 1) return;
+  sawS.p += dx * (has('saw2') ? 4 : 1) * (has('saw1') ? 2 : 1) / 2600;
+  if (dx > 2) { burst(PM, 400, 160 + 32 * sawS.p, 2, ['#e8c08a', '#c49a6c'], { sp: 3, size: 3 }); if (performance.now() - sawSnd > 90) { sfx.saw(); sawSnd = performance.now(); } }
+  if (sawS.p >= 1) { const n = has('saw2') ? 6 : 4; S.logs--; S.slats += n; sawS.p = 0; sawS.split = 1; sfx.thunk(); shakeM = 5; floatText(PM, 400, 110, `+${n} slats`); refresh(); }
+}
+const kiln = { t: 0 };
+GAMES.kiln = {
+  title: 'The Lead Kiln', hint: () => 'More clay = hard, light H leads. More graphite = soft, dark B leads. Rare grades sell for a bit more.',
+  controls: () => `<label>harder <input type="range" id="grade" min="0" max="8" value="${S.grade}"> softer</label><button class="btn" id="bake" ${S.graphite < 1 || S.clay < 1 || kiln.t > 0 ? 'disabled' : ''}>Bake 2 leads (1 graphite + 1 clay)</button>`,
+  wire() { $('#grade').oninput = e => S.grade = +e.target.value; $('#bake').onclick = () => { if (S.graphite >= 1 && S.clay >= 1 && kiln.t <= 0) { S.graphite--; S.clay--; kiln.t = .8; sfx.bake(); refreshGame(); } }; },
+  draw(t) {
+    const gr = S.grade, gf = .3 + gr * .07;
+    g.save(); g.translate(220, 190);
+    g.beginPath(); g.moveTo(-110, 0); g.bezierCurveTo(-100, 90, 100, 90, 110, 0); g.fillStyle = '#d7cdb4'; g.fill(); g.strokeStyle = INK; g.lineWidth = 3; g.stroke();
+    g.beginPath(); g.ellipse(0, 0, 110, 30, 0, 0, 7); g.stroke(); g.beginPath(); g.ellipse(0, 5, 90, 20, 0, 0, 7); const sh = Math.round(150 - gf * 110); g.fillStyle = `rgb(${sh},${sh - 8},${sh - 14})`; g.fill();
+    for (let k = 0; k < 8; k++) circ(Math.cos(t * 2 + k) * 50, 5 + Math.sin(t * 2 + k) * 10, 3, k % 2 ? '#b57a52' : '#2f2f36', null);
+    g.restore();
+    txt(`${Math.round(gf * 100)}% graphite / ${100 - Math.round(gf * 100)}% clay`, 220, 290, 20);
+    txt(GRADES[gr], 220, 110, 54, INK, 'center', 'Permanent Marker'); txt(gr < 3 ? 'hard & light' : gr === 3 ? 'the classic' : 'soft & dark', 220, 140, 20, '#7c7c86');
+    const glow = kiln.t > 0 ? .5 + .5 * Math.sin(t * 20) : 0;
+    sk(470, 70, 220, 200, '#b9b1a0'); sk(510, 140, 140, 90, kiln.t > 0 ? `rgb(255,${120 + glow * 80},40)` : '#3a3a40'); g.fillStyle = INK; g.fillRect(560, 40, 40, 30);
+    if (kiln.t > 0) { kiln.t -= DT; if (kiln.t <= 0) { S.leads += 2; S.leadGrade = S.grade; sfx.done(); floatText(PM, 580, 120, `+2 ${GRADES[S.grade]} leads`); burst(PM, 580, 180, 14, ['#ffb347', '#ff6b3d'], { sp: 3 }); refreshGame(); } }
+    txt('LEAD KILN', 580, 105, 22, INK, 'center', 'Permanent Marker'); txt(`${fi(S.graphite)} graphite · ${fi(S.clay)} clay · ${fi(S.leads)} leads`, 580, 300, 18);
+  },
+};
+const clampA = { t: 0 };
+GAMES.glue = {
+  title: 'The Glue Bench', hint: () => 'A lead between two halves of a slat, glued and clamped, makes a blank.' + (has('pressR') ? ' You can also press 10 shavings into a new slat.' : ''),
+  controls: () => { const big = has('clamp5') ? 5 : 1; return `<button class="btn" id="glue" ${S.slats < 1 || S.leads < 1 ? 'disabled' : ''}>Glue & clamp${big > 1 ? ' ×' + big : ''}</button>` + (has('pressR') ? `<button class="btn white" id="press" ${S.shavings < 10 ? 'disabled' : ''}>Press 10 shavings → slat</button>` : '') + (has('recycleR') ? `<button class="btn white" id="recy" ${S.dust < 5 ? 'disabled' : ''}>Recycle 5 dust → graphite</button>` : ''); },
+  wire() {
+    $('#glue').onclick = () => { const n = Math.min(has('clamp5') ? 5 : 1, S.slats, S.leads) | 0; if (n < 1) return; S.slats -= n; S.leads -= n; S.blanks += n; clampA.t = 1; sfx.thunk(); shakeM = 3; floatText(PM, 400, 70, `+${n} blank${n > 1 ? 's' : ''}`); refreshGame(); };
+    const pr = $('#press'); if (pr) pr.onclick = () => { if (S.shavings >= 10) { S.shavings -= 10; S.slats++; sfx.thunk(); floatText(PM, 400, 70, '+1 slat (recycled!)', '#3c9a4a'); refreshGame(); } };
+    const rc = $('#recy'); if (rc) rc.onclick = () => { if (S.dust >= 5) { S.dust -= 5; S.graphite++; sfx.pick(); floatText(PM, 400, 70, '+1 graphite', '#3c9a4a'); refreshGame(); } };
+  },
+  draw() {
+    const sq = clampA.t > 0 ? Math.sin(clampA.t * Math.PI) * 14 : 0;
+    sk(160, 80 + sq, 480, 24, '#e8c08a'); g.fillStyle = '#3d3d44'; g.fillRect(170, 132, 460, 6); sk(160, 146 - sq, 480, 24, '#e8c08a');
+    for (const p of [250, 550]) { sk(p - 18, 50 + sq, 36, 40, '#c0392b'); sk(p - 18, 190 - sq, 36, 40, '#c0392b'); g.fillStyle = '#888'; g.fillRect(p - 3, 90 + sq, 6, 100 - 2 * sq); }
+    if (clampA.t > 0) clampA.t = Math.max(0, clampA.t - DT * 2.4);
+    txt(`${fi(S.slats)} slats · ${fi(S.leads)} leads · ${fi(S.blanks)} blanks`, 400, 285, 22, '#7c7c86');
+  },
+};
+const dip = { t: 0 };
+GAMES.paint = {
+  title: 'The Paint Vats', hint: () => 'Every grade × color you make by hand goes in the Catalog.',
+  controls: () => COLORS.map(([n, c], i) => `<button class="swatch ${S.color === i ? 'on' : ''}" data-c="${i}" style="background:${c}" title="${n}"></button>`).join('') + `<button class="btn" id="dip" ${S.blanks < 1 ? 'disabled' : ''}>Dip${has('clamp5') ? ' ×5' : ''}</button>`,
+  wire() {
+    document.querySelectorAll('#mctl .swatch').forEach(b => b.onclick = () => { S.color = +b.dataset.c; refreshGame(true); });
+    $('#dip').onclick = () => { const n = Math.min(has('clamp5') ? 5 : 1, S.blanks) | 0; if (n < 1) return; S.blanks -= n; S.painted += n; S.paintedColor = S.color; dip.t = 1; sfx.thunk(); floatText(PM, 570, 80, `+${n} painted`); refreshGame(); };
+  },
+  draw() {
+    const col = COLORS[S.color][1];
+    sk(480, 170, 180, 120, '#ddd'); g.fillStyle = col; g.fillRect(484, 190, 172, 96);
+    const d = dip.t > 0 ? Math.sin(dip.t * Math.PI) : 0;
+    g.save(); g.translate(570, 120 + d * 90); g.rotate(Math.PI / 2); drawPencil(-170, 0, 260, dip.t > 0 && dip.t < .5 ? col : '#e8c08a', { cone: 0, lead: 0 }); g.restore();
+    if (dip.t > 0) { dip.t -= DT * 1.5; if (dip.t < .5 && dip.t > .47) burst(PM, 570, 180, 12, col, { sp: 3 }); }
+    txt(COLORS[S.color][0] === 'natural' ? 'natural wood' : COLORS[S.color][0] + ' paint', 250, 160, 30, INK, 'center', 'Permanent Marker');
+    txt(`${fi(S.blanks)} blanks · ${fi(S.painted)} painted`, 250, 200, 20, '#7c7c86');
+  },
+};
+const sh = { cur: null, ang: null, crankA: 0, p: 0, rev: 0, len: 1, out: 0, hold: false };
+const CR = [650, 160];
+function loadPencil() { if (sh.cur || S.painted < 1) return; S.painted--; sh.cur = { col: COLORS[S.paintedColor][1], cname: COLORS[S.paintedColor][0], grade: S.leadGrade }; sh.p = 0; sh.rev = 0; sh.len = 1; sh.out = 0; refreshGame(); }
+function crank(da) {
+  if (!sh.cur || sh.out > 0) return;
+  sh.crankA += da;
+  if (da < 0) { if (Math.random() < .2) sfx.nope(); return; }
+  const rate = .12 * (has('crank1') ? 1.5 : 1) * (has('crank2') ? 2 : 1);
+  sh.p += da / (Math.PI * 2) * rate; sh.rev += da / (Math.PI * 2);
+  if (Math.random() < .3) sfx.crank();
+  while (sh.rev >= 1) { sh.rev -= 1; S.shavings++; S.dust += .2; sfx.curl(); PM.push({ x: 455, y: 190, vx: rnd(-1.5, .5), vy: rnd(-2, 0), life: 1.6, col: sh.cur.col, kind: 'curl', gr: .12, s: 0, rot: rnd(0, 6), vr: rnd(-.1, .1), floor: 290 }); }
+  if (sh.p > 1.22) {
+    sh.p = .5; sh.len -= .06; S.dust += 2; S.life.snaps++; S.life.streak = 0; sfx.snap(); shakeM = 9;
+    burst(PM, 505, 160, 16, ['#3d3d44', INK], { sp: 5, size: 4 }); floatText(PM, 500, 110, 'SNAP!', '#e2463a'); if (S.life.snaps >= 25) got('stub');
+  }
+}
+function pullOut() {
+  if (!sh.cur || sh.out > 0) return;
+  if (sh.p < .35) { toast('Not sharp yet: crank it more'); sfx.nope(); return; }
+  const wide = has('crank1') ? .05 : 0, q = sh.p >= .85 - wide && sh.p <= 1.05 + wide ? 3 : sh.p >= .65 ? 2 : 1;
+  const val = basePrice() * gradeMult(sh.cur.grade) * (sh.cur.cname === 'natural' ? .85 : 1) * q * sh.len;
+  S.pencils++; S.pval += val; S.life.handmade++; S.life.streak = q === 3 ? S.life.streak + 1 : 0; if (S.life.streak >= 10) got('perfect');
+  S.cat[`${sh.cur.grade}_${sh.cur.cname}`] = 1;
+  sh.out = 1; sfx.done(); if (q === 3) { burst(PM, 520, 160, 24, ['#f5c400', '#fff', '#ff8fa3'], { sp: 5 }); shakeM = 4; }
+  floatText(PM, 560, 90, `${['', 'okay', 'good', 'PERFECT'][q]} point! worth ${money(val)}`, q === 3 ? '#c99a00' : INK); refreshGame();
+}
+GAMES.sharpen = {
+  title: 'The Sharpener', hint: () => 'Drag the red knob clockwise (or hold Space). Stop in the green zone and pull it out. Every turn drops a real shaving; shavings and dust are materials.',
+  controls: () => `<button class="btn pink" id="pull" ${!sh.cur ? 'disabled' : ''}>Pull it out (Enter)</button>` + (has('crank2') ? `<button class="btn white" id="hold">⚡ hold to sharpen</button>` : '') + `<span class="stat">${fi(S.painted)} painted waiting${S.life.streak ? ' · perfect streak ' + S.life.streak : ''}</span>`,
+  wire() { $('#pull').onclick = pullOut; const hd = $('#hold'); if (hd) { hd.onpointerdown = () => sh.hold = true; hd.onpointerup = hd.onpointerleave = () => sh.hold = false; } },
+  open() { loadPencil(); },
+  draw(t) {
+    const pile = Math.min(60, Math.sqrt(S.shavings) * 2); g.fillStyle = '#e8c08a'; g.beginPath(); g.ellipse(470, 300, 60 + pile, 8 + pile * .3, 0, Math.PI, 0); g.fill();
+    g.fillStyle = 'rgba(160,200,255,.22)'; g.fillRect(420, 105, 170, 110); g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(420, 105, 170, 110);
+    txt('SEE-THRU SHARPENER™', 505, 232, 15, '#7c7c86');
+    if (sh.cur) {
+      if (sh.out > 0) { sh.out -= DT * 1.2; if (sh.out <= .02) { sh.out = 0; sh.cur = null; loadPencil(); refreshGame(); } }
+      if (sh.cur) { const L = 400 * sh.len; drawPencil(505 - L + (sh.out > 0 ? -260 * (1 - sh.out) : 0), 160, L, sh.cur.col, { phase: sh.crankA, cone: 12 + 46 * clamp(sh.p, 0, 1), lead: clamp(sh.p * 1.4, .2, 1), sharp: clamp(sh.p, 0, 1), text: GRADES[sh.cur.grade] }); }
+    } else txt(S.painted > 0 ? 'click to load a pencil' : 'no painted pencils yet: paint one at the vats', 400, 60, 22, '#7c7c86');
+    g.strokeStyle = '#8d919b'; g.lineWidth = 4; g.beginPath(); g.moveTo(470, 125); g.lineTo(560, 195); g.stroke();
+    const a = sh.crankA;
+    g.strokeStyle = INK; g.lineWidth = 8; g.beginPath(); g.moveTo(CR[0] - 60, CR[1]); g.lineTo(CR[0], CR[1]); g.stroke(); circ(CR[0], CR[1], 10, '#c9ccd3');
+    g.lineWidth = 6; g.strokeStyle = INK; g.beginPath(); g.moveTo(CR[0], CR[1]); g.lineTo(CR[0] + Math.cos(a) * 62, CR[1] + Math.sin(a) * 62); g.stroke();
+    circ(CR[0] + Math.cos(a) * 62, CR[1] + Math.sin(a) * 62, 15, '#e2463a', INK, 3);
+    g.setLineDash([4, 6]); g.strokeStyle = 'rgba(43,43,48,.25)'; g.lineWidth = 2; g.beginPath(); g.arc(CR[0], CR[1], 62, 0, 7); g.stroke(); g.setLineDash([]);
+    txt('↻ crank clockwise', CR[0], CR[1] + 100, 18, '#7c7c86');
+    const x0 = 40, y0 = 270, w = 330, wide = has('crank1') ? .05 : 0, X = v => x0 + w * v / 1.25;
+    sk(x0, y0, w, 22, '#fff'); g.fillStyle = '#ffe9a3'; g.fillRect(X(.65), y0 + 2, X(1.15) - X(.65), 18);
+    g.fillStyle = '#9fe08a'; g.fillRect(X(.85 - wide), y0 + 2, X(1.05 + wide) - X(.85 - wide), 18); g.fillStyle = '#ffb3b3'; g.fillRect(X(1.15), y0 + 2, X(1.25) - X(1.15), 18);
+    if (sh.cur) { g.fillStyle = INK; g.fillRect(X(clamp(sh.p, 0, 1.25)) - 2, y0 - 6, 4, 34); }
+    txt('dull', x0, y0 - 8, 16, '#7c7c86', 'left'); txt('perfect', X(.95), y0 - 8, 16, '#3c9a4a'); txt('snap!', X(1.2), y0 - 8, 16, '#e2463a');
+    if ((sh.hold || keys.Space || keys.ArrowRight) && sh.cur) crank((has('crank2') ? 30 : 18) * DT);
+  },
+  down(x, y) { if (!sh.cur) { loadPencil(); return; } sh.ang = Math.atan2(y - CR[1], x - CR[0]); },
+  move(x, y, d) { if (!d || sh.ang === null || !sh.cur) return; const a = Math.atan2(y - CR[1], x - CR[0]); let da = a - sh.ang; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2; sh.ang = a; crank(da); },
+  up() { sh.ang = null; }, key(c) { if (c === 'Enter' || c === 'KeyP') pullOut(); },
+};
+let shakeM = 0, mdown = false;
+function mpt(e) { const r = mcv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * MW, (e.clientY - r.top) / r.height * MH]; }
+mcv.addEventListener('pointerdown', e => { mdown = true; mcv.setPointerCapture(e.pointerId); const [x, y] = mpt(e); GAMES[game]?.down?.(x, y); });
+mcv.addEventListener('pointermove', e => { const [x, y] = mpt(e); GAMES[game]?.move?.(x, y, mdown); });
+const mup = () => { mdown = false; GAMES[game]?.up?.(); }; mcv.addEventListener('pointerup', mup); mcv.addEventListener('pointercancel', mup);
+function drawGame(t) {
+  g = mx; g.setTransform(mcv.width / MW, 0, 0, mcv.height / MH, 0, 0); g.fillStyle = '#fffdf6'; g.fillRect(0, 0, MW, MH);
+  g.save(); if (shakeM > .3) { g.translate(rnd(-shakeM, shakeM), rnd(-shakeM, shakeM)); shakeM *= .85; } else shakeM = 0;
+  GAMES[game].draw(t); drawParticles(PM); g.restore();
+}
+let lastCtl = '';
+function refreshGame(force) {
+  if (!game) return; const G = GAMES[game], html = G.controls ? G.controls() : '';
+  if (html !== lastCtl || force) { $('#mctl').innerHTML = html; lastCtl = html; G.wire && G.wire(); }
+  $('#mhint').textContent = G.hint(); refresh();
+}
+
+
+sfx.tap = () => { tone(rnd(500, 700), .05, 'square', .035, -200); noise(.04, .08, 1800, 2); };
+sfx.dig = () => { noise(.15, .2, 500, .8); tone(110, .1, 'triangle', .08, -30); };
+function got(id) { if (!S.nov[id]) S.nov[id] = 1; }
+// =================================================================== the plot of land
+let seed = 7;
+const srnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const GROUND = [];                       // 0 grass, 1 rock, 2 clay, 3 sidewalk, 4 road
+for (let y = 0; y < MAPH; y++) { GROUND.push([]); for (let x = 0; x < MAPW; x++) {
+  let t = 0;
+  if (y === WALK) t = 3; else if (y === WALK + 1 || y === WALK + 2) t = 4;
+  else if (((x - 24) / 6.5) ** 2 + ((y - 2.5) / 2.6) ** 2 + srnd() * .35 < 1) t = 1;
+  else if (((x - 41) / 3.6) ** 2 + ((y - 9) / 2.6) ** 2 + srnd() * .3 < 1) t = 2;
+  GROUND[y].push(t);
+} }
+// trees: a cedar grove to the west, a few strays
+const TREES = [];
+for (let y = 0; y < MAPH; y++) { TREES.push([]); for (let x = 0; x < MAPW; x++) {
+  let tr = null;
+  if (GROUND[y][x] === 0 && y < WALK - 1) {
+    if (x >= 1 && x <= 8 && y >= 3 && y <= 28 && srnd() < .55) tr = { hp: 4, max: 4, regrow: 0, grow: 1 };
+    else if (x > 30 && y > 14 && y < 27 && srnd() < .06) tr = { hp: 4, max: 4, regrow: 0, grow: 1 };
+  }
+  TREES[y].push(tr);
+} }
+if (S.trees) for (const [x, y, gr] of S.trees) if (TREES[y]) TREES[y][x] = { hp: 4, max: 4, regrow: 0, grow: gr, planted: true };   // planted saplings
+for (let x = 17; x < 28; x++) for (let y = 24; y < WALK; y++) TREES[y][x] = null;                                    // keep the yard clear
+
+// =================================================================== buildings
+const BT = {
+  stand: { name: 'Pencil Stand', w: 2, solid: true, fixed: true },
+  workbench: { name: 'Workbench', icon: '🪚', cost: 0, time: 3, solid: true, max: 1, desc: 'make pencils by hand (saw, kiln, glue, paint, sharpen)' },
+  conveyor: { name: 'Belt', icon: '⏩', cost: 2, time: .35, dir: true, flat: true, desc: 'carries items forward. Drag to lay a line.' },
+  crate: { name: 'Crate', icon: '📦', cost: 12, time: 1.5, solid: true, desc: 'catches anything belts bring. E to grab it all.' },
+  camp: { name: 'Lumber Camp', icon: '🪓', cost: 35, time: 3, solid: true, dir: true, src: 'log', desc: 'put it next to trees: it chops logs' },
+  drill: { name: 'Graphite Drill', icon: '⛏️', cost: 35, time: 3, solid: true, dir: true, src: 'graphite', desc: 'put it next to grey rock: it drills graphite' },
+  pit: { name: 'Clay Pit', icon: '🟤', cost: 35, time: 3, solid: true, dir: true, src: 'clay', desc: 'put it next to the clay: it digs clay' },
+  saw: { name: 'Auto Saw', icon: '🪵', cost: 50, time: 3, solid: true, dir: true, in: { log: 1 }, out: ['slat', 4], sec: 2, desc: 'log → 4 slats' },
+  kiln: { name: 'Kiln', icon: '🔥', cost: 60, time: 3, solid: true, dir: true, in: { graphite: 1, clay: 1 }, out: ['lead', 2], sec: 2, desc: 'graphite + clay → 2 leads' },
+  glue: { name: 'Glue Press', icon: '🗜️', cost: 75, time: 3, solid: true, dir: true, in: { slat: 1, lead: 1 }, out: ['blank', 1], sec: 1.2, desc: 'slat + lead → blank' },
+  paint: { name: 'Paint Dipper', icon: '🎨', cost: 75, time: 3, solid: true, dir: true, in: { blank: 1 }, out: ['painted', 1], sec: 1.2, desc: 'blank → painted pencil' },
+  sharp: { name: 'Auto Sharpener', icon: '✏️', cost: 110, time: 3.5, solid: true, dir: true, in: { painted: 1 }, out: ['pencil', 1], sec: 1.2, desc: 'painted → pencil (+ shavings and dust)' },
+  press: { name: 'Shaving Press', icon: '🌀', cost: 300, time: 3, solid: true, dir: true, need: 'pressR', src: 'slat', desc: 'turns 10 shavings into a slat' },
+  billboard: { name: 'Billboard', icon: '🪧', cost: 120, time: 4, solid: true, w: 2, sold: 15, desc: '+buzz: more people walk by' },
+  addesk: { name: 'Ad Desk', icon: '📣', cost: 200, time: 3, solid: true, max: 1, sold: 20, desc: 'run ad campaigns' },
+  lab: { name: 'Research Desk', icon: '🔬', cost: 300, time: 4, solid: true, max: 1, sold: 50, desc: 'spend shavings and dust on upgrades' },
+  floor: { name: 'Floor', icon: '⬜', cost: 1, time: .2, flat: true, desc: 'factory floor' },
+  wall: { name: 'Wall', icon: '🧱', cost: 3, time: .5, solid: true, desc: 'factory wall' },
+  lamp: { name: 'Lamp', icon: '💡', cost: 8, time: .8, solid: true, desc: 'it is a lamp' },
+  plant: { name: 'Sapling', icon: '🌱', cost: 5, time: .4, desc: 'plant a cedar (grows in 40s)' },
+};
+const BUILD_ORDER = ['conveyor', 'crate', 'camp', 'drill', 'pit', 'saw', 'kiln', 'glue', 'paint', 'sharp', 'billboard', 'addesk', 'lab', 'press', 'plant', 'floor', 'wall', 'lamp', 'builder', 'remove'];
+const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];                    // right, down, left, up
+let B = S.buildings;
+if (!B) {
+  B = [{ id: 1, type: 'stand', x: 21, y: 30, dir: 1, built: true, prog: 1, lvl: 0 }, { id: 2, type: 'workbench', x: 18, y: 27, dir: 0, built: false, prog: 0, lvl: 0 }];
+  S.nextId = 3;
+}
+S.buildings = B;
+for (const b of B) { b.inb = b.inb || {}; b.out = b.out || []; b.store = b.store || {}; b.t = b.t || 0; b.lvl = b.lvl || 0; }
+let OCC = [];
+function reindex() {
+  OCC = []; for (let y = 0; y < MAPH; y++) OCC.push(new Array(MAPW).fill(null));
+  for (const b of B) { const w = BT[b.type].w || 1; for (let k = 0; k < w; k++) OCC[b.y][b.x + k] = b; }
+}
+reindex();
+const at = (x, y) => (x >= 0 && y >= 0 && x < MAPW && y < MAPH) ? OCC[y][x] : null;
+const builtCount = t => B.filter(b => b.type === t && b.built).length;
+const stand = () => B.find(b => b.type === 'stand');
+function solidTile(tx, ty) {
+  if (tx < 0 || ty < 0 || tx >= MAPW || ty >= MAPH) return true;
+  if (GROUND[ty][tx] === 1) return true;
+  const tr = TREES[ty][tx]; if (tr && tr.regrow <= 0 && tr.grow >= 1) return true;
+  const b = OCC[ty][tx]; if (b && BT[b.type].solid && b.built) return true;
+  return false;
+}
+
+// =================================================================== machines and belts
+const ITEM_BAG = { log: 'logs', graphite: 'graphite', clay: 'clay', slat: 'slats', lead: 'leads', blank: 'blanks', painted: 'painted', pencil: 'pencils' };
+const ITEM_NAME = { log: 'logs', graphite: 'graphite', clay: 'clay', slat: 'slats', lead: 'leads', blank: 'blanks', painted: 'painted pencils', pencil: 'pencils' };
+const beltSpeed = () => 1.6 * (has('belt1') ? 1.6 : 1) * (has('belt2') ? 2 : 1);
+const machineMult = b => Math.pow(1.6, b.lvl) * (has('gear1') ? 1.5 : 1) * (has('gear2') ? 2 : 1) * (has('gear3') ? 3 : 1) * shareMult();
+const upCost = b => Math.round((BT[b.type].cost || 20) * Math.pow(2.3, b.lvl + 1));
+function standCap() { return SHOP[S.shopLvl].cap; }
+function crateTotal(b) { let n = 0; for (const k in b.store) n += b.store[k]; return n; }
+function accepts(b, type) {
+  if (!b || !b.built) return false;
+  if (b.type === 'conveyor') return !b.item;
+  if (b.type === 'crate') return crateTotal(b) < 300;
+  if (b.type === 'stand') return type === 'pencil' && S.stock < standCap();
+  const r = BT[b.type]; if (!r.in || r.in[type] == null) return false;
+  return (b.inb[type] || 0) < 4 * r.in[type];
+}
+function insert(b, type, val) {
+  if (b.type === 'conveyor') b.item = { type, p: 0, val };
+  else if (b.type === 'crate') b.store[type] = (b.store[type] || 0) + 1;
+  else if (b.type === 'stand') { S.stock++; S.stockVal += val ?? basePrice(); }
+  else b.inb[type] = (b.inb[type] || 0) + 1;
+}
+function neighbors8(b, test) {
+  let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; if (test(b.x + dx, b.y + dy)) n++; } return n;
+}
+function srcRate(b) {
+  const r = BT[b.type];
+  if (r.src === 'log') return .09 * neighbors8(b, (x, y) => { const t = TREES[y]?.[x]; return t && t.regrow <= 0 && t.grow >= 1; });
+  if (r.src === 'graphite') return .22 * Math.min(4, neighbors8(b, (x, y) => GROUND[y]?.[x] === 1));
+  if (r.src === 'clay') return .22 * Math.min(4, neighbors8(b, (x, y) => GROUND[y]?.[x] === 2));
+  if (b.type === 'press') return S.shavings >= 10 ? .8 : 0;
+  return 0;
+}
+function statusOf(b) {
+  const r = BT[b.type];
+  if (!b.built) return 'blueprint: hold E next to it to build';
+  if (r.src) { const rate = srcRate(b); if (!rate) return b.type === 'camp' ? 'no trees next to it' : b.type === 'press' ? 'needs 10 shavings' : `no ${b.type === 'drill' ? 'rock' : 'clay'} next to it`; }
+  if (b.out.length >= 8) return 'output blocked: nothing in front takes it';
+  if (r.in && !b.busy) { const miss = Object.keys(r.in).filter(k => (b.inb[k] || 0) < r.in[k]); if (miss.length) return 'waiting for ' + miss.map(k => ITEM_NAME[k]).join(' + '); }
+  return 'working';
+}
+const BUSY = {};
+function simulate(dt) {
+  for (const b of B) {
+    if (!b.built) continue;
+    const r = BT[b.type];
+    if (r.src) {
+      const rate = srcRate(b) * machineMult(b);
+      if (rate > 0 && b.out.length < 8) { b.t += rate * dt; while (b.t >= 1 && b.out.length < 8) { b.t -= 1; if (b.type === 'press') { if (S.shavings < 10) break; S.shavings -= 10; } b.out.push(r.src); BUSY[b.id] = .4; } }
+      if (b.out.length >= 8) b.t = Math.min(b.t, 1);
+    } else if (r.in) {
+      if (!b.busy && b.out.length + r.out[1] <= 8 && Object.keys(r.in).every(k => (b.inb[k] || 0) >= r.in[k])) { for (const k in r.in) b.inb[k] -= r.in[k]; b.busy = true; b.t = 0; }
+      if (b.busy) {
+        b.t += dt * machineMult(b) / r.sec; BUSY[b.id] = .3;
+        if (b.t >= 1) { b.busy = false; for (let k = 0; k < r.out[1]; k++) b.out.push(r.out[0]); if (b.type === 'sharp') { S.shavings += 2; S.dust += .3; S.life.machineMade++; } }
+      }
+    }
+    if (b.out.length && (r.src || r.in)) {
+      const [dx, dy] = DIRS[b.dir], f = at(b.x + dx, b.y + dy);
+      if (f && f !== b && accepts(f, b.out[0])) insert(f, b.out.shift());
+    }
+  }
+  const sp = beltSpeed() * dt;
+  for (const c of B) {
+    if (c.type !== 'conveyor' || !c.built || !c.item) continue;
+    c.item.p = Math.min(1, c.item.p + sp);
+    if (c.item.p >= 1) { const [dx, dy] = DIRS[c.dir], f = at(c.x + dx, c.y + dy); if (f && f !== c && accepts(f, c.item.type)) { insert(f, c.item.type, c.item.val); c.item = null; } }
+  }
+}
+
+// =================================================================== customers, buzz, sales
+const CAMPAIGNS = [
+  { id: 'flyer', name: 'Photocopied Flyers', cost: 4, dur: 60, boost: .6, desc: 'stapled to every pole in town' },
+  { id: 'radio', name: 'Radio Jingle', cost: 80, dur: 120, boost: 1.2, desc: '"Pen-cil Push-er! (it writes!)"' },
+  { id: 'tv', name: 'TV Commercial', cost: 3000, dur: 240, boost: 3, desc: 'a man sharpens a pencil in slow motion' },
+  { id: 'influ', name: 'Influencer Unboxing', cost: 90000, dur: 300, boost: 7, desc: '"guys... it\'s a pencil"' },
+  { id: 'blimp', name: 'Pencil Blimp', cost: 3e6, dur: 400, boost: 16, desc: 'a giant pencil floats over town' },
+  { id: 'moon', name: 'Billboard on the Moon', cost: 1e8, dur: 600, boost: 40, desc: 'visible from every window on Earth' }];
+function buzz() {
+  let b = 1 + .4 * Math.pow(builtCount('billboard'), .8) + (S.mascot ? .6 : 0);
+  for (const c of CAMPAIGNS) if ((S.ads[c.id] || 0) > 0) b += c.boost;
+  return b;
+}
+const walkRate = () => .22 * buzz() * SHOP[S.shopLvl].mult;
+const buyChance = () => clamp(.6 * Math.pow(S.priceMult, -1.6), .02, .97);
+const avgStock = () => S.stock > 0 && S.stockVal > 0 ? S.stockVal / S.stock : basePrice();
+function sellFromStand(n) {
+  n = Math.min(n, Math.floor(S.stock)); if (n < 1) return 0;
+  const each = avgStock(), v = n * each * S.priceMult;
+  S.stock -= n; S.stockVal -= n * each; if (S.stock < 1e-6) { S.stock = 0; S.stockVal = 0; }
+  S.money += v; S.run += v; S.life.earned += v; S.sold += n; S.life.sold += n;
+  return v;
+}
+function runAd(c) {
+  if (S.money < c.cost) { sfx.nope(); return; }
+  S.money -= c.cost; S.ads[c.id] = (S.ads[c.id] || 0) + c.dur; S.adsRun[c.id] = 1; S.life.ads++;
+  if (c.id === 'radio') sfx.jingle(); else sfx.buy();
+  toast(`${c.name}! Buzz ×${buzz().toFixed(1)}`);
+}
+
+// =================================================================== the dudes
+function dude(o = {}) { return Object.assign({ x: 0, y: 0, vx: 0, vy: 0, dir: 'down', walk: 0, bob: 0, bobv: 0, shirt: '#e8262b', pants: '#3f4fd0', skin: '#efe3b0', shoe: '#808080', hat: 'none', swing: 0, tool: null, s: .62 }, o); }
+const P = dude({ x: S.px, y: S.py, hat: S.hat });
+function stepDude(d, mvx, mvy, dt) {
+  const moving = Math.abs(mvx) + Math.abs(mvy) > 1;
+  if (moving) {
+    const before = Math.sin(d.walk); d.walk += dt * 11;
+    if (Math.sign(Math.sin(d.walk)) !== Math.sign(before)) { d.bobv -= 70; if (d === P) sfx.step(); }
+    if (Math.abs(mvx) > Math.abs(mvy) * .8) d.dir = mvx > 0 ? 'right' : 'left'; else d.dir = mvy > 0 ? 'down' : 'up';
+  } else d.walk *= .7;
+  d.bobv += (-d.bob * 260 - d.bobv * 9) * dt; d.bob += d.bobv * dt;   // the head wobbles on its neck
+  if (d.swing > 0) { d.swing -= dt * 3.2; if (d.swing <= 0) { d.swing = 0; if (!d.keepTool) d.tool = null; } }
+}
+function roundRect(x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function fillStroke(fill, lw = 4) { g.fillStyle = fill; g.fill(); g.lineWidth = lw; g.strokeStyle = INK; g.stroke(); }
+function drawDude(d, t) {
+  const side = d.dir === 'left' ? -1 : d.dir === 'right' ? 1 : 0, w = Math.sin(d.walk);
+  g.save(); g.translate(d.x, d.y); g.scale(d.s, d.s);
+  if (d.alpha != null) g.globalAlpha = d.alpha;
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(0, 2, 24, 7, 0, 0, 7); g.fill();
+  g.lineJoin = 'round';
+  // legs and shoes (flat MS Paint blocks)
+  const l1 = side ? w * 7 : 0, lift1 = Math.max(0, w) * 5, lift2 = Math.max(0, -w) * 5;
+  g.beginPath(); g.rect(-16 + l1, -26 - lift1, 16, 24); fillStroke(d.pants);
+  g.beginPath(); g.rect(0 - l1, -26 - lift2, 16, 24); fillStroke(d.pants);
+  const sh = side >= 0 ? 4 : -4;
+  g.beginPath(); g.ellipse(-8 + l1 + sh, -2 - lift1, 11, 6, 0, 0, 7); fillStroke(d.shoe, 3);
+  g.beginPath(); g.ellipse(8 - l1 + sh, -2 - lift2, 11, 6, 0, 0, 7); fillStroke(d.shoe, 3);
+  // arms with round hands, behind or in front of the body
+  const sw = d.swing > 0 ? Math.sin(d.swing * Math.PI) : 0;
+  const armA = w * .55, toolArm = d.tool ? -2.2 * sw + .4 : 0;
+  const arm = (sx, a, front) => {
+    g.save(); g.translate(sx, -66); g.rotate(a);
+    g.beginPath(); g.rect(-5, 0, 10, 30); fillStroke(d.shirt, 3.5);
+    g.beginPath(); g.arc(0, 34, 7, 0, 7); fillStroke(d.skin, 3.5);
+    if (front && d.tool) drawTool(d.tool);
+    g.restore();
+  };
+  if (side) arm(-side * 4, -armA * side, false);
+  else { arm(-20, armA * .6 + .15, false); }
+  g.beginPath(); g.rect(-18, -70, 36, 46); fillStroke(d.shirt);
+  if (d.apron) { g.beginPath(); g.rect(-11, -58, 22, 32); fillStroke(d.apron, 3); }
+  if (d.carry) drawItem(d.carry, side * 10, -52, 18);
+  if (side) arm(side * 4, (d.tool ? toolArm : armA) * side, true);
+  else arm(20, d.tool ? toolArm : -armA * .6 - .15, true);
+  // the big round head, bobbling on top
+  const hy = -98 + d.bob * .35, hx = side * 2;
+  g.save(); g.translate(hx, hy); g.rotate(clamp(d.bobv * .0009, -.12, .12));
+  g.beginPath(); g.arc(0, 0, 31, 0, 7); fillStroke(d.skin, 4);
+  if (d.dir !== 'up') {
+    const ex = side * 9, blink = Math.sin(t * 1.4 + d.x * .01) > .985 ? .15 : 1;
+    g.fillStyle = INK;
+    g.beginPath(); g.ellipse(ex - 9, -2, 6.5, 11 * blink, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(ex + 9, -2, 6.5, 11 * blink, 0, 0, 7); g.fill();
+    if (d.mood === 'happy') { g.lineWidth = 3; g.beginPath(); g.arc(ex, 14, 7, .3, 2.8); g.stroke(); }
+    if (d.mood === 'sad') { g.lineWidth = 3; g.beginPath(); g.arc(ex, 22, 7, 3.6, 5.8); g.stroke(); }
+  }
+  drawHat(d.hat, t, side);
+  g.restore();
+  g.restore();
+  if (d.bubble) {
+    g.font = '15px Fredoka'; const bw = g.measureText(d.bubble).width + 14, by = d.y - 100 * d.s - 30;
+    roundRect(d.x - bw / 2, by, bw, 22, 8); fillStroke('#fff', 2.5); g.fillStyle = INK; g.textAlign = 'center'; g.fillText(d.bubble, d.x, by + 16);
+  }
+}
+function drawTool(tool) {
+  g.save(); g.translate(0, 34); g.rotate(-1.4);
+  g.beginPath(); g.rect(-3, -4, 40, 7); fillStroke('#a0632b', 3);
+  if (tool === 'axe') { g.beginPath(); g.moveTo(30, -4); g.lineTo(44, -16); g.lineTo(44, 10); g.lineTo(30, 3); g.closePath(); fillStroke('#c9ccd3', 3); }
+  if (tool === 'pick') { g.beginPath(); g.moveTo(34, -18); g.quadraticCurveTo(48, 0, 34, 18); g.lineTo(38, 0); g.closePath(); fillStroke('#8d919b', 3); }
+  if (tool === 'shovel') { g.beginPath(); roundRect(34, -10, 16, 20, 5); fillStroke('#8d919b', 3); }
+  if (tool === 'hammer') { g.beginPath(); g.rect(32, -12, 12, 24); fillStroke('#6b6b75', 3); }
+  g.restore();
+}
+function drawHat(hat, t, side) {
+  g.lineWidth = 3.5; g.strokeStyle = INK;
+  if (hat === 'hard') { g.beginPath(); g.arc(0, -10, 30, Math.PI, 0); fillStroke('#ffd23a', 3.5); g.beginPath(); g.rect(-36, -12, 72, 7); fillStroke('#ffd23a', 3); }
+  else if (hat === 'cap') { g.beginPath(); g.arc(0, -10, 30, Math.PI, 0); fillStroke('#5cbf3c', 3.5); g.beginPath(); g.ellipse(side * 26 || 0, -10, 20, 5, 0, 0, 7); fillStroke('#5cbf3c', 3); }
+  else if (hat === 'beanie') { g.beginPath(); g.arc(0, -8, 30, Math.PI, 0); fillStroke('#e8262b', 3.5); g.beginPath(); g.arc(0, -40, 8, 0, 7); fillStroke('#fff', 3); }
+  else if (hat === 'party') { g.beginPath(); g.moveTo(-16, -24); g.lineTo(2, -72); g.lineTo(18, -22); g.closePath(); fillStroke('#ff8fa3', 3.5); g.beginPath(); g.arc(2, -74, 6, 0, 7); fillStroke('#ffd23a', 3); }
+  else if (hat === 'top') { g.beginPath(); g.rect(-20, -72, 40, 46); fillStroke(INK, 3); g.beginPath(); g.rect(-32, -30, 64, 7); fillStroke(INK, 3); g.fillStyle = '#e8262b'; g.fillRect(-20, -38, 40, 7); }
+  else if (hat === 'crown') { g.beginPath(); g.moveTo(-24, -22); g.lineTo(-24, -48); g.lineTo(-12, -34); g.lineTo(0, -54); g.lineTo(12, -34); g.lineTo(24, -48); g.lineTo(24, -22); g.closePath(); fillStroke('#ffd23a', 3.5); }
+  else if (hat === 'prop') { g.beginPath(); g.arc(0, -12, 29, Math.PI, 0); fillStroke('#3f4fd0', 3.5); g.save(); g.translate(0, -46); g.scale(Math.cos(t * 22), 1); g.fillStyle = '#e8262b'; g.fillRect(-26, -3, 52, 6); g.restore(); }
+  else if (hat === 'chef') { g.beginPath(); g.rect(-20, -60, 40, 36); fillStroke('#fff', 3.5); g.beginPath(); g.arc(-12, -60, 13, 0, 7); g.arc(12, -60, 13, 0, 7); fillStroke('#fff', 3.5); }
+  else if (hat === 'pencil') { g.save(); g.translate(0, -34); g.rotate(-.5); g.beginPath(); g.rect(-30, -7, 50, 14); fillStroke('#ffd23a', 3); g.beginPath(); g.moveTo(20, -7); g.lineTo(36, 0); g.lineTo(20, 7); g.closePath(); fillStroke('#e8c08a', 3); g.beginPath(); g.rect(-40, -7, 10, 14); fillStroke('#ff8fa3', 3); g.restore(); }
+}
+// items, as little flat icons
+function drawItem(type, x, y, s = 16) {
+  g.save(); g.translate(x, y); const k = s / 16; g.scale(k, k); g.lineWidth = 2.5; g.strokeStyle = INK; g.lineJoin = 'round';
+  if (type === 'log') { g.beginPath(); g.rect(-12, -6, 22, 12); fillStroke('#9a6a3a', 2.5); g.beginPath(); g.ellipse(10, 0, 4, 6, 0, 0, 7); fillStroke('#e8c08a', 2.5); }
+  else if (type === 'graphite') { g.beginPath(); g.moveTo(-8, 5); g.lineTo(-6, -5); g.lineTo(3, -8); g.lineTo(9, 1); g.lineTo(4, 7); g.closePath(); fillStroke('#3a3a42', 2.5); }
+  else if (type === 'clay') { g.beginPath(); g.ellipse(0, 1, 9, 7, 0, 0, 7); fillStroke('#b5703f', 2.5); }
+  else if (type === 'slat') { g.beginPath(); g.rect(-13, -4, 26, 8); fillStroke('#e8c08a', 2.5); }
+  else if (type === 'lead') { g.beginPath(); g.rect(-12, -2.5, 24, 5); fillStroke('#2b2b30', 2); }
+  else if (type === 'blank') { g.beginPath(); g.rect(-13, -4.5, 26, 9); fillStroke('#e8c08a', 2.5); g.fillStyle = INK; g.fillRect(-13, -1, 26, 2); }
+  else if (type === 'painted' || type === 'pencil') {
+    g.beginPath(); g.rect(-11, -4.5, 20, 9); fillStroke('#ffd23a', 2.5); g.beginPath(); g.rect(-15, -4.5, 4, 9); fillStroke('#ff8fa3', 2);
+    if (type === 'pencil') { g.beginPath(); g.moveTo(9, -4.5); g.lineTo(16, 0); g.lineTo(9, 4.5); g.closePath(); fillStroke('#e8c08a', 2); g.fillStyle = INK; g.fillRect(14, -1, 3, 2); }
+  }
+  g.restore();
+}
+
+// =================================================================== customers and crew (visual + the real sales)
+const crowd = [], crew = [];
+const SHIRTS = ['#e8262b', '#3f4fd0', '#5cbf3c', '#8a4fd0', '#ff8fa3', '#f5a623', '#16a3a3', '#ffffff', '#151515'];
+const SKINS = ['#efe3b0', '#f2c9a0', '#d9a273', '#a86b43', '#7a4a2b', '#f5d6b8'];
+let spawnAcc = 0;
+function spawnCustomer(perHead) {
+  if (crowd.length > 26) return false;
+  const fromLeft = Math.random() < .5;
+  crowd.push(dude({ x: fromLeft ? -30 : MAPW * TS + 30, y: (WALK + .62) * TS, goal: fromLeft ? MAPW * TS + 60 : -60, spd: rnd(80, 120), shirt: pick(SHIRTS), pants: pick(['#3f4fd0', '#151515', '#6b4a2b', '#808080']),
+    skin: pick(SKINS), shoe: pick(['#808080', '#151515', '#ffffff', '#a0632b']), hat: pick(['none', 'none', 'none', 'cap', 'beanie', 'party', 'chef']), s: rnd(.55, .64), state: 'walk', heads: perHead, decided: false }));
+  return true;
+}
+function customers(dt) {
+  const rate = walkRate();
+  spawnAcc += rate * dt;
+  const perHead = Math.max(1, Math.round(rate / 2.5));
+  while (spawnAcc >= perHead) { spawnAcc -= perHead; if (!spawnCustomer(perHead)) { abstractShoppers(perHead); } }
+  const st = stand(), sx = (st.x + 1) * TS;
+  for (let i = crowd.length - 1; i >= 0; i--) {
+    const c = crowd[i];
+    if (c.state === 'walk') {
+      const d = Math.sign(c.goal - c.x); stepDude(c, d * c.spd, 0, dt); c.x += d * c.spd * dt;
+      if (!c.decided && Math.abs(c.x - sx) < 30) {
+        c.decided = true;
+        if (Math.random() < buyChance()) {
+          if (S.stock >= 1) { c.state = 'buy'; c.t = 0; c.dir = 'up'; }
+          else { c.mood = 'sad'; c.bubble = pick(['sold out?!', 'no pencils??', 'aw man']); c.bt = 2; S.lost += c.heads; sfx.sad(); }
+        }
+      }
+      if ((c.goal > 0 && c.x > c.goal) || (c.goal < 0 && c.x < c.goal)) crowd.splice(i, 1);
+    } else if (c.state === 'buy') {
+      stepDude(c, 0, 0, dt); c.t += dt;
+      if (c.t > .7) {
+        const v = sellFromStand(SHOP[S.shopLvl].bulk * c.heads);
+        if (v > 0) { c.mood = 'happy'; c.bubble = pick(['yay pencils', 'it writes!', 'so pointy', 'for my test', '✏️✏️✏️', 'nice']); sfx.coin(); floatText(PW, c.x, c.y - 90, '+' + money(v), '#2f8f2a'); }
+        else { c.mood = 'sad'; c.bubble = 'sold out?!'; }
+        c.bt = 2; c.state = 'walk';
+      }
+    }
+    if (c.bt > 0) { c.bt -= dt; if (c.bt <= 0) c.bubble = null; }
+  }
+}
+function abstractShoppers(n) {   // too many people to draw: they still shop
+  for (let k = 0; k < n; k++) if (Math.random() < buyChance()) { if (S.stock >= 1) sellFromStand(SHOP[S.shopLvl].bulk); else S.lost++; }
+}
+function syncCrew() {
+  while (crew.length < S.builders) crew.push(dude({ x: (20 + crew.length) * TS, y: 28 * TS, hat: 'hard', shirt: '#f5a623', pants: '#3f4fd0', tool: 'hammer', keepTool: true, s: .58 }));
+}
+function blueprints() { const l = B.filter(b => !b.built); if (S.shopBuild) l.push(stand()); return l; }
+function buildTime(b) { return b.type === 'stand' && S.shopBuild ? SHOP[S.shopBuild].time : BT[b.type].time; }
+function hammer(b, amount) {
+  if (b.type === 'stand' && S.shopBuild) {
+    S.shopProg += amount / SHOP[S.shopBuild].time;
+    if (S.shopProg >= 1) { S.shopLvl = S.shopBuild; S.shopBuild = 0; S.shopProg = 0; sfx.done(); toast(`Your ${SHOP[S.shopLvl].name} is open!`, 2600); burst(PW, (b.x + 1) * TS, b.y * TS, 40, ['#ffd23a', '#ff8fa3', '#3f4fd0'], { sp: 5 }); }
+    return;
+  }
+  b.prog += amount / BT[b.type].time;
+  if (b.prog >= 1) { b.prog = 1; b.built = true; if (BT[b.type].solid) pushOut(b); sfx.thunk(); burst(PW, (b.x + .5) * TS, (b.y + .5) * TS, 14, ['#e8c08a', '#ffd23a', '#fff'], { sp: 3 }); if (b.type === 'plant') finishPlant(b); }
+}
+function pushOut(b) {       // a building just finished on top of you: step to the nearest free spot
+  const w = BT[b.type].w || 1, ptx = Math.floor(P.x / TS), pty = Math.floor((P.y - 6) / TS);
+  if (pty !== b.y || ptx < b.x || ptx >= b.x + w) return;
+  for (const [dx, dy] of [[0, 1], [0, -1], [-1, 0], [w, 0], [-1, 1], [w, 1], [0, 2]]) { const tx = b.x + dx, ty = b.y + dy; if (!solidTile(tx, ty)) { P.x = (tx + .5) * TS; P.y = (ty + .8) * TS; return; } }
+}
+function finishPlant(b) { removeBuilding(b, false); TREES[b.y][b.x] = { hp: 4, max: 4, regrow: 0, grow: 0, planted: true }; savePlanted(); }
+function savePlanted() { S.trees = []; for (let y = 0; y < MAPH; y++) for (let x = 0; x < MAPW; x++) if (TREES[y][x] && TREES[y][x].planted) S.trees.push([x, y, TREES[y][x].grow]); }
+function crewTick(dt) {
+  syncCrew();
+  const bps = blueprints();
+  for (const c of crew) {
+    let tgt = null, bd = 1e9;
+    for (const b of bps) { const d = Math.hypot((b.x + .5) * TS - c.x, (b.y + 1.1) * TS - c.y); if (d < bd) { bd = d; tgt = b; } }
+    let tx, ty;
+    if (tgt) { tx = (tgt.x + .5) * TS; ty = (tgt.y + 1.15) * TS; } else { tx = c.hx ?? (c.hx = (18 + Math.random() * 10) * TS); ty = c.hy ?? (c.hy = (26 + Math.random() * 3) * TS); if (Math.hypot(tx - c.x, ty - c.y) < 8) { c.hx = null; c.hy = null; } }
+    const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
+    if (d > 10) { const v = 120; stepDude(c, dx / d * v, dy / d * v, dt); c.x += dx / d * v * dt; c.y += dy / d * v * dt; }
+    else { stepDude(c, 0, 0, dt); if (tgt) { c.dir = 'up'; if (c.swing <= 0) { c.swing = 1; if (Math.random() < .5) sfx.tap(); } hammer(tgt, dt * .6 * (has('hammer2') ? 2 : 1)); } }
+  }
+}
+
+// =================================================================== input
+const keys = {};
+let modalOpen = false, buildSel = null, buildRot = 0, hoverTile = null, touchMode = false, act = false, actEdge = false;
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  keys[e.code] = true;
+  if (modalOpen) { if (e.code === 'Escape') closeModal(); else if (game && GAMES[game].key) GAMES[game].key(e.code); if (e.code === 'Space') e.preventDefault(); return; }
+  if (e.code === 'KeyB') toggleBuild();
+  if (e.code === 'Escape' && buildSel) { buildSel = null; renderBuildBar(); }
+  if (e.code === 'KeyR' && buildSel) { buildRot = (buildRot + 1) % 4; }
+  if ((e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') && !e.repeat) { act = true; actEdge = true; e.preventDefault(); }
+  if (e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') act = false; });
+let cam = { x: S.px, y: S.py }, zoom = 1, viewScale = 1, dragLine = null, walkTarget = null;
+function screenToWorld(sx, sy) { return [(sx - innerWidth / 2) / viewScale + cam.x, (sy - innerHeight / 2) / viewScale + cam.y]; }
+cv.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { const [wx, wy] = screenToWorld(e.clientX, e.clientY); hoverTile = [Math.floor(wx / TS), Math.floor(wy / TS)]; if (dragLine && buildSel === 'conveyor') dragTo(hoverTile); } });
+cv.addEventListener('pointerdown', e => {
+  ac();
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY), t = [Math.floor(wx / TS), Math.floor(wy / TS)];
+  if (e.button === 2) { buildSel = null; renderBuildBar(); return; }
+  if (buildSel) { hoverTile = t; if (buildSel === 'conveyor') { dragLine = { last: t }; placeAt(t[0], t[1], buildRot); } else placeAt(t[0], t[1], buildRot); return; }
+  walkTarget = { x: wx, y: wy, tile: t };
+});
+addEventListener('pointerup', () => { dragLine = null; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => { zoom = clamp(zoom * (e.deltaY > 0 ? .9 : 1.1), .45, 2.2); e.preventDefault(); }, { passive: false });
+function dragTo(t) {
+  const l = dragLine.last; if (t[0] === l[0] && t[1] === l[1]) return;
+  const dx = Math.sign(t[0] - l[0]), dy = Math.sign(t[1] - l[1]);
+  const step = Math.abs(t[0] - l[0]) >= Math.abs(t[1] - l[1]) ? [dx, 0] : [0, dy];
+  const dir = DIRS.findIndex(d => d[0] === step[0] && d[1] === step[1]);
+  const prev = at(l[0], l[1]); if (prev && prev.type === 'conveyor' && !prev.item) prev.dir = dir;
+  const n = [l[0] + step[0], l[1] + step[1]]; buildRot = dir; placeAt(n[0], n[1], dir, true); dragLine.last = n;
+}
+// touch: a joystick and buttons
+const stick = $('#stick'), knob = $('#knob'); let stickV = [0, 0], stickId = null;
+addEventListener('touchstart', () => { if (!touchMode) { touchMode = true; document.body.classList.add('touch'); } }, { passive: true, once: true });
+stick.addEventListener('pointerdown', e => { stickId = e.pointerId; stick.setPointerCapture(e.pointerId); moveStick(e); });
+stick.addEventListener('pointermove', e => { if (e.pointerId === stickId) moveStick(e); });
+const endStick = () => { stickId = null; stickV = [0, 0]; knob.style.transform = ''; };
+stick.addEventListener('pointerup', endStick); stick.addEventListener('pointercancel', endStick);
+function moveStick(e) { const r = stick.getBoundingClientRect(); let dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2; const d = Math.hypot(dx, dy), m = 45; if (d > m) { dx *= m / d; dy *= m / d; } stickV = [dx / m, dy / m]; knob.style.transform = `translate(${dx}px,${dy}px)`; walkTarget = null; }
+const tact = $('#tact'); tact.onpointerdown = e => { e.preventDefault(); act = true; actEdge = true; }; tact.onpointerup = tact.onpointerleave = tact.onpointercancel = () => act = false;
+$('#tbuild').onclick = () => toggleBuild(); $('#trot').onclick = () => buildRot = (buildRot + 1) % 4;
+$('#bBuild').onclick = () => toggleBuild();
+function toggleBuild() { buildSel = buildSel ? null : 'conveyor'; hoverTile = null; renderBuildBar(); }
+
+// =================================================================== building and removing
+function canPlace(type, x, y) {
+  const w = (BT[type] && BT[type].w) || 1;
+  for (let k = 0; k < w; k++) {
+    const tx = x + k, ty = y;
+    if (tx < 0 || ty < 0 || tx >= MAPW || ty >= WALK) return false;
+    if (GROUND[ty][tx] !== 0) return false;
+    if (TREES[ty][tx]) return false;
+    const o = OCC[ty][tx]; if (o && !(o.type === 'floor' && type !== 'floor')) return false;
+    if (BT[type].solid && Math.floor(P.x / TS) === tx && Math.floor((P.y - 6) / TS) === ty) return false;
+  }
+  return true;
+}
+function placeAt(x, y, dir, quiet) {
+  if (buildSel === 'remove') { const b = at(x, y); if (b && !BT[b.type].fixed && b.type !== 'workbench') { removeBuilding(b, true); } return; }
+  if (buildSel === 'builder') return;
+  const bt = BT[buildSel]; if (!bt) return;
+  if (bt.max && B.filter(b => b.type === buildSel).length >= bt.max) { if (!quiet) toast(`You can only have ${bt.max} ${bt.name}`); return; }
+  if (!canPlace(buildSel, x, y)) { if (!quiet) sfx.nope(); return; }
+  if (S.money < bt.cost) { if (!quiet) { sfx.nope(); toast(`${bt.name} costs ${money(bt.cost)}`); } return; }
+  S.money -= bt.cost;
+  const old = OCC[y][x]; if (old && old.type === 'floor') removeBuilding(old, false);
+  const b = { id: S.nextId++, type: buildSel, x, y, dir: bt.dir ? dir : 0, built: false, prog: 0, lvl: 0, inb: {}, out: [], store: {}, t: 0 };
+  if (has('instant') && (buildSel === 'conveyor' || buildSel === 'floor')) { b.built = true; b.prog = 1; }
+  B.push(b); reindex(); sfx.tap(); refresh();
+}
+function removeBuilding(b, refund) {
+  const i = B.indexOf(b); if (i < 0) return; B.splice(i, 1); reindex();
+  if (refund) {
+    const bt = BT[b.type]; const r = (b.built ? .5 : 1) * (bt.cost || 0) + (b.built ? 0 : 0); S.money += r;
+    for (const k in b.store) S[ITEM_BAG[k]] += b.store[k];
+    for (const it of b.out) S[ITEM_BAG[it]] += 1;
+    for (const k in b.inb) S[ITEM_BAG[k]] += b.inb[k];
+    if (b.item) S[ITEM_BAG[b.item.type]] += 1;
+    sfx.thunk(); floatText(PW, (b.x + .5) * TS, b.y * TS, `+${money(r)}`);
+  }
+}
+
+// =================================================================== interaction
+let swingCD = 0;
+function target() {
+  const fx = Math.floor(P.x / TS), fy = Math.floor((P.y - 8) / TS), d = DIRS[{ right: 0, down: 1, left: 2, up: 3 }[P.dir]];
+  const cand = [[fx + d[0], fy + d[1], 0]];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) cand.push([fx + dx, fy + dy, 1]);
+  let best = null, bd = 1e9;
+  for (const [x, y, pen] of cand) {
+    if (x < 0 || y < 0 || x >= MAPW || y >= MAPH) continue;
+    const dist = Math.hypot((x + .5) * TS - P.x, (y + .55) * TS - (P.y - 8)) + pen * 14;
+    if (dist > TS * 1.35 || dist >= bd) continue;
+    const b = OCC[y][x], tr = TREES[y][x];
+    let tg = null;
+    if (b && b.type !== 'floor' && (b.type !== 'conveyor' || !b.built)) tg = { kind: 'b', b };
+    else if (tr && tr.regrow <= 0 && tr.grow >= 1) tg = { kind: 'tree', x, y, tr };
+    else if (GROUND[y][x] === 1) tg = { kind: 'rock', x, y };
+    else if (GROUND[y][x] === 2) tg = { kind: 'clay', x, y };
+    else if (b && b.type === 'conveyor') tg = { kind: 'b', b };
+    if (tg) { best = tg; bd = dist; }
+  }
+  return best;
+}
+function promptFor(tg) {
+  if (!tg) return null;
+  if (tg.kind === 'tree') return 'E (hold): chop the cedar';
+  if (tg.kind === 'rock') return 'E (hold): mine graphite';
+  if (tg.kind === 'clay') return 'E (hold): dig clay';
+  const b = tg.b, bt = BT[b.type];
+  if (!b.built) return `E (hold): hammer the ${bt.name} (${Math.round(b.prog * 100)}%)`;
+  if (b.type === 'stand' && S.shopBuild) return `E (hold): build the ${SHOP[S.shopBuild].name} (${Math.round(S.shopProg * 100)}%) · tap E for the menu`;
+  if (b.type === 'stand') return `E: ${SHOP[S.shopLvl].name} (${fi(S.stock)} in stock)`;
+  if (b.type === 'conveyor') return `E: turn the belt`;
+  return `E: ${bt.name}`;
+}
+function gather(tg) {
+  if (swingCD > 0) return; swingCD = .34;
+  const cxp = (tg.x + .5) * TS, cyp = (tg.y + .5) * TS;
+  P.dir = Math.abs(cxp - P.x) > Math.abs(cyp - P.y) ? (cxp > P.x ? 'right' : 'left') : (cyp > P.y ? 'down' : 'up');
+  P.swing = 1;
+  if (tg.kind === 'tree') {
+    P.tool = 'axe'; const tr = tg.tr; tr.hp -= has('axe') ? 2 : 1; tr.shake = 1; sfx.chop(); shakeW = 3;
+    burst(PW, cxp, cyp - 30, 7, ['#9a6a3a', '#e8c08a', '#2f7d3a'], { sp: 3 });
+    if (tr.hp <= 0) { const n = has('axe') ? 3 : 2; S.logs += n; tr.regrow = 25; tr.hp = tr.max; sfx.fall(); floatText(PW, cxp, cyp - 70, `+${n} logs`); if (Math.random() < .03) { S.golden++; toast('A GOLDEN LOG! (make a Golden Pencil at the stand)'); } }
+  } else if (tg.kind === 'rock') {
+    P.tool = 'pick'; const n = has('pick') ? 2 : 1; S.graphite += n; sfx.pick(); shakeW = 2; burst(PW, cxp, cyp, 8, ['#3a3a42', '#808080', '#fff'], { sp: 3, size: 4 }); floatText(PW, cxp, cyp - 40, `+${n} graphite`);
+  } else if (tg.kind === 'clay') {
+    P.tool = 'shovel'; const n = has('pick') ? 2 : 1; S.clay += n; sfx.dig(); burst(PW, cxp, cyp, 8, ['#b5703f', '#8a5a2b'], { sp: 3, size: 4 }); floatText(PW, cxp, cyp - 40, `+${n} clay`);
+  }
+  refresh();
+}
+function use(edge, dt) {
+  const tg = target(); if (!tg) return;
+  if (tg.kind !== 'b') { gather(tg); return; }
+  const b = tg.b;
+  const buildable = !b.built || (b.type === 'stand' && S.shopBuild);
+  if (buildable && !(b.type === 'stand' && edge && S.shopBuild && false)) {
+    if (!b.built || !edge) { P.tool = 'hammer'; P.dir = 'up'; if (P.swing <= 0) { P.swing = 1; sfx.tap(); burst(PW, (b.x + .5) * TS, (b.y + .5) * TS, 2, ['#ffd23a', '#fff'], { sp: 2, size: 3 }); } hammer(b, dt * (has('hammer1') ? 2 : 1)); return; }
+  }
+  if (!edge) return;
+  if (b.type === 'conveyor') { b.dir = (b.dir + 1) % 4; sfx.tap(); return; }
+  if (b.type === 'workbench') return openGame('saw');
+  if (b.type === 'stand') return openPanel('stand', b);
+  if (b.type === 'crate') { let n = 0; for (const k in b.store) { S[ITEM_BAG[k]] += b.store[k]; n += b.store[k]; } b.store = {}; if (n) { sfx.buy(); floatText(PW, (b.x + .5) * TS, b.y * TS, `+${n} items`); } else toast('The crate is empty. Point a belt into it.'); refresh(); return; }
+  if (b.type === 'addesk') return openPanel('ads', b);
+  if (b.type === 'lab') return openPanel('lab', b);
+  if (b.type === 'billboard' || b.type === 'lamp' || b.type === 'wall') return toast(BT[b.type].desc);
+  return openPanel('machine', b);
+}
+
+// =================================================================== goals (the tutorial that keeps going)
+const GOALS = [
+  ['Build your workbench: walk to the blueprint and hold E', () => B.some(b => b.type === 'workbench' && b.built), 0],
+  ['Chop a cedar tree (west) for logs: hold E next to it', () => S.logs >= 1 || S.life.handmade, 0],
+  ['Mine graphite (grey rocks, north) and dig clay (brown patch, east)', () => (S.graphite >= 1 && S.clay >= 1) || S.life.handmade, 0],
+  ['Make a pencil at the workbench: saw, bake, glue, paint, sharpen', () => S.life.handmade >= 1, 2],
+  ['Stock the stand (E at the stand) and sell your pencil', () => S.sold >= 1, 3],
+  ['Sell 8 pencils', () => S.sold >= 8, 10],
+  ['Press B: build a Lumber Camp next to the trees', () => builtCount('camp') >= 1, 10],
+  ['Belt the logs from the camp into an Auto Saw', () => builtCount('saw') >= 1 && builtCount('conveyor') >= 1, 15],
+  ['Build the whole line: drill, pit, kiln, glue press, paint dipper, sharpener → belt into the stand', () => S.life.machineMade >= 1, 40],
+  ['Upgrade the stand into a Kiosk', () => S.shopLvl >= 1, 50],
+  ['Build an Ad Desk and run a campaign', () => S.life.ads >= 1, 80],
+  ['Build a Research Desk', () => builtCount('lab') >= 1, 100],
+  ['Sell 1,000 pencils', () => S.sold >= 1000, 300],
+  ['Open a Corner Shop', () => S.shopLvl >= 2, 1000],
+  ['Sell 25,000 pencils', () => S.sold >= 25000, 5000],
+  ['Open a Superstore', () => S.shopLvl >= 3, 25000],
+  ['Open the Pencil Mall', () => S.shopLvl >= 4, 500000],
+  ['Earn $1M in one run and go public (Company)', () => S.life.ipos >= 1, 0]];
+function checkGoals() {
+  while (S.goal < GOALS.length && GOALS[S.goal][1]()) { const r = GOALS[S.goal][2]; S.money += r; S.goal++; sfx.done(); toast(r ? `Goal done! +${money(r)}` : 'Goal done!'); }
+  const gtxt = S.goal < GOALS.length ? GOALS[S.goal][0] : 'You built a pencil empire. Keep going.';
+  $('#goal').innerHTML = `<b>GOAL ${Math.min(S.goal + 1, GOALS.length)}/${GOALS.length}:</b> ${gtxt}`;
+}
+
+// =================================================================== research and hats
+const RESEARCH = [
+  { id: 'axe', name: 'Sharper Axe', desc: 'chop twice as fast, 3 logs per tree', cost: 15 },
+  { id: 'pick', name: 'Better Pickaxe & Shovel', desc: '2 graphite / 2 clay per swing', cost: 15 },
+  { id: 'shoes', name: 'Running Shoes', desc: 'walk 40% faster', cost: 25 },
+  { id: 'saw1', name: 'Bow Saw', desc: 'hand-sawing twice as fast', cost: 20 },
+  { id: 'crank1', name: 'Crank Sharpener Pro', desc: 'hand-sharpen faster, wider perfect zone', cost: 25 },
+  { id: 'clamp5', name: 'Bigger Clamp', desc: 'glue and paint 5 at a time by hand', cost: 40 },
+  { id: 'hammer1', name: 'Power Hammer', desc: 'you build twice as fast', cost: 60 },
+  { id: 'instant', name: 'Pre-Built Belts', desc: 'belts and floors appear finished, no hammering', cost: 150 },
+  { id: 'belt1', name: 'Greased Belts', desc: 'belts 1.6× faster', cost: 300, shav: 40 },
+  { id: 'gear1', name: 'Oiled Gears', desc: 'machines 1.5× faster', cost: 500, dust: 10 },
+  { id: 'q1', name: 'Better Cedar', desc: 'pencils worth 1.5×', cost: 800 },
+  { id: 'pressR', name: 'Shaving Press', desc: 'unlocks a machine that turns 10 shavings into a slat', cost: 0, shav: 150 },
+  { id: 'recycleR', name: 'Dust Recycler (hand)', desc: 'recycle 5 dust into graphite at the workbench', cost: 0, dust: 25 },
+  { id: 'bedding', name: 'Hamster Bedding Contract', desc: 'shavings sell for 5¢ each at the stand', cost: 0, shav: 300 },
+  { id: 'hammer2', name: 'Nail Guns for the Crew', desc: 'builders work twice as fast', cost: 1500 },
+  { id: 'saw2', name: 'Table Saw', desc: 'hand-sawing 4× faster, 6 slats per log', cost: 400 },
+  { id: 'crank2', name: 'Electric Sharpener', desc: 'hold to sharpen by hand automatically', cost: 600 },
+  { id: 'belt2', name: 'Maglev Belts', desc: 'belts 2× faster', cost: 15000, shav: 800 },
+  { id: 'gear2', name: 'Robot Arms', desc: 'machines 2× faster', cost: 40000, dust: 300 },
+  { id: 'q2', name: 'Gold Foil Stamping', desc: 'pencils worth 2×', cost: 60000 },
+  { id: 'gear3', name: 'Graphite Fusion', desc: 'machines 3× faster', cost: 3e6, dust: 3000 },
+  { id: 'q3', name: 'National Pencil Day', desc: 'pencils worth 3×', cost: 8e6 }];
+const HATS = [['none', 'Bare Head', () => true], ['pencil', 'Pencil Behind the Ear', () => S.life.handmade >= 1], ['hard', 'Hard Hat', () => S.builders > 0 || S.life.hats.hard],
+  ['cap', 'Shop Cap', () => S.shopLvl >= 1 || S.life.hats.cap], ['beanie', 'Beanie', () => builtCount('camp') > 0 || S.life.hats.beanie], ['chef', 'Kiln Chef', () => builtCount('kiln') > 0 || S.life.hats.chef],
+  ['party', 'Party Hat', () => S.life.ads >= 5], ['prop', 'Propeller Cap', () => S.life.sold >= 10000], ['top', 'Top Hat', () => S.life.ipos > 0], ['crown', 'Crown', () => S.run >= 1e6 || S.life.hats.crown]];
+
+// =================================================================== modal: workbench games and panels
+function openGame(id) {
+  game = id; panel = null; modalOpen = true; $('#modal').hidden = false; mcv.hidden = false; $('#mbody').innerHTML = ''; $('#mtitle').textContent = 'Workbench';
+  $('#mtabs').innerHTML = [['saw', '1. Saw'], ['kiln', '2. Kiln'], ['glue', '3. Glue'], ['paint', '4. Paint'], ['sharpen', '5. Sharpen']].map(([k, n]) => `<button data-g="${k}" class="${k === id ? 'on' : ''}">${n}</button>`).join('');
+  $('#mtabs').querySelectorAll('button').forEach(b => b.onclick = () => openGame(b.dataset.g));
+  lastCtl = ''; fitGame(); GAMES[id].open && GAMES[id].open(); refreshGame(true);
+}
+function fitGame() { const w = Math.min($('#mbox').clientWidth - 34, 820), dpr = Math.min(2, devicePixelRatio || 1); mcv.style.width = w + 'px'; mcv.style.height = (w * MH / MW) + 'px'; mcv.width = Math.round(w * dpr); mcv.height = Math.round(w * MH / MW * dpr); }
+let panel = null, panelB = null;
+function openPanel(id, b) { panel = id; panelB = b; game = null; modalOpen = true; $('#modal').hidden = false; mcv.hidden = true; $('#mtabs').innerHTML = ''; $('#mctl').innerHTML = ''; $('#mhint').textContent = ''; renderPanel(); }
+function closeModal() { modalOpen = false; game = null; panel = null; $('#modal').hidden = true; sh.hold = false; }
+$('#mclose').onclick = closeModal;
+$('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal') closeModal(); });
+$('#bCompany').onclick = () => openPanel('company'); $('#bHats').onclick = () => openPanel('hats');
+const card = (inner, cls = '') => `<div class="card ${cls}">${inner}</div>`;
+const affordR = r => S.money >= r.cost && S.shavings >= (r.shav || 0) && S.dust >= (r.dust || 0);
+const costR = r => [r.cost ? money(r.cost) : '', r.shav ? r.shav + ' shavings' : '', r.dust ? r.dust + ' dust' : ''].filter(Boolean).join(' + ');
+const PANELS = {
+  stand: () => {
+    const nx = SHOP[S.shopLvl + 1], each = avgStock();
+    return [SHOP[S.shopLvl].name,
+      `<div class="row"><b style="font:22px 'Lilita One'">${fi(S.stock)} / ${fi(standCap())} pencils on display</b></div>` +
+      `<div class="row" style="margin-top:6px"><button class="btn green" id="stock" ${S.pencils < 1 ? 'disabled' : ''}>Put out the ${fi(S.pencils)} pencils in your bag</button></div>` +
+      `<h2>Price: ${money(each * S.priceMult)} each</h2><div class="row">cheap <input type="range" id="price" min="0.4" max="4" step="0.05" value="${S.priceMult}"> pricey</div>` +
+      `<p class="stat">${Math.round(buyChance() * 100)}% of people walking by stop to buy, ${SHOP[S.shopLvl].bulk} pencil${SHOP[S.shopLvl].bulk > 1 ? 's' : ''} each. About ${(walkRate() * 60).toFixed(walkRate() * 60 < 10 ? 1 : 0)} people walk by per minute (buzz ×${buzz().toFixed(1)}). Turned away while sold out: ${fi(S.lost)}.</p>` +
+      `<p class="stat">Belts can feed pencils straight onto the stand: point a belt at it.</p>` +
+      (nx ? card(`<div class="t"><div>Upgrade to a ${nx.name}</div><div>holds ${fi(nx.cap)} · ${nx.bulk} per customer · ${nx.mult}× foot traffic · you hammer it together (${nx.time}s)${S.sold < nx.sold ? ` · needs ${fi(nx.sold)} sold` : ''}</div></div>` +
+        (S.shopBuild ? '<div class="stat">under construction: hold E at the stand</div>' : `<button class="btn" id="upshop" ${S.money < nx.cost || S.sold < nx.sold ? 'disabled' : ''}>${money(nx.cost)}</button>`)) : '<p>This is the biggest pencil shop on Earth.</p>') +
+      `<div class="row">` + (S.shavings >= 1 ? `<button class="btn white" id="bed">Sell ${fi(S.shavings)} shavings as hamster bedding (${money(Math.floor(S.shavings) * (has('bedding') ? .05 : .01))})</button>` : '') +
+      (S.golden ? `<button class="btn" id="gold">Craft a Golden Pencil ($250)</button>` : '') + '</div>'];
+  },
+  machine: () => {
+    const b = panelB, bt = BT[b.type], ins = bt.in ? Object.keys(bt.in) : [];
+    const rate = bt.src ? srcRate(b) * machineMult(b) : (1 / bt.sec) * machineMult(b);
+    return [`${bt.name} · level ${b.lvl + 1}`,
+      `<p><b>${statusOf(b)}</b></p><p class="stat">${bt.desc || ''} · ${rate.toFixed(2)} per second · faces ${['right →', 'down ↓', 'left ←', 'up ↑'][b.dir]} (it pushes out that way)</p>` +
+      (ins.length ? `<p class="stat">inside: ${ins.map(k => `${ITEM_NAME[k]} ${b.inb[k] || 0}`).join(' · ')} · ready to go out: ${b.out.length}</p>` : `<p class="stat">ready to go out: ${b.out.length}</p>`) +
+      '<div class="row">' + ins.map(k => `<button class="btn white" data-load="${k}" ${S[ITEM_BAG[k]] < 1 ? 'disabled' : ''}>Load ${ITEM_NAME[k]} (${fi(S[ITEM_BAG[k]])})</button>`).join('') +
+      `<button class="btn white" id="take" ${b.out.length ? '' : 'disabled'}>Take output (${b.out.length})</button><button class="btn white" id="rot">Turn ↻</button>` +
+      (b.lvl < 9 ? `<button class="btn" id="lvl" ${S.money < upCost(b) ? 'disabled' : ''}>Upgrade ×1.6 speed: ${money(upCost(b))}</button>` : '<span class="stat">max level</span>') +
+      `<button class="btn pink small" id="rm">Pick it up (+${money(.5 * (bt.cost || 0))})</button></div>`];
+  },
+  ads: () => ['Ad Desk', `<p><b style="font:22px 'Lilita One'">Buzz ×${buzz().toFixed(1)}</b> <span class="stat">more buzz = more people walking past your shop. Billboards add buzz forever.</span></p>` +
+    CAMPAIGNS.map(c => { const left = S.ads[c.id] || 0; return card(`<div class="t"><div>${c.name} <span class="stat">+${c.boost}× buzz for ${c.dur}s</span></div><div>${c.desc}</div>${left > 0 ? `<div class="bar"><i style="width:${Math.min(100, left / c.dur * 100)}%"></i></div>` : ''}</div><button class="btn" data-ad="${c.id}" ${S.money < c.cost ? 'disabled' : ''}>${left > 0 ? 'Extend' : 'Run'} ${money(c.cost)}</button>`, left > 0 ? 'on' : ''); }).join('') +
+    card(`<div class="t"><div>Pete the Pencil (mascot)</div><div>a guy in a pencil suit dances by the shop: +0.6× buzz forever</div></div>` + (S.mascot ? '<div class="stat">hired ✔</div>' : `<button class="btn" id="mascot" ${S.money < 250 ? 'disabled' : ''}>$250</button>`))],
+  lab: () => ['Research Desk', '<p class="stat">Shavings and dust come from sharpening (by hand or by machine).</p>' +
+    RESEARCH.filter(r => !has(r.id)).map(r => card(`<div class="t"><div>${r.name}</div><div>${r.desc}</div></div><button class="btn" data-res="${r.id}" ${affordR(r) ? '' : 'disabled'}>${costR(r)}</button>`)).join('') +
+    `<h2>Done</h2><p class="stat">${RESEARCH.filter(r => has(r.id)).map(r => r.name).join(' · ') || 'nothing yet'}</p>`],
+  hats: () => ['Hats', '<div class="nov">' + HATS.map(([id, n, ok]) => ok() ? `<div>${n}<button class="btn small ${S.hat === id ? 'green' : 'white'}" data-hat="${id}">${S.hat === id ? 'wearing' : 'wear'}</button></div>` : `<div class="no">??? (keep playing)</div>`).join('') + '</div>' +
+    `<h2>Hand-made pencils: ${Object.keys(S.cat).length} / ${GRADES.length * COLORS.length}</h2><div class="grid" style="grid-template-columns:62px repeat(9,1fr)"><div></div>${GRADES.map(x => `<div class="rowlab">${x}</div>`).join('')}` +
+    COLORS.map(([n, col]) => `<div class="rowlab">${n}</div>` + GRADES.map((gr, gi) => S.cat[`${gi}_${n}`] ? `<div class="cell" style="background:${col};color:${['black', 'blue', 'purple'].includes(n) ? '#fff' : INK}">${gr}</div>` : '<div class="cell">?</div>').join('')).join('') + '</div>'],
+  company: () => {
+    const gain = Math.floor(Math.sqrt(S.run / 1e5));
+    return ['Your Company', `<p class="stat">Shop: ${SHOP[S.shopLvl].name} · buildings: ${B.length} · machines: ${B.filter(b => BT[b.type].in || BT[b.type].src).length} · builders: ${S.builders}</p>` +
+      `<h2>This run</h2><p class="stat">sold ${fi(S.sold)} · earned ${money(S.run)} · shavings ${fi(S.shavings)} · dust ${fi(S.dust)}</p>` +
+      `<h2>All time</h2><p class="stat">sold ${fi(S.life.sold)} · earned ${money(S.life.earned)} · hand-made ${fi(S.life.handmade)} · machine-made ${fi(S.life.machineMade)} · snapped leads ${S.life.snaps} · ads ${S.life.ads}</p>` +
+      `<h2>Go public</h2><p>Sell the company and start over on a fresh plot with <b>${S.shares + gain}</b> shares: everything 3% faster and pricier per share. You'd gain <b>${gain}</b> (needs $1M earned this run).</p>` +
+      `<p class="stat">Keeps shares, hats and the catalog. Resets money, items, research and every building.</p>` +
+      `<button class="btn pink" id="ipo" ${S.run < 1e6 ? 'disabled' : ''}>Ring the opening bell</button> <button class="btn white small" id="wipe">erase everything</button>`];
+  },
+};
+function renderPanel() {
+  if (!panel) return;
+  if (panel === 'machine' && !B.includes(panelB)) return closeModal();
+  const [title, html] = PANELS[panel](); $('#mtitle').textContent = title; $('#mbody').innerHTML = html;
+  const Q = s => $('#mbody').querySelector(s), A = s => $('#mbody').querySelectorAll(s), re = () => { renderPanel(); refresh(); };
+  const b = panelB;
+  if (Q('#stock')) Q('#stock').onclick = () => { const n = Math.min(Math.floor(S.pencils), standCap() - Math.floor(S.stock)); if (n < 1) return toast('The stand is full'); const v = S.pval * n / S.pencils; S.stock += n; S.stockVal += v; S.pencils -= n; S.pval -= v; if (S.pencils < 1e-6) { S.pencils = 0; S.pval = 0; } sfx.buy(); re(); };
+  if (Q('#price')) Q('#price').oninput = e => { S.priceMult = +e.target.value; clearTimeout(rpT); rpT = setTimeout(renderPanel, 150); };
+  if (Q('#upshop')) Q('#upshop').onclick = () => { const nx = SHOP[S.shopLvl + 1]; if (S.money < nx.cost) return; S.money -= nx.cost; S.shopBuild = S.shopLvl + 1; S.shopProg = 0; sfx.buy(); toast('Blueprint placed: hold E at the stand to build it'); closeModal(); refresh(); };
+  if (Q('#bed')) Q('#bed').onclick = () => { const n = Math.floor(S.shavings); S.shavings -= n; S.money += n * (has('bedding') ? .05 : .01); S.life.bedding += n; sfx.coin(); re(); };
+  if (Q('#gold')) Q('#gold').onclick = () => { S.golden--; S.stock++; S.stockVal += 250; sfx.done(); toast('A Golden Pencil is on display'); re(); };
+  A('[data-load]').forEach(x => x.onclick = () => { const k = x.dataset.load; let n = 0; while (S[ITEM_BAG[k]] >= 1 && accepts(b, k)) { S[ITEM_BAG[k]]--; insert(b, k); n++; } if (k === 'pencil') S.pval = 0; sfx.tap(); if (!n) toast('It is full'); re(); });
+  if (Q('#take')) Q('#take').onclick = () => { for (const it of b.out) S[ITEM_BAG[it]] += 1; if (b.out.includes('pencil')) S.pval += b.out.filter(i => i === 'pencil').length * basePrice(); b.out = []; sfx.buy(); re(); };
+  if (Q('#rot')) Q('#rot').onclick = () => { b.dir = (b.dir + 1) % 4; sfx.tap(); re(); };
+  if (Q('#lvl')) Q('#lvl').onclick = () => { const c = upCost(b); if (S.money < c) return; S.money -= c; b.lvl++; sfx.done(); re(); };
+  if (Q('#rm')) Q('#rm').onclick = () => { removeBuilding(b, true); closeModal(); refresh(); };
+  A('[data-ad]').forEach(x => x.onclick = () => { runAd(CAMPAIGNS.find(c => c.id === x.dataset.ad)); re(); });
+  if (Q('#mascot')) Q('#mascot').onclick = () => { if (S.money < 250) return; S.money -= 250; S.mascot = 1; sfx.jingle(); re(); };
+  A('[data-res]').forEach(x => x.onclick = () => { const r = RESEARCH.find(q => q.id === x.dataset.res); if (!affordR(r)) return; S.money -= r.cost; S.shavings -= r.shav || 0; S.dust -= r.dust || 0; S.research[r.id] = 1; sfx.done(); toast(r.name + '!'); re(); });
+  A('[data-hat]').forEach(x => x.onclick = () => { S.hat = P.hat = x.dataset.hat; S.life.hats[x.dataset.hat] = 1; P.bobv -= 120; sfx.buy(); re(); });
+  if (Q('#ipo')) Q('#ipo').onclick = () => {
+    const gain = Math.floor(Math.sqrt(S.run / 1e5)); if (S.run < 1e6 || !confirm(`Go public? You keep ${S.shares + gain} shares and start over on a fresh plot.`)) return;
+    HATS.forEach(([id, , ok]) => { if (ok()) S.life.hats[id] = 1; }); S.life.ipos++;
+    const keep = { shares: S.shares + gain, cat: S.cat, nov: S.nov, hat: S.hat, life: S.life, goal: GOALS.length - 1 };
+    S = Object.assign(fresh(), freshRun(), keep); save(); location.reload();
+  };
+  if (Q('#wipe')) Q('#wipe').onclick = () => { if (confirm('Erase EVERYTHING?')) { localStorage.removeItem(KEY); location.reload(); } };
+}
+let rpT = 0;
+
+// =================================================================== HUD
+function refresh() {
+  $('#money').innerHTML = `${money(S.money)}<small>${SHOP[S.shopLvl].name} · ${fi(S.sold)} sold · buzz ×${buzz().toFixed(1)}${S.shares ? ' · ' + S.shares + ' shares' : ''}</small>`;
+  const bag = [['🪵', 'logs'], ['⬛', 'graphite'], ['🟤', 'clay'], ['slat', 'slats'], ['lead', 'leads'], ['blank', 'blanks'], ['painted', 'painted'], ['✏️', 'pencils'], ['🌀', 'shavings'], ['dust', 'dust'], ['✨', 'golden']];
+  $('#bag').innerHTML = `<span class="chip">🎒</span>` + bag.filter(([, k]) => S[k] >= 1).map(([i, k]) => `<span class="chip" title="${k}">${i} <b>${fi(S[k])}</b></span>`).join('') + `<span class="chip">🏪 stock <b>${fi(S.stock)}</b></span>`;
+  checkGoals();
+}
+function renderBuildBar() {
+  const bar = $('#buildbar');
+  if (!buildSel) { bar.hidden = true; $('#trot').hidden = true; $('#bBuild').classList.remove('on'); return; }
+  bar.hidden = false; $('#bBuild').classList.add('on'); $('#trot').hidden = !touchMode;
+  bar.innerHTML = BUILD_ORDER.map(id => {
+    if (id === 'remove') return `<button data-bt="remove" class="${buildSel === 'remove' ? 'on' : ''}"><span class="ic">🗑️</span>Remove<span class="c">½ back</span></button>`;
+    if (id === 'builder') { const c = builderCost(); return `<button data-bt="builder"><span class="ic">👷</span>Hire builder<span class="c">${money(c)}</span></button>`; }
+    const bt = BT[id], lock = (bt.sold && S.life.sold < bt.sold && S.sold < bt.sold) ? `sell ${bt.sold}` : bt.need && !has(bt.need) ? 'research' : '';
+    return `<button data-bt="${id}" class="${buildSel === id ? 'on' : ''} ${lock ? 'lock' : ''}" title="${bt.desc || ''}"><span class="ic">${bt.icon}</span>${bt.name}<span class="c">${lock ? '🔒 ' + lock : money(bt.cost)}</span></button>`;
+  }).join('') + `<div class="note">${touchMode ? 'tap the map to place · ↻ turns it' : 'click to place · drag belts · R turns · right-click / Esc to stop'}</div>`;
+  bar.querySelectorAll('[data-bt]').forEach(x => x.onclick = () => {
+    const id = x.dataset.bt;
+    if (id === 'builder') { const c = builderCost(); if (S.money < c) { sfx.nope(); return toast(`A builder costs ${money(c)}`); } S.money -= c; S.builders++; sfx.buy(); toast('A builder joined! They hammer blueprints for you.'); renderBuildBar(); refresh(); return; }
+    if (x.classList.contains('lock')) { sfx.nope(); return toast('Locked: ' + x.querySelector('.c').textContent.replace('🔒 ', '')); }
+    buildSel = id; renderBuildBar();
+  });
+}
+const builderCost = () => Math.round(150 * Math.pow(1.8, S.builders));
+
+// =================================================================== drawing the world
+let shakeW = 0;
+const GCOL = { 0: ['#7ccf5a', '#76c955'], 1: ['#b9ab96', '#b3a58f'], 2: ['#c48a5c', '#bd8456'], 3: ['#d6d6de', '#cfcfd8'], 4: ['#5f5f68', '#5f5f68'] };
+function drawGround(x0, y0, x1, y1) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const t = GROUND[y][x]; g.fillStyle = GCOL[t][(x + y) & 1]; g.fillRect(x * TS, y * TS, TS + 1, TS + 1);
+    if (t === 0 && ((x * 7 + y * 13) % 5 === 0)) { g.strokeStyle = '#4fa93a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x * TS + 14, y * TS + 30); g.lineTo(x * TS + 17, y * TS + 22); g.moveTo(x * TS + 20, y * TS + 30); g.lineTo(x * TS + 22, y * TS + 20); g.stroke(); }
+    if (t === 2 && ((x * 5 + y * 3) % 3 === 0)) { g.fillStyle = '#a86f43'; g.beginPath(); g.ellipse(x * TS + 24, y * TS + 26, 12, 6, 0, 0, 7); g.fill(); }
+    if (t === 4 && y === WALK + 1 && x % 2 === 0) { g.fillStyle = '#ffd23a'; g.fillRect(x * TS + 6, (WALK + 2) * TS - 3, 30, 6); }
+    if (t === 3) { g.strokeStyle = '#b8b8c2'; g.lineWidth = 2; g.strokeRect(x * TS + 1, y * TS + 1, TS - 2, TS - 2); }
+  }
+}
+function boxShape(x, y, w, hFront, top, front, lw = 4) {          // a flat "3/4" block: top face + front face
+  const depth = TS * .55;
+  g.beginPath(); g.rect(x, y - hFront - depth + TS, w, depth); fillStroke(top, lw);
+  g.beginPath(); g.rect(x, y - hFront + TS, w, hFront); fillStroke(front, lw);
+}
+function arrow(cxp, cyp, dir, col = INK) {
+  g.save(); g.translate(cxp, cyp); g.rotate([0, Math.PI / 2, Math.PI, -Math.PI / 2][dir]); g.beginPath(); g.moveTo(9, 0); g.lineTo(-5, -7); g.lineTo(-5, 7); g.closePath(); g.fillStyle = col; g.fill(); g.restore();
+}
+function drawTree(x, y, tr, t) {
+  const px = (x + .5) * TS, py = (y + 1) * TS - 6;
+  if (tr.regrow > 0) { g.beginPath(); g.ellipse(px, py - 6, 14, 8, 0, 0, 7); fillStroke('#a0632b', 3); g.fillStyle = '#e8c08a'; g.beginPath(); g.ellipse(px, py - 8, 9, 4, 0, 0, 7); g.fill(); return; }
+  const k = clamp(tr.grow, .25, 1), sx = Math.sin(t * 50) * (tr.shake || 0) * 4; if (tr.shake) tr.shake *= .85;
+  g.save(); g.translate(px + sx, py); g.scale(k, k);
+  g.beginPath(); g.rect(-8, -34, 16, 34); fillStroke('#a0632b', 3.5);
+  g.beginPath(); g.arc(0, -58, 28, 0, 7); fillStroke('#2f8f3a', 4);
+  g.beginPath(); g.arc(-12, -66, 9, 0, 7); g.fillStyle = '#45a94e'; g.fill();
+  g.restore();
+}
+function drawRock(x, y) {
+  const px = x * TS, py = y * TS, s = (x * 31 + y * 17) % 7;
+  g.beginPath(); g.moveTo(px + 4, py + TS - 4); g.lineTo(px + 6 + s, py + 14); g.lineTo(px + 22, py + 4 + s); g.lineTo(px + TS - 6, py + 12); g.lineTo(px + TS - 3, py + TS - 4); g.closePath(); fillStroke('#8b8b95', 3.5);
+  g.fillStyle = '#2b2b33'; g.beginPath(); g.ellipse(px + 20, py + 26, 6, 4, .4, 0, 7); g.fill(); g.beginPath(); g.ellipse(px + 32, py + 34, 4, 3, 0, 0, 7); g.fill();
+}
+function drawBuilding(b, t) {
+  const bt = BT[b.type], px = b.x * TS, py = b.y * TS, w = (bt.w || 1) * TS, busy = (BUSY[b.id] || 0) > 0, wob = busy ? Math.sin(t * 20 + b.id) * 1.5 : 0;
+  if (!b.built) {
+    g.globalAlpha = .45 + .25 * b.prog;
+    drawBuildingBody(b, t, px, py, w, 0);
+    g.globalAlpha = 1;
+    g.setLineDash([6, 5]); g.strokeStyle = '#3f4fd0'; g.lineWidth = 3; g.strokeRect(px + 2, py + 2, w - 4, TS - 4); g.setLineDash([]);
+    g.beginPath(); g.rect(px + 6, py + TS - 12, w - 12, 8); fillStroke('#fff', 2.5); g.fillStyle = '#3f4fd0'; g.fillRect(px + 8, py + TS - 10, (w - 16) * b.prog, 4);
+    return;
+  }
+  drawBuildingBody(b, t, px, py + wob, w, busy);
+}
+function drawBuildingBody(b, t, px, py, w, busy) {
+  const type = b.type, cxp = px + w / 2;
+  if (type === 'conveyor') {
+    g.beginPath(); g.rect(px + 2, py + 6, TS - 4, TS - 12); if (b.dir % 2) { g.beginPath(); g.rect(px + 6, py + 2, TS - 12, TS - 4); } fillStroke('#6b6b75', 3);
+    const off = (t * beltSpeed() * TS) % 16;
+    g.save(); g.beginPath(); g.rect(px + 4, py + 4, TS - 8, TS - 8); g.clip(); g.translate(cxp, py + TS / 2); g.rotate([0, Math.PI / 2, Math.PI, -Math.PI / 2][b.dir]);
+    g.strokeStyle = '#9a9aa6'; g.lineWidth = 3; for (let k = -32; k < 32; k += 16) { g.beginPath(); g.moveTo(k + off - 4, -9); g.lineTo(k + off + 2, 0); g.lineTo(k + off - 4, 9); g.stroke(); }
+    g.restore();
+    if (b.item) { const [dx, dy] = DIRS[b.dir], p = b.item.p - .5; drawItem(b.item.type, cxp + dx * p * TS, py + TS / 2 + dy * p * TS, 15); }
+    return;
+  }
+  if (type === 'floor') { g.fillStyle = '#c9ccd3'; g.fillRect(px, py, TS, TS); g.strokeStyle = '#a9adb8'; g.lineWidth = 2; g.strokeRect(px + 1, py + 1, TS - 2, TS - 2); return; }
+  if (type === 'stand') return drawStand(b, t, px, py);
+  if (type === 'workbench') { boxShape(px + 2, py, TS - 4, 22, '#e8c08a', '#a0632b'); g.beginPath(); g.rect(px + 8, py - 10, 22, 6); fillStroke('#c9ccd3', 2.5); drawItem('pencil', cxp + 4, py + 2, 13); return; }
+  if (type === 'crate') { boxShape(px + 4, py, TS - 8, 30, '#d9a46a', '#b07a43'); g.strokeStyle = INK; g.lineWidth = 2.5; g.beginPath(); g.moveTo(px + 4, py + 18); g.lineTo(px + TS - 4, py + 46); g.stroke(); const n = crateTotal(b); if (n) { g.font = '14px "Lilita One"'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.strokeStyle = INK; g.lineWidth = 3; g.strokeText(fi(n), cxp, py + 4); g.fillText(fi(n), cxp, py + 4); } return; }
+  if (type === 'wall') { boxShape(px, py, TS, 46, '#d0533f', '#a83b2b'); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 2; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(px, py + 14 + k * 14); g.lineTo(px + TS, py + 14 + k * 14); g.stroke(); } return; }
+  if (type === 'lamp') { g.beginPath(); g.rect(cxp - 3, py - 30, 6, 70); fillStroke('#6b6b75', 3); g.beginPath(); g.arc(cxp, py - 34, 11, 0, 7); fillStroke('#fff3a0', 3); g.globalAlpha = .18; g.beginPath(); g.arc(cxp, py - 34, 40, 0, 7); g.fillStyle = '#fff3a0'; g.fill(); g.globalAlpha = 1; return; }
+  if (type === 'plant') { g.beginPath(); g.arc(cxp, py + 30, 8, 0, 7); fillStroke('#5cbf3c', 3); return; }
+  if (type === 'billboard') {
+    g.beginPath(); g.rect(px + 18, py - 10, 8, 52); fillStroke('#6b6b75', 3); g.beginPath(); g.rect(px + w - 26, py - 10, 8, 52); fillStroke('#6b6b75', 3);
+    g.beginPath(); g.rect(px + 2, py - 62, w - 4, 56); fillStroke('#fff', 4);
+    g.save(); g.translate(px + 26, py - 34); g.scale(1.6, 1.6); drawItem('pencil', 0, 0, 16); g.restore();
+    g.font = '15px "Lilita One"'; g.fillStyle = '#e8262b'; g.textAlign = 'center'; g.fillText('PENCIL', px + w / 2 + 16, py - 40); g.fillText('PUSHER', px + w / 2 + 16, py - 22); return;
+  }
+  if (type === 'addesk') { boxShape(px + 2, py, TS - 4, 22, '#8a4fd0', '#6a35ad'); g.beginPath(); g.rect(px + 10, py - 26, 26, 18); fillStroke('#2b2b30', 3); g.fillStyle = '#ffd23a'; g.fillRect(px + 14, py - 22, 18, 10); g.beginPath(); g.moveTo(px + 38, py - 6); g.lineTo(px + 48, py - 14); g.lineTo(px + 48, py + 2); g.closePath(); fillStroke('#e8262b', 2.5); return; }
+  if (type === 'lab') { boxShape(px + 2, py, TS - 4, 22, '#ffffff', '#c9ccd3'); g.beginPath(); g.moveTo(cxp - 6, py - 26); g.lineTo(cxp + 6, py - 26); g.lineTo(cxp + 12, py - 4); g.lineTo(cxp - 12, py - 4); g.closePath(); fillStroke('#7fe0ff', 3); g.fillStyle = '#5cbf3c'; g.fillRect(cxp - 9, py - 12, 18, 6); return; }
+  // machines
+  const COLS = { camp: ['#7fbf5a', '#4f8f3a'], drill: ['#a8a8b4', '#7a7a86'], pit: ['#d9a46a', '#a8703f'], saw: ['#e8c08a', '#b9864f'], kiln: ['#d97a5a', '#a8503a'], glue: ['#9ad0ff', '#5a96d0'], paint: ['#ffd23a', '#d9a400'], sharp: ['#ff8fa3', '#d95a74'], press: ['#c9a0ff', '#9a6ad9'] };
+  const [top, front] = COLS[type] || ['#ddd', '#aaa'];
+  boxShape(px + 3, py, TS - 6, 30, top, front);
+  g.save(); g.translate(cxp, py + 30);
+  if (type === 'saw') { g.rotate(t * (busy ? 14 : 0)); g.beginPath(); for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; g.lineTo(Math.cos(a) * 11, Math.sin(a) * 11); g.lineTo(Math.cos(a + .26) * 7, Math.sin(a + .26) * 7); } g.closePath(); fillStroke('#c9ccd3', 2.5); }
+  else if (type === 'kiln') { g.beginPath(); g.rect(-11, -8, 22, 14); fillStroke(busy ? `rgb(255,${150 + Math.sin(t * 15) * 60},40)` : '#3a3a40', 2.5); }
+  else if (type === 'drill') { g.translate(0, Math.sin(t * (busy ? 30 : 0)) * 2); g.beginPath(); g.moveTo(-6, -10); g.lineTo(6, -10); g.lineTo(0, 10); g.closePath(); fillStroke('#c9ccd3', 2.5); }
+  else if (type === 'camp') { g.rotate(busy ? Math.sin(t * 10) * .6 : 0); g.beginPath(); g.rect(-2, -12, 4, 20); fillStroke('#a0632b', 2); g.beginPath(); g.moveTo(2, -12); g.lineTo(10, -16); g.lineTo(10, -4); g.closePath(); fillStroke('#c9ccd3', 2); }
+  else drawItem(type === 'pit' ? 'clay' : type === 'glue' ? 'blank' : type === 'paint' ? 'painted' : type === 'sharp' ? 'pencil' : 'slat', 0, 0, 15);
+  g.restore();
+  arrow(cxp, py + 4 - 12, b.dir, '#151515');
+  if (b.lvl) { g.font = '13px "Lilita One"'; g.fillStyle = '#fff'; g.strokeStyle = INK; g.lineWidth = 3; g.textAlign = 'left'; g.strokeText('L' + (b.lvl + 1), px + 4, py - 6); g.fillText('L' + (b.lvl + 1), px + 4, py - 6); }
+  if (b.out.length) drawItem(b.out[0], px + TS - 10, py + TS - 8, 11);
+  if (busy && Math.random() < .05) burst(PW, cxp, py - 10, 1, '#d6d6de', { sp: .5, up: 1, gr: -.02, size: 7 });
+}
+function drawStand(b, t, px, py) {
+  const L = S.shopLvl, w = TS * 2, cxp = px + TS;
+  if (L === 0) {
+    boxShape(px + 4, py, w - 8, 24, '#e8c08a', '#a0632b');
+    g.beginPath(); g.rect(px + 8, py - 56, 6, 60); fillStroke('#a0632b', 3); g.beginPath(); g.rect(px + w - 14, py - 56, 6, 60); fillStroke('#a0632b', 3);
+    g.beginPath(); g.moveTo(px, py - 50); g.lineTo(px + w, py - 50); g.lineTo(px + w - 8, py - 70); g.lineTo(px + 8, py - 70); g.closePath(); fillStroke('#e8262b', 3.5);
+    g.fillStyle = '#fff'; for (let k = 0; k < 4; k++) g.fillRect(px + 14 + k * 20, py - 68, 8, 16);
+    g.beginPath(); g.rect(cxp - 40, py - 45, 80, 19); fillStroke('#fff', 3); g.font = '12px "Lilita One"'; g.fillStyle = INK; g.textAlign = 'center'; g.fillText('PENCILS ' + money(avgStock() * S.priceMult), cxp, py - 30);
+  } else {
+    const H = [0, 70, 100, 130, 170][L], cols = [null, ['#3f4fd0', '#ffd23a'], ['#e8262b', '#fff'], ['#5cbf3c', '#ffd23a'], ['#8a4fd0', '#ffd23a']][L];
+    g.beginPath(); g.rect(px, py + TS - 4 - H, w, H); fillStroke('#fff7e0', 4);
+    g.beginPath(); g.rect(px - 4, py + TS - 4 - H - 18, w + 8, 22); fillStroke(cols[0], 4);
+    g.font = `${L > 2 ? 15 : 13}px "Lilita One"`; g.fillStyle = cols[1]; g.textAlign = 'center'; g.fillText(SHOP[L].name.toUpperCase(), cxp, py + TS - H - 2);
+    g.beginPath(); g.rect(px + 8, py + TS - H + 12, 36, Math.min(40, H - 30)); fillStroke('#bfe3ff', 3);
+    g.beginPath(); g.rect(px + w - 34, py + TS - 44, 26, 40); fillStroke('#a0632b', 3);
+    if (L >= 4) { g.save(); g.translate(cxp, py + TS - H - 30); g.rotate(-Math.PI / 2); g.scale(3, 3); drawItem('pencil', 0, 0, 16); g.restore(); }
+  }
+  const show = Math.min(8, Math.ceil(S.stock));
+  for (let k = 0; k < show; k++) drawItem('pencil', px + 16 + (k % 4) * 18, py + 12 + Math.floor(k / 4) * 9 + (L ? 10 : 0), 11);
+  if (S.shopBuild) {
+    g.setLineDash([6, 5]); g.strokeStyle = '#3f4fd0'; g.lineWidth = 3; g.strokeRect(px - 6, py - 80, w + 12, TS + 80); g.setLineDash([]);
+    g.beginPath(); g.rect(px, py + TS + 2, w, 9); fillStroke('#fff', 2.5); g.fillStyle = '#3f4fd0'; g.fillRect(px + 2, py + TS + 4, (w - 4) * S.shopProg, 5);
+  }
+}
+let viewW = 0, viewH = 0;
+function resize() { const dpr = Math.min(2, devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); viewW = innerWidth; viewH = innerHeight; if (modalOpen && game) fitGame(); }
+addEventListener('resize', resize); resize();
+function drawWorld(t) {
+  g = cx; const dpr = cv.width / viewW;
+  viewScale = clamp(Math.min(viewW / (TS * (viewW < 700 ? 8 : 19)), viewH / (TS * 11.5)), .4, 1.5) * zoom;
+  const halfW = viewW / 2 / viewScale, halfH = viewH / 2 / viewScale;
+  cam.x = clamp(cam.x, halfW, MAPW * TS - halfW); cam.y = clamp(cam.y, halfH, MAPH * TS - halfH);
+  if (MAPW * TS < halfW * 2) cam.x = MAPW * TS / 2; if (MAPH * TS < halfH * 2) cam.y = MAPH * TS / 2;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = '#7ccf5a'; g.fillRect(0, 0, viewW, viewH);
+  g.setTransform(dpr * viewScale, 0, 0, dpr * viewScale, dpr * (viewW / 2 - cam.x * viewScale), dpr * (viewH / 2 - cam.y * viewScale));
+  if (shakeW > .3) { g.translate(rnd(-shakeW, shakeW), rnd(-shakeW, shakeW)); shakeW *= .85; } else shakeW = 0;
+  const x0 = Math.max(0, Math.floor((cam.x - halfW) / TS) - 1), x1 = Math.min(MAPW - 1, Math.ceil((cam.x + halfW) / TS) + 1);
+  const y0 = Math.max(0, Math.floor((cam.y - halfH) / TS) - 1), y1 = Math.min(MAPH - 1, Math.ceil((cam.y + halfH) / TS) + 2);
+  drawGround(x0, y0, x1, y1);
+  const inView = b => b.x <= x1 + 2 && b.x + 2 >= x0 && b.y <= y1 + 2 && b.y >= y0 - 2;
+  for (const b of B) if (BT[b.type].flat && inView(b)) drawBuilding(b, t);
+  const list = [];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (TREES[y][x]) list.push([(y + 1) * TS - 6, 0, x, y]); if (GROUND[y][x] === 1) list.push([(y + 1) * TS - 4, 1, x, y]); }
+  for (const b of B) if (!BT[b.type].flat && inView(b)) list.push([(b.y + 1) * TS, 2, b]);
+  for (const c of crowd) list.push([c.y, 3, c]);
+  for (const c of crew) list.push([c.y, 3, c]);
+  if (S.mascot) list.push([mascot.y, 3, mascot]);
+  list.push([P.y, 3, P]);
+  list.sort((a, b) => a[0] - b[0]);
+  for (const it of list) { if (it[1] === 0) drawTree(it[2], it[3], TREES[it[3]][it[2]], t); else if (it[1] === 1) drawRock(it[2], it[3]); else if (it[1] === 2) drawBuilding(it[2], t); else drawDude(it[2], t); }
+  // cars on the road, the blimp, the build ghost, the target highlight
+  for (const car of cars) drawCar(car);
+  if ((S.ads.blimp || 0) > 0) { g.save(); g.translate(((t * 40) % (MAPW * TS + 600)) - 300, cam.y - halfH + 90); g.scale(5, 5); drawItem('pencil', 0, 0, 16); g.restore(); }
+  drawParticles(PW);
+  if (buildSel && buildSel !== 'builder') drawGhost();
+  else if (!modalOpen) { const tg = curTarget; if (tg) { const x = tg.kind === 'b' ? tg.b.x : tg.x, y = tg.kind === 'b' ? tg.b.y : tg.y, w = tg.kind === 'b' ? (BT[tg.b.type].w || 1) : 1; g.strokeStyle = '#fff'; g.lineWidth = 3; g.setLineDash([8, 6]); g.lineDashOffset = -t * 20; g.strokeRect(x * TS + 2, y * TS + 2, w * TS - 4, TS - 4); g.setLineDash([]); } }
+}
+function ghostTile() {
+  if (!touchMode && hoverTile) return hoverTile;
+  const d = DIRS[{ right: 0, down: 1, left: 2, up: 3 }[P.dir]];
+  return [Math.floor(P.x / TS) + d[0], Math.floor((P.y - 8) / TS) + d[1]];
+}
+function drawGhost() {
+  const [x, y] = ghostTile();
+  if (buildSel === 'remove') { const b = at(x, y); g.strokeStyle = '#e8262b'; g.lineWidth = 4; g.strokeRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4); if (b) { g.fillStyle = 'rgba(232,38,43,.25)'; g.fillRect(b.x * TS, b.y * TS, (BT[b.type].w || 1) * TS, TS); } return; }
+  const bt = BT[buildSel], w = (bt.w || 1) * TS, ok = canPlace(buildSel, x, y) && S.money >= bt.cost;
+  g.fillStyle = ok ? 'rgba(92,191,60,.35)' : 'rgba(232,38,43,.35)'; g.fillRect(x * TS, y * TS, w, TS);
+  g.globalAlpha = .6; drawBuildingBody({ type: buildSel, x, y, dir: buildRot, lvl: 0, out: [], inb: {}, store: {}, id: -1 }, 0, x * TS, y * TS, w, 0); g.globalAlpha = 1;
+  if (bt.dir) arrow(x * TS + TS / 2, y * TS + TS / 2, buildRot, ok ? '#fff' : '#e8262b');
+}
+// decoration: cars drive by on the road
+const cars = []; let carT = 2;
+function drawCar(c) {
+  g.save(); g.translate(c.x, c.y); if (c.v < 0) g.scale(-1, 1);
+  g.beginPath(); roundRect(-40, -26, 80, 26, 8); fillStroke(c.col, 4); g.beginPath(); roundRect(-22, -42, 40, 18, 6); fillStroke('#bfe3ff', 3.5);
+  g.beginPath(); g.arc(-22, 0, 9, 0, 7); fillStroke('#2b2b30', 3); g.beginPath(); g.arc(22, 0, 9, 0, 7); fillStroke('#2b2b30', 3);
+  if (c.ad) { g.font = '11px "Lilita One"'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText('PENCILS!', 0, -9); }
+  g.restore();
+}
+const mascot = dude({ x: 23 * TS, y: (WALK + .9) * TS, shirt: '#ffd23a', pants: '#ff8fa3', hat: 'pencil', s: .6 });
+
+// =================================================================== main loop
+let lastT = performance.now(), saveT = 0, uiT = 0, panelT = 0, curTarget = null;
+function save() { S.px = P.x; S.py = P.y; S.last = Date.now(); savePlanted(); try { localStorage.setItem(KEY, JSON.stringify(S, (k, v) => k === 'shake' ? undefined : v)); } catch (e) {} }
+function frame(now) {
+  const dt = Math.min(.1, (now - lastT) / 1000); lastT = now; DT = dt; const t = now / 1000;
+  // player movement
+  let mvx = 0, mvy = 0;
+  if (!modalOpen) {
+    mvx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    mvy = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    if (stickV[0] || stickV[1]) { mvx = stickV[0]; mvy = stickV[1]; }
+    if (mvx || mvy) walkTarget = null;
+    else if (walkTarget) {
+      const dx = walkTarget.x - P.x, dy = walkTarget.y - P.y, d = Math.hypot(dx, dy);
+      if (d < 30 || (walkTarget.stuck || 0) > .6) { const tt = walkTarget.tile; walkTarget = null; if (tt && Math.hypot((tt[0] + .5) * TS - P.x, (tt[1] + .5) * TS - P.y) < TS * 1.6) { P.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'); curTarget = target(); if (curTarget) use(true, 0); } }
+      else { mvx = dx / d; mvy = dy / d; }
+    }
+  }
+  const m = Math.hypot(mvx, mvy); if (m > 1) { mvx /= m; mvy /= m; }
+  const spd = (has('shoes') ? 270 : 195);
+  const nx = P.x + mvx * spd * dt, ny = P.y + mvy * spd * dt, r = 11;
+  const free = (x, y) => !solidTile(Math.floor((x - r) / TS), Math.floor((y - 10) / TS)) && !solidTile(Math.floor((x + r) / TS), Math.floor((y - 10) / TS)) && !solidTile(Math.floor((x - r) / TS), Math.floor((y - 1) / TS)) && !solidTile(Math.floor((x + r) / TS), Math.floor((y - 1) / TS));
+  const ox = P.x, oy = P.y;
+  const inside = !free(P.x, P.y);                                   // overlapping something solid: always let them walk out
+  if (inside || free(nx, P.y)) P.x = nx; if (inside || free(P.x, ny)) P.y = ny;
+  if (walkTarget && Math.hypot(P.x - ox, P.y - oy) < 1) walkTarget.stuck = (walkTarget.stuck || 0) + dt;
+  P.x = clamp(P.x, 12, MAPW * TS - 12); P.y = clamp(P.y, 20, (WALK + .9) * TS);
+  stepDude(P, mvx * spd, mvy * spd, dt);
+  cam.x += (P.x - cam.x) * Math.min(1, dt * 6); cam.y += (P.y - 40 - cam.y) * Math.min(1, dt * 6);
+  // using things
+  if (swingCD > 0) swingCD -= dt;
+  if (!modalOpen) {
+    curTarget = buildSel ? null : target();
+    if (buildSel && actEdge && buildSel !== 'builder') { const [x, y] = ghostTile(); placeAt(x, y, buildRot); }
+    else if ((act || actEdge) && !buildSel) use(actEdge, dt);
+  }
+  actEdge = false;
+  // the world runs
+  simulate(dt); customers(dt); crewTick(dt);
+  for (let y = 0; y < MAPH; y++) for (let x = 0; x < MAPW; x++) { const tr = TREES[y][x]; if (tr) { if (tr.regrow > 0) tr.regrow -= dt; if (tr.grow < 1) tr.grow = Math.min(1, tr.grow + dt / 40); } }
+  for (const k in BUSY) BUSY[k] -= dt;
+  for (const c of CAMPAIGNS) if (S.ads[c.id] > 0) S.ads[c.id] = Math.max(0, S.ads[c.id] - dt);
+  if (S.mascot) { mascot.x = (22 + Math.sin(t * .6) * 3) * TS; stepDude(mascot, Math.cos(t * .6) * 80, 0, dt); if (Math.random() < .02) mascot.bobv -= 140; }
+  carT -= dt; if (carT <= 0) { carT = rnd(3, 9) / Math.sqrt(buzz()); const right = Math.random() < .5; cars.push({ x: right ? -80 : MAPW * TS + 80, y: (WALK + (right ? 2.4 : 1.5)) * TS, v: (right ? 1 : -1) * rnd(160, 260), col: pick(['#e8262b', '#3f4fd0', '#ffd23a', '#5cbf3c', '#fff']), ad: (S.ads.tv || 0) > 0 && Math.random() < .5 }); }
+  for (let i = cars.length - 1; i >= 0; i--) { cars[i].x += cars[i].v * dt; if (cars[i].x < -120 || cars[i].x > MAPW * TS + 120) cars.splice(i, 1); }
+  drawWorld(t);
+  if (modalOpen && game) drawGame(t);
+  // HUD
+  const pr = $('#prompt'), txtp = modalOpen ? null : buildSel ? (buildSel === 'remove' ? 'Remove: click a building' : buildSel === 'builder' ? null : `${BT[buildSel].name}: ${money(BT[buildSel].cost)}${BT[buildSel].dir ? ' · R to turn' : ''}`) : promptFor(curTarget);
+  if (txtp && !buildSel) { if (pr.textContent !== txtp) pr.textContent = txtp; pr.hidden = false; } else pr.hidden = true;
+  uiT += dt; if (uiT > .25) { uiT = 0; refresh(); if (game) refreshGame(); if (buildSel) updateBarCosts(); }
+  panelT += dt; if (panelT > 1 && panel && ['stand', 'machine', 'ads'].includes(panel) && !document.activeElement?.matches?.('input')) { panelT = 0; renderPanel(); }
+  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+  requestAnimationFrame(frame);
+}
+function updateBarCosts() { $('#buildbar').querySelectorAll('[data-bt]').forEach(x => { const bt = BT[x.dataset.bt]; if (bt && !x.classList.contains('lock')) x.style.opacity = S.money >= bt.cost ? 1 : .6; }); }
+// offline: the factory keeps running (up to 30 minutes)
+(function offline() {
+  const gone = Math.min(1800, (Date.now() - (S.last || Date.now())) / 1000);
+  if (gone > 20 && B.some(b => b.built && (BT[b.type].in || BT[b.type].src))) {
+    const before = S.money; for (let k = 0; k < gone / .25; k++) { simulate(.25); abstractShoppers(walkRate() * .25 > Math.random() ? 1 : 0); }
+    if (S.money > before) setTimeout(() => toast(`While you were away: +${money(S.money - before)}`, 3000), 800);
+  }
+})();
+addEventListener('beforeunload', save);
+addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+if ('ontouchstart' in window && matchMedia('(pointer:coarse)').matches) { touchMode = true; document.body.classList.add('touch'); }
+refresh();
+if (S.goal === 0 && !S.sold) setTimeout(() => toast('Welcome! Hold E at the blue blueprint to build your workbench.', 4200), 700);
+requestAnimationFrame(frame);
+
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
