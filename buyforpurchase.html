@@ -1639,7 +1639,10 @@ function gm(L) { return Math.pow(1.25, perk('loyal')) * achMult() * roy(L) * (L.
 function spd(L) { return (1 + .5 * (L.oc || 0)) * (1 + .15 * perk('speed')); }
 function earn(L, a, noTot) { if (!(a > 0)) return; L.cur = Math.min(1e300, L.cur + a); if (!noTot) L.tot = Math.min(1e300, L.tot + a); }
 const vis = L => !!(V && V.L === L && mode === 'game');
-function iname(D, id) { const h = D.items && D.items[id]; if (h) return [h[0], h[1], h[2] || (HAND[ENGS_I[D.eng]].items[id] || [])[2] || '']; const hh = HAND[ENGS_I[D.eng]].items[id]; return hh || [id, 'box', '']; }
+const CLICK_FLAV = ['Starts small. Stays small.', 'Works for exposure.', 'Makes {n}s. Probably.', 'Grows {n}s in neat little rows.', 'Industrial-strength {n}ing.', 'A door to a room full of {n}s.', 'Every {n}, everywhere, all at once.'];
+function iname(D, id) { const h = D.items && D.items[id]; if (h) return [h[0], h[1], h[2] || (D.proc && D.eng === 'clicker' ? CLICK_FLAV[ENGI.clicker.indexOf(id)].replace(/\{n\}/g, D.noun.toLowerCase()) : retheme(D, (HAND[ENGS_I[D.eng]].items[id] || [])[2] || ''))]; const hh = HAND[ENGS_I[D.eng]].items[id]; return hh || [id, 'box', '']; }
+// generated games borrow the hand-made descriptions, re-themed with their own noun + currency
+function retheme(D, s) { if (!D.proc) return s; const n = D.noun.toLowerCase(), c = D.cur[1]; return s.replace(/\bducks\b/g, n + 's').replace(/\bduck\b/g, n).replace(/\b(bread|bucks|mass|coupons|widgets)\b/g, c).replace(/Bakes /g, 'Makes ').replace(/Fetches coffee\./, 'Fetches ' + n + 's.'); }
 const ENGS_I = { clicker: 0, bars: 1, belt: 2, merge: 3, gacha: 4, farm: 5, stocks: 6, store: 7 };
 const UPFX = { uc1: 'Clicks ×2.', uc2: ['c1', 2], uc3: 'Each click also earns 2% of your per-second.', uc4: ['c2', 2], uc5: 'Click combo can reach ×3.', uc6: ['c3', 2], uc7: 'Flash sales show up twice as often.', uc8: ['c4', 2], uc9: 'Everything ×1.5.', uc10: 'Clicks ×3.', uc11: ['c5', 2], uc12: ['c6', 2], uc13: 'Everything ×2.', uc14: ['c7', 2],
   ub1: 'All bars fill 25% faster.', ub2: 'Clicks push bars 35% instead of 15%.', ub3: ['b1', 2], ub4: 'Stalls clear themselves in 1 second.', ub5: ['b2', 2], ub6: 'The Master Installer needs half as many fills.', ub7: ['b3', 2], ub8: 'All bars fill 25% faster.', ub9: ['b4', 2], ub10: 'Everything ×2.', ub11: ['b5', 2], ub12: ['b6', 2], ub13: 'All bars fill 25% faster.',
@@ -1732,7 +1735,7 @@ function offline(sec, show) {
 
 /* ════════════════════════════ effects: pops, particles, shake, toasts ════════════════════════════ */
 const FX = { cv: null, c: null, p: [], pops: [], sh: 0 };
-function popAt(x, y, text, col, size) { if (FX.pops.length > 60) FX.pops.shift(); FX.pops.push({ x, y, text, col: col || '#fff', size: size || 16, t: 0, vx: (Math.random() - .5) * 20 }); }
+function popAt(x, y, text, col, size) { if (!FX.modal) FX.modal = $('#modal'); if (!FX.modal.classList.contains('hidden')) return; if (FX.pops.length > 60) FX.pops.shift(); FX.pops.push({ x, y, text, col: col || '#fff', size: size || 16, t: 0, vx: (Math.random() - .5) * 20 }); }
 function burstAt(x, y, n, kind, cols) {
   cols = cols || ['#ffe14d', '#ff5fa2', '#42d9ff', '#a6f04a', '#ff9b2f', '#fff'];
   for (let i = 0; i < n && FX.p.length < 500; i++) { const a = Math.random() * TAU, sp = (kind === 'conf' ? 260 : 160) * (.4 + Math.random()); FX.p.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (kind === 'conf' || kind === 'receipt' ? 220 : 80), t: 0, life: .7 + Math.random() * (kind === 'conf' ? 1.1 : .6), k: kind, c: cols[i % cols.length], r: Math.random() * 6, vr: (Math.random() - .5) * 12, s: kind === 'receipt' ? 1 : .6 + Math.random() * .8 }); }
@@ -1984,7 +1987,7 @@ function libModal() {
 }
 function gameModal(D, fromLib) {
   const wrap = el('div', 'gd'); const cv = document.createElement('canvas'); cv.className = 'bx'; drawBox(sizeCanvas(cv, 180, 232), D, 180, 232); wrap.appendChild(cv);
-  const nextD = defOf(D.d + 1, D.key.startsWith('h') ? 'main' : D.key.split(':')[0], D.key.startsWith('h') ? (G ? G.seed : 0) : +D.key.split(':')[1]);
+  const isH = D.key.startsWith('h') && D.key !== 'h0i', nextD = D.key === 'h0i' ? defOf(1, 'inf', SAVES.inf ? SAVES.inf.seed : 0) : defOf(D.d + 1, isH ? 'main' : D.key.split(':')[0], isH ? (G ? G.seed : 0) : +D.key.split(':')[1]);
   const lib = META.lib[D.key]; const r = mulberry(hashS('dlc' + D.key));
   const info = el('div', '', `<div class="kick">DEPTH ${D.d} · ${esc(ENG_LABEL[D.eng]).toUpperCase()}${lib ? ' · BOUGHT ×' + lib.n : ''}</div><h2 style="font:24px/1.05 var(--disp);margin:6px 0 8px">${esc(D.name)}</h2><p>${esc(D.tag)}</p>` +
     D.reviews.map(rv => `<div class="rv"><span class="st">${'★'.repeat(rv[0])}${'☆'.repeat(5 - rv[0])}</span><q>${esc(rv[1])}</q><cite>— ${esc(rv[2])}</cite></div>`).join('') +
@@ -2072,7 +2075,7 @@ function enterGame(slot) {
 let lastT = performance.now(), lastWall = Date.now(), saveT = 0;
 function frame(now) {
   let dt = (now - lastT) / 1000; lastT = now; const wall = Date.now(), gap = (wall - lastWall) / 1000; lastWall = wall;
-  if (G && gap > 5 && mode === 'game') offline(gap, gap > 90); dt = clamp(dt, 0, .1);
+  if (G && gap > 5) offline(gap, gap > 90 && mode === 'game'); dt = clamp(dt, 0, .1);
   const t = now / 1000;
   if (G) simulate(dt);
   if (mode === 'title') titleFrame(dt, t);
