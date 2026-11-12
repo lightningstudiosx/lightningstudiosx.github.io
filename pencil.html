@@ -1308,6 +1308,7 @@ function frame(now) {
   actEdge = false;
   // the world runs
   simulate(dt); customers(dt); crewTick(dt);
+  for (let k = 1; k < (window.pencilSpeed || 1); k++) { simulate(dt); customers(dt); crewTick(dt); } // admin panel speed-up
   for (let y = 0; y < MAPH; y++) for (let x = 0; x < MAPW; x++) { const tr = TREES[y][x]; if (tr) { if (tr.regrow > 0) tr.regrow -= dt; if (tr.grow < 1) tr.grow = Math.min(1, tr.grow + dt / 40); } }
   for (const k in BUSY) BUSY[k] -= dt;
   for (const c of CAMPAIGNS) if (S.ads[c.id] > 0) S.ads[c.id] = Math.max(0, S.ads[c.id] - dt);
@@ -1339,6 +1340,174 @@ if ('ontouchstart' in window && matchMedia('(pointer:coarse)').matches) { touchM
 refresh();
 if (S.goal === 0 && !S.sold) setTimeout(() => toast('Welcome! Hold E at the blue blueprint to build your workbench.', 4200), 700);
 requestAnimationFrame(frame);
+
+
+// =================================================================== admin panel
+// Secret: type the admin code anywhere (keyboard), or tap the money counter 7 times and enter it (phones).
+// Only a SHA-256 fingerprint of the code is in this file, not the code itself.
+// (It's a single-player browser game, so this is a fun backdoor, not real security: anyone can edit their own save.)
+const ADMIN_HASH = '6f670a95ce5141e7c2279ed9f34f1f11817fbe0dfa52f033b197221517443823';
+const ADMIN_LEN = 29;
+let adminBuf = '', adminOpen = false;
+const adminSpeed = () => window.pencilSpeed || 1;
+
+// plain-JS SHA-256 (works everywhere, including previews and plain-http pages where crypto.subtle is switched off)
+function sha256hex(msg) {
+  const K = [], H = [], frac = x => (x - Math.floor(x)) * 4294967296 | 0;
+  for (let n = 2, c = 0; c < 64; n++) {
+    let prime = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) { prime = false; break; }
+    if (prime) { if (c < 8) H[c] = frac(Math.sqrt(n)); K[c++] = frac(Math.cbrt(n)); }
+  }
+  const bytes = Array.from(new TextEncoder().encode(msg)), bits = bytes.length * 8;
+  bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(i >= 4 ? 0 : (bits >>> (i * 8)) & 255);
+  const rotr = (x, r) => (x >>> r) | (x << (32 - r)), w = new Array(64);
+  for (let o = 0; o < bytes.length; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = (bytes[o + i * 4] << 24) | (bytes[o + i * 4 + 1] << 16) | (bytes[o + i * 4 + 2] << 8) | bytes[o + i * 4 + 3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    [a, b, c, d, e, f, g, h].forEach((v, i) => { H[i] = (H[i] + v) | 0; });
+  }
+  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+const adminCheck = text => sha256hex(String(text).trim().toLowerCase()) === ADMIN_HASH;
+
+const adminCss = document.createElement('style');
+adminCss.textContent = `
+#admin { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(20,20,20,.45) }
+#admin .ap { width:min(560px, 94vw); max-height:88vh; overflow:auto; background:#fffdf4; border:4px solid var(--ink); border-radius:16px; box-shadow:6px 6px 0 var(--ink); padding:14px 16px 16px; user-select:none }
+#admin h2 { margin:0 0 4px; font:30px/1 "Lilita One", Impact, sans-serif; display:flex; align-items:center; gap:10px }
+#admin h2 span { background:var(--red); color:#fff; font:13px Fredoka; padding:3px 8px; border-radius:999px; border:2px solid var(--ink) }
+#admin h3 { margin:12px 0 6px; font:17px "Lilita One", Impact, sans-serif; color:var(--muted) }
+#admin .row { display:flex; flex-wrap:wrap; gap:6px }
+#admin button { background:#fff; border:3px solid var(--ink); border-radius:10px; box-shadow:2px 2px 0 var(--ink); padding:5px 10px; font-size:15px }
+#admin button:active { transform:translate(2px,2px); box-shadow:none }
+#admin button.y { background:var(--yellow) } #admin button.g { background:var(--green); color:#fff } #admin button.r { background:var(--red); color:#fff } #admin button.b { background:var(--blue); color:#fff }
+#admin button.on { background:var(--ink); color:#fff }
+#admin input { font:inherit; width:150px; padding:5px 8px; border:3px solid var(--ink); border-radius:10px; user-select:text }
+#admin .x { margin-left:auto; background:var(--red); color:#fff }
+#admin .note { font-size:13px; color:var(--muted); margin-top:10px }
+#adminCode .ap { width:min(380px, 92vw) }`;
+document.head.appendChild(adminCss);
+
+function adminDo(msg, fn) {
+  fn();
+  refresh(); save(); sfx.done(); toast('Admin: ' + msg);
+}
+
+function openAdmin() {
+  if (adminOpen) return;
+  adminOpen = true;
+  const el = document.createElement('div');
+  el.id = 'admin';
+  el.innerHTML = `<div class="ap">
+    <h2>ADMIN PANEL <span>shh</span><button class="x" data-a="close">✕</button></h2>
+    <h3>MONEY</h3>
+    <div class="row">
+      <button class="y" data-m="1000">+$1K</button><button class="y" data-m="1000000">+$1M</button>
+      <button class="y" data-m="1000000000">+$1B</button><button class="y" data-m="1000000000000">+$1T</button>
+      <input id="adminMoney" inputmode="decimal" placeholder="set money to..."><button data-a="setmoney">Set</button>
+    </div>
+    <h3>STUFF</h3>
+    <div class="row">
+      <button data-a="mat100">+100 of every material</button><button data-a="mat10k">+10K of every material</button>
+      <button data-a="pencils">Fill the shop shelf</button><button data-a="golden">+5 golden logs</button>
+    </div>
+    <h3>PROGRESS</h3>
+    <div class="row">
+      <button class="g" data-a="research">Unlock all research</button><button class="g" data-a="shop">Max shop (Pencil Mall)</button>
+      <button class="g" data-a="hats">Unlock all hats</button><button class="g" data-a="build">Finish all construction</button>
+      <button class="g" data-a="shares">+10 shares</button><button class="g" data-a="goals">Skip all goals</button>
+    </div>
+    <h3>FACTORY SPEED</h3>
+    <div class="row">${[1, 2, 5, 10].map(s => `<button data-s="${s}" class="${s === adminSpeed() ? 'on' : ''}">×${s}</button>`).join('')}</div>
+    <h3>SAVE</h3>
+    <div class="row"><button class="b" data-a="save">Save now</button><button class="r" data-a="wipe">Wipe save</button></div>
+    <div class="note">Esc or ✕ closes this. Type the code again any time to come back.</div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('pointerdown', e => { if (e.target === el) closeAdmin(); });
+  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => adminDo('+' + money(+b.dataset.m), () => { S.money += +b.dataset.m; }));
+  el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+    window.pencilSpeed = +b.dataset.s;
+    el.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b));
+    toast(`Admin: factory runs ×${adminSpeed()}`);
+  });
+  const MATS = ['logs', 'graphite', 'clay', 'slats', 'leads', 'blanks', 'painted', 'shavings', 'dust'];
+  const addMats = n => { for (const k of MATS) S[k] += n; S.pencils += n; S.pval += n * basePrice(); };
+  const actions = {
+    close: () => closeAdmin(),
+    setmoney: () => {
+      const v = Number(String($('#adminMoney').value).replace(/[$,\s]/g, ''));
+      if (!isFinite(v) || v < 0) { toast('Admin: that isn\'t a number'); return; }
+      adminDo('money set to ' + money(v), () => { S.money = v; });
+    },
+    mat100: () => adminDo('+100 of everything', () => addMats(100)),
+    mat10k: () => adminDo('+10K of everything', () => addMats(10000)),
+    pencils: () => adminDo('shelf filled', () => { const n = Math.max(0, standCap() - Math.floor(S.stock)); S.stock += n; S.stockVal += n * basePrice(); }),
+    golden: () => adminDo('+5 golden logs', () => { S.golden += 5; }),
+    research: () => adminDo('all research unlocked', () => { for (const r of RESEARCH) S.research[r.id] = true; }),
+    shop: () => adminDo(SHOP[SHOP.length - 1].name + '!', () => { S.shopLvl = SHOP.length - 1; S.shopBuild = 0; S.shopProg = 0; }),
+    hats: () => adminDo('every hat unlocked', () => { for (const h of HATS) S.life.hats[h[0]] = true; }),
+    build: () => adminDo('everything is built', () => { for (const b of B) { b.built = true; b.prog = 1; } }),
+    shares: () => adminDo('+10 shares', () => { S.shares += 10; }),
+    goals: () => adminDo('all goals skipped', () => { S.goal = GOALS.length; }),
+    save: () => { save(); sfx.done(); toast('Admin: saved'); },
+    wipe: () => { if (confirm('Erase EVERYTHING in this save?')) { localStorage.removeItem(KEY); location.reload(); } },
+  };
+  el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => actions[b.dataset.a] && actions[b.dataset.a]());
+  sfx.done();
+}
+function closeAdmin() {
+  adminOpen = false;
+  const el = $('#admin'); if (el) el.remove();
+  for (const k in keys) keys[k] = false;
+}
+
+// a small code box (for phones, or anyone who'd rather type it in a box)
+function openCodeBox() {
+  if (adminOpen || $('#adminCode')) return;
+  const el = document.createElement('div');
+  el.id = 'admin'; el.className = 'code';
+  el.innerHTML = `<div class="ap" id="adminCode"><h2>CODE? <button class="x" data-a="close">✕</button></h2>
+    <div class="row"><input id="adminIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type the code"><button class="g" data-a="go">OK</button></div></div>`;
+  document.body.appendChild(el);
+  const inp = $('#adminIn'); setTimeout(() => inp.focus(), 50);
+  const done = () => el.remove();
+  const go = () => { const ok = adminCheck(inp.value); done(); if (ok) openAdmin(); else toast('Nope.'); };
+  el.querySelector('[data-a="go"]').onclick = go;
+  el.querySelector('[data-a="close"]').onclick = done;
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); if (e.key === 'Escape') done(); });
+  el.addEventListener('pointerdown', e => { if (e.target === el) done(); });
+}
+
+// typing the code anywhere opens it; while the panel is open, keys don't reach the game
+addEventListener('keydown', e => {
+  if (adminOpen || $('#adminCode')) {
+    if (e.key === 'Escape') { if (adminOpen) closeAdmin(); else { const c = $('#admin'); if (c) c.remove(); } }
+    if (e.target.tagName !== 'INPUT') { e.stopImmediatePropagation(); if (e.code === 'Space') e.preventDefault(); }
+    return;
+  }
+  if (e.key && e.key.length === 1) {
+    adminBuf = (adminBuf + e.key.toLowerCase()).slice(-ADMIN_LEN);
+    if (adminBuf.length === ADMIN_LEN && adminCheck(adminBuf)) { adminBuf = ''; openAdmin(); }
+  }
+}, true);
+// 7 quick taps on the money counter opens the code box
+let adminTaps = [];
+$('#money').addEventListener('pointerdown', () => {
+  const now = performance.now();
+  adminTaps = adminTaps.filter(t => now - t < 3000); adminTaps.push(now);
+  if (adminTaps.length >= 7) { adminTaps = []; openCodeBox(); }
+});
 
 </script>
 <script src="bdp.js" defer></script>
