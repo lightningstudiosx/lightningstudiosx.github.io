@@ -1,0 +1,2294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Domino Architect · Kai.fun</title>
+<meta name="description" content="Design enormous domino runs on a blueprint table: paths, spirals, stairs, bridges, bells, see-saws, catapults, buckets, towers and pixel-art walls. Push the first domino and watch the chain reaction. 18 puzzles, an endless commission mode, a sandbox, a gallery and share codes.">
+<script src="bdp.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Architects+Daughter&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<style>
+/* ART DIRECTION: "Blueprint Atelier" - an architect's drafting table at night.
+   The board is a cyanotype blueprint sheet; dominoes are glossy candy lacquer;
+   the interface is vellum paper, drafting tape and ink, with buttons shaped like domino tiles. */
+:root{
+  --ink:#16345f;--ink2:#2d5a94;--bp:#1d4f8f;--bp2:#123766;--bp3:#0b2343;
+  --vellum:#f7f1e3;--vellum2:#efe6d0;--tape:#ffd45c;--tape2:#ffb84a;
+  --red:#ff4f45;--red2:#d8322b;--mint:#2fd3a0;--sky:#57c3ff;--gold:#ffc93c;
+  --lac:#1c1d26;--lac2:#2c2e3c;--pip:#f4efe3;
+  --txt:#13294d;--dim:#5c6f8f;
+  --ui:"Nunito",system-ui,"Segoe UI",sans-serif;--disp:"Bungee","Nunito",system-ui,sans-serif;--hand:"Architects Daughter","Nunito",cursive;
+  --sh:0 2px 0 rgba(10,25,50,.25),0 8px 22px rgba(3,12,30,.35);
+  --safeb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bp3)}
+body{font-family:var(--ui);color:var(--txt);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;user-select:none;-webkit-user-select:none;font-weight:700}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.hidden{display:none!important}
+button{font-family:inherit;color:inherit;font-weight:800;-webkit-tap-highlight-color:transparent;cursor:pointer}
+svg{display:block}
+/* back link */
+#kai{position:fixed;left:10px;top:10px;z-index:40;font-weight:900;font-size:14px;color:var(--ink);text-decoration:none;background:var(--vellum);padding:8px 13px 8px 11px;border-radius:10px;box-shadow:var(--sh);line-height:1;border:2px solid var(--ink)}
+#kai:hover{background:var(--tape)}
+/* domino-tile buttons */
+.tb{appearance:none;border:0;background:var(--lac);color:var(--pip);border-radius:12px;font-size:16px;padding:10px 18px;min-height:46px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.14),var(--sh);transition:transform .1s,background .2s;line-height:1.1;letter-spacing:.02em;position:relative}
+.tb:hover{background:var(--lac2);transform:translateY(-1px)}
+.tb:active{transform:translateY(1px)}
+.tb:disabled{opacity:.4;cursor:default;transform:none}
+.tb.red{background:linear-gradient(180deg,#ff6a5c,var(--red2));color:#fff}
+.tb.gold{background:linear-gradient(180deg,#ffe07a,#f2a922);color:#3a2200}
+.tb.mint{background:linear-gradient(180deg,#55e8b8,#1aa97c);color:#06301f}
+.tb.paper{background:var(--vellum);color:var(--ink);box-shadow:inset 0 -3px 0 rgba(20,40,80,.18),0 0 0 2px var(--ink),var(--sh)}
+.tb.paper:hover{background:#fff7dc}
+.tb.big{font-size:20px;padding:14px 26px;min-height:58px;border-radius:15px}
+/* tiny pips decoration on tile buttons */
+.tb .pp{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:grid;grid-template-columns:repeat(2,4px);gap:3px;opacity:.55}
+.tb .pp i{width:4px;height:4px;border-radius:50%;background:currentColor;display:block}
+/* ---------- title ---------- */
+#title{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;padding:60px 12px 22px;background:radial-gradient(ellipse at 50% 42%,rgba(6,20,45,.0) 0%,rgba(6,20,45,.0) 35%,rgba(4,14,32,.55) 100%)}
+#tWord{display:flex;flex-direction:column;align-items:center;gap:8px;filter:drop-shadow(0 10px 18px rgba(0,8,25,.55))}
+.tRow{display:flex;gap:6px;perspective:700px}
+.tL{width:62px;height:96px;border-radius:9px;background:linear-gradient(180deg,#2a2c39,#15161e);box-shadow:inset 0 2px 0 rgba(255,255,255,.18),inset 0 -4px 0 rgba(0,0,0,.5),0 3px 0 #07080c;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--disp);font-size:46px;color:var(--pip);position:relative;transform-origin:50% 100%;transform-style:preserve-3d}
+.tL::after{content:"";position:absolute;left:10px;right:10px;top:50%;height:2px;background:rgba(244,239,227,.16)}
+.tL b{position:relative;z-index:1;line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.tL.c1{color:#ff7a6c}.tL.c2{color:#ffd45c}.tL.c3{color:#5fe0b5}.tL.c4{color:#7cc8ff}.tL.c5{color:#ff9ad0}
+.tL.fall{animation:topple 3.6s cubic-bezier(.5,0,.75,0) infinite}
+@keyframes topple{0%,58%{transform:rotateX(0)}70%{transform:rotateX(-62deg)}76%{transform:rotateX(-54deg)}88%{transform:rotateX(-54deg)}100%{transform:rotateX(0)}}
+.tRow.small .tL{width:50px;height:78px;font-size:36px}
+.tsub{font-family:var(--hand);font-size:21px;color:#dcecff;text-shadow:0 2px 8px rgba(0,0,0,.8);text-align:center;letter-spacing:.02em}
+.tmenu{display:grid;grid-template-columns:1fr 1fr;gap:12px;pointer-events:auto;width:min(520px,92vw)}
+.tmenu .tb.red{grid-column:1/-1}
+.tfoot{font-family:var(--hand);font-size:15px;color:#bcd3f2;text-shadow:0 1px 6px #000;text-align:center;opacity:.9}
+/* ---------- HUD ---------- */
+#chip{position:fixed;top:10px;left:112px;z-index:30;background:var(--vellum);border:2px solid var(--ink);border-radius:10px;padding:6px 14px 6px 12px;box-shadow:var(--sh);max-width:calc(100vw - 560px);min-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--disp);font-size:15px;color:var(--ink);line-height:1.25;cursor:default}
+#chip small{display:block;font-family:var(--hand);font-size:13px;color:var(--dim);letter-spacing:0;line-height:1.1}
+#topR{position:fixed;top:8px;right:8px;z-index:30;display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+.ib{appearance:none;border:0;background:var(--vellum);color:var(--ink);min-width:42px;height:42px;border-radius:11px;box-shadow:inset 0 -3px 0 rgba(20,40,80,.16),0 0 0 2px var(--ink),var(--sh);display:flex;align-items:center;justify-content:center;gap:5px;padding:0 9px;font-size:14px;transition:transform .1s,background .2s}
+.ib:hover{background:#fff7dc}.ib:active{transform:translateY(1px)}
+.ib:disabled{opacity:.38;cursor:default}
+.ib.on{background:var(--tape)}
+.ib svg{width:22px;height:22px;flex:none}
+.ib .lbl{font-size:13px}
+.sep{width:4px}
+#mute.off .wave{display:none}#mute .x{display:none}#mute.off .x{display:block}
+/* goals card - looks like a drafting note taped on */
+#goals{position:fixed;top:62px;left:10px;z-index:25;width:250px;background:var(--vellum);border-radius:6px;box-shadow:var(--sh);padding:12px 14px 10px;font-size:14px;color:var(--ink);transform:rotate(-.6deg)}
+#goals::before{content:"";position:absolute;left:50%;top:-9px;width:70px;height:18px;margin-left:-35px;background:rgba(255,212,92,.85);transform:rotate(2deg);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+#goals h4{font-family:var(--hand);font-size:17px;margin-bottom:4px;line-height:1.15}
+#goals .gl{display:flex;gap:7px;align-items:center;margin:4px 0;font-size:14px;line-height:1.2}
+#goals .ck{width:18px;height:18px;border:2px solid var(--ink);border-radius:5px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;background:#fff}
+#goals .gl.done .ck{background:var(--mint);border-color:#108a62}
+#goals .par{font-family:var(--hand);font-size:14px;color:var(--dim);margin-top:6px;border-top:1px dashed rgba(22,52,95,.3);padding-top:5px}
+#goals .gx{position:absolute;right:6px;top:4px;border:0;background:none;font-size:16px;color:var(--dim);padding:2px 6px}
+#goals.min{width:auto;padding:8px 34px 8px 12px}#goals.min .gbody{display:none}
+/* run readout */
+#readout{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:24;display:flex;gap:8px;pointer-events:none}
+.rd{background:rgba(12,30,58,.82);color:#e8f3ff;border-radius:10px;padding:6px 14px;font-size:15px;box-shadow:0 0 0 2px rgba(150,200,255,.35),var(--sh);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rd b{font-family:var(--disp);font-size:20px;color:var(--tape);font-weight:400}
+.rd.ok b{color:#6dffc6}
+/* GO + run controls */
+#goWrap{position:fixed;right:16px;bottom:calc(112px + var(--safeb));z-index:26;display:flex;flex-direction:column;align-items:center;gap:8px}
+#go{width:86px;height:86px;border-radius:50%;border:0;background:radial-gradient(circle at 40% 32%,#ff8a7c,#ff3b31 55%,#b8211b);color:#fff;font-family:var(--disp);font-size:26px;box-shadow:0 7px 0 #7d140f,0 12px 26px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.35);transition:transform .08s,box-shadow .08s;letter-spacing:.02em}
+#go:active{transform:translateY(5px);box-shadow:0 2px 0 #7d140f,0 6px 16px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.35)}
+#go.reset{background:radial-gradient(circle at 40% 32%,#fff3c2,#ffc93c 55%,#d18a00);color:#4a2b00;box-shadow:0 7px 0 #8a5a00,0 12px 26px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.5);font-size:19px}
+#runCtl{display:flex;flex-direction:column;gap:6px}
+#runCtl .ib{width:86px}
+/* properties strip */
+#props{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + var(--safeb));z-index:26;display:flex;gap:10px;align-items:center;background:rgba(247,241,227,.96);border-radius:12px;padding:6px 10px;box-shadow:0 0 0 2px var(--ink),var(--sh);max-width:calc(100vw - 140px);overflow-x:auto;scrollbar-width:none}
+#props::-webkit-scrollbar{display:none}
+.seg{display:flex;background:var(--vellum2);border-radius:9px;padding:2px;gap:2px;flex:none}
+.seg button{border:0;background:none;border-radius:7px;padding:6px 10px;font-size:13px;color:var(--ink);min-height:34px;white-space:nowrap}
+.seg button.on{background:var(--ink);color:var(--vellum)}
+.sw{display:flex;gap:4px;flex:none}
+.sw button{width:26px;height:26px;border-radius:7px;border:2px solid rgba(0,0,0,.25);padding:0;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.sw button.on{outline:3px solid var(--ink);outline-offset:1px}
+.sw button.rb{background:conic-gradient(#ff5a4e,#ffd23f,#8fdc4a,#33d6a6,#3fb8ff,#9b5cff,#ff6fb5,#ff5a4e)}
+.pl{font-family:var(--hand);font-size:14px;color:var(--dim);white-space:nowrap;flex:none}
+.pb{border:0;background:var(--lac);color:var(--pip);border-radius:9px;min-height:34px;min-width:34px;padding:0 9px;font-size:13px;display:flex;align-items:center;gap:5px;flex:none;white-space:nowrap}
+.pb svg{width:18px;height:18px}
+.pb.on{background:var(--tape);color:var(--ink)}
+.pb:disabled{opacity:.35}
+/* dock */
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + var(--safeb));z-index:27;display:flex;gap:6px;align-items:stretch;background:var(--lac);border-radius:16px;padding:6px;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 0 2px #07080c,var(--sh);max-width:calc(100vw - 20px);overflow-x:auto;scrollbar-width:none}
+#dock::-webkit-scrollbar{display:none}
+.tool{border:0;background:var(--lac2);color:var(--pip);border-radius:11px;width:62px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;position:relative;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.4);transition:background .15s,transform .1s;padding:4px 2px}
+.tool svg{width:28px;height:28px}
+.tool:hover{background:#3a3d50}
+.tool.on{background:var(--vellum);color:var(--ink);box-shadow:inset 0 -3px 0 rgba(20,40,80,.25),0 0 0 2px var(--tape)}
+.tool .cnt{position:absolute;top:2px;right:3px;background:var(--tape);color:#3a2600;border-radius:8px;font-size:10.5px;padding:1px 5px;line-height:1.3;font-weight:900}
+.tool .cnt.z{background:#6b6f80;color:#ddd}
+.tool:disabled{opacity:.35}
+.dsep{width:2px;background:rgba(255,255,255,.1);border-radius:2px;margin:6px 2px;flex:none}
+/* parts sheet */
+#sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + var(--safeb));z-index:29;width:min(640px,calc(100vw - 20px));max-height:min(62vh,520px);overflow-y:auto;background:var(--vellum);border-radius:14px;box-shadow:0 0 0 2px var(--ink),var(--sh);padding:12px}
+#sheet h5{font-family:var(--hand);font-size:17px;color:var(--ink2);margin:4px 2px 6px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:7px;margin-bottom:8px}
+.part{border:0;background:#fff;border-radius:11px;padding:8px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--ink);box-shadow:inset 0 -3px 0 rgba(20,40,80,.12),0 0 0 2px rgba(22,52,95,.25);position:relative}
+.part svg{width:34px;height:34px}
+.part:hover{background:#fff7dc}
+.part.on{box-shadow:0 0 0 3px var(--ink)}
+.part .cnt{position:absolute;top:3px;right:4px;background:var(--ink);color:#fff;border-radius:8px;font-size:10.5px;padding:0 5px}
+.part:disabled{opacity:.35}
+.part small{font-family:var(--hand);font-size:11px;color:var(--dim);line-height:1.1;text-align:center}
+/* modal */
+#modal{position:fixed;inset:0;z-index:60;background:rgba(4,14,32,.62);display:flex;align-items:center;justify-content:center;padding:14px}
+.card{background:var(--vellum);border-radius:14px;box-shadow:0 0 0 3px var(--ink),0 20px 60px rgba(0,0,0,.5);width:min(760px,100%);max-height:calc(100vh - 28px);overflow-y:auto;padding:20px 20px 18px;position:relative;
+  background-image:linear-gradient(rgba(29,79,143,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(29,79,143,.07) 1px,transparent 1px);background-size:22px 22px}
+.card.sm{width:min(440px,100%)}
+.card h2{font-family:var(--disp);font-size:26px;color:var(--ink);font-weight:400;margin-bottom:4px;line-height:1.1}
+.card .note{font-family:var(--hand);font-size:16px;color:var(--dim);margin-bottom:12px;line-height:1.3}
+.card .x{position:absolute;right:10px;top:10px;width:38px;height:38px;border-radius:10px;border:2px solid var(--ink);background:#fff;font-size:20px;color:var(--ink);line-height:1}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.lv{border:0;text-align:left;background:#fff;border-radius:12px;padding:10px 12px;box-shadow:inset 0 -3px 0 rgba(20,40,80,.12),0 0 0 2px rgba(22,52,95,.3);color:var(--ink);display:flex;flex-direction:column;gap:3px;min-height:86px;position:relative}
+.lv:hover{background:#fff7dc}
+.lv .n{font-family:var(--disp);font-size:22px;color:var(--ink2);line-height:1}
+.lv .t{font-size:14px;line-height:1.15}
+.lv .s{font-size:15px;color:#c9c2ad;letter-spacing:2px}.lv .s .on{color:#f2a922}
+.lv.lock{opacity:.5;cursor:default}.lv.lock .n::after{content:" 🔒";font-size:14px}
+.stars{font-size:52px;letter-spacing:6px;text-align:center;color:#d8d0b8;margin:6px 0 2px;line-height:1}
+.stars .on{color:#f2a922;text-shadow:0 3px 0 #b57400;display:inline-block;animation:pop .5s cubic-bezier(.3,1.8,.5,1) both}
+.stars .on:nth-child(2){animation-delay:.18s}.stars .on:nth-child(3){animation-delay:.36s}
+@keyframes pop{0%{transform:scale(0) rotate(-40deg)}100%{transform:scale(1)}}
+.stat{display:flex;justify-content:center;gap:18px;font-size:15px;margin:8px 0 14px;flex-wrap:wrap}
+.stat b{font-family:var(--disp);font-weight:400;color:var(--ink2)}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.gi{background:#fff;border-radius:12px;box-shadow:0 0 0 2px rgba(22,52,95,.3);overflow:hidden;display:flex;flex-direction:column}
+.gi img,.gi .ph{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:var(--bp)}
+.gi .ph{display:flex;align-items:center;justify-content:center;color:#cfe3ff;font-family:var(--hand);font-size:15px}
+.gi .gm{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.gi .gn{font-size:15px;line-height:1.15;word-break:break-word}
+.gi .gd{font-family:var(--hand);font-size:13px;color:var(--dim)}
+.gi .row{gap:6px}.gi .tb{min-height:36px;padding:6px 11px;font-size:13px;border-radius:9px}
+textarea,input[type=text]{font-family:ui-monospace,Consolas,monospace;font-size:13px;width:100%;border:2px solid var(--ink);border-radius:10px;padding:9px 10px;background:#fff;color:var(--ink);resize:vertical;user-select:text;-webkit-user-select:text}
+input[type=text]{font-family:var(--ui);font-size:16px;font-weight:700}
+.kbd{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:14px;line-height:1.25}
+.kbd b{font-family:ui-monospace,Consolas,monospace;background:#fff;border:1.5px solid var(--ink);border-radius:6px;padding:1px 6px;font-size:12.5px;white-space:nowrap;justify-self:start}
+.pics{display:flex;gap:6px;flex:none}
+.pics button{width:34px;height:34px;border-radius:8px;border:2px solid rgba(0,0,0,.2);background:#fff;padding:2px}
+.pics button.on{outline:3px solid var(--ink)}
+.pics canvas{width:100%;height:100%;image-rendering:pixelated;display:block}
+/* toast */
+#toast{position:fixed;left:50%;top:112px;transform:translateX(-50%) translateY(-8px);z-index:70;background:var(--lac);color:var(--pip);padding:10px 18px;border-radius:12px;font-size:15px;box-shadow:0 0 0 2px var(--tape),var(--sh);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;max-width:calc(100vw - 30px);text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* finish banner */
+#banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);z-index:45;font-family:var(--disp);font-size:54px;color:var(--tape);text-shadow:0 4px 0 #8a5a00,0 0 30px rgba(255,200,60,.6);opacity:0;pointer-events:none;transition:opacity .3s,transform .4s cubic-bezier(.3,1.6,.5,1);white-space:nowrap}
+#banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+/* phone */
+@media (max-width:760px){
+  #chip{left:10px;top:56px;max-width:calc(100vw - 20px);font-size:13px;padding:5px 10px}
+  #chip small{font-size:12px}
+  #topR{gap:4px;right:6px;top:8px}
+  .ib{min-width:36px;height:38px;padding:0 6px;border-radius:9px}
+  .ib svg{width:19px;height:19px}
+  .ib .lbl{display:none}
+  .sep{width:0}
+  #goals{top:100px;width:200px;font-size:12.5px;padding:9px 11px 8px}
+  #goals h4{font-size:15px}#goals .gl{font-size:12.5px}
+  #readout{top:100px}
+  .rd{font-size:13px;padding:5px 10px}.rd b{font-size:16px}
+  #goWrap{right:10px;bottom:calc(164px + var(--safeb))}
+  #go{width:72px;height:72px;font-size:22px}
+  #go.reset{font-size:16px}
+  #runCtl .ib{width:72px}
+  #props{left:10px;right:10px;transform:none;max-width:none;bottom:calc(84px + var(--safeb));gap:8px;padding:5px 8px}
+  #dock{left:10px;right:10px;transform:none;max-width:none;bottom:calc(8px + var(--safeb));padding:5px;gap:5px}
+  .tool{width:56px;min-height:54px;font-size:10.5px}.tool svg{width:25px;height:25px}
+  #sheet{bottom:calc(134px + var(--safeb));max-height:52vh}
+  .pgrid{grid-template-columns:repeat(auto-fill,minmax(80px,1fr))}
+  .tL{width:40px;height:64px;font-size:30px;border-radius:7px}
+  .tRow.small .tL{width:33px;height:52px;font-size:24px}
+  .tRow{gap:4px}
+  .tsub{font-size:17px}
+  .tb.big{font-size:18px;min-height:52px;padding:12px 16px}
+  #banner{font-size:34px}
+  .card{padding:16px 14px 14px}.card h2{font-size:22px}
+}
+@media (max-height:560px) and (min-width:761px){#title{gap:10px}.tL{width:48px;height:74px;font-size:34px}.tRow.small .tL{width:40px;height:62px;font-size:28px}}
+</style>
+</head>
+<body>
+<canvas id="gl" tabindex="0" aria-label="Domino board"></canvas>
+<a id="kai" href="index.html">← Kai.fun</a>
+
+<div id="title">
+  <div id="tWord" aria-label="Domino Architect"></div>
+  <div class="tsub">draft it &middot; line it up &middot; give it one little push</div>
+  <div class="tmenu">
+    <button class="tb red big" id="bPuzzles">Puzzles<span class="pp"><i></i><i></i><i></i><i></i></span></button>
+    <button class="tb big" id="bSandbox">Sandbox</button>
+    <button class="tb big" id="bEndless">Commissions</button>
+    <button class="tb big paper" id="bShow">Showcase</button>
+    <button class="tb big paper" id="bGallery">Gallery</button>
+  </div>
+  <div class="tfoot" id="tFoot"></div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="chip">Sandbox</div>
+  <div id="topR"></div>
+  <div id="goals" class="hidden"></div>
+  <div id="readout" class="hidden"><div class="rd" id="rdFall">fallen <b>0</b> / 0</div><div class="rd" id="rdTime"><b>0.00</b> s</div></div>
+  <div id="goWrap"><button id="go" aria-label="Go">GO</button><div id="runCtl" class="hidden"></div></div>
+  <div id="props"></div>
+  <div id="dock"></div>
+  <div id="sheet" class="hidden"></div>
+</div>
+<div id="banner"></div>
+<div id="modal" class="hidden"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* =====================================================================
+   DOMINO ARCHITECT - core: helpers, storage, sound, pieces, terrain, world
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const D2R = Math.PI / 180, TAU = Math.PI * 2;
+const q2 = v => Math.round(v * 100) / 100;
+const qa = v => { v = Math.round(v * 2) / 2 % 360; return v < 0 ? v + 360 : v; };
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- storage ---------------- */
+const Store = {
+  key: 'dominoArchitect.v1', d: null,
+  load() {
+    let d = null; try { d = JSON.parse(localStorage.getItem(this.key) || 'null'); } catch (e) { d = null; }
+    this.d = Object.assign({ stars: {}, gallery: [], mute: false, sandbox: null, endless: 0, endlessSeed: 1, seen: {} }, d || {});
+    return this.d;
+  },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.d)); return true; } catch (e) { return false; } }
+};
+
+/* ---------------- palette & sizes ---------------- */
+const PAL = ['#f4efe3', '#ff5a4e', '#ff9a2e', '#ffd23f', '#8fdc4a', '#33d6a6', '#3fb8ff', '#4f6bff', '#9b5cff', '#ff6fb5', '#2b2d3a', '#8a5a3c'];
+const PAL_NAMES = ['Ivory', 'Coral', 'Tangerine', 'Sunflower', 'Lime', 'Mint', 'Sky', 'Royal', 'Grape', 'Bubblegum', 'Charcoal', 'Walnut'];
+const RAINBOW = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const SZ = [{ h: .62, w: .31, t: .1, n: 'Tiny' }, { h: 1, w: .5, t: .16, n: 'Normal' }, { h: 1.8, w: .9, t: .29, n: 'Giant' }];
+const SPACING = .58;           // centre-to-centre spacing along a path, as a fraction of height
+const STEP_RISE = .25, STEP_DEPTH = .6;
+
+/* ---------------- piece types ----------------
+   every piece: {t, x, z, a(deg), ...}  s=size c=colour k=param f=flags(1 start, 2 pixel, 4 locked)  w,d = water rect */
+const PT = {
+  d:  { n: 'Domino', foot: p => [SZ[p.s].w / 2, SZ[p.s].t / 2], ht: p => SZ[p.s].h, body: 1 },
+  pl: { n: 'Sweeper plank', foot: p => [p.k / 2, .1], ht: () => 1, body: 1 },
+  tw: { n: 'Tower', foot: () => [.5, .5], ht: () => 3.2, body: 1 },
+  b:  { n: 'Ball', foot: () => [.3, .3] },
+  bl: { n: 'Bell', foot: () => [.42, .3], hit: 1.3 },
+  gg: { n: 'Gong', foot: () => [.85, .22], hit: 1.9 },
+  rp: { n: 'Ramp', foot: () => [.6, 1.5], solid: 1 },
+  st: { n: 'Step', foot: () => [.6, STEP_DEPTH / 2], solid: 1 },
+  wl: { n: 'Wall', foot: p => [p.k / 2, .15], solid: 1 },
+  br: { n: 'Bridge', foot: () => [.7, 2], solid: 1 },
+  ss: { n: 'See-saw', foot: () => [.32, 1.25] },
+  ct: { n: 'Catapult', foot: () => [.45, .85] },
+  bk: { n: 'Bucket', foot: () => [.2, .2] },
+  cp: { n: 'Cup', foot: () => [.45, .45], hit: .55 },
+  tr: { n: 'Trophy', foot: () => [.36, .36], hit: 1.35 },
+  fl: { n: 'Finish flag', foot: () => [.22, .22], hit: 2.4 },
+  wt: { n: 'Water', foot: p => [p.w / 2, p.d / 2] }
+};
+const TYPES = Object.keys(PT);
+const invKey = p => p.t === 'd' ? 'd' + p.s : p.t;
+const isLocked = p => !!(p.f & 4);
+const isStart = p => !!(p.f & 1);
+// launch settings for the throwing gadgets: local launch point (along, up) and velocity (along, up)
+const LAUNCH = { ss: { lz: 1.05, y: .55, vz: 3.2, vy: 8.6 }, ct: { lz: .55, y: .78, vz: 7.4, vy: 9.6 }, bk: { lz: 1.15, y: 2.25, vz: 1.4, vy: 0 } };
+const GRAV = 120, BALLG = 25, BALL_R = .3;
+
+function pieceAxes(p) { const a = p.a * D2R, s = Math.sin(a), c = Math.cos(a); return { fx: s, fz: c, rx: c, rz: -s }; }
+function toLocal(p, x, z) { const A = pieceAxes(p), dx = x - p.x, dz = z - p.z; return [dx * A.rx + dz * A.rz, dx * A.fx + dz * A.fz]; }
+function toWorld(p, lx, lz) { const A = pieceAxes(p); return [p.x + A.rx * lx + A.fx * lz, p.z + A.rz * lx + A.fz * lz]; }
+function footOf(p) { return p.t === 'wt' ? [p.w / 2, p.d / 2] : PT[p.t].foot(p); }
+function obbOf(p, grow = 0) { const [hx, hz] = footOf(p), A = p.t === 'wt' ? { fx: 0, fz: 1, rx: 1, rz: 0 } : pieceAxes(p); return { x: p.x, z: p.z, A, hx: hx + grow, hz: hz + grow }; }
+function obbHit(P, Q) {
+  const axes = [[P.A.rx, P.A.rz], [P.A.fx, P.A.fz], [Q.A.rx, Q.A.rz], [Q.A.fx, Q.A.fz]], dx = Q.x - P.x, dz = Q.z - P.z;
+  for (const [ax, az] of axes) {
+    const rp = P.hx * Math.abs(P.A.rx * ax + P.A.rz * az) + P.hz * Math.abs(P.A.fx * ax + P.A.fz * az);
+    const rq = Q.hx * Math.abs(Q.A.rx * ax + Q.A.rz * az) + Q.hz * Math.abs(Q.A.fx * ax + Q.A.fz * az);
+    if (Math.abs(dx * ax + dz * az) > rp + rq) return false;
+  }
+  return true;
+}
+function inOBB(p, x, z, grow = 0) { const [hx, hz] = footOf(p); if (p.t === 'wt') return Math.abs(x - p.x) <= hx + grow && Math.abs(z - p.z) <= hz + grow; const [lx, lz] = toLocal(p, x, z); return Math.abs(lx) <= hx + grow && Math.abs(lz) <= hz + grow; }
+
+/* ---------------- terrain: solids give a height field, water is a no-build zone ---------------- */
+const Ter = {
+  solids: [], water: [], grid: new Map(), C: 2,
+  key(ix, iz) { return (ix + 2000) * 4096 + iz + 2000; },
+  build(pieces) {
+    this.solids = []; this.water = []; this.grid.clear();
+    for (const p of pieces) {
+      if (p.t === 'wt') { this.water.push(p); continue; }
+      if (!PT[p.t].solid) continue;
+      const A = pieceAxes(p), [hx, hz] = footOf(p), ex = Math.abs(A.rx) * hx + Math.abs(A.fx) * hz, ez = Math.abs(A.rz) * hx + Math.abs(A.fz) * hz;
+      const s = { p, A, hx, hz }; this.solids.push(s);
+      for (let ix = Math.floor((p.x - ex) / this.C); ix <= Math.floor((p.x + ex) / this.C); ix++)
+        for (let iz = Math.floor((p.z - ez) / this.C); iz <= Math.floor((p.z + ez) / this.C); iz++) {
+          const k = this.key(ix, iz); let l = this.grid.get(k); if (!l) this.grid.set(k, l = []); l.push(s);
+        }
+    }
+  },
+  solidH(s, x, z) {
+    const dx = x - s.p.x, dz = z - s.p.z, lx = dx * s.A.rx + dz * s.A.rz, lz = dx * s.A.fx + dz * s.A.fz;
+    if (Math.abs(lx) > s.hx || Math.abs(lz) > s.hz) return 0;
+    switch (s.p.t) {
+      case 'st': return s.p.k * STEP_RISE;
+      case 'wl': return 1.6;
+      case 'rp': return (s.hz - lz) / (2 * s.hz);
+      case 'br': { const a = Math.abs(lz); return a <= 1 ? .6 : .6 * (2 - a); }
+    }
+    return 0;
+  },
+  heightAt(x, z, skip) {
+    const l = this.grid.get(this.key(Math.floor(x / this.C), Math.floor(z / this.C))); if (!l) return 0;
+    let h = 0; for (const s of l) { if (s.p === skip) continue; const v = this.solidH(s, x, z); if (v > h) h = v; } return h;
+  },
+  waterAt(x, z) { for (const w of this.water) if (Math.abs(x - w.x) <= w.w / 2 && Math.abs(z - w.z) <= w.d / 2) return true; return false; },
+  bridgeAt(x, z) { const l = this.grid.get(this.key(Math.floor(x / this.C), Math.floor(z / this.C))); if (l) for (const s of l) if (s.p.t === 'br' && this.solidH(s, x, z) > 0) return true; return false; }
+};
+
+/* ---------------- the world being edited ---------------- */
+const W = {
+  pieces: [], bw: 80, bd: 80, level: null, name: 'Untitled run',
+  inBoard(x, z, m = 0) { return Math.abs(x) <= this.bw / 2 - m && Math.abs(z) <= this.bd / 2 - m; },
+  changed() { Ter.build(this.pieces); },
+  invLeft(key) {
+    if (!this.level) return Infinity;
+    const lim = this.level.inv[key] || 0; let used = 0;
+    for (const p of this.pieces) if (!isLocked(p) && invKey(p) === key) used++;
+    return lim - used;
+  },
+  dominoCount(playerOnly) { let n = 0; for (const p of this.pieces) if ((p.t === 'd' || p.t === 'pl') && (!playerOnly || !isLocked(p))) n++; return n; },
+  // why a piece cannot go here (or '' if it can); `others` lets builders test against pending pieces too
+  blocked(p, others) {
+    const [hx, hz] = footOf(p);
+    if (!this.inBoard(p.x, p.z, Math.min(hx, hz) * .5)) return 'off the board';
+    const def = PT[p.t];
+    if (!def.solid && p.t !== 'wt') {
+      if (Ter.waterAt(p.x, p.z) && !Ter.bridgeAt(p.x, p.z)) return 'in the water';
+    }
+    const A = obbOf(p, -.012);
+    const test = q => {
+      if (q === p || q.t === 'wt') return false;
+      const qs = !!PT[q.t].solid, ps = !!def.solid;
+      if (qs !== ps) { // a solid only clashes with gadgets that cannot stand on it
+        if (ps && (q.t === 'd' || q.t === 'pl' || q.t === 'b')) return false;
+        if (!ps && (p.t === 'd' || p.t === 'pl' || p.t === 'b' || p.t === 'tr' || p.t === 'fl' || p.t === 'bl' || p.t === 'cp')) return false;
+      }
+      return obbHit(A, obbOf(q, -.012));
+    };
+    for (const q of this.pieces) if (test(q)) return 'overlaps something';
+    if (others) for (const q of others) if (test(q)) return 'overlaps something';
+    return '';
+  },
+  pieceAt(x, z, grow = .12) {
+    let best = null, bs = 1e9;
+    for (let i = this.pieces.length - 1; i >= 0; i--) {
+      const p = this.pieces[i]; if (p.t === 'wt') continue;
+      if (inOBB(p, x, z, grow)) { const sc = Math.hypot(p.x - x, p.z - z) + (PT[p.t].solid ? 2 : 0); if (sc < bs) { bs = sc; best = p; } }
+    }
+    return best;
+  }
+};
+
+/* ---------------- share codes: compact arrays -> JSON -> lz-string ---------------- */
+const Code = {
+  pieceArr(p) {
+    const a = [TYPES.indexOf(p.t), Math.round(p.x * 100), Math.round(p.z * 100), p.a || 0, p.s || 0, p.c || 0, p.f || 0, p.k || 0, p.w || 0, p.d || 0];
+    while (a.length > 4 && !a[a.length - 1]) a.pop();
+    return a;
+  },
+  arrPiece(a) {
+    const t = TYPES[a[0]]; if (!t) return null;
+    const p = { t, x: (a[1] || 0) / 100, z: (a[2] || 0) / 100, a: +a[3] || 0 };
+    if (t === 'd') { p.s = clamp(a[4] | 0, 0, 2); p.c = clamp(a[5] | 0, 0, PAL.length - 1); }
+    else if (a[5]) p.c = clamp(a[5] | 0, 0, PAL.length - 1);
+    if (a[6]) p.f = a[6] | 0;
+    if (t === 'st') p.k = clamp(a[7] | 0 || 1, 1, 12);
+    if (t === 'wl' || t === 'pl') p.k = clamp(+a[7] || 3, .5, 40);
+    if (t === 'wt') { p.w = +a[8] || 1; p.d = +a[9] || 1; }
+    if (!isFinite(p.x) || !isFinite(p.z)) return null;
+    return p;
+  },
+  encode(pieces, extra) {
+    const o = { v: 1, b: [W.bw, W.bd], n: (extra && extra.name) || W.name, p: pieces.map(p => this.pieceArr(p)) };
+    return 'DA1.' + LZString.compressToBase64(JSON.stringify(o));
+  },
+  decode(str) {
+    str = String(str || '').trim().replace(/\s+/g, '');
+    if (!str.startsWith('DA1.')) return null;
+    let o; try { o = JSON.parse(LZString.decompressFromBase64(str.slice(4)) || 'null'); } catch (e) { return null; }
+    if (!o || !Array.isArray(o.p)) return null;
+    const pieces = o.p.map(a => Array.isArray(a) ? this.arrPiece(a) : null).filter(Boolean);
+    return { pieces, bw: clamp(+(o.b && o.b[0]) || 80, 8, 200), bd: clamp(+(o.b && o.b[1]) || 80, 8, 200), name: String(o.n || 'Shared run').slice(0, 40) };
+  }
+};
+
+/* ---------------- sound: everything synthesised with WebAudio ---------------- */
+const Snd = {
+  ctx: null, on: true, master: null, noiseBuf: null, win: 0, winN: 0, rollG: null,
+  init() {
+    if (this.ctx) return;
+    try {
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      this.ctx = new C(); this.master = this.ctx.createGain(); this.master.gain.value = this.on ? .8 : 0;
+      const comp = this.ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 5;
+      this.master.connect(comp); comp.connect(this.ctx.destination);
+      const n = this.ctx.sampleRate * .06 | 0, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 6);
+      this.noiseBuf = b;
+      const ln = this.ctx.sampleRate * 1.5 | 0, lb = this.ctx.createBuffer(1, ln, this.ctx.sampleRate), ld = lb.getChannelData(0);
+      for (let i = 0; i < ln; i++) ld[i] = Math.random() * 2 - 1;
+      this.longNoise = lb;
+    } catch (e) { this.ctx = null; }
+  },
+  resume() { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  setOn(v) { this.on = v; if (this.master) this.master.gain.setTargetAtTime(v ? .8 : 0, this.ctx.currentTime, .02); },
+  ok() { return this.ctx && this.on && this.ctx.state === 'running'; },
+  env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); },
+  osc(type, f, t, a, peak, dec, dest) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+    this.env(g, t, a, peak, dec); o.connect(g); g.connect(dest || this.master); o.start(t); o.stop(t + a + dec + .05); return o;
+  },
+  noise(t, f, q, peak, dec, rate) {
+    const s = this.ctx.createBufferSource(), bp = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    s.buffer = this.noiseBuf; s.playbackRate.value = rate || 1; bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+    this.env(g, t, .001, peak, dec); s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t);
+  },
+  // the domino clack: brighter and higher the faster the wave is travelling
+  clack(speed, size) {
+    if (!this.ok()) return;
+    const now = this.ctx.currentTime;
+    if (now - this.win > .03) { this.win = now; this.winN = 0; }
+    if (++this.winN > 3) return;
+    const sp = clamp(speed / 16, 0, 1.6), sf = [1.55, 1, .58][size == null ? 1 : size] || 1;
+    const f = (1150 + 1500 * sp) * sf * (.92 + Math.random() * .16), vol = clamp(.12 + sp * .2, .1, .38) * (size === 2 ? 1.3 : 1);
+    this.noise(now, f, 3.5, vol, .045, .9 + sp * .5);
+    this.osc('triangle', f * .34, now, .001, vol * .55, .035);
+  },
+  tap(size) { if (!this.ok()) return; const t = this.ctx.currentTime, sf = [1.4, 1, .6][size] || 1; this.noise(t, 700 * sf, 2, .07, .05, .7); },
+  bell(pitch) {
+    if (!this.ok()) return; const t = this.ctx.currentTime, f = 880 * (pitch || 1);
+    [[1, .22, 1.6], [2.01, .12, 1.0], [2.76, .08, .7], [5.43, .05, .35], [.5, .07, 1.8]].forEach(([m, v, d]) => this.osc('sine', f * m, t, .002, v, d));
+  },
+  gong() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    [[1, .3, 3.2], [1.48, .16, 2.6], [2.1, .12, 2.2], [2.93, .07, 1.6], [3.72, .05, 1.2], [.5, .14, 3.5]].forEach(([m, v, d]) => {
+      const o = this.osc('sine', 98 * m, t, .01, v, d); o.frequency.exponentialRampToValueAtTime(98 * m * .985, t + d);
+    });
+    this.noise(t, 400, .7, .18, .6, .4);
+  },
+  thunk() { if (!this.ok()) return; const t = this.ctx.currentTime; const o = this.osc('sine', 160, t, .002, .35, .18); o.frequency.exponentialRampToValueAtTime(60, t + .18); this.noise(t, 500, 1.2, .15, .08, .6); },
+  boing() { if (!this.ok()) return; const t = this.ctx.currentTime; const o = this.osc('triangle', 220, t, .005, .25, .4); o.frequency.exponentialRampToValueAtTime(700, t + .12); o.frequency.exponentialRampToValueAtTime(330, t + .4); },
+  whoosh() {
+    if (!this.ok()) return; const t = this.ctx.currentTime, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    s.buffer = this.longNoise; f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2400, t + .35);
+    this.env(g, t, .08, .2, .45); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + .6);
+  },
+  splash() {
+    if (!this.ok()) return; const t = this.ctx.currentTime, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    s.buffer = this.longNoise; f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(300, t + .5);
+    this.env(g, t, .01, .3, .6); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + .7);
+  },
+  rattle() { if (!this.ok()) return; const t = this.ctx.currentTime; for (let i = 0; i < 7; i++) this.noise(t + i * .035 + Math.random() * .02, 900 + Math.random() * 900, 3, .12, .05); },
+  plop() { if (!this.ok()) return; const t = this.ctx.currentTime; const o = this.osc('sine', 500, t, .002, .25, .15); o.frequency.exponentialRampToValueAtTime(140, t + .15); },
+  place() { if (!this.ok()) return; const t = this.ctx.currentTime; this.noise(t, 2200, 4, .08, .03); },
+  erase() { if (!this.ok()) return; const t = this.ctx.currentTime; const o = this.osc('square', 300, t, .002, .04, .08); o.frequency.exponentialRampToValueAtTime(120, t + .08); },
+  ui() { if (!this.ok()) return; const t = this.ctx.currentTime; this.osc('triangle', 660, t, .002, .06, .06); },
+  win() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    [523, 659, 784, 1047, 1319].forEach((f, i) => { this.osc('triangle', f, t + i * .09, .005, .16, .5); this.osc('sine', f * 2, t + i * .09, .005, .05, .3); });
+  },
+  fail() { if (!this.ok()) return; const t = this.ctx.currentTime; [392, 330].forEach((f, i) => this.osc('triangle', f, t + i * .16, .01, .12, .3)); },
+  rollLevel(v) {
+    if (!this.ok()) { if (this.rollG) this.rollG.gain.value = 0; return; }
+    if (!this.rollG) {
+      const s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+      s.buffer = this.longNoise; s.loop = true; f.type = 'lowpass'; f.frequency.value = 260; g.gain.value = 0;
+      s.connect(f); f.connect(g); g.connect(this.master); s.start(); this.rollG = g; this.rollF = f;
+    }
+    this.rollG.gain.setTargetAtTime(clamp(v, 0, 1) * .22, this.ctx.currentTime, .05);
+    this.rollF.frequency.setTargetAtTime(180 + v * 500, this.ctx.currentTime, .05);
+  },
+  // gentle background music: a soft marimba loop over warm pads, scheduled a little ahead of time
+  music: { next: 0, step: 0, timer: 0, bus: null },
+  startMusic() {
+    if (!this.ctx || this.music.timer) return;
+    const m = this.music; m.bus = this.ctx.createGain(); m.bus.gain.value = .32; m.bus.connect(this.master);
+    m.next = this.ctx.currentTime + .1; m.step = 0;
+    const CH = [[261.6, 329.6, 392.0], [220.0, 261.6, 329.6], [174.6, 220.0, 261.6], [196.0, 246.9, 293.7]];
+    const MEL = [0, 2, 1, 2, 0, 1, 2, 1];
+    const tick = () => {
+      if (!this.ctx) return;
+      while (m.next < this.ctx.currentTime + .4) {
+        const t = m.next, bar = Math.floor(m.step / 8) % 4, ch = CH[bar], i = m.step % 8;
+        if (this.on && this.ctx.state === 'running') {
+          const f = ch[MEL[i]] * 2, v = i % 4 === 0 ? .1 : .065;
+          this.osc('sine', f, t, .004, v, .5, m.bus); this.osc('sine', f * 4.01, t, .002, v * .18, .12, m.bus);
+          if (i === 0) ch.forEach(n => this.osc('triangle', n / 2, t, .25, .035, 2.2, m.bus));
+          if (i === 0 || i === 4) this.osc('sine', ch[0] / 4, t, .01, .09, .5, m.bus);
+        }
+        m.next += .27; m.step++;
+      }
+    };
+    m.timer = setInterval(tick, 120); tick();
+  }
+};
+// browsers only allow sound after the player touches the page: unlock on the very first input anywhere
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { Snd.resume(); Snd.startMusic(); }, { passive: true, capture: true }));
+
+/* =====================================================================
+   SIMULATION - a deterministic, custom domino-toppling model.
+   Each domino is a rigid slab that pivots on the bottom edge it falls over.
+   It accelerates under gravity, sweeps its front face through space, knocks
+   what that face meets (passing on part of its spin), and then leans on it.
+   Lean limits are recomputed every step from the support's current pose, so
+   whole rows settle into the classic shingled heap. Only the wave front is
+   simulated; settled dominoes cost nothing. Fixed 240 Hz step.
+   ===================================================================== */
+// smallest angle (from vertical, towards +u) at which a face of length h pivoting at the origin
+// meets the segment (u0,y0)-(u1,y1); Infinity if the segment is out of reach
+function segAng(h, u0, y0, u1, y1) {
+  let best = Infinity; const h2 = h * h + 1e-6;
+  const test = (u, y) => { if (u >= -1e-4 && u * u + y * y <= h2) { const a = Math.atan2(u, y); if (a < best) best = a; } };
+  test(u0, y0); test(u1, y1);
+  const du = u1 - u0, dy = y1 - y0, A = du * du + dy * dy;
+  if (A > 1e-10) {
+    const B = 2 * (u0 * du + y0 * dy), C = u0 * u0 + y0 * y0 - h * h, disc = B * B - 4 * A * C;
+    if (disc >= 0) { const sq = Math.sqrt(disc); for (const t of [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]) if (t >= 0 && t <= 1) test(u0 + du * t, y0 + dy * t); }
+  }
+  return best;
+}
+// pose of a domino-like body: box centre + axes (right, up', fwd') - shared by the renderer and the tower breaker
+function bodyFrame(d, out) {
+  const s = d.sg, th = d.th * s, c = Math.cos(th), sn = Math.sin(th);
+  const ux = d.fx * sn, uy = c, uz = d.fz * sn;            // up'
+  const fx = d.fx * c, fy = -sn, fz = d.fz * c;             // fwd'
+  const ox = d.x + d.fx * s * d.t / 2, oz = d.z + d.fz * s * d.t / 2; // pivot edge
+  const hh = d.h / 2, ht = -s * d.t / 2;
+  out.cx = ox + ux * hh + fx * ht; out.cy = d.yb + uy * hh + fy * ht; out.cz = oz + uz * hh + fz * ht;
+  out.rx = d.fz; out.rz = -d.fx; out.ux = ux; out.uy = uy; out.uz = uz; out.fx = fx; out.fy = fy; out.fz = fz;
+  return out;
+}
+const TOWER_BLOCKS = (() => { const a = []; for (let L = 0; L < 8; L++) for (let k = -1; k <= 1; k++) a.push(L % 2 ? { x: k * .33, y: L * .4 + .2, z: 0, rot: 1 } : { x: 0, y: L * .4 + .2, z: k * .33, rot: 0 }); return a; })();
+
+const Sim = {
+  D: [], objs: [], balls: [], debris: [], active: [], hash: new Map(), byPiece: new Map(),
+  t: 0, fallen: 0, total: 0, started: false, idle: 0, done: false, quiet: false, stamp: 0,
+  ev: { clack() {}, tap() {}, ring() {}, finish() {}, cup() {}, launch() {}, land() {}, splash() {}, tower() {}, bump() {} },
+  hk(ix, iz) { return (ix + 2000) * 4096 + iz + 2000; },
+  build(pieces) {
+    this.D = []; this.objs = []; this.balls = []; this.debris = []; this.active = []; this.hash.clear(); this.byPiece.clear();
+    this.t = 0; this.fallen = 0; this.total = 0; this.started = false; this.idle = 0; this.done = false;
+    for (const p of pieces) {
+      const def = PT[p.t];
+      if (def.body) {
+        let h, w, t;
+        if (p.t === 'd') ({ h, w, t } = SZ[p.s]); else if (p.t === 'pl') { h = 1; w = p.k; t = .2; } else { h = 3.2; w = 1; t = 1; }
+        const A = pieceAxes(p);
+        const d = { i: this.D.length, p, kind: p.t, x: p.x, z: p.z, fx: A.fx, fz: A.fz, h, w, t, yb: Ter.heightAt(p.x, p.z), st: 0, sg: 1, th: 0, om: 0, ci: 0, cands: null, sup: [], floor: Math.PI / 2, still: 0, fc: 0, dirty: true, stamp: 0 };
+        this.D.push(d); this.byPiece.set(p, d); if (p.t !== 'tw') this.total++;
+        const ex = Math.abs(A.rx) * w / 2 + Math.abs(A.fx) * t / 2, ez = Math.abs(A.rz) * w / 2 + Math.abs(A.fz) * t / 2;
+        for (let ix = Math.floor(p.x - ex); ix <= Math.floor(p.x + ex); ix++) for (let iz = Math.floor(p.z - ez); iz <= Math.floor(p.z + ez); iz++) {
+          const k = this.hk(ix, iz); let l = this.hash.get(k); if (!l) this.hash.set(k, l = []); l.push(d);
+        }
+      } else if (p.t === 'b') {
+        const b = { p, x: p.x, z: p.z, y: Ter.heightAt(p.x, p.z) + BALL_R, vx: 0, vy: 0, vz: 0, r: BALL_R, st: 'rest', col: p.c || 0, ground: true, owner: null };
+        this.balls.push(b); this.byPiece.set(p, b);
+      } else if (def.hit || p.t === 'ss' || p.t === 'ct' || p.t === 'bk') {
+        const A = pieceAxes(p), y0 = Ter.heightAt(p.x, p.z);
+        let o;
+        if (def.hit) { const [hx, hz] = footOf(p); o = { x: p.x, z: p.z, hx, hz, y0, y1: y0 + def.hit }; }
+        else if (p.t === 'ss') { const [x, z] = toWorld(p, 0, -1.05); o = { x, z, hx: .3, hz: .22, y0, y1: y0 + .78 }; }
+        else if (p.t === 'ct') { const [x, z] = toWorld(p, 0, -.72); o = { x, z, hx: .42, hz: .1, y0, y1: y0 + .72 }; }
+        else o = { x: p.x, z: p.z, hx: .2, hz: .2, y0, y1: y0 + 2.6 };
+        Object.assign(o, { p, kind: p.t, A, hit: false, ht: -9, fired: false, ft: -9, ball: null });
+        if (LAUNCH[p.t]) {
+          const L = LAUNCH[p.t], [bx, bz] = toWorld(p, 0, L.lz);
+          o.ball = { p: null, x: bx, z: bz, y: y0 + L.y, vx: 0, vy: 0, vz: 0, r: BALL_R, st: 'held', col: 3, ground: false, owner: o };
+          this.balls.push(o.ball);
+        }
+        this.objs.push(o); this.byPiece.set(p, o);
+      }
+    }
+  },
+  starters() {
+    const s = this.D.filter(d => isStart(d.p));
+    if (s.length) return s;
+    const f = this.D.find(d => d.kind !== 'tw'); return f ? [f] : [];
+  },
+  go() { this.started = true; for (const d of this.starters()) this.push(d, 1, 3.2); },
+  push(d, sg, om) {
+    if (d.st === 1) { d.om = Math.max(d.om, om); return; }
+    if (d.st !== 0) return;
+    d.st = 1; d.sg = sg; d.om = Math.max(om, 1.4); d.ci = 0; d.sup = []; d.still = 0;
+    this.computeCands(d); this.computeFloor(d); this.active.push(d); this.started = true;
+  },
+  computeCands(d) {
+    const Dx = d.fx * d.sg, Dz = d.fz * d.sg, px = d.x + Dx * d.t / 2, pz = d.z + Dz * d.t / 2, Lx = Dz, Lz = -Dx;
+    const R = d.h + 1.6, hw = d.w / 2 - .02, out = [], st = ++this.stamp;
+    const corners = (cx, cz, A, hx, hz, cb) => {
+      let umin = 1e9, lmin = 1e9, lmax = -1e9;
+      for (let a = -1; a <= 1; a += 2) for (let b = -1; b <= 1; b += 2) {
+        const x = cx + A.rx * hx * a + A.fx * hz * b - px, z = cz + A.rz * hx * a + A.fz * hz * b - pz;
+        const u = x * Dx + z * Dz, l = x * Lx + z * Lz;
+        if (u < umin) umin = u; if (l < lmin) lmin = l; if (l > lmax) lmax = l;
+      }
+      if (lmax < -hw || lmin > hw || umin < -.03 || umin > d.h) return;
+      cb(Math.max(umin, .001));
+    };
+    for (let ix = Math.floor(px - R); ix <= Math.floor(px + R); ix++) for (let iz = Math.floor(pz - R); iz <= Math.floor(pz + R); iz++) {
+      const l = this.hash.get(this.hk(ix, iz)); if (!l) continue;
+      for (const j of l) {
+        if (j === d || j.stamp === st) continue; j.stamp = st;
+        const A = { rx: j.fz, rz: -j.fx, fx: j.fx, fz: j.fz };
+        corners(j.x, j.z, A, j.w / 2, j.t / 2, u => {
+          const y0 = j.yb - d.yb, ang = segAng(d.h, u, y0, u, y0 + j.h);
+          if (ang < Infinity) out.push({ j: j.i, ang });
+        });
+      }
+    }
+    for (const o of this.objs) {
+      if (Math.abs(o.x - px) > R || Math.abs(o.z - pz) > R) continue;
+      corners(o.x, o.z, o.A, o.hx, o.hz, u => {
+        const ang = segAng(d.h, u, o.y0 - d.yb, u, o.y1 - d.yb);
+        if (ang < Infinity) out.push({ o, ang });
+      });
+    }
+    out.sort((a, b) => a.ang - b.ang);
+    d.cands = out;
+  },
+  computeFloor(d) {
+    const Dx = d.fx * d.sg, Dz = d.fz * d.sg, px = d.x + Dx * d.t / 2, pz = d.z + Dz * d.t / 2, Lx = Dz, Lz = -Dx;
+    let best = Math.PI / 2; const n = Math.max(6, Math.ceil(d.h / .08));
+    for (let k = 1; k <= n; k++) {
+      const r = d.h * k / n;
+      for (const lo of [-.35, 0, .35]) {
+        const dh = Ter.heightAt(px + Dx * r + Lx * lo * d.w, pz + Dz * r + Lz * lo * d.w) - d.yb;
+        if (dh > .005) { const a = segAng(d.h, r, 0, r, dh); if (a < best) best = a; }
+      }
+    }
+    if (best >= Math.PI / 2 - 1e-6) {
+      const dh = Ter.heightAt(px + Dx * d.h * .95, pz + Dz * d.h * .95) - d.yb;
+      if (dh < -.05) best = Math.PI / 2 + Math.min(1.1, Math.asin(Math.min(1, -dh / d.h)));
+    }
+    d.floor = best;
+  },
+  leanAng(d, j) {
+    if (j.st === 3) return Infinity;
+    const Dx = d.fx * d.sg, Dz = d.fz * d.sg, px = d.x + Dx * d.t / 2, pz = d.z + Dz * d.t / 2;
+    let k = (j.fx * j.sg) * Dx + (j.fz * j.sg) * Dz;
+    const uc = (j.x - px) * Dx + (j.z - pz) * Dz, c = Math.cos(j.th), s = Math.sin(j.th), t = j.t;
+    let q0, y0, q1, y1;
+    if (k >= 0) { q0 = t / 2 - t * c; y0 = t * s; q1 = q0 + j.h * s; y1 = y0 + j.h * c; if (k < .25) k = .25; }
+    else { q0 = t / 2; y0 = 0; q1 = t / 2 + j.h * s; y1 = j.h * c; if (k > -.25) k = -.25; }
+    const dy = j.yb - d.yb;
+    return segAng(d.h, uc + q0 * k, y0 + dy, uc + q1 * k, y1 + dy);
+  },
+  hitCand(d, c) {
+    if (c.j != null) {
+      const j = this.D[c.j]; if (j.st === 3) return;
+      const Dx = d.fx * d.sg, Dz = d.fz * d.sg, k = j.fx * Dx + j.fz * Dz;
+      const om = d.om * (.62 + .3 * Math.abs(k)) * Math.sqrt(d.h / j.h);
+      if (j.st === 0) {
+        this.push(j, k >= 0 ? 1 : -1, om);
+        if (!this.quiet) this.ev.clack(d, d.om * d.h);
+        d.om *= .6;
+      } else if (j.st === 1) j.om = Math.max(j.om, om * .8);
+      d.sup.push({ j: c.j });
+    } else { this.hitObj(c.o, d); d.sup.push({ ang: c.ang }); }
+  },
+  hitObj(o, by) {
+    const first = !o.hit; o.hit = true;
+    if (o.kind === 'bl' || o.kind === 'gg') { if (this.t - o.ht > .25) { o.ht = this.t; if (!this.quiet) this.ev.ring(o, first); } }
+    else if (o.kind === 'tr' || o.kind === 'fl') { if (first) { o.ht = this.t; if (!this.quiet) this.ev.finish(o); } }
+    else if (o.kind === 'ss' || o.kind === 'ct' || o.kind === 'bk') this.fire(o);
+  },
+  fire(o) {
+    if (o.fired) return; o.fired = true; o.ft = this.t;
+    const b = o.ball, L = LAUNCH[o.kind];
+    if (b) { b.st = 'move'; b.vx = o.A.fx * L.vz; b.vz = o.A.fz * L.vz; b.vy = L.vy; b.ground = false; }
+    if (!this.quiet) this.ev.launch(o);
+  },
+  rest(d) { d.st = 2; d.om = 0; d.dirty = true; if (!d.fc) { d.fc = 1; if (d.kind !== 'tw') this.fallen++; } },
+  stepDom(d, dt) {
+    const th0 = d.th;
+    let a = 1.5 * GRAV * (d.h * Math.sin(th0) - d.t * Math.cos(th0)) / (d.h * d.h + d.t * d.t);
+    if (a < 4) a = 4;
+    d.om = Math.min(d.om + a * dt, 45);
+    let nth = th0 + d.om * dt;
+    const cs = d.cands;
+    while (d.ci < cs.length && cs[d.ci].ang <= nth) this.hitCand(d, cs[d.ci++]);
+    let lim = d.floor, fl = true;
+    for (const s of d.sup) { const l = s.j != null ? this.leanAng(d, this.D[s.j]) : s.ang; if (l < lim) { lim = l; fl = false; } }
+    if (nth >= lim) {
+      nth = Math.max(th0, lim);
+      if (fl) { if (d.om > 3 && !this.quiet) this.ev.tap(d); d.th = nth; this.rest(d); return; }
+      d.om = Math.min(d.om, Math.max(0, (nth - th0) / dt));
+    }
+    d.th = nth; d.dirty = true;
+    if (nth - th0 < 2e-5) { if (++d.still > 36) this.rest(d); } else d.still = 0;
+    if (!d.fc && d.th > .5) { d.fc = 1; if (d.kind !== 'tw') this.fallen++; }
+    if (d.kind === 'tw' && d.th > 1.32) this.breakTower(d);
+  },
+  breakTower(d) {
+    d.st = 3; d.dirty = true;
+    const F = bodyFrame(d, {}), rnd = mulberry((d.i + 7) * 977), sg = d.sg, om = d.om;
+    const Dx = d.fx * sg, Dz = d.fz * sg, pvx = d.x + Dx * d.t / 2, pvz = d.z + Dz * d.t / 2;
+    const Ox = F.rx * sg * om, Oz = F.rz * sg * om; // angular velocity (about the right axis)
+    const base = new THREE.Matrix4().makeBasis(new THREE.Vector3(F.rx, 0, F.rz), new THREE.Vector3(F.ux, F.uy, F.uz), new THREE.Vector3(F.fx, F.fy, F.fz));
+    const qb = new THREE.Quaternion().setFromRotationMatrix(base);
+    for (const bl of TOWER_BLOCKS) {
+      const ly = bl.y - d.h / 2;
+      const x = F.cx + F.rx * bl.x + F.ux * ly + F.fx * bl.z, y = F.cy + F.uy * ly + F.fy * bl.z, z = F.cz + F.rz * bl.x + F.uz * ly + F.fz * bl.z;
+      const rx = x - pvx, ry = y - d.yb, rz = z - pvz;
+      // v = Omega x r
+      const vx = 0 * rz - Oz * ry, vy = Oz * rx - Ox * rz, vz = Ox * ry - 0 * rx;
+      const q = qb.clone(); if (bl.rot) q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2));
+      this.debris.push({ x, y, z, vx: vx * 1.05 + (rnd() - .5) * 2.2, vy: vy + rnd() * 2, vz: vz * 1.05 + (rnd() - .5) * 2.2, q, wx: (rnd() - .5) * 12, wy: (rnd() - .5) * 12, wz: (rnd() - .5) * 12, sleep: 0, slow: 0, tw: d.i, col: d.p.c || 0 });
+    }
+    if (!this.quiet) this.ev.tower(d);
+  },
+  // standing dominoes struck by a ball or a flying block
+  strikeDominoes(b, r, strength) {
+    let hit = false;
+    for (let ix = Math.floor(b.x - 1.2); ix <= Math.floor(b.x + 1.2); ix++) for (let iz = Math.floor(b.z - 1.2); iz <= Math.floor(b.z + 1.2); iz++) {
+      const l = this.hash.get(this.hk(ix, iz)); if (!l) continue;
+      for (const j of l) {
+        if (j.st !== 0) continue;
+        const dx = b.x - j.x, dz = b.z - j.z, lf = dx * j.fx + dz * j.fz, lr = dx * j.fz - dz * j.fx;
+        if (Math.abs(lr) > j.w / 2 + r * .5 || Math.abs(lf) > j.t / 2 + r || b.y - r > j.yb + j.h || b.y + r < j.yb) continue;
+        const vn = b.vx * j.fx + b.vz * j.fz, sg = lf < 0 ? 1 : -1;
+        if (vn * sg < .25 && Math.abs(b.vy) < 1) continue;
+        this.push(j, sg, 1.6 + Math.abs(vn) * strength / j.h);
+        if (!this.quiet) this.ev.clack(j, 4 + Math.abs(vn));
+        // bounce the ball back off the domino face
+        b.vx -= 1.25 * vn * j.fx; b.vz -= 1.25 * vn * j.fz; b.vx *= .8; b.vz *= .8;
+        hit = true;
+      }
+    }
+    return hit;
+  },
+  // a falling domino's front face shoves balls out of its way
+  sweepBalls(d) {
+    const Dx = d.fx * d.sg, Dz = d.fz * d.sg, px = d.x + Dx * d.t / 2, pz = d.z + Dz * d.t / 2, Lx = Dz, Lz = -Dx;
+    const c = Math.cos(d.th), s = Math.sin(d.th);
+    for (const b of this.balls) {
+      if (b.st !== 'rest' && b.st !== 'move') continue;
+      const x = b.x - px, z = b.z - pz, u = x * Dx + z * Dz, l = x * Lx + z * Lz, y = b.y - d.yb;
+      if (Math.abs(l) > d.w / 2 + b.r * .6 || u < -b.r || u > d.h + b.r) continue;
+      const dist = u * c - y * s, along = u * s + y * c;
+      if (dist < -b.r * .5 || dist > b.r || along < 0 || along > d.h + b.r * .5) continue;
+      const nx = Dx * c, ny = -s, nz = Dz * c, face = d.om * Math.min(along, d.h) * .75 + .6;
+      const vn = b.vx * nx + b.vy * ny + b.vz * nz;
+      if (vn < face) { const k = face - vn; b.vx += nx * k; b.vy += Math.max(0, ny * k); b.vz += nz * k; }
+      const push = b.r - dist; b.x += nx * push; b.z += nz * push;
+      if (b.st === 'rest' && !this.quiet) this.ev.bump(b);
+      b.st = 'move'; b.ground = false;
+    }
+  },
+  stepBall(b, dt) {
+    if (b.st !== 'move') return;
+    b.vy -= BALLG * dt;
+    let nx = b.x + b.vx * dt, nz = b.z + b.vz * dt; const gy = b.y - b.r;
+    if (Ter.heightAt(nx, b.z) > gy + .2) { b.vx = -b.vx * .4; nx = b.x; if (!this.quiet) this.ev.land(b, 2); }
+    if (Ter.heightAt(nx, nz) > gy + .2) { b.vz = -b.vz * .4; nz = b.z; }
+    const hw = W.bw / 2 - b.r, hd = W.bd / 2 - b.r;
+    if (Math.abs(nx) > hw) { nx = Math.sign(nx) * hw; b.vx = -b.vx * .5; }
+    if (Math.abs(nz) > hd) { nz = Math.sign(nz) * hd; b.vz = -b.vz * .5; }
+    b.x = nx; b.z = nz; b.y += b.vy * dt;
+    const g = Ter.heightAt(b.x, b.z);
+    if (b.y - b.r <= g) {
+      b.y = g + b.r;
+      if (b.vy < -3) { if (!this.quiet) this.ev.land(b, -b.vy); b.vy = -b.vy * .3; } else b.vy = 0;
+      b.ground = true;
+      if (g <= .001 && Ter.waterAt(b.x, b.z)) { b.st = 'sunk'; b.sinkT = this.t; if (!this.quiet) this.ev.splash(b); return; }
+      const e = .12;
+      let gx = (Ter.heightAt(b.x + e, b.z) - Ter.heightAt(b.x - e, b.z)) / (2 * e), gz = (Ter.heightAt(b.x, b.z + e) - Ter.heightAt(b.x, b.z - e)) / (2 * e);
+      const gm = Math.hypot(gx, gz); if (gm > .7) { gx *= .7 / gm; gz *= .7 / gm; }
+      b.vx -= BALLG * gx * .8 * dt; b.vz -= BALLG * gz * .8 * dt;
+      const f = Math.exp(-.5 * dt); b.vx *= f; b.vz *= f;
+      if (gm < .02 && b.vx * b.vx + b.vz * b.vz < .004 && Math.abs(b.vy) < .01) { b.vx = b.vz = 0; b.st = 'rest'; }
+    } else b.ground = false;
+    this.strikeDominoes(b, b.r, 1.3);
+    for (const o of this.objs) {
+      if (o.kind === 'cp') {
+        if (Math.hypot(b.x - o.x, b.z - o.z) < o.hx + b.r * .4 && b.y < o.y1 + b.r * 1.2) {
+          b.st = 'cup'; b.x = o.x; b.z = o.z; b.y = o.y0 + b.r + .05; b.vx = b.vy = b.vz = 0;
+          if (!o.hit) { o.hit = true; o.ht = this.t; if (!this.quiet) this.ev.cup(o, b); }
+          return;
+        }
+        continue;
+      }
+      if (o.ball === b && this.t - o.ft < .5) continue;
+      const dx = b.x - o.x, dz = b.z - o.z, lx = dx * o.A.rx + dz * o.A.rz, lz = dx * o.A.fx + dz * o.A.fz;
+      const px = o.hx + b.r - Math.abs(lx), pz = o.hz + b.r - Math.abs(lz);
+      if (px <= 0 || pz <= 0 || b.y - b.r > o.y1 || b.y + b.r < o.y0) continue;
+      this.hitObj(o, b);
+      let vlx = b.vx * o.A.rx + b.vz * o.A.rz, vlz = b.vx * o.A.fx + b.vz * o.A.fz;
+      let mx = 0, mz = 0;
+      if (px < pz) { mx = Math.sign(lx) * px; if (vlx * Math.sign(lx) < 0) vlx = -vlx * .45; } else { mz = Math.sign(lz) * pz; if (vlz * Math.sign(lz) < 0) vlz = -vlz * .45; }
+      b.x += o.A.rx * mx + o.A.fx * mz; b.z += o.A.rz * mx + o.A.fz * mz;
+      b.vx = o.A.rx * vlx + o.A.fx * vlz; b.vz = o.A.rz * vlx + o.A.fz * vlz;
+    }
+    for (const c of this.balls) {
+      if (c === b || (c.st !== 'move' && c.st !== 'rest')) continue;
+      const dx = c.x - b.x, dy = c.y - b.y, dz = c.z - b.z, dd = Math.hypot(dx, dy, dz), m = b.r + c.r;
+      if (dd >= m || dd < 1e-6) continue;
+      const nx = dx / dd, ny = dy / dd, nz = dz / dd, rel = (b.vx - c.vx) * nx + (b.vy - c.vy) * ny + (b.vz - c.vz) * nz;
+      if (rel > 0) { b.vx -= rel * nx; b.vy -= rel * ny; b.vz -= rel * nz; c.vx += rel * nx * .95; c.vy += rel * ny * .95; c.vz += rel * nz * .95; }
+      const o = (m - dd) / 2; b.x -= nx * o; b.z -= nz * o; c.x += nx * o; c.z += nz * o;
+      if (c.st === 'rest') { c.st = 'move'; if (!this.quiet) this.ev.bump(c); }
+    }
+  },
+  stepDebris(k, dt) {
+    if (k.sleep) return;
+    k.vy -= 40 * dt; k.x += k.vx * dt; k.y += k.vy * dt; k.z += k.vz * dt;
+    const w = Math.hypot(k.wx, k.wy, k.wz);
+    if (w > 1e-4) { const dq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(k.wx / w, k.wy / w, k.wz / w), w * dt); k.q.premultiply(dq); }
+    const g = Ter.heightAt(k.x, k.z);
+    if (k.y < g + .17) {
+      k.y = g + .17;
+      if (k.vy < -2) { k.vy = -k.vy * .25; } else k.vy = 0;
+      const f = Math.exp(-6 * dt); k.vx *= f; k.vz *= f; k.wx *= f; k.wy *= f; k.wz *= f;
+      // settle flat: rotate the axis that points most upward onto the vertical
+      const ax = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)].map(v => v.applyQuaternion(k.q));
+      let bi = 0; for (let i = 1; i < 3; i++) if (Math.abs(ax[i].y) > Math.abs(ax[bi].y)) bi = i;
+      const target = new THREE.Vector3(0, Math.sign(ax[bi].y) || 1, 0), fix = new THREE.Quaternion().setFromUnitVectors(ax[bi], target);
+      k.q.premultiply(new THREE.Quaternion().slerp(fix, Math.min(1, 10 * dt)));
+      if (Math.hypot(k.vx, k.vz) < .4) { if ((k.slow += dt) > .35) { k.sleep = 1; k.vx = k.vy = k.vz = 0; } } else k.slow = 0;
+    }
+    if (Math.hypot(k.vx, k.vz) > 1) this.strikeDominoes(k, .22, 1);
+  },
+  step(dt) {
+    this.t += dt;
+    const act = this.active;
+    for (let i = 0; i < act.length; i++) { const d = act[i]; if (d.st === 1) { this.stepDom(d, dt); if (d.st === 1 && this.balls.length) this.sweepBalls(d); } }
+    let w = 0; for (let i = 0; i < act.length; i++) if (act[i].st === 1) act[w++] = act[i]; act.length = w;
+    let moving = 0;
+    for (const b of this.balls) { if (b.st === 'move') { this.stepBall(b, dt); moving++; } }
+    for (const k of this.debris) if (!k.sleep) { this.stepDebris(k, dt); moving++; }
+    for (const o of this.objs) if (o.fired && this.t - o.ft < .6) moving++;
+    if (this.started && !act.length && !moving) this.idle += dt; else this.idle = 0;
+    if (this.started && this.idle > .7) this.done = true;
+  },
+  goals() {
+    let bells = 0, rung = 0, cups = 0, filled = 0, fin = 0, finHit = false;
+    for (const o of this.objs) {
+      if (o.kind === 'bl' || o.kind === 'gg') { bells++; if (o.hit) rung++; }
+      else if (o.kind === 'cp') { cups++; if (o.hit) filled++; }
+      else if (o.kind === 'tr' || o.kind === 'fl') { fin++; if (o.hit) finHit = true; }
+    }
+    return { bells, rung, cups, filled, fin, finHit, fallen: this.fallen, total: this.total };
+  },
+  // run to the end without rendering (used by the Skip button)
+  fastForward(maxT = 120) { const q = this.quiet; this.quiet = true; let n = 0; while (!this.done && this.t < maxT && n < 240 * maxT) { this.step(1 / 240); n++; } this.quiet = q; return n; }
+};
+
+/* =====================================================================
+   VIEW - three.js: blueprint table, instanced lacquer dominoes, gadgets
+   ===================================================================== */
+const PHONE = Math.min(innerWidth, innerHeight) < 560 || /Android|iPhone|iPad/i.test(navigator.userAgent);
+const V = {
+  renderer: null, scene: null, cam: null, dom: null, ghost: null, gad: new Map(), balls: [], deb: null, conf: null, parts: [],
+  matCache: {}, geo: {}, t: 0, maxD: 6000, sheet: null, desk: null, waterMeshes: [], markers: [], rings: [],
+  init() {
+    const cv = $('gl');
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: !PHONE || devicePixelRatio < 2, powerPreference: 'high-performance' });
+    r.setPixelRatio(Math.min(devicePixelRatio || 1, PHONE ? 1.75 : 2));
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.outputEncoding = THREE.sRGBEncoding;
+    const s = this.scene = new THREE.Scene(); s.background = new THREE.Color('#0a1d38'); s.fog = new THREE.Fog('#0a1d38', 60, 150);
+    this.cam = new THREE.PerspectiveCamera(38, 1, .1, 400);
+    s.add(new THREE.HemisphereLight(0xe6f1ff, 0x22406e, .78));
+    const sun = this.sun = new THREE.DirectionalLight(0xfff1dc, .92); sun.castShadow = true;
+    const ms = PHONE ? 1024 : 2048; sun.shadow.mapSize.set(ms, ms); sun.shadow.bias = -.0006; sun.shadow.normalBias = .02;
+    s.add(sun); s.add(sun.target);
+    const fill = new THREE.DirectionalLight(0x9fc7ff, .25); fill.position.set(-10, 8, -6); s.add(fill);
+    this.makeTextures(); this.makeFloor();
+    // dominoes: one instanced box; +z / -z faces carry pips
+    const g = new THREE.BoxGeometry(1, 1, 1);
+    const side = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: 0x555555, map: this.tex.side });
+    const front = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: 0x555555, map: this.tex.faceA });
+    const back = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: 0x555555, map: this.tex.faceB });
+    const dm = this.dom = new THREE.InstancedMesh(g, [side, side, side, side, front, back], this.maxD);
+    dm.castShadow = dm.receiveShadow = true; dm.frustumCulled = false;
+    dm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    dm.setColorAt(0, new THREE.Color(1, 1, 1)); dm.instanceColor.setUsage(THREE.DynamicDrawUsage); dm.count = 0;
+    s.add(dm);
+    const gm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .5, depthWrite: false });
+    const gh = this.ghost = new THREE.InstancedMesh(g, gm, 3000); gh.frustumCulled = false; gh.renderOrder = 5;
+    gh.setColorAt(0, new THREE.Color(1, 1, 1)); gh.count = 0; s.add(gh);
+    const bg = new THREE.BoxGeometry(1, .38, .32);
+    const dbm = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 60 });
+    this.deb = new THREE.InstancedMesh(bg, dbm, 800); this.deb.castShadow = this.deb.receiveShadow = true; this.deb.frustumCulled = false;
+    this.deb.setColorAt(0, new THREE.Color(1, 1, 1)); this.deb.count = 0; s.add(this.deb);
+    const cg = new THREE.PlaneGeometry(.13, .22);
+    this.conf = new THREE.InstancedMesh(cg, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), 500); this.conf.frustumCulled = false;
+    this.conf.setColorAt(0, new THREE.Color(1, 1, 1)); this.conf.count = 0; s.add(this.conf);
+    this.gadRoot = new THREE.Group(); s.add(this.gadRoot);
+    this.ghostRoot = new THREE.Group(); s.add(this.ghostRoot);
+    this.fxRoot = new THREE.Group(); s.add(this.fxRoot);
+    this.selBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0xffd45c }));
+    this.selBox.visible = false; s.add(this.selBox);
+    this.resize(); addEventListener('resize', () => this.resize());
+  },
+  resize() {
+    const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
+  },
+  makeTextures() {
+    const T = this.tex = {};
+    const face = (top, bot) => {
+      const c = mkCanvas(128, 256), x = c.getContext('2d');
+      x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 256);
+      x.strokeStyle = 'rgba(0,0,0,.13)'; x.lineWidth = 8; x.strokeRect(4, 4, 120, 248);
+      x.fillStyle = 'rgba(0,0,0,.42)'; x.fillRect(16, 126, 96, 4);
+      const pips = { 1: [[1, 1]], 2: [[0, 0], [2, 2]], 3: [[0, 0], [1, 1], [2, 2]], 4: [[0, 0], [2, 0], [0, 2], [2, 2]], 5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]], 6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]] };
+      const dot = (n, oy) => { for (const [i, j] of pips[n]) { const px = 30 + i * 34, py = oy + 22 + j * 34; x.fillStyle = 'rgba(15,15,25,.82)'; x.beginPath(); x.arc(px, py, 10, 0, TAU); x.fill(); x.fillStyle = 'rgba(255,255,255,.35)'; x.beginPath(); x.arc(px - 3, py - 3, 3, 0, TAU); x.fill(); } };
+      dot(top, 4); dot(bot, 132);
+      const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+    };
+    T.faceA = face(5, 3); T.faceB = face(2, 6);
+    { const c = mkCanvas(32, 64), x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 32, 64); x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = 4; x.strokeRect(2, 2, 28, 60); T.side = new THREE.CanvasTexture(c); T.side.encoding = THREE.sRGBEncoding; }
+    // blueprint sheet: 5x5 unit tile with minor and major lines
+    {
+      const S = 640, c = mkCanvas(S, S), x = c.getContext('2d'), rnd = mulberry(3);
+      x.fillStyle = '#1f5394'; x.fillRect(0, 0, S, S);
+      for (let i = 0; i < 2600; i++) { x.fillStyle = `rgba(255,255,255,${rnd() * .035})`; x.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 3, 1 + rnd() * 3); }
+      x.strokeStyle = 'rgba(190,225,255,.16)'; x.lineWidth = 1.5;
+      for (let i = 0; i < 20; i++) { const p = i * 32 + .5; x.beginPath(); x.moveTo(p, 0); x.lineTo(p, S); x.moveTo(0, p); x.lineTo(S, p); x.stroke(); }
+      x.strokeStyle = 'rgba(200,232,255,.32)'; x.lineWidth = 2.5;
+      for (let i = 0; i < 5; i++) { const p = i * 128 + 1; x.beginPath(); x.moveTo(p, 0); x.lineTo(p, S); x.moveTo(0, p); x.lineTo(S, p); x.stroke(); }
+      x.strokeStyle = 'rgba(220,240,255,.5)'; x.lineWidth = 4; x.beginPath(); x.moveTo(1, 0); x.lineTo(1, S); x.moveTo(0, 1); x.lineTo(S, 1); x.stroke();
+      const t = T.sheet = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.encoding = THREE.sRGBEncoding;
+    }
+    {
+      const S = 256, c = mkCanvas(S, S), x = c.getContext('2d');
+      x.fillStyle = '#0d2546'; x.fillRect(0, 0, S, S); x.strokeStyle = 'rgba(120,170,230,.08)'; x.lineWidth = 2;
+      for (let i = 0; i <= 4; i++) { x.beginPath(); x.moveTo(i * 64, 0); x.lineTo(i * 64, S); x.moveTo(0, i * 64); x.lineTo(S, i * 64); x.stroke(); }
+      const t = T.desk = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+    }
+    {
+      const S = 256, c = mkCanvas(S, S), x = c.getContext('2d'), rnd = mulberry(9);
+      const g = x.createLinearGradient(0, 0, S, S); g.addColorStop(0, '#2bb5e8'); g.addColorStop(1, '#1b7fc9'); x.fillStyle = g; x.fillRect(0, 0, S, S);
+      x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 3; x.lineCap = 'round';
+      for (let i = 0; i < 26; i++) { const px = rnd() * S, py = rnd() * S, l = 14 + rnd() * 26; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + l / 2, py - 6, px + l, py); x.stroke(); }
+      const t = T.water = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+    }
+    {
+      const c = mkCanvas(64, 64), x = c.getContext('2d');
+      x.fillStyle = PAL[3]; x.fillRect(0, 0, 64, 64); x.fillStyle = '#fff'; x.fillRect(0, 24, 64, 16);
+      x.fillStyle = PAL[1]; x.beginPath(); x.arc(32, 32, 7, 0, TAU); x.fill();
+      T.ball = c;
+    }
+    {
+      const c = mkCanvas(64, 40), x = c.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 5; j++) { x.fillStyle = (i + j) % 2 ? '#111' : '#fff'; x.fillRect(i * 8, j * 8, 8, 8); }
+      T.flag = new THREE.CanvasTexture(c); T.flag.magFilter = THREE.NearestFilter;
+    }
+  },
+  makeFloor() {
+    const desk = this.desk = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshLambertMaterial({ map: this.tex.desk }));
+    this.tex.desk.repeat.set(150, 150); desk.rotation.x = -Math.PI / 2; desk.position.y = -.03; desk.receiveShadow = true; this.scene.add(desk);
+    const sheet = this.sheet = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshLambertMaterial({ map: this.tex.sheet }));
+    sheet.rotation.x = -Math.PI / 2; sheet.receiveShadow = true; this.scene.add(sheet);
+    const edge = this.sheetEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)), new THREE.LineBasicMaterial({ color: 0xdff0ff, transparent: true, opacity: .7 }));
+    edge.rotation.x = -Math.PI / 2; edge.position.y = .006; this.scene.add(edge);
+  },
+  setBoard(bw, bd) {
+    this.sheet.scale.set(bw, bd, 1); this.sheet.position.set(0, 0, 0);
+    this.tex.sheet.repeat.set(bw / 5, bd / 5); this.tex.sheet.offset.set(-(bw / 2 % 5) / 5, -(bd / 2 % 5) / 5);
+    this.sheetEdge.scale.set(bw, bd, 1);
+  },
+  mat(key, make) { return this.matCache[key] || (this.matCache[key] = make()); },
+  phong(hex, shin = 40, extra) { return this.mat('p' + hex + shin + (extra ? JSON.stringify(extra) : ''), () => new THREE.MeshPhongMaterial(Object.assign({ color: new THREE.Color(hex).convertSRGBToLinear(), shininess: shin, specular: 0x444444 }, extra || {}))); },
+  G(key, make) { return this.geo[key] || (this.geo[key] = make()); },
+  mesh(geo, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; },
+  box(w, h, d) { return this.G('b' + w + '_' + h + '_' + d, () => new THREE.BoxGeometry(w, h, d)); },
+  prism(key, pts, w) {
+    return this.G(key, () => {
+      const sh = new THREE.Shape(); pts.forEach(([a, b], i) => i ? sh.lineTo(a, b) : sh.moveTo(a, b)); sh.closePath();
+      const g = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false }); g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0); g.computeVertexNormals(); return g;
+    });
+  },
+  ballMat(col) {
+    return this.mat('ball' + col, () => {
+      const c = mkCanvas(64, 64), x = c.getContext('2d');
+      x.fillStyle = PAL[col] || PAL[3]; x.fillRect(0, 0, 64, 64); x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(0, 26, 64, 12);
+      x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(31, 0, 2, 64);
+      const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+      return new THREE.MeshPhongMaterial({ map: t, shininess: 110, specular: 0x888888 });
+    });
+  },
+  // ---------- gadget models ----------
+  build(p) {
+    const g = new THREE.Group(), M = this, wood = this.phong('#c98a4b', 20), dark = this.phong('#2b2d3a', 40), gold = this.phong('#ffc93c', 90, { specular: 0xffe7a0 });
+    const parts = {};
+    switch (p.t) {
+      case 'bl': {
+        g.add(M.mesh(M.box(.9, .06, .56), dark, 0, .03, 0));
+        g.add(M.mesh(M.box(.07, 1.55, .07), wood, -.38, .8, 0), M.mesh(M.box(.07, 1.55, .07), wood, .38, .8, 0), M.mesh(M.box(.86, .08, .09), wood, 0, 1.55, 0));
+        const sw = new THREE.Group(); sw.position.y = 1.5;
+        const prof = [[0, 0], [.05, -.02], [.09, -.12], [.13, -.3], [.2, -.48], [.27, -.6], [.27, -.64], [0, -.64]].map(([a, b]) => new THREE.Vector2(a, b));
+        sw.add(M.mesh(M.G('bellg', () => new THREE.LatheGeometry(prof, 24)), M.phong('#ffc93c', 100, { specular: 0xfff0b0, side: THREE.DoubleSide })));
+        sw.add(M.mesh(M.G('clap', () => new THREE.SphereGeometry(.06, 10, 8)), dark, 0, -.6, 0));
+        g.add(sw); parts.sw = sw; break;
+      }
+      case 'gg': {
+        g.add(M.mesh(M.box(1.8, .08, .5), dark, 0, .04, 0));
+        g.add(M.mesh(M.box(.1, 2, .1), wood, -.8, 1, 0), M.mesh(M.box(.1, 2, .1), wood, .8, 1, 0), M.mesh(M.box(1.72, .1, .12), wood, 0, 1.95, 0));
+        const sw = new THREE.Group(); sw.position.y = 1.9;
+        const disc = M.mesh(M.G('gongd', () => { const c = new THREE.CylinderGeometry(.68, .68, .07, 36); c.rotateX(Math.PI / 2); return c; }), M.phong('#d9972f', 90, { specular: 0xffd890 }), 0, -.88, 0);
+        sw.add(disc, M.mesh(M.G('gongb', () => { const c = new THREE.TorusGeometry(.5, .025, 6, 30); return c; }), M.phong('#a86a17', 60), 0, -.88, .04));
+        sw.add(M.mesh(M.box(.03, .22, .03), dark, -.3, -.12, 0), M.mesh(M.box(.03, .22, .03), dark, .3, -.12, 0));
+        g.add(sw); parts.sw = sw; break;
+      }
+      case 'rp': g.add(M.mesh(M.prism('ramp', [[-1.5, 0], [1.5, 0], [-1.5, 1]], 1.2), M.phong('#ff9a2e', 50))); g.add(M.mesh(M.prism('rampr', [[-1.5, 1], [1.5, 0], [1.5, .02], [-1.5, 1.04]], .14), M.phong('#ffffff', 30), .53, 0, 0), M.mesh(M.prism('rampr', [[-1.5, 1], [1.5, 0], [1.5, .02], [-1.5, 1.04]], .14), M.phong('#ffffff', 30), -.53, 0, 0)); break;
+      case 'st': { const h = p.k * STEP_RISE, col = ['#ffd23f', '#ff9a2e', '#ff6fb5', '#9b5cff', '#3fb8ff', '#33d6a6'][(p.k - 1) % 6]; g.add(M.mesh(M.box(1.2, h, STEP_DEPTH), M.phong(col, 30), 0, h / 2, 0)); g.add(M.mesh(M.box(1.22, .03, STEP_DEPTH + .02), M.phong('#ffffff', 20), 0, h - .01, 0)); break; }
+      case 'wl': { g.add(M.mesh(M.box(p.k, 1.6, .3), M.phong('#e8e1cf', 10), 0, .8, 0)); g.add(M.mesh(M.box(p.k + .02, .1, .32), M.phong('#16345f', 20), 0, 1.58, 0)); break; }
+      case 'br': {
+        g.add(M.mesh(M.prism('deck', [[-2, 0], [-1, .6], [1, .6], [2, 0], [1.8, 0], [1, .46], [-1, .46], [-1.8, 0]], 1.4), M.phong('#c98a4b', 25)));
+        for (const sx of [-.66, .66]) { g.add(M.mesh(M.box(.06, .06, 2.2), M.phong('#ff5a4e', 50), sx, .95, 0)); for (const sz of [-1, -.33, .33, 1]) g.add(M.mesh(M.box(.05, .36, .05), wood, sx, .78, sz)); }
+        for (const sz of [-.9, .9]) for (const sx of [-.55, .55]) g.add(M.mesh(M.box(.12, .5, .12), dark, sx, .23, sz));
+        break;
+      }
+      case 'ss': {
+        g.add(M.mesh(M.prism('fulc', [[-.3, 0], [.3, 0], [0, .42]], .5), dark));
+        const arm = new THREE.Group(); arm.position.y = .45; arm.add(M.mesh(M.box(.5, .08, 2.5), M.phong('#33d6a6', 40)));
+        arm.add(M.mesh(M.box(.5, .12, .06), M.phong('#16345f', 40), 0, .08, 1.2), M.mesh(M.box(.5, .25, .08), M.phong('#ff5a4e', 40), 0, .14, -1.18));
+        arm.rotation.x = .2; g.add(arm); parts.arm = arm; break;
+      }
+      case 'ct': {
+        g.add(M.mesh(M.box(.9, .16, 1.7), wood, 0, .08, 0));
+        g.add(M.mesh(M.box(.08, .5, .08), dark, -.36, .4, -.15), M.mesh(M.box(.08, .5, .08), dark, .36, .4, -.15), M.mesh(M.box(.8, .07, .07), dark, 0, .62, -.15));
+        const arm = new THREE.Group(); arm.position.set(0, .4, -.15);
+        arm.add(M.mesh(M.box(.12, .09, 1.15), M.phong('#ff5a4e', 50), 0, 0, .4));
+        arm.add(M.mesh(M.G('ctcup', () => new THREE.CylinderGeometry(.26, .18, .16, 16, 1, true)), M.phong('#ffd23f', 60, { side: THREE.DoubleSide }), 0, .1, .7));
+        arm.rotation.x = .28; g.add(arm); parts.arm = arm;
+        const pad = new THREE.Group(); pad.position.set(0, .16, -.72); pad.add(M.mesh(M.box(.8, .56, .07), M.phong('#ffd23f', 40), 0, .28, 0)); g.add(pad); parts.pad = pad;
+        break;
+      }
+      case 'bk': {
+        g.add(M.mesh(M.box(.6, .08, .6), dark, 0, .04, 0), M.mesh(M.G('post', () => new THREE.CylinderGeometry(.07, .08, 2.6, 10)), wood, 0, 1.3, 0));
+        g.add(M.mesh(M.box(.08, .08, 1.3), wood, 0, 2.58, .58));
+        const bu = new THREE.Group(); bu.position.set(0, 2.55, 1.15);
+        bu.add(M.mesh(M.G('bkt', () => new THREE.CylinderGeometry(.28, .2, .38, 18, 1, true)), M.phong('#3fb8ff', 50, { side: THREE.DoubleSide }), 0, -.3, 0));
+        bu.add(M.mesh(M.G('bkb', () => new THREE.CylinderGeometry(.2, .2, .02, 18)), M.phong('#3fb8ff', 50), 0, -.49, 0));
+        bu.add(M.mesh(M.G('bkh', () => new THREE.TorusGeometry(.28, .012, 5, 20, Math.PI)), dark, 0, -.11, 0));
+        g.add(bu); parts.bu = bu; break;
+      }
+      case 'cp': {
+        g.add(M.mesh(M.G('cupw', () => new THREE.CylinderGeometry(.45, .4, .55, 24, 1, true)), M.phong('#9fe3ff', 90, { transparent: true, opacity: .6, side: THREE.DoubleSide }), 0, .275, 0));
+        g.add(M.mesh(M.G('cupb', () => new THREE.CylinderGeometry(.4, .4, .04, 24)), M.phong('#16345f', 40), 0, .02, 0));
+        g.add(M.mesh(M.G('cupr', () => { const t = new THREE.TorusGeometry(.45, .03, 6, 28); t.rotateX(Math.PI / 2); return t; }), gold, 0, .55, 0));
+        const glow = M.mesh(M.G('cupglow', () => new THREE.CylinderGeometry(.42, .42, .02, 24)), new THREE.MeshBasicMaterial({ color: 0x6dffc6, transparent: true, opacity: 0 }), 0, .05, 0); g.add(glow); parts.glow = glow;
+        break;
+      }
+      case 'tr': {
+        const sp = new THREE.Group();
+        sp.add(M.mesh(M.box(.6, .22, .6), dark, 0, .11, 0), M.mesh(M.box(.44, .1, .44), gold, 0, .27, 0));
+        const prof = [[0, 0], [.08, 0], [.05, .1], [.04, .3], [.1, .38], [.26, .5], [.3, .72], [.31, .82], [.28, .82], [.24, .6], [0, .52]].map(([a, b]) => new THREE.Vector2(a, b));
+        sp.add(M.mesh(M.G('troph', () => new THREE.LatheGeometry(prof, 28)), M.phong('#ffc93c', 110, { specular: 0xfff1b0, side: THREE.DoubleSide }), 0, .32, 0));
+        for (const sx of [-1, 1]) { const h = M.mesh(M.G('trh', () => new THREE.TorusGeometry(.12, .025, 6, 14, Math.PI)), gold, sx * .3, .95, 0); h.rotation.z = sx * -Math.PI / 2; sp.add(h); }
+        const star = M.mesh(M.G('trs', () => new THREE.OctahedronGeometry(.11)), M.phong('#ffffff', 100), 0, 1.28, 0); sp.add(star);
+        g.add(sp); parts.sp = sp; break;
+      }
+      case 'fl': {
+        g.add(M.mesh(M.box(.4, .1, .4), dark, 0, .05, 0), M.mesh(M.G('pole', () => new THREE.CylinderGeometry(.035, .035, 2.4, 8)), M.phong('#eeeeee', 80), 0, 1.2, 0));
+        const fg = new THREE.Group(); fg.position.set(0, 2.1, 0);
+        const fm = M.mesh(M.G('flagp', () => { const pg = new THREE.PlaneGeometry(.9, .56, 8, 1); pg.translate(.45, 0, 0); return pg; }), M.mat('flagm', () => new THREE.MeshPhongMaterial({ map: this.tex.flag, side: THREE.DoubleSide })));
+        fg.add(fm); g.add(fg); parts.flag = fg; break;
+      }
+      case 'tw': {
+        const tg = new THREE.Group(), cA = PAL[p.c || 0], cB = new THREE.Color(cA).multiplyScalar(.78).getStyle();
+        TOWER_BLOCKS.forEach((b, i) => { const m = M.mesh(M.G('twb', () => new THREE.BoxGeometry(1, .38, .32)), M.phong(i % 2 ? cB : cA, 60), b.x, b.y - 1.6, b.z); if (b.rot) m.rotation.y = Math.PI / 2; tg.add(m); });
+        tg.matrixAutoUpdate = false; g.add(tg); parts.tw = tg; break;
+      }
+      case 'wt': {
+        const m = new THREE.Mesh(M.G('wtp', () => new THREE.PlaneGeometry(1, 1)), M.mat('wtm', () => new THREE.MeshPhongMaterial({ map: this.tex.water, shininess: 120, specular: 0xbfe8ff, transparent: true, opacity: .92 })));
+        m.rotation.x = -Math.PI / 2; m.scale.set(p.w, p.d, 1); m.position.y = .012; m.receiveShadow = true; g.add(m);
+        const e = new THREE.LineSegments(M.G('wte', () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1))), M.mat('wtl', () => new THREE.LineBasicMaterial({ color: 0xbfeeff })));
+        e.rotation.x = -Math.PI / 2; e.scale.set(p.w, p.d, 1); e.position.y = .02; g.add(e); break;
+      }
+    }
+    g.position.set(p.x, p.t === 'wt' || PT[p.t].solid ? 0 : Ter.heightAt(p.x, p.z), p.z);
+    if (p.t !== 'wt') g.rotation.y = p.a * D2R;
+    g.userData = { p, parts };
+    return g;
+  },
+  clearGroup(root) { while (root.children.length) root.remove(root.children[0]); },
+  // rebuild every visual from the world (build mode), via a fresh simulation so the view equals the reset state
+  rebuild() {
+    W.changed(); Sim.build(W.pieces); this.setBoard(W.bw, W.bd);
+    this.clearGroup(this.gadRoot); this.gad.clear();
+    for (const p of W.pieces) if (!PT[p.t].body || p.t === 'tw') { if (p.t === 'b') continue; const g = this.build(p); this.gadRoot.add(g); this.gad.set(p, g); }
+    for (const m of this.balls) this.fxRoot.remove(m); this.balls = [];
+    for (const b of Sim.balls) { const m = this.mesh(this.G('ballg', () => new THREE.SphereGeometry(BALL_R, 20, 14)), this.ballMat(b.col)); this.fxRoot.add(m); this.balls.push(m); }
+    this.syncAll(); this.markStart();
+  },
+  colorOf(d) {
+    const p = d.p;
+    if (p.f & 2) { const k = clamp(d.th / 1.1, 0, 1); return this._c.set(PAL[0]).lerp(this._c2.set(PAL[p.c || 0]), k * k * (3 - 2 * k)); }
+    return this._c.set(PAL[p.c || 0]);
+  },
+  _c: new THREE.Color(), _c2: new THREE.Color(), _F: {},
+  writeDom(d) {
+    const a = this.dom.instanceMatrix.array, o = d.i * 16;
+    if (d.kind === 'tw' || d.st === 3) { for (let k = 0; k < 16; k++) a[o + k] = 0; if (d.kind === 'tw') this.writeTower(d); return; }
+    const F = bodyFrame(d, this._F);
+    a[o] = F.rx * d.w; a[o + 1] = 0; a[o + 2] = F.rz * d.w; a[o + 3] = 0;
+    a[o + 4] = F.ux * d.h; a[o + 5] = F.uy * d.h; a[o + 6] = F.uz * d.h; a[o + 7] = 0;
+    a[o + 8] = F.fx * d.t; a[o + 9] = F.fy * d.t; a[o + 10] = F.fz * d.t; a[o + 11] = 0;
+    a[o + 12] = F.cx; a[o + 13] = F.cy; a[o + 14] = F.cz; a[o + 15] = 1;
+    if (d.p.f & 2 || d.colDirty) { const c = this.colorOf(d); c.convertSRGBToLinear(); const ca = this.dom.instanceColor.array; ca[d.i * 3] = c.r; ca[d.i * 3 + 1] = c.g; ca[d.i * 3 + 2] = c.b; this.colorChanged = true; d.colDirty = false; }
+  },
+  writeTower(d) {
+    const g = this.gad.get(d.p); if (!g) return; const tg = g.userData.parts.tw;
+    if (d.st === 3) { g.visible = false; return; }
+    g.visible = true; g.position.set(0, 0, 0); g.rotation.set(0, 0, 0);
+    const F = bodyFrame(d, this._F);
+    tg.matrix.set(F.rx, F.ux, F.fx, F.cx, 0, F.uy, F.fy, F.cy, F.rz, F.uz, F.fz, F.cz, 0, 0, 0, 1);
+    tg.matrixWorldNeedsUpdate = true;
+  },
+  syncAll() {
+    const dm = this.dom; dm.count = Sim.D.length;
+    for (const d of Sim.D) { d.colDirty = true; this.writeDom(d); }
+    dm.instanceMatrix.needsUpdate = true; dm.instanceColor.needsUpdate = true;
+    this.deb.count = 0; this.syncBalls(0); this.syncGadgets(0);
+  },
+  sync(dt) {
+    let any = false;
+    for (const d of Sim.D) if (d.dirty) { d.dirty = false; this.writeDom(d); any = true; }
+    if (any) this.dom.instanceMatrix.needsUpdate = true;
+    if (this.colorChanged) { this.dom.instanceColor.needsUpdate = true; this.colorChanged = false; }
+    const db = Sim.debris;
+    if (db.length) {
+      const m4 = new THREE.Matrix4(), v = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), c = new THREE.Color();
+      this.deb.count = Math.min(db.length, 800);
+      for (let i = 0; i < this.deb.count; i++) { const k = db[i]; m4.compose(v.set(k.x, k.y, k.z), k.q, sc); this.deb.setMatrixAt(i, m4); if (!k.colSet) { k.colSet = 1; this.deb.setColorAt(i, c.set(i % 2 ? PAL[k.col] : new THREE.Color(PAL[k.col]).multiplyScalar(.78).getStyle()).convertSRGBToLinear()); this.deb.instanceColor.needsUpdate = true; } }
+      this.deb.instanceMatrix.needsUpdate = true;
+    } else this.deb.count = 0;
+    this.syncBalls(dt); this.syncGadgets(dt);
+  },
+  syncBalls(dt) {
+    Sim.balls.forEach((b, i) => {
+      const m = this.balls[i]; if (!m) return;
+      let y = b.y;
+      if (b.st === 'sunk') { y = b.y - Math.min(1, (Sim.t - b.sinkT) * 1.2); m.visible = Sim.t - b.sinkT < 1; }
+      else m.visible = true;
+      if (b.st === 'held' && b.owner) {
+        // follow the arm / bucket of the gadget holding it
+        m.position.set(b.x, y, b.z);
+      } else m.position.set(b.x, y, b.z);
+      const sp = Math.hypot(b.vx, b.vz);
+      if (dt > 0 && sp > .01 && b.st === 'move') { const ax = this._v || (this._v = new THREE.Vector3()); ax.set(b.vz / sp, 0, -b.vx / sp); m.rotateOnWorldAxis(ax, sp * dt / b.r); }
+    });
+  },
+  syncGadgets(dt) {
+    const t = Sim.t;
+    for (const o of Sim.objs) {
+      const g = this.gad.get(o.p); if (!g) continue; const P = g.userData.parts;
+      if (P.sw) { const e = t - o.ht; P.sw.rotation.x = e >= 0 && e < 4 ? Math.sin(e * 11) * .5 * Math.exp(-e * 1.4) * (o.kind === 'gg' ? .5 : 1) : 0; }
+      if (o.kind === 'ss') { const e = t - o.ft, k = o.fired ? clamp(e / .12, 0, 1) : 0; P.arm.rotation.x = lerp(.2, -.2, k); }
+      if (o.kind === 'ct') { const e = t - o.ft, k = o.fired ? clamp(e / .1, 0, 1) : 0; P.arm.rotation.x = lerp(.28, -1.1, k * k); P.pad.rotation.x = o.fired ? lerp(0, .9, clamp(e / .08, 0, 1)) : 0; }
+      if (o.kind === 'bk') { const e = t - o.ft, k = o.fired ? clamp(e / .25, 0, 1) : 0; P.bu.rotation.x = k * 1.9; }
+      if (o.kind === 'tr') { const e = o.hit ? t - o.ht : -1; P.sp.rotation.y = e > 0 ? e * 5 : 0; P.sp.position.y = e > 0 && e < 1 ? Math.sin(e * Math.PI) * .5 : 0; }
+      if (o.kind === 'fl') P.flag.rotation.y = Math.sin(this.t * 3 + o.x) * .25 + (o.hit ? Math.sin(this.t * 14) * .2 : 0);
+      if (o.kind === 'cp') P.glow.material.opacity = o.hit ? .55 + Math.sin(this.t * 6) * .25 : 0;
+    }
+  },
+  markStart() {
+    for (const m of this.markers) this.fxRoot.remove(m); this.markers = [];
+    if (App.mode !== 'build') return;
+    for (const d of Sim.starters()) {
+      const g = new THREE.Group(), mt = this.mat('startm', () => new THREE.MeshBasicMaterial({ color: 0xff4f45 }));
+      const sh = this.prism('arrow', [[-.5, 0], [-.05, 0], [-.05, -.18], [.32, .1], [-.05, .38], [-.05, .2], [-.5, .2]], .06);
+      // the arrow profile is drawn in (forward, up); roll it flat so it lies on the floor pointing forward
+      const a = new THREE.Mesh(sh, mt); a.rotation.z = -Math.PI / 2; a.position.set(-.1, .05, 0);
+      const holder = new THREE.Group(); holder.add(a);
+      g.add(holder); const off = d.t / 2 + .62 * d.h;
+      g.position.set(d.x - d.fx * off, d.yb, d.z - d.fz * off); g.rotation.y = Math.atan2(d.fx, d.fz);
+      g.userData.d = d; this.fxRoot.add(g); this.markers.push(g);
+    }
+  },
+  // ---------- effects ----------
+  burst(x, y, z, n, colors, speed = 4) {
+    for (let i = 0; i < n && this.parts.length < 500; i++) {
+      const a = Math.random() * TAU, s = speed * (.4 + Math.random() * .8);
+      this.parts.push({ x, y, z, vx: Math.cos(a) * s * .6, vy: speed * (1 + Math.random()), vz: Math.sin(a) * s * .6, r: Math.random() * TAU, sp: (Math.random() - .5) * 14, life: 2 + Math.random(), c: new THREE.Color(colors[i % colors.length]).convertSRGBToLinear() });
+    }
+  },
+  ring(x, y, z, color) {
+    const m = new THREE.Mesh(this.G('ringg', () => { const g = new THREE.RingGeometry(.4, .5, 32); return g; }), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .9, side: THREE.DoubleSide, depthWrite: false }));
+    m.position.set(x, y, z); m.lookAt(this.cam.position); m.userData.t = 0; this.fxRoot.add(m); this.rings.push(m);
+  },
+  tickFx(dt) {
+    const P = this.parts, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
+    let w = 0;
+    for (const p of P) {
+      p.life -= dt; if (p.life <= 0) continue;
+      p.vy -= 9 * dt; p.vx *= .985; p.vz *= .985; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.r += p.sp * dt;
+      if (p.y < .02) { p.y = .02; p.vy = 0; p.vx *= .8; p.vz *= .8; p.sp *= .8; }
+      P[w++] = p;
+    }
+    P.length = w; this.conf.count = w;
+    for (let i = 0; i < w; i++) { const p = P[i]; e.set(p.r, p.r * .7, p.r * .3); q.setFromEuler(e); m4.compose(v.set(p.x, p.y, p.z), q, s); this.conf.setMatrixAt(i, m4); this.conf.setColorAt(i, p.c); }
+    if (w) { this.conf.instanceMatrix.needsUpdate = true; this.conf.instanceColor.needsUpdate = true; }
+    this.rings = this.rings.filter(r => { r.userData.t += dt; const k = r.userData.t / .7; if (k >= 1) { this.fxRoot.remove(r); r.material.dispose(); return false; } r.scale.setScalar(1 + k * 3); r.material.opacity = .9 * (1 - k); return true; });
+    for (const g of this.markers) { const b = Math.sin(this.t * 5) * .5 + .5; g.children[0].position.z = -b * .18; g.scale.setScalar(.95 + b * .1); }
+    this.tex.water.offset.x = this.t * .03; this.tex.water.offset.y = Math.sin(this.t * .7) * .02;
+  },
+  // ---------- ghosts ----------
+  ghostDominoes(list) { // [{x,z,a,s,ok,col?, h,w,t,yb}]
+    const gh = this.ghost, m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+    gh.count = Math.min(list.length, 3000);
+    for (let i = 0; i < gh.count; i++) {
+      const g = list[i], S = g.dims || SZ[g.s];
+      q.setFromAxisAngle(up, g.a * D2R); m.compose(v.set(g.x, (g.yb || 0) + S.h / 2 + .002, g.z), q, sc.set(S.w * 1.04, S.h * 1.02, S.t * 1.25));
+      gh.setMatrixAt(i, m); gh.setColorAt(i, c.set(g.hue || (g.ok ? (g.c != null ? PAL[g.c] : '#9dffcf') : '#ff4f45')));
+    }
+    gh.instanceMatrix.needsUpdate = true; if (gh.instanceColor) gh.instanceColor.needsUpdate = true;
+  },
+  ghostMat(m) {
+    return this.mat('gh' + m.uuid, () => { const g = m.clone(); g.transparent = true; g.opacity = .5; g.depthWrite = false; return g; });
+  },
+  ghostGadgets(list) { // pieces (non-domino) as translucent models
+    this.clearGroup(this.ghostRoot);
+    for (const p of list) {
+      const g = this.build(p);
+      g.traverse(o => { if (o.isMesh || o.isLineSegments) { o.material = this.ghostMat(o.material); o.castShadow = false; } });
+      if (p._bad) g.traverse(o => { if (o.isMesh) o.material = this.mat('ghbad', () => new THREE.MeshBasicMaterial({ color: 0xff4f45, transparent: true, opacity: .45, depthWrite: false })); });
+      this.ghostRoot.add(g);
+      if (p.t === 'tw') { const fake = { p, x: p.x, z: p.z, fx: Math.sin(p.a * D2R), fz: Math.cos(p.a * D2R), h: 3.2, w: 1, t: 1, yb: 0, sg: 1, th: 0 }; const F = bodyFrame(fake, {}); const tg = g.userData.parts.tw; g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); tg.matrix.set(F.rx, F.ux, F.fx, F.cx, 0, F.uy, F.fy, F.cy, F.rz, F.uz, F.fz, F.cz, 0, 0, 0, 1); }
+      if (LAUNCH[p.t] && p.t !== 'bk') this.landingMarker(p);
+    }
+  },
+  // where a see-saw / catapult would throw its ball (shown while placing)
+  landing(p) {
+    const L = LAUNCH[p.t], A = pieceAxes(p), [x0, z0] = toWorld(p, 0, L.lz), base = Ter.heightAt(p.x, p.z);
+    let x = x0, z = z0, y = base + L.y, vx = A.fx * L.vz, vz = A.fz * L.vz, vy = L.vy; const pts = [];
+    for (let i = 0; i < 600; i++) {
+      const dt = 1 / 120; vy -= BALLG * dt; x += vx * dt; z += vz * dt; y += vy * dt;
+      if (i % 3 === 0) pts.push(new THREE.Vector3(x, y, z));
+      if (vy < 0 && y - BALL_R <= Ter.heightAt(x, z)) break;
+    }
+    return { x, z, y: Ter.heightAt(x, z), pts };
+  },
+  landingMarker(p) {
+    const L = this.landing(p);
+    const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(L.pts), new THREE.LineDashedMaterial({ color: 0xffd45c, dashSize: .18, gapSize: .12 }));
+    ln.computeLineDistances(); this.ghostRoot.add(ln);
+    const r = new THREE.Mesh(this.G('lring', () => { const g = new THREE.RingGeometry(.28, .4, 24); g.rotateX(-Math.PI / 2); return g; }), this.mat('lrm', () => new THREE.MeshBasicMaterial({ color: 0xffd45c, transparent: true, opacity: .85, depthWrite: false })));
+    r.position.set(L.x, L.y + .03, L.z); this.ghostRoot.add(r);
+  },
+  clearGhost() { this.ghost.count = 0; this.clearGroup(this.ghostRoot); },
+  render() { this.renderer.render(this.scene, this.cam); },
+  // small jpeg of the whole run seen from above, for the gallery
+  thumbnail() {
+    const b = runBounds(), W0 = 320, H0 = 200, rt = new THREE.WebGLRenderTarget(W0, H0, { encoding: THREE.sRGBEncoding });
+    const cam = new THREE.PerspectiveCamera(38, W0 / H0, .1, 500), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, span = Math.max(b.x1 - b.x0, (b.z1 - b.z0) * 1.6, 6);
+    const dist = span * 1.05 + 4; cam.position.set(cx, dist * .85, cz + dist * .55); cam.lookAt(cx, 0, cz);
+    this.renderer.setRenderTarget(rt); this.renderer.render(this.scene, cam);
+    const px = new Uint8Array(W0 * H0 * 4); this.renderer.readRenderTargetPixels(rt, 0, 0, W0, H0, px); this.renderer.setRenderTarget(null); rt.dispose();
+    const c = mkCanvas(W0, H0), x = c.getContext('2d'), id = x.createImageData(W0, H0);
+    for (let y = 0; y < H0; y++) id.data.set(px.subarray((H0 - 1 - y) * W0 * 4, (H0 - y) * W0 * 4), y * W0 * 4);
+    x.putImageData(id, 0, 0); return c.toDataURL('image/jpeg', .72);
+  }
+};
+function runBounds() {
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const p of W.pieces) { if (p.t === 'wt') continue; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  if (x0 > x1) { x0 = -5; x1 = 5; z0 = -4; z1 = 4; }
+  return { x0, x1, z0, z1 };
+}
+
+/* ---------------- camera rig ---------------- */
+const Cam = {
+  tx: 0, tz: 0, ty: 0, yaw: .45, pitch: .82, dist: 22, follow: true, fx: 0, fz: 0, shake: 0,
+  goal: null,
+  apply() {
+    const c = V.cam, cp = Math.cos(this.pitch), d = this.dist;
+    const sx = this.shake > 0 ? (Math.random() - .5) * this.shake : 0, sy = this.shake > 0 ? (Math.random() - .5) * this.shake : 0;
+    c.position.set(this.tx + Math.sin(this.yaw) * cp * d + sx, this.ty + Math.sin(this.pitch) * d + sy, this.tz + Math.cos(this.yaw) * cp * d);
+    c.lookAt(this.tx, this.ty, this.tz);
+    const s = V.sun, span = clamp(d * .75, 9, 44);
+    s.position.set(this.tx + 12, 26, this.tz + 16); s.target.position.set(this.tx, 0, this.tz);
+    const sc = s.shadow.camera; if (sc.right !== span) { sc.left = -span; sc.right = span; sc.top = span; sc.bottom = -span; sc.near = 1; sc.far = 80; sc.updateProjectionMatrix(); }
+  },
+  clampT() { this.tx = clamp(this.tx, -W.bw / 2 - 4, W.bw / 2 + 4); this.tz = clamp(this.tz, -W.bd / 2 - 4, W.bd / 2 + 4); this.dist = clamp(this.dist, 4, 90); this.pitch = clamp(this.pitch, .3, 1.45); },
+  pan(dxs, dys) { // screen-space drag in pixels
+    const k = this.dist * .0016 * (900 / Math.max(500, innerHeight)), s = Math.sin(this.yaw), c = Math.cos(this.yaw);
+    this.tx -= (dxs * c + dys * s / Math.sin(this.pitch) * 0) * k; this.tz -= (-dxs * s) * k;
+    const f = dys * k / Math.max(.45, Math.sin(this.pitch)); this.tx -= s * f; this.tz -= c * f;
+    this.clampT();
+  },
+  frame(b, pad = 1) {
+    this.tx = (b.x0 + b.x1) / 2; this.tz = (b.z0 + b.z1) / 2;
+    const asp = innerWidth / innerHeight, span = Math.max((b.x1 - b.x0) / Math.min(asp, 1.8), (b.z1 - b.z0) * 1.2, 5);
+    this.dist = clamp(span * 1.25 * pad + 3, 7, 70); this.clampT();
+  },
+  // screen -> ground point (refined onto raised solids)
+  ground(cx, cy) {
+    const r = V.renderer.domElement.getBoundingClientRect(), ndc = new THREE.Vector2((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1);
+    const ray = this._ray || (this._ray = new THREE.Raycaster()); ray.setFromCamera(ndc, V.cam);
+    const o = ray.ray.origin, d = ray.ray.direction; if (d.y > -1e-4) return null;
+    let h = 0, x = 0, z = 0;
+    for (let i = 0; i < 3; i++) { const t = (h - o.y) / d.y; x = o.x + d.x * t; z = o.z + d.z * t; h = Ter.heightAt(x, z); }
+    return { x, z };
+  },
+  screen(x, y, z) { const v = new THREE.Vector3(x, y, z).project(V.cam), r = V.renderer.domElement.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height, v.z]; }
+};
+
+/* =====================================================================
+   BUILDERS - turn a gesture into pieces (paths, spirals, stairs, splits,
+   pixel walls, lettering). They return pieces; Edit.add() validates them.
+   ===================================================================== */
+const Build = {
+  colorAt(i, col) { return col < 0 ? RAINBOW[(i >> 1) % RAINBOW.length] : col; },
+  // lay dominoes along a polyline at the right spacing, each facing along the path
+  path(pts, size = 1, col = 0, startIdx = 0) {
+    const out = [], sp = SPACING * SZ[size].h; if (pts.length < 2) return out;
+    const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const L = cum[cum.length - 1]; if (L < 1e-3) return out;
+    const at = s => { s = clamp(s, 0, L); let i = 1; while (i < cum.length - 1 && cum[i] < s) i++; const k = (s - cum[i - 1]) / Math.max(1e-9, cum[i] - cum[i - 1]); return [lerp(pts[i - 1][0], pts[i][0], k), lerp(pts[i - 1][1], pts[i][1], k)]; };
+    const n = Math.floor(L / sp + 1e-6);
+    for (let k = 0; k <= n; k++) {
+      const s = k * sp, [x, z] = at(s), [ax, az] = at(s - sp * .5), [bx, bz] = at(s + sp * .5);
+      const a = Math.atan2(bx - ax, bz - az) / D2R;
+      out.push({ t: 'd', x: q2(x), z: q2(z), a: qa(a), s: size, c: this.colorAt(startIdx + k, col) });
+    }
+    return out;
+  },
+  line(x0, z0, x1, z1, size, col) { return this.path([[x0, z0], [x1, z1]], size, col); },
+  spiral(cx, cz, rot, size = 1, col = 0, rOut = 4.4, rIn = 1.1) {
+    const sp = SPACING * SZ[size].h, gap = Math.max(.95, SZ[size].h * 1.05), b = gap / TAU, pts = [], a0 = rot * D2R;
+    for (let th = 0; ; th += .05) { const r = rOut - b * th; if (r < rIn) break; pts.push([cx + Math.cos(th + a0) * r, cz + Math.sin(th + a0) * r]); }
+    return this.path(pts, size, col);
+  },
+  // stairs: blocks and one domino per step. mode: 'up', 'down', 'updown'
+  stairs(x, z, rot, mode = 'updown', col = 0, n = 5) {
+    const ks = mode === 'up' ? [...Array(n)].map((_, i) => i + 1) : mode === 'down' ? [...Array(n)].map((_, i) => n - i) : [...Array(n)].map((_, i) => i + 1).concat([n, n], [...Array(n)].map((_, i) => n - i));
+    const f = [Math.sin(rot * D2R), Math.cos(rot * D2R)], out = [];
+    ks.forEach((k, i) => {
+      const px = x + f[0] * i * STEP_DEPTH, pz = z + f[1] * i * STEP_DEPTH;
+      out.push({ t: 'st', x: q2(px), z: q2(pz), a: qa(rot), k });
+      out.push({ t: 'd', x: q2(px), z: q2(pz), a: qa(rot), s: 1, c: this.colorAt(i, col) });
+    });
+    return out;
+  },
+  // one line forking into two
+  split(x, z, rot, col = 0, arms = 4) {
+    const p0 = { x, z, a: rot }, out = [{ t: 'd', x: q2(x), z: q2(z), a: qa(rot), s: 1, c: this.colorAt(0, col) }], sp = SPACING;
+    for (const side of [-1, 1]) {
+      let lx = side * .28, lz = sp, ang = 0;
+      for (let k = 0; k < arms; k++) {
+        const [wx, wz] = toWorld(p0, lx, lz);
+        out.push({ t: 'd', x: q2(wx), z: q2(wz), a: qa(rot + side * ang), s: 1, c: this.colorAt(k + 1, col) });
+        ang = Math.min(40, ang + 13); const ar = ang * D2R; lx += side * Math.sin(ar) * sp; lz += Math.cos(ar) * sp;
+      }
+    }
+    return out;
+  },
+  // pixel-art wall: a field of columns behind a wide sweeper plank; each domino shows its colour as it falls
+  pixel(x, z, rot, pic) {
+    const P = PICS[pic] || PICS.heart, rows = P.length, cols = P[0].length, cs = .56, sp = SPACING, out = [];
+    const p0 = { x, z, a: rot };
+    const [px, pz] = toWorld(p0, 0, -sp * 1.05);
+    out.push({ t: 'pl', x: q2(px), z: q2(pz), a: qa(rot), k: q2(cols * cs + .1), c: 10 });
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const ch = P[rows - 1 - r][c], ci = PIXMAP[ch] != null ? PIXMAP[ch] : 0;
+      const [wx, wz] = toWorld(p0, ((cols - 1) / 2 - c) * cs, r * sp);
+      out.push({ t: 'd', x: q2(wx), z: q2(wz), a: qa(rot), s: 1, c: ci, f: 2 });
+    }
+    return out;
+  },
+  text(str, x, z, rot, col = 0, scale = .8, size = 1) {
+    const out = [], up = [Math.sin(rot * D2R), Math.cos(rot * D2R)], right = [-Math.cos(rot * D2R), Math.sin(rot * D2R)];
+    const chars = String(str).toUpperCase().slice(0, 24).split(''), adv = 5.6 * scale, total = chars.length * adv - 1.6 * scale;
+    chars.forEach((ch, i) => {
+      const strokes = FONT[ch]; if (!strokes) return;
+      const ox = -total / 2 + i * adv, c = col < 0 ? RAINBOW[i % RAINBOW.length] : col;
+      for (const st of strokes) {
+        const pts = st.map(([u, v]) => { const U = ox + u * scale, Vv = (v - 3) * scale; return [x + right[0] * U + up[0] * Vv, z + right[1] * U + up[1] * Vv]; });
+        out.push(...this.path(pts, size, c));
+      }
+    });
+    return out;
+  }
+};
+const PIXMAP = { '.': 0, W: 0, R: 1, O: 2, Y: 3, L: 4, G: 5, S: 6, B: 7, V: 8, P: 9, K: 10, N: 11 };
+const PICS = {
+  heart: ['..RR...RR..', '.RRRR.RRRR.', 'RRRRRRRRRRR', 'RRRRRRRRRRR', 'RRRRRRRRRRR', '.RRRRRRRRR.', '..RRRRRRR..', '...RRRRR...', '....RRR....', '.....R.....'],
+  smile: ['...YYYYY...', '..YYYYYYY..', '.YYYYYYYYY.', 'YYYKYYYKYYY', 'YYYKYYYKYYY', 'YYYYYYYYYYY', 'YKYYYYYYYKY', 'YYKYYYYYKYY', '.YYKKKKKYY.', '..YYYYYYY..', '...YYYYY...'],
+  star: ['.....Y.....', '....YYY....', '....YYY....', 'YYYYYYYYYYY', '.YYYYYYYYY.', '..YYYYYYY..', '..YYYYYYY..', '.YYYY.YYYY.', '.YYY...YYY.', 'YY.......YY'],
+  alien: ['..G.....G..', '...G...G...', '..GGGGGGG..', '.GG.GGG.GG.', 'GGGGGGGGGGG', 'G.GGGGGGG.G', 'G.G.....G.G', '...GG.GG...'],
+  flower: ['...PP.PP...', '..PPPPPPP..', '.PPPYYYPPP.', '.PPYYYYYPP.', '..PPYYYPP..', '...PP.PP...', '.....L.....', '..LL.L.....', '...LLL.LL..', '.....LLL...', '.....L.....'],
+  rainbow: ['....RRRRR....', '..RROOOOORR..', '.ROOYYYYYOOR.', 'ROYYLLLLLYYOR', 'OYLLSSSSSLLYO', 'YLSSB...BSSLY', 'LSB.......BSL']
+};
+const FONT = (() => {
+  const arc = (cx, cy, rx, ry, a0, a1, n = 14) => { const o = []; for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * D2R; o.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return o; };
+  const P = [[0, 0], [0, 6], [2.8, 6], [3.8, 5.1], [3.8, 3.9], [2.8, 3], [0, 3]];
+  return {
+    A: [[[0, 0], [2, 6], [4, 0]], [[.85, 2.5], [3.15, 2.5]]],
+    B: [[[0, 0], [0, 6], [2.6, 6], [3.5, 5.2], [3.5, 3.9], [2.6, 3.1], [0, 3.1]], [[2.6, 3.1], [3.8, 2.3], [3.8, .8], [2.8, 0], [0, 0]]],
+    C: [arc(2.1, 3, 2, 3, 48, 312)], D: [[[0, 0], [0, 6], [1.8, 6], [3.4, 5], [4, 3], [3.4, 1], [1.8, 0], [0, 0]]],
+    E: [[[4, 6], [0, 6], [0, 0], [4, 0]], [[0, 3.1], [3, 3.1]]], F: [[[4, 6], [0, 6], [0, 0]], [[0, 3.1], [3, 3.1]]],
+    G: [arc(2.1, 3, 2, 3, 48, 315).concat([[4, 2.7], [2.4, 2.7]])], H: [[[0, 0], [0, 6]], [[4, 0], [4, 6]], [[0, 3], [4, 3]]],
+    I: [[[2, 0], [2, 6]], [[.7, 6], [3.3, 6]], [[.7, 0], [3.3, 0]]], J: [[[4, 6], [4, 1.6], [3.4, .4], [2, 0], [.6, .4], [0, 1.6]]],
+    K: [[[0, 0], [0, 6]], [[4, 6], [0, 2.4]], [[1.4, 3.4], [4, 0]]], L: [[[0, 6], [0, 0], [4, 0]]],
+    M: [[[0, 0], [0, 6], [2, 2.4], [4, 6], [4, 0]]], N: [[[0, 0], [0, 6], [4, 0], [4, 6]]],
+    O: [arc(2, 3, 2, 3, 90, 450, 22)], P: [P], Q: [arc(2, 3, 2, 3, 90, 450, 22), [[2.5, 1.4], [4, -.3]]], R: [P, [[2, 3], [4, 0]]],
+    S: [[[3.8, 5], [3, 5.9], [1, 5.9], [.2, 5], [.4, 3.8], [2, 3.1], [3.6, 2.3], [3.8, 1], [3, .1], [1, .1], [.2, 1]]],
+    T: [[[0, 6], [4, 6]], [[2, 6], [2, 0]]], U: [[[0, 6], [0, 1.6], [.6, .4], [2, 0], [3.4, .4], [4, 1.6], [4, 6]]],
+    V: [[[0, 6], [2, 0], [4, 6]]], W: [[[0, 6], [1, 0], [2, 4], [3, 0], [4, 6]]], X: [[[0, 0], [4, 6]], [[0, 6], [4, 0]]],
+    Y: [[[0, 6], [2, 3], [4, 6]], [[2, 3], [2, 0]]], Z: [[[0, 6], [4, 6], [0, 0], [4, 0]]],
+    '0': [arc(2, 3, 2, 3, 90, 450, 22)], '1': [[[1, 4.8], [2.2, 6], [2.2, 0]], [[.8, 0], [3.6, 0]]],
+    '2': [[[.2, 4.8], [1, 5.9], [3, 5.9], [3.8, 4.8], [3.6, 3.5], [0, 0], [4, 0]]], '3': [[[.2, 5.4], [1.2, 6], [3, 6], [3.8, 5], [3.4, 3.6], [1.6, 3.1]], [[1.6, 3.1], [3.6, 2.5], [3.9, 1], [3, 0], [1, 0], [.1, .7]]],
+    '!': [[[2, 6], [2, 1.8]], [[2, .5], [2, 0]]], '-': [[[.6, 3], [3.4, 3]]], '+': [[[.4, 3], [3.6, 3]], [[2, 1.4], [2, 4.6]]]
+  };
+})();
+
+/* =====================================================================
+   EDITING - add / remove with validation, inventory, undo history
+   ===================================================================== */
+const FIELDS = ['t', 'x', 'z', 'a', 's', 'c', 'f', 'k', 'w', 'd'];
+const strip = p => { const o = {}; for (const k of FIELDS) if (p[k] != null) o[k] = p[k]; return o; };
+const Hist = {
+  st: [], i: -1,
+  reset() { this.st = [JSON.stringify(W.pieces.map(strip))]; this.i = 0; UI.updUndo(); },
+  commit() { const s = JSON.stringify(W.pieces.map(strip)); if (s === this.st[this.i]) return; this.st.length = this.i + 1; this.st.push(s); if (this.st.length > 150) this.st.shift(); this.i = this.st.length - 1; UI.updUndo(); App.autosave(); },
+  go(k) { const j = this.i + k; if (j < 0 || j >= this.st.length) return; this.i = j; W.pieces = JSON.parse(this.st[j]); Sel.clear(); V.rebuild(); UI.updUndo(); UI.updInv(); App.autosave(); Snd.ui(); }
+};
+const Edit = {
+  // validate + add; returns how many were placed. Solids go first so dominoes can sit on them.
+  add(list, quiet) {
+    const sol = list.filter(p => PT[p.t].solid), rest = list.filter(p => !PT[p.t].solid);
+    let n = 0, why = '';
+    const left = {};
+    const tryAdd = (p) => {
+      const k = invKey(p); if (left[k] == null) left[k] = W.invLeft(k);
+      if (left[k] <= 0) { why = W.level ? 'out of ' + (PT[p.t].n.toLowerCase()) + 's' : why; return; }
+      const b = W.blocked(p); if (b) { why = why || b; return; }
+      W.pieces.push(p); left[k]--; n++;
+    };
+    sol.forEach(tryAdd); Ter.build(W.pieces); rest.forEach(tryAdd);
+    if (n) { V.rebuild(); Hist.commit(); UI.updInv(); if (!quiet) Snd.place(); }
+    else if (!quiet && why) UI.toast('Can’t place: ' + why);
+    return n;
+  },
+  remove(list) {
+    const set = new Set(list.filter(p => !isLocked(p))); if (!set.size) return 0;
+    W.pieces = W.pieces.filter(p => !set.has(p)); V.rebuild(); Hist.commit(); UI.updInv(); Snd.erase(); return set.size;
+  },
+  // what a list of would-be pieces looks like (valid / invalid) for the ghost preview
+  preview(list) {
+    const left = {}, ok = [];
+    const sol = list.filter(p => PT[p.t].solid);
+    for (const p of list) {
+      const k = invKey(p); if (left[k] == null) left[k] = W.invLeft(k);
+      let good = left[k] > 0 && !W.blocked(p, PT[p.t].solid ? sol.filter(q => q !== p && sol.indexOf(q) < sol.indexOf(p)) : null);
+      if (good) left[k]--;
+      ok.push(good);
+    }
+    return ok;
+  }
+};
+const Sel = {
+  set: new Set(), clip: null,
+  clear() { this.set.clear(); UI.updProps(); V.selBox.visible = false; showSel(); },
+  pick(p, add) { if (!add) this.set.clear(); if (p) { if (this.set.has(p) && add) this.set.delete(p); else this.set.add(p); } UI.updProps(); showSel(); },
+  list() { return W.pieces.filter(p => this.set.has(p)); },
+  copy() {
+    const L = this.list(); if (!L.length) return;
+    const cx = L.reduce((s, p) => s + p.x, 0) / L.length, cz = L.reduce((s, p) => s + p.z, 0) / L.length;
+    this.clip = L.map(p => Object.assign(strip(p), { x: p.x - cx, z: p.z - cz, f: (p.f || 0) & ~5 }));
+    UI.toast(`Copied ${L.length} piece${L.length > 1 ? 's' : ''} — now tap where to paste`); Tools.set('paste');
+  },
+  clipAt(x, z, rot) {
+    if (!this.clip) return [];
+    const r = rot * D2R, c = Math.cos(r), s = Math.sin(r);
+    return this.clip.map(p => { const q = Object.assign({}, p); q.x = q2(x + p.x * c + p.z * s); q.z = q2(z - p.x * s + p.z * c); if (q.t !== 'wt') q.a = qa(p.a + rot); return q; });
+  },
+  rotate(deg) {
+    const L = this.list().filter(p => !isLocked(p)); if (!L.length) return;
+    const cx = L.reduce((s, p) => s + p.x, 0) / L.length, cz = L.reduce((s, p) => s + p.z, 0) / L.length, r = deg * D2R, c = Math.cos(r), s = Math.sin(r);
+    for (const p of L) { const dx = p.x - cx, dz = p.z - cz; p.x = q2(cx + dx * c + dz * s); p.z = q2(cz - dx * s + dz * c); if (p.t !== 'wt') p.a = qa(p.a + deg); }
+    V.rebuild(); Hist.commit(); showSel();
+  },
+  recolor(c) { const L = this.list().filter(p => !isLocked(p) && (p.t === 'd' || p.t === 'tw' || p.t === 'b')); if (!L.length) return; L.forEach((p, i) => p.c = Build.colorAt(i, c)); V.rebuild(); Hist.commit(); showSel(); },
+  setStart() {
+    const L = this.list().filter(p => p.t === 'd' || p.t === 'pl' || p.t === 'tw'); if (!L.length || W.level) return;
+    const on = !isStart(L[0]); for (const p of W.pieces) if (p.f & 1 && !L.includes(p)) p.f &= ~1;
+    for (const p of L) p.f = on ? (p.f || 0) | 1 : (p.f || 0) & ~1;
+    V.rebuild(); Hist.commit(); UI.toast(on ? 'Marked as the first domino' : 'Start mark removed');
+  }
+};
+function showSel() {
+  const L = Sel.list();
+  const dl = L.filter(p => p.t === 'd' || p.t === 'pl').map(p => ({ x: p.x, z: p.z, a: p.a, s: p.s || 1, dims: p.t === 'pl' ? { h: 1, w: p.k, t: .2 } : null, yb: Ter.heightAt(p.x, p.z), hue: '#ffd45c' }));
+  if (Tools.cur === 'select' || !dl.length) V.ghostDominoes(dl);
+  const g = L.filter(p => !(p.t === 'd' || p.t === 'pl'));
+  if (g.length) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of g) { const [hx, hz] = footOf(p), e = Math.max(hx, hz); x0 = Math.min(x0, p.x - e); x1 = Math.max(x1, p.x + e); z0 = Math.min(z0, p.z - e); z1 = Math.max(z1, p.z + e); }
+    V.selBox.visible = true; V.selBox.position.set((x0 + x1) / 2, 1.2, (z0 + z1) / 2); V.selBox.scale.set(x1 - x0 + .2, 2.4, z1 - z0 + .2);
+  } else V.selBox.visible = false;
+}
+
+/* =====================================================================
+   TOOLS & INPUT
+   ===================================================================== */
+const PARTS = [
+  // [tool id, label, note, category]
+  ['b', 'Ball', 'rolls when knocked', 'g'], ['rp', 'Ramp', 'balls speed down it', 'g'], ['bl', 'Bell', 'ding!', 'g'], ['gg', 'Gong', 'BWONG', 'g'],
+  ['ss', 'See-saw', 'hops its ball', 'g'], ['ct', 'Catapult', 'flings its ball far', 'g'], ['bk', 'Bucket', 'drops a ball', 'g'], ['cp', 'Cup', 'catch a ball', 'g'],
+  ['tw', 'Tower', 'topples & scatters', 'g'], ['br', 'Bridge', 'cross water', 'g'], ['st', 'Step', 'raise the floor', 'g'], ['wl', 'Wall', 'blocks everything', 'g'],
+  ['tr', 'Trophy', 'the finish', 'g'], ['fl', 'Flag', 'also a finish', 'g'],
+  ['spiral', 'Spiral', 'curls inward', 'b'], ['stairs', 'Stairs', 'steps + dominoes', 'b'], ['split', 'Split', 'one line to two', 'b'],
+  ['pixel', 'Pixel wall', 'falls into a picture', 'b'], ['text', 'Lettering', 'spell it in dominoes', 'b']
+];
+const Tools = {
+  cur: 'path', rot: 180, size: 1, col: -1, snap: false, pic: 'heart', stairMode: 'updown', wallLen: 3, text: 'KAI', hover: null, stroke: null, down: null,
+  set(t) {
+    if (t === 'paste' && !Sel.clip) return;
+    this.cur = t; this.stroke = null; V.clearGhost(); if (t !== 'select') { Sel.set.clear(); V.selBox.visible = false; }
+    UI.updDock(); UI.updProps(); UI.closeSheet(); this.refreshGhost(); showSel();
+  },
+  isPart(t) { return !!PT[t] || ['spiral', 'stairs', 'split', 'pixel', 'text', 'paste', 'single'].includes(t); },
+  snapPt(pt) { if (!this.snap) return pt; return { x: Math.round(pt.x * 4) / 4, z: Math.round(pt.z * 4) / 4 }; },
+  // pieces the current tool would place at a point
+  piecesAt(pt, rot) {
+    const t = this.cur, r = rot == null ? this.rot : rot, x = q2(pt.x), z = q2(pt.z), col = this.col;
+    switch (t) {
+      case 'single': return [{ t: 'd', x, z, a: qa(r), s: this.size, c: col < 0 ? RAINBOW[Math.random() * 9 | 0] : col }];
+      case 'spiral': return Build.spiral(x, z, r, this.size, col);
+      case 'stairs': return Build.stairs(x, z, r, this.stairMode, col);
+      case 'split': return Build.split(x, z, r, col);
+      case 'pixel': return Build.pixel(x, z, r, this.pic);
+      case 'text': return Build.text(this.text, x, z, r, col);
+      case 'paste': return Sel.clipAt(x, z, ((r - 180) % 360 + 360) % 360);
+    }
+    if (PT[t]) {
+      const p = { t, x, z, a: qa(r) };
+      if (t === 'st') p.k = 1; if (t === 'wl') p.k = this.wallLen; if (t === 'b' || t === 'tw') p.c = col < 0 ? 3 : col;
+      return [p];
+    }
+    return [];
+  },
+  showGhost(list) {
+    const ok = Edit.preview(list), doms = [], gads = [];
+    list.forEach((p, i) => {
+      if (p.t === 'd' || p.t === 'pl') doms.push({ x: p.x, z: p.z, a: p.a, s: p.s == null ? 1 : p.s, dims: p.t === 'pl' ? { h: 1, w: p.k, t: .2 } : null, yb: PT[p.t].solid ? 0 : ghostBase(p, list), ok: ok[i], c: ok[i] ? (p.f & 2 ? 0 : p.c) : null });
+      else { const q = Object.assign({}, p); if (!ok[i]) q._bad = 1; gads.push(q); }
+    });
+    V.ghostDominoes(doms); V.ghostGadgets(gads);
+  },
+  refreshGhost() {
+    if (App.mode !== 'build') { V.clearGhost(); return; }
+    if (this.cur === 'path') { if (this.stroke) this.showGhost(this.strokePieces()); else if (this.hover) this.showGhost([{ t: 'd', x: this.hover.x, z: this.hover.z, a: this.rot, s: this.size, c: Build.colorAt(0, this.col) }]); else V.clearGhost(); return; }
+    if (this.isPart(this.cur) && this.hover) this.showGhost(this.piecesAt(this.hover, this.dragRot()));
+    else if (this.cur !== 'select') V.clearGhost();
+  },
+  dragRot() { const d = this.down; if (d && d.aim != null) return d.aim; return this.rot; },
+  strokePieces() {
+    const s = this.stroke; if (!s || s.length < 1) return [];
+    let pts = s;
+    if (this.snap && s.length > 1) { const a = s[0], b = s[s.length - 1], ang = Math.round(Math.atan2(b[0] - a[0], b[1] - a[1]) / (15 * D2R)) * 15 * D2R, L = Math.hypot(b[0] - a[0], b[1] - a[1]); pts = [a, [a[0] + Math.sin(ang) * L, a[1] + Math.cos(ang) * L]]; }
+    const out = Build.path(pts, this.size, this.col, this.rainbowBase || 0);
+    // skip the ones that would collide with dominoes already there (lets you continue a line)
+    return out.filter(p => !W.blocked(p));
+  }
+};
+function ghostBase(p, list) { let h = Ter.heightAt(p.x, p.z); for (const q of list) if (PT[q.t].solid) { const s = { p: q, A: pieceAxes(q), hx: footOf(q)[0], hz: footOf(q)[1] }; h = Math.max(h, Ter.solidH(s, p.x, p.z)); } return h; }
+
+const Input = {
+  ptrs: new Map(), mode: null, gest: null, keys: {}, rect: null,
+  init() {
+    const cv = $('gl');
+    cv.addEventListener('pointerdown', e => this.down(e));
+    addEventListener('pointermove', e => this.move(e));
+    addEventListener('pointerup', e => this.up(e)); addEventListener('pointercancel', e => this.up(e, true));
+    cv.addEventListener('wheel', e => { e.preventDefault(); if (App.mode === 'title') return; Cam.dist *= Math.exp(e.deltaY * .0011 * (e.deltaMode ? 30 : 1)); Cam.clampT(); }, { passive: false });
+    cv.addEventListener('contextmenu', e => e.preventDefault());
+    addEventListener('keydown', e => this.key(e, true)); addEventListener('keyup', e => this.key(e, false));
+    const r = this.rect = document.createElement('div'); r.style.cssText = 'position:fixed;border:2px dashed #ffd45c;background:rgba(255,212,92,.12);pointer-events:none;z-index:15;display:none;border-radius:4px'; document.body.appendChild(r);
+  },
+  down(e) {
+    if (App.mode === 'title') return;
+    Snd.resume(); $('gl').focus({ preventScroll: true });
+    try { $('gl').setPointerCapture(e.pointerId); } catch (_) {}
+    this.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+    UI.closeSheet();
+    if (this.ptrs.size === 2) { this.cancelTool(); this.startGest(); return; }
+    if (this.ptrs.size > 2) return;
+    const b = e.pointerType === 'mouse' ? e.button : 0;
+    if (b === 2) { this.mode = 'orbit'; return; }
+    if (b === 1 || this.keys[' '] || (App.mode === 'build' && Tools.cur === 'pan')) { this.mode = 'pan'; return; }
+    if (App.mode === 'run') { this.mode = 'runtap'; return; }
+    this.mode = 'tool'; this.toolDown(e);
+  },
+  move(e) {
+    const p = this.ptrs.get(e.pointerId);
+    if (!p) { if (e.pointerType === 'mouse' && App.mode === 'build' && e.target === $('gl')) this.hover(e); return; }
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (this.gest && this.ptrs.size >= 2) { this.moveGest(); return; }
+    if (this.mode === 'orbit') { Cam.yaw -= dx * .006; Cam.pitch = clamp(Cam.pitch + dy * .005, .3, 1.45); Cam.follow = false; }
+    else if (this.mode === 'pan') { Cam.pan(dx, dy); Cam.follow = false; UI.updFollow(); }
+    else if (this.mode === 'runtap') { if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8) { this.mode = 'pan'; } }
+    else if (this.mode === 'tool') this.toolMove(e, p);
+  },
+  up(e, cancel) {
+    const p = this.ptrs.get(e.pointerId); if (!p) return;
+    this.ptrs.delete(e.pointerId);
+    if (this.gest) { if (this.ptrs.size < 2) this.gest = null; this.mode = null; return; }
+    if (this.mode === 'tool' && !cancel) this.toolUp(e, p);
+    if (this.mode === 'runtap' && !cancel) App.tapRun(e.clientX, e.clientY);
+    this.mode = null;
+  },
+  startGest() { const [a, b] = [...this.ptrs.values()]; this.gest = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; this.mode = null; },
+  moveGest() {
+    const [a, b] = [...this.ptrs.values()], g = this.gest, d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (d > 10 && g.d > 10) Cam.dist = clamp(Cam.dist * g.d / d, 4, 90);
+    let da = ang - g.ang; if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU; Cam.yaw += da;
+    Cam.pan(mx - g.mx, my - g.my); Cam.follow = false;
+    g.d = d; g.ang = ang; g.mx = mx; g.my = my;
+  },
+  cancelTool() { Tools.stroke = null; Tools.down = null; this.rect.style.display = 'none'; Tools.refreshGhost(); },
+  hover(e) { const pt = Cam.ground(e.clientX, e.clientY); Tools.hover = pt ? Tools.snapPt(pt) : null; Tools.refreshGhost(); },
+  toolDown(e) {
+    const pt = Cam.ground(e.clientX, e.clientY); if (!pt) return;
+    const sp = Tools.snapPt(pt); Tools.hover = sp;
+    Tools.down = { pt: sp, raw: pt, sx: e.clientX, sy: e.clientY, moved: false, aim: null, erased: new Set() };
+    const t = Tools.cur;
+    if (t === 'path') { Tools.stroke = [[sp.x, sp.z]]; Tools.rainbowBase = W.pieces.length; Tools.refreshGhost(); }
+    else if (t === 'erase') this.eraseAt(pt);
+    else if (t === 'select') { this.rect.style.display = 'none'; }
+    else Tools.refreshGhost();
+  },
+  toolMove(e, p) {
+    const d = Tools.down; if (!d) return;
+    const pt = Cam.ground(e.clientX, e.clientY); if (!pt) return;
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 7) d.moved = true;
+    const t = Tools.cur;
+    if (t === 'path') {
+      const s = Tools.stroke, l = s[s.length - 1], sp = Tools.snapPt(pt);
+      if (Math.hypot(sp.x - l[0], sp.z - l[1]) > .12) { s.push([sp.x, sp.z]); Tools.refreshGhost(); }
+    } else if (t === 'erase') this.eraseAt(pt);
+    else if (t === 'select') {
+      if (!d.moved) return; const r = this.rect.style, x0 = Math.min(d.sx, e.clientX), y0 = Math.min(d.sy, e.clientY);
+      r.display = 'block'; r.left = x0 + 'px'; r.top = y0 + 'px'; r.width = Math.abs(e.clientX - d.sx) + 'px'; r.height = Math.abs(e.clientY - d.sy) + 'px';
+    } else if (Tools.isPart(t)) {
+      // press-and-drag aims the piece; a plain tap uses the current rotation
+      const dx = pt.x - d.pt.x, dz = pt.z - d.pt.z;
+      if (Math.hypot(dx, dz) > .55) { let a = Math.atan2(dx, dz) / D2R; if (Tools.snap) a = Math.round(a / 15) * 15; d.aim = qa(a); }
+      Tools.hover = d.pt; Tools.refreshGhost();
+    }
+  },
+  toolUp(e, p) {
+    const d = Tools.down; Tools.down = null; if (!d) return;
+    const t = Tools.cur;
+    if (!d.moved && App.hitStart(d.raw)) { Tools.stroke = null; App.go(); return; }
+    if (t === 'path') {
+      const s = Tools.stroke; Tools.stroke = null;
+      const L = s ? s.reduce((a, q, i) => i ? a + Math.hypot(q[0] - s[i - 1][0], q[1] - s[i - 1][1]) : 0, 0) : 0;
+      if (L < .25) Edit.add([{ t: 'd', x: q2(d.pt.x), z: q2(d.pt.z), a: qa(Tools.rot), s: Tools.size, c: Build.colorAt(0, Tools.col) }]);
+      else { Tools.stroke = s; const list = Tools.strokePieces(); Tools.stroke = null; if (list.length) Edit.add(list); }
+      Tools.refreshGhost();
+    } else if (t === 'erase') { if (d.erased.size) { Edit.remove([...d.erased]); } }
+    else if (t === 'select') {
+      this.rect.style.display = 'none';
+      if (!d.moved) { const q = W.pieceAt(d.raw.x, d.raw.z); Sel.pick(q, e.shiftKey); }
+      else {
+        const x0 = Math.min(d.sx, e.clientX), x1 = Math.max(d.sx, e.clientX), y0 = Math.min(d.sy, e.clientY), y1 = Math.max(d.sy, e.clientY);
+        if (!e.shiftKey) Sel.set.clear();
+        for (const q of W.pieces) { if (q.t === 'wt') continue; const [sx, sy] = Cam.screen(q.x, Ter.heightAt(q.x, q.z) + .3, q.z); if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) Sel.set.add(q); }
+        UI.updProps(); showSel();
+      }
+    } else if (Tools.isPart(t)) {
+      const rot = d.aim != null ? d.aim : Tools.rot; if (d.aim != null) Tools.rot = d.aim;
+      Edit.add(Tools.piecesAt(d.pt, rot));
+      Tools.hover = d.pt; Tools.refreshGhost(); UI.updProps();
+    }
+  },
+  eraseAt(pt) {
+    const d = Tools.down; const q = W.pieceAt(pt.x, pt.z, .18);
+    if (q && !isLocked(q) && !d.erased.has(q)) { d.erased.add(q); W.pieces = W.pieces.filter(x => x !== q); V.rebuild(); Snd.erase(); }
+    if (q && isLocked(q) && !d.warned) { d.warned = 1; UI.toast('That piece is part of the puzzle'); }
+    if (!d.erased.size) return;
+  },
+  key(e, isDown) {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    this.keys[k] = isDown;
+    if (!isDown || App.mode === 'title') return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (!$('modal').classList.contains('hidden')) { if (k === 'Escape') UI.closeModal(); return; }
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && k === 'z') { e.preventDefault(); if (App.mode === 'build') Hist.go(e.shiftKey ? 1 : -1); return; }
+    if (ctrl && k === 'y') { e.preventDefault(); if (App.mode === 'build') Hist.go(1); return; }
+    if (ctrl && k === 'c') { e.preventDefault(); Sel.copy(); return; }
+    if (ctrl && k === 'v') { e.preventDefault(); Tools.set('paste'); return; }
+    if (k === ' ') { e.preventDefault(); }
+    if (k === 'Enter' || k === 'g') { App.mode === 'build' ? App.go() : App.reset(); return; }
+    if (App.mode !== 'build') { if (k === 'Escape' || k === 'Backspace') App.reset(); return; }
+    if (k === 'r') { const step = e.shiftKey ? -15 : 15; if (Tools.cur === 'select' && Sel.set.size) Sel.rotate(step); else { Tools.rot = qa(Tools.rot + step); Tools.refreshGhost(); } }
+    else if (k === 'Delete' || k === 'Backspace') { if (Sel.set.size) { Edit.remove(Sel.list()); Sel.clear(); } }
+    else if (k === 'Escape') { if (Tools.cur === 'paste') Tools.set('select'); else Sel.clear(); }
+    else if (k === '1') Tools.set('path'); else if (k === '2') Tools.set('single'); else if (k === '3') Tools.set('select'); else if (k === '4') Tools.set('erase');
+    else if (k === 'q') Cam.yaw += .2; else if (k === 'e') Cam.yaw -= .2;
+    else if (k === 'n') UI.setSnap(!Tools.snap);
+  },
+  // WASD / arrows pan
+  tick(dt) {
+    let x = 0, y = 0; const K = this.keys;
+    if (K['w'] || K['ArrowUp']) y += 1; if (K['s'] || K['ArrowDown']) y -= 1; if (K['a'] || K['ArrowLeft']) x += 1; if (K['d'] || K['ArrowRight']) x -= 1;
+    if (x || y) { Cam.pan(x * 600 * dt, y * 600 * dt); Cam.follow = false; }
+  }
+};
+
+/* =====================================================================
+   UI - vellum panels, domino-tile buttons, modals
+   ===================================================================== */
+const svg = (body, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const IC = {
+  undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'), redo: svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>'),
+  grid: svg('<path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18"/>'), save: svg('<path d="M5 3h11l4 4v14H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>'),
+  gallery: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/>'), share: svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>'),
+  help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.7-2.5 2-2.5 3.5M12 17h.01"/>'),
+  sound: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="x" d="m16 9 5 6m0-6-5 6"/>'),
+  home: svg('<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/>'), levels: svg('<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>'),
+  path: svg('<path d="M3 19c4-1 3-8 8-9s4 6 10-5"/><path d="M5 17.5 6.5 20M9 10.5l1.2 2.6M15 11l-.8 2.7M18 6l1.6 2"/>'), domino: svg('<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M7 12h10"/><circle cx="12" cy="7" r="1" fill="currentColor"/><circle cx="10" cy="16" r="1" fill="currentColor"/><circle cx="14" cy="17" r="1" fill="currentColor"/>'),
+  select: svg('<path d="M4 4h4M4 4v4M20 4h-4M20 4v4M4 20h4M4 20v-4M20 20h-4M20 20v-4"/><path d="m10 9 6 3-2.5 1 1.5 3-1.5.7-1.5-3L10 15z" fill="currentColor"/>'),
+  erase: svg('<path d="m7 21-4-4 11-11 7 7-8 8z"/><path d="M7 21h13M10 10l7 7"/>'), hand: svg('<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10V4a1.5 1.5 0 0 1 3 0v6M14 10V5.5a1.5 1.5 0 0 1 3 0V12M17 9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-1.5a6 6 0 0 1-5-3l-2.6-4.5a1.5 1.5 0 0 1 2.6-1.5L8 15"/>'),
+  parts: svg('<circle cx="7" cy="7" r="3.5"/><path d="M14 3.5h6.5V10H14zM3.5 20.5 7 14l3.5 6.5z"/><path d="M17.2 13.5v7M13.7 17h7"/>'),
+  rotL: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'), rotR: svg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
+  copy: svg('<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>'), trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/>'),
+  start: svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'), slow: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>'), skip: svg('<path d="m5 5 8 7-8 7zM13 5l8 7-8 7z" fill="currentColor"/>'),
+  eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'), x: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  b: svg('<circle cx="12" cy="12" r="8"/><path d="M4.5 10h15M5 14h14"/>'), rp: svg('<path d="M3 19h18L3 7z"/><circle cx="7" cy="7" r="2.2"/>'),
+  bl: svg('<path d="M12 3v2M6 17c1-1 1.5-3 1.5-6a4.5 4.5 0 0 1 9 0c0 3 .5 5 1.5 6z"/><path d="M5 17h14M10.5 20a1.8 1.8 0 0 0 3 0"/>'), gg: svg('<path d="M3 21V3h18v18"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/>'),
+  ss: svg('<path d="M3 15 21 9M9 21l3-8 3 8z"/><circle cx="18.5" cy="6" r="2.2"/>'), ct: svg('<path d="M3 20h18M7 20l3-6M17 20l-3-6M10 14h4M12 14 19 5"/><circle cx="19.5" cy="4" r="1.8"/>'),
+  bk: svg('<path d="M5 21V4h10"/><path d="M12 4v3M9 9h8l-1.2 6h-5.6z"/><circle cx="13" cy="19" r="1.6"/>'), cp: svg('<path d="M5 6h14l-2 14H7z"/><path d="M4 6h16"/>'),
+  tw: svg('<path d="M7 3h10v4H7zM7 7h10v4H7zM7 11h10v4H7zM7 15h10v5H7z"/>'), br: svg('<path d="M2 16c3 0 4-5 10-5s7 5 10 5M2 16h20M6 13v3M18 13v3M12 11v5"/><path d="M2 20c2-1 3 1 5 0s3 1 5 0 3 1 5 0 3 1 5 0"/>'),
+  st: svg('<path d="M3 21h18V5h-5v5h-5v5H6v6"/>'), wl: svg('<path d="M3 7h18v12H3zM3 11h18M3 15h18M8 7v4M14 7v4M11 11v4M17 11v4M8 15v4M14 15v4"/>'),
+  tr: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>'), fl: svg('<path d="M5 21V3"/><path d="M5 4h14v9H5" fill="currentColor" fill-opacity=".25"/><path d="M9 4v9M13 4v9M5 8.5h14"/>'),
+  spiral: svg('<path d="M12 12a1.5 1.5 0 0 1 3 0 3 3 0 0 1-6 0 4.5 4.5 0 0 1 9 0 6 6 0 0 1-12 0 7.5 7.5 0 0 1 15 0"/>'), stairs: svg('<path d="M2 20h4v-4h4v-4h4v4h4v4h4"/><path d="M5 15v-2M9 11V9M13 7V5M17 11V9"/>'),
+  split: svg('<path d="M12 21v-7M12 14l-6-7M12 14l6-7M6 7V3M18 7V3"/>'), pixel: svg('<path d="M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM16 10h4v4h-4zM10 16h4v4h-4z" fill="currentColor"/><path d="M10 10h4v4h-4zM4 16h4v4H4zM16 16h4v4h-4z"/>'),
+  text: svg('<path d="M4 20 9 4h1l5 16M6 14h7"/><circle cx="17" cy="17" r=".8" fill="currentColor"/><circle cx="20" cy="14" r=".8" fill="currentColor"/>'),
+  pl: svg('<rect x="2" y="9" width="20" height="6" rx="1.5"/>')
+};
+const UI = {
+  init() {
+    $('topR').innerHTML = `
+      <button class="ib" id="bUndo" title="Undo (Ctrl+Z)">${IC.undo}</button><button class="ib" id="bRedo" title="Redo (Ctrl+Y)">${IC.redo}</button><span class="sep"></span>
+      <button class="ib" id="bSnap" title="Grid snap (N)">${IC.grid}<span class="lbl">Snap</span></button>
+      <button class="ib" id="bSave" title="Save to gallery">${IC.save}<span class="lbl">Save</span></button>
+      <button class="ib" id="bGal" title="Gallery">${IC.gallery}</button><button class="ib" id="bShare" title="Share code">${IC.share}</button>
+      <button class="ib" id="bLvls" title="Puzzle list">${IC.levels}</button><span class="sep"></span>
+      <button class="ib" id="bHelp" title="How to play">${IC.help}</button><button class="ib" id="mute" title="Sound">${IC.sound}</button><button class="ib" id="bHome" title="Title screen">${IC.home}</button>`;
+    $('bUndo').onclick = () => Hist.go(-1); $('bRedo').onclick = () => Hist.go(1);
+    $('bSnap').onclick = () => this.setSnap(!Tools.snap);
+    $('bSave').onclick = () => this.saveDlg(); $('bGal').onclick = () => this.galleryDlg(); $('bShare').onclick = () => this.shareDlg();
+    $('bLvls').onclick = () => this.levelsDlg(); $('bHelp').onclick = () => this.helpDlg();
+    $('mute').onclick = () => { Snd.resume(); Store.d.mute = !Store.d.mute; Store.save(); Snd.setOn(!Store.d.mute); this.updMute(); };
+    $('bHome').onclick = () => App.title();
+    $('go').onclick = () => { Snd.resume(); App.mode === 'build' ? App.go() : App.reset(); };
+    $('runCtl').innerHTML = `<button class="ib" id="bSlow" title="Slow motion">${IC.slow}<span class="lbl">Slow</span></button><button class="ib" id="bSkip" title="Skip to the end">${IC.skip}<span class="lbl">Skip</span></button><button class="ib on" id="bFollow" title="Camera follows the wave">${IC.eye}<span class="lbl">Follow</span></button>`;
+    $('bSlow').onclick = () => { App.slow = !App.slow; $('bSlow').classList.toggle('on', App.slow); };
+    $('bSkip').onclick = () => App.skip();
+    $('bFollow').onclick = () => { Cam.follow = !Cam.follow; this.updFollow(); };
+    this.updMute();
+  },
+  updMute() { $('mute').classList.toggle('off', !!Store.d.mute); },
+  updFollow() { const b = $('bFollow'); if (b) b.classList.toggle('on', Cam.follow); },
+  setSnap(v) { Tools.snap = v; $('bSnap').classList.toggle('on', v); this.toast(v ? 'Grid snap on: straight lines & 15° turns' : 'Grid snap off: freehand'); },
+  updUndo() { if (!$('bUndo')) return; $('bUndo').disabled = Hist.i <= 0 || App.mode !== 'build'; $('bRedo').disabled = Hist.i >= Hist.st.length - 1 || App.mode !== 'build'; },
+  toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), ms); },
+  banner(msg, ms = 1800) { const b = $('banner'); b.textContent = msg; b.classList.add('show'); clearTimeout(this._bt); this._bt = setTimeout(() => b.classList.remove('show'), ms); },
+  // ---------- dock ----------
+  dockTools() {
+    const base = [['path', 'Path', IC.path], ['single', 'Domino', IC.domino], ['select', 'Select', IC.select], ['erase', 'Erase', IC.erase], ['pan', 'Move', IC.hand]];
+    return base;
+  },
+  updDock() {
+    const lv = W.level, cur = Tools.cur;
+    let h = this.dockTools().map(([id, n, ic]) => `<button class="tool${cur === id ? ' on' : ''}" data-t="${id}">${ic}<span>${n}</span>${(id === 'path' || id === 'single') && lv ? this.cntBadge(this.domLeft()) : ''}</button>`).join('');
+    h += '<span class="dsep"></span>';
+    if (lv) {
+      for (const [k, n] of Object.entries(lv.inv)) { if (k[0] === 'd') continue; const left = W.invLeft(k); h += `<button class="tool${cur === k ? ' on' : ''}" data-t="${k}">${IC[k] || IC.parts}<span>${(PARTS.find(p => p[0] === k) || [0, PT[k].n])[1]}</span>${this.cntBadge(left)}</button>`; }
+      for (const k of lv.builders || []) h += `<button class="tool${cur === k ? ' on' : ''}" data-t="${k}">${IC[k]}<span>${PARTS.find(p => p[0] === k)[1]}</span></button>`;
+    } else {
+      const pi = PARTS.find(p => p[0] === cur);
+      h += `<button class="tool${pi ? ' on' : ''}" data-t="__parts">${pi ? IC[pi[0]] : IC.parts}<span>${pi ? pi[1] : 'Parts'}</span></button>`;
+      if (pi) h += `<button class="tool" data-t="__parts">${IC.parts}<span>Parts</span></button>`;
+    }
+    if (Sel.clip) h += `<button class="tool${cur === 'paste' ? ' on' : ''}" data-t="paste">${IC.copy}<span>Paste</span></button>`;
+    $('dock').innerHTML = h;
+    $('dock').querySelectorAll('.tool').forEach(b => b.onclick = () => { Snd.resume(); Snd.ui(); const t = b.dataset.t; if (t === '__parts') this.toggleSheet(); else Tools.set(t); });
+  },
+  cntBadge(n) { return n === Infinity ? '' : `<span class="cnt${n <= 0 ? ' z' : ''}">${n}</span>`; },
+  domLeft() { if (!W.level) return Infinity; return W.invLeft('d0') + W.invLeft('d1') + W.invLeft('d2'); },
+  updInv() { if (W.level) this.updDock(); this.updProps(); this.updGoals(); },
+  toggleSheet() {
+    const s = $('sheet');
+    if (!s.classList.contains('hidden')) { this.closeSheet(); return; }
+    const card = ([id, n, note]) => `<button class="part${Tools.cur === id ? ' on' : ''}" data-t="${id}">${IC[id]}<span>${n}</span><small>${note}</small></button>`;
+    s.innerHTML = `<h5>Gadgets</h5><div class="pgrid">${PARTS.filter(p => p[3] === 'g').map(card).join('')}</div><h5>Builders</h5><div class="pgrid">${PARTS.filter(p => p[3] === 'b').map(card).join('')}</div>`;
+    s.classList.remove('hidden');
+    s.querySelectorAll('.part').forEach(b => b.onclick = () => { Snd.ui(); Tools.set(b.dataset.t); });
+  },
+  closeSheet() { $('sheet').classList.add('hidden'); },
+  // ---------- properties strip ----------
+  updProps() {
+    const t = Tools.cur, P = $('props'); if (!P) return;
+    const parts = [];
+    const sizeSeg = () => {
+      const lv = W.level, b = [0, 1, 2].map(s => { const left = W.invLeft('d' + s), dis = lv && left <= 0; return `<button data-s="${s}" class="${Tools.size === s ? 'on' : ''}" ${dis ? 'disabled style="opacity:.35"' : ''}>${SZ[s].n}${lv && left !== Infinity ? ' ·' + Math.max(0, left) : ''}</button>`; }).join('');
+      return `<div class="seg" id="pSize">${b}</div>`;
+    };
+    const swatch = () => `<div class="sw" id="pCol">${PAL.map((c, i) => `<button title="${PAL_NAMES[i]}" data-c="${i}" class="${Tools.col === i ? 'on' : ''}" style="background:${c}"></button>`).join('')}<button class="rb${Tools.col < 0 ? ' on' : ''}" data-c="-1" title="Rainbow"></button></div>`;
+    const rot = () => `<button class="pb" id="pRL" title="Rotate left (Shift+R)">${IC.rotL}</button><span class="pl" id="pRot">${Math.round(Tools.rot)}°</span><button class="pb" id="pRR" title="Rotate right (R)">${IC.rotR}</button>`;
+    if (t === 'path') parts.push(sizeSeg(), swatch(), `<span class="pl">drag to lay a run · tap for one</span>`);
+    else if (t === 'single') parts.push(sizeSeg(), swatch(), rot());
+    else if (t === 'spiral') parts.push(sizeSeg(), swatch(), rot());
+    else if (t === 'stairs') parts.push(`<div class="seg" id="pStair">${[['up', 'Up'], ['updown', 'Up & down'], ['down', 'Down']].map(([k, n]) => `<button data-m="${k}" class="${Tools.stairMode === k ? 'on' : ''}">${n}</button>`).join('')}</div>`, swatch(), rot());
+    else if (t === 'split') parts.push(swatch(), rot());
+    else if (t === 'pixel') parts.push(`<div class="pics" id="pPic">${Object.keys(PICS).map(k => `<button data-p="${k}" class="${Tools.pic === k ? 'on' : ''}" title="${k}"><canvas width="13" height="11" data-pic="${k}"></canvas></button>`).join('')}</div>`, rot());
+    else if (t === 'text') parts.push(`<input type="text" id="pText" maxlength="16" value="${esc(Tools.text)}" style="width:140px;min-height:34px;padding:4px 8px">`, swatch(), rot());
+    else if (t === 'wl') parts.push(`<div class="seg" id="pWall">${[2, 3, 5, 8].map(k => `<button data-k="${k}" class="${Tools.wallLen === k ? 'on' : ''}">${k} long</button>`).join('')}</div>`, rot());
+    else if (t === 'b' || t === 'tw') parts.push(swatch(), rot());
+    else if (PT[t]) parts.push(rot(), `<span class="pl">${(PARTS.find(p => p[0] === t) || [])[2] || ''} · drag to aim</span>`);
+    else if (t === 'paste') parts.push(rot(), `<span class="pl">tap to paste ${Sel.clip ? Sel.clip.length : 0} pieces</span>`, `<button class="pb" id="pCancel">${IC.x} Done</button>`);
+    else if (t === 'select') {
+      const n = Sel.set.size;
+      parts.push(`<span class="pl">${n ? n + ' selected' : 'tap a piece or drag a box'}</span>`);
+      if (n) parts.push(`<button class="pb" id="pCopy">${IC.copy} Copy</button><button class="pb" id="pDel">${IC.trash} Delete</button><button class="pb" id="pSRL">${IC.rotL}</button><button class="pb" id="pSRR">${IC.rotR}</button>${W.level ? '' : `<button class="pb" id="pStart">${IC.start} First</button>`}`, swatch());
+    }
+    else if (t === 'erase') parts.push(`<span class="pl">tap or drag over pieces to remove them</span>`);
+    else if (t === 'pan') parts.push(`<span class="pl">drag to move the view · pinch to zoom · twist to turn</span>`);
+    P.innerHTML = parts.join('');
+    P.classList.toggle('hidden', App.mode !== 'build' || !parts.length);
+    const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
+    P.querySelectorAll('#pSize button').forEach(b => b.onclick = () => { Tools.size = +b.dataset.s; this.updProps(); Tools.refreshGhost(); });
+    P.querySelectorAll('#pCol button').forEach(b => b.onclick = () => { Tools.col = +b.dataset.c; if (Tools.cur === 'select') Sel.recolor(Tools.col); this.updProps(); Tools.refreshGhost(); });
+    P.querySelectorAll('#pStair button').forEach(b => b.onclick = () => { Tools.stairMode = b.dataset.m; this.updProps(); });
+    P.querySelectorAll('#pWall button').forEach(b => b.onclick = () => { Tools.wallLen = +b.dataset.k; this.updProps(); });
+    P.querySelectorAll('#pPic button').forEach(b => b.onclick = () => { Tools.pic = b.dataset.p; this.updProps(); });
+    P.querySelectorAll('canvas[data-pic]').forEach(c => drawPic(c, PICS[c.dataset.pic]));
+    const ti = $('pText'); if (ti) { ti.oninput = () => { Tools.text = ti.value.replace(/[^A-Za-z0-9!+\- ]/g, '') || 'KAI'; }; ti.onkeydown = e => e.stopPropagation(); }
+    on('pRL', () => { Tools.rot = qa(Tools.rot - 15); this.updProps(); Tools.refreshGhost(); }); on('pRR', () => { Tools.rot = qa(Tools.rot + 15); this.updProps(); Tools.refreshGhost(); });
+    on('pCopy', () => Sel.copy()); on('pDel', () => { Edit.remove(Sel.list()); Sel.clear(); });
+    on('pSRL', () => Sel.rotate(-15)); on('pSRR', () => Sel.rotate(15)); on('pStart', () => Sel.setStart()); on('pCancel', () => Tools.set('select'));
+  },
+  // ---------- goals card ----------
+  updGoals() {
+    const lv = W.level, g = $('goals');
+    if (!lv || App.mode === 'title') { g.classList.add('hidden'); return; }
+    g.classList.remove('hidden');
+    const s = App.mode === 'run' ? Sim.goals() : null, used = W.dominoCount(true);
+    const rows = lv.goals.map(k => {
+      let txt = '', done = false;
+      if (k === 'finish') { txt = 'Knock over the trophy'; done = s && s.finHit; }
+      if (k === 'bells') { const n = W.pieces.filter(p => p.t === 'bl' || p.t === 'gg').length; txt = `Ring ${n > 1 ? 'all ' + n + ' bells' : 'the bell'}${s ? ` (${s.rung}/${s.bells})` : ''}`; done = s && s.rung === s.bells; }
+      if (k === 'cup') { txt = 'Land the ball in the cup'; done = s && s.filled === s.cups; }
+      if (k === 'all') { txt = `Topple every domino${s ? ` (${s.fallen}/${s.total})` : ''}`; done = s && s.fallen === s.total; }
+      return `<div class="gl${done ? ' done' : ''}"><span class="ck">${done ? '✓' : ''}</span>${txt}</div>`;
+    }).join('');
+    g.innerHTML = `<button class="gx" id="gMin">${g.classList.contains('min') ? '+' : '–'}</button><h4>${esc(lv.title)}</h4><div class="gbody">${lv.note ? `<div style="font-size:13px;color:var(--dim);margin-bottom:5px;line-height:1.25">${esc(lv.note)}</div>` : ''}${rows}<div class="par">★★ ≤ ${lv.par[0]} · ★★★ ≤ ${lv.par[1]} dominoes · used ${used}</div></div>`;
+    $('gMin').onclick = () => { g.classList.toggle('min'); this.updGoals(); };
+  },
+  // ---------- modals ----------
+  modal(html, cls = '') {
+    const m = $('modal'); m.innerHTML = `<div class="card ${cls}"><button class="x" id="mX" aria-label="Close">×</button>${html}</div>`; m.classList.remove('hidden');
+    $('mX').onclick = () => this.closeModal(); m.onclick = e => { if (e.target === m) this.closeModal(); };
+    return m;
+  },
+  closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; },
+  levelsDlg() {
+    const tot = LEVELS.reduce((s, l) => s + (Store.d.stars[l.id] || 0), 0);
+    const h = `<h2>Puzzle Commissions</h2><div class="note">Each client hands you a fixed box of pieces. Reach the goal; use fewer dominoes for more stars. ★ ${tot} / ${LEVELS.length * 3}</div>
+      <div class="lvgrid">${LEVELS.map((l, i) => { const st = Store.d.stars[l.id] || 0, lock = !App.unlocked(i); return `<button class="lv${lock ? ' lock' : ''}" data-i="${i}"><span class="n">${i + 1}</span><span class="t">${esc(l.title)}</span><span class="s">${[0, 1, 2].map(k => `<span class="${k < st ? 'on' : ''}">★</span>`).join('')}</span></button>`; }).join('')}</div>`;
+    const m = this.modal(h);
+    m.querySelectorAll('.lv').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (!App.unlocked(i)) { this.toast('Finish the one before it first'); return; } this.closeModal(); App.startLevel(i); });
+  },
+  resultDlg(stars, used, time, lv) {
+    const isEnd = !!lv.endless, idx = LEVELS.indexOf(lv), next = isEnd || idx < LEVELS.length - 1;
+    const h = `<h2 style="text-align:center">${stars === 3 ? 'Masterpiece!' : stars === 2 ? 'Lovely work!' : 'It worked!'}</h2>
+      <div class="stars">${[0, 1, 2].map(k => `<span class="${k < stars ? 'on' : ''}">★</span>`).join('')}</div>
+      <div class="stat"><span>dominoes used <b>${used}</b></span><span>par <b>${lv.par[0]}</b> / <b>${lv.par[1]}</b></span><span>time <b>${time.toFixed(2)}s</b></span></div>
+      <div class="note" style="text-align:center">${stars < 3 ? `Use ${lv.par[1]} or fewer dominoes for three stars.` : 'Client is thrilled. Framing the blueprint.'}</div>
+      <div class="row" style="justify-content:center"><button class="tb paper" id="rRetry">Rebuild</button>${next ? `<button class="tb red" id="rNext">${isEnd ? 'Next commission' : 'Next puzzle'}</button>` : ''}<button class="tb" id="rList">${isEnd ? 'Title' : 'All puzzles'}</button></div>`;
+    this.modal(h, 'sm');
+    $('rRetry').onclick = () => { this.closeModal(); App.reset(); };
+    if ($('rNext')) $('rNext').onclick = () => { this.closeModal(); isEnd ? App.startEndless(Store.d.endlessSeed) : App.startLevel(idx + 1); };
+    $('rList').onclick = () => { this.closeModal(); isEnd ? App.title() : (App.reset(), this.levelsDlg()); };
+  },
+  saveDlg() {
+    if (W.level) { this.toast('Saving is for sandbox runs'); return; }
+    if (!W.pieces.length) { this.toast('Build something first'); return; }
+    const m = this.modal(`<h2>Save to Gallery</h2><div class="note">Saved in this browser with a little picture.</div><input type="text" id="sName" maxlength="40" value="${esc(W.name)}"><div class="row" style="margin-top:12px"><button class="tb red" id="sGo">Save</button><button class="tb paper" id="sCancel">Cancel</button></div>`, 'sm');
+    const inp = $('sName'); inp.focus(); inp.select(); inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') $('sGo').click(); };
+    $('sCancel').onclick = () => this.closeModal();
+    $('sGo').onclick = () => {
+      W.name = (inp.value || 'Untitled run').trim().slice(0, 40);
+      let thumb = ''; try { V.render(); thumb = V.thumbnail(); } catch (e) { thumb = ''; }
+      const item = { id: Date.now().toString(36) + (Math.random() * 1e4 | 0), name: W.name, date: Date.now(), n: W.dominoCount(), code: Code.encode(W.pieces), thumb };
+      const g = Store.d.gallery, i = g.findIndex(x => x.name === item.name); if (i >= 0) g.splice(i, 1);
+      g.unshift(item); if (g.length > 40) g.length = 40;
+      let ok = Store.save(); if (!ok) { item.thumb = ''; ok = Store.save(); }
+      this.closeModal(); this.toast(ok ? `Saved “${W.name}” to the gallery` : 'Storage is full - could not save');
+    };
+  },
+  galleryDlg() {
+    const g = Store.d.gallery;
+    const card = (it, i, show) => `<div class="gi">${it.thumb ? `<img src="${it.thumb}" alt="">` : `<div class="ph">${show ? 'showcase' : 'no picture'}</div>`}<div class="gm"><div class="gn">${esc(it.name)}</div><div class="gd">${show ? it.note : new Date(it.date).toLocaleDateString() + ' · ' + it.n + ' dominoes'}</div><div class="row"><button class="tb red" data-${show ? 's' : 'l'}="${i}">Load</button>${show ? '' : `<button class="tb paper" data-c="${i}">Code</button><button class="tb paper" data-d="${i}">${IC.trash.replace('<svg', '<svg style="width:16px;height:16px"')}</button>`}</div></div></div>`;
+    const h = `<h2>Gallery</h2><div class="note">Built-in showcases, plus every run you save.</div>
+      <div class="gal">${SHOWCASES.map((s, i) => card({ name: s.name, note: s.note, thumb: App.showThumbs[i] || '' }, i, true)).join('')}</div>
+      <h2 style="font-size:20px;margin:18px 0 8px">Your runs</h2>${g.length ? `<div class="gal">${g.map((it, i) => card(it, i)).join('')}</div>` : '<div class="note">Nothing saved yet. Build in the sandbox and press Save.</div>'}`;
+    const m = this.modal(h);
+    m.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { this.closeModal(); App.loadShowcase(+b.dataset.s); });
+    m.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { const it = g[+b.dataset.l], o = Code.decode(it.code); if (!o) { this.toast('That save is damaged'); return; } this.closeModal(); App.startSandbox(o); });
+    m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => this.shareDlg(g[+b.dataset.c].code));
+    m.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const i = +b.dataset.d; if (!confirm(`Delete “${g[i].name}” from the gallery?`)) return; g.splice(i, 1); Store.save(); this.galleryDlg(); });
+  },
+  shareDlg(code) {
+    if (W.level && !code) { this.toast('Share codes are for sandbox runs'); return; }
+    code = code || Code.encode(W.pieces);
+    const m = this.modal(`<h2>Share code</h2><div class="note">Copy this text and send it to a friend. Paste one below to load someone else’s run.</div>
+      <textarea id="shOut" rows="4" readonly>${esc(code)}</textarea><div class="row" style="margin:8px 0 16px"><button class="tb red" id="shCopy">Copy code</button><span class="pl" id="shLen">${code.length} characters</span></div>
+      <textarea id="shIn" rows="3" placeholder="Paste a DA1. code here"></textarea><div class="row" style="margin-top:8px"><button class="tb" id="shLoad">Load pasted code</button></div>`, 'sm');
+    $('shIn').onkeydown = e => e.stopPropagation();
+    $('shCopy').onclick = async () => { const t = $('shOut'); t.select(); let ok = false; try { await navigator.clipboard.writeText(code); ok = true; } catch (e) { try { ok = document.execCommand('copy'); } catch (_) {} } this.toast(ok ? 'Copied to clipboard' : 'Select the text and copy it'); };
+    $('shLoad').onclick = () => { const o = Code.decode($('shIn').value); if (!o) { this.toast('That doesn’t look like a Domino Architect code'); return; } this.closeModal(); App.startSandbox(o); this.toast(`Loaded “${o.name}” · ${o.pieces.length} pieces`); };
+  },
+  helpDlg() {
+    this.modal(`<h2>How to build</h2><div class="note">Lay out a run, press GO (or tap the red arrow behind the first domino) and watch it go.</div>
+      <div class="kbd">
+      <b>Path</b><span>drag across the board to lay dominoes at perfect spacing. Start next to an existing line to continue it.</span>
+      <b>Domino / gadgets</b><span>tap to place; press and drag to aim it. Rotate with R / Shift+R or the arrows.</span>
+      <b>Select</b><span>tap a piece or drag a box, then copy, delete, rotate, recolour or mark the first domino.</span>
+      <b>Camera</b><span>right-drag to orbit, middle-drag or Space-drag or WASD to pan, wheel to zoom. Touch: Move tool, two fingers to pan/zoom/twist.</span>
+      <b>Run</b><span>GO / Enter. Slow-mo, Skip, Follow-cam. Tap a standing domino during a run to flick it. Reset puts everything back.</span>
+      <b>Keys</b><span>1 Path · 2 Domino · 3 Select · 4 Erase · N snap · Q/E turn · Ctrl+Z / Ctrl+Y · Ctrl+C / Ctrl+V · Del</span>
+      <b>Physics</b><span>Dominoes reach about one height ahead. Tiny ones can topple giants. Balls roll, ramps speed them up, see-saws and catapults throw, buckets drop, towers scatter, pixel walls reveal their picture as they fall.</span></div>`);
+  }
+};
+function drawPic(c, P) { const x = c.getContext('2d'), h = P.length, w = P[0].length; c.width = w; c.height = h; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const ch = P[j][i]; x.fillStyle = ch === '.' ? '#f4efe3' : PAL[PIXMAP[ch]]; x.fillRect(i, j, 1, 1); } }
+
+/* =====================================================================
+   PUZZLES - fixed piece boxes, locked scenery, goals and pars
+   ===================================================================== */
+const Lp = {
+  start: (x, z, a = 90, s = 1) => ({ t: 'd', x, z, a, s, c: 1, f: 1 }),
+  dom: (x, z, a = 90, s = 1, c = 10) => ({ t: 'd', x, z, a, s, c }),
+  tr: (x, z) => ({ t: 'tr', x, z, a: 0 }), fl: (x, z) => ({ t: 'fl', x, z, a: 0 }),
+  bell: (x, z, a = 90) => ({ t: 'bl', x, z, a }), gong: (x, z, a = 90) => ({ t: 'gg', x, z, a }),
+  wall: (x, z, k, a = 0) => ({ t: 'wl', x, z, a, k }), water: (x, z, w, d) => ({ t: 'wt', x, z, a: 0, w, d }),
+  step: (x, z, k, a = 90) => ({ t: 'st', x, z, a, k }), ball: (x, z, c = 3) => ({ t: 'b', x, z, a: 0, c }),
+  cup: (x, z) => ({ t: 'cp', x, z, a: 0 }), g: (t, x, z, a = 90) => ({ t, x, z, a })
+};
+const LEVELS = [
+  { id: 'p01', title: 'First Push', note: 'Drag the Path tool from the red domino to the trophy, then press GO.', bw: 16, bd: 8, goals: ['finish'], inv: { d1: 22 }, par: [18, 11],
+    pieces: [Lp.start(-6, 0), Lp.tr(5, 0)] },
+  { id: 'p02', title: 'Corner Office', note: 'Lines can turn. Keep the curve gentle.', bw: 16, bd: 12, goals: ['finish'], inv: { d1: 34 }, par: [30, 22],
+    pieces: [Lp.start(-6, -3), Lp.wall(-2.5, 0, 11, 0), Lp.tr(-3, 3.2)] },
+  { id: 'p03', title: 'Ding Dong', note: 'One line can fork into two. Try the Split builder.', bw: 18, bd: 12, goals: ['bells'], inv: { d1: 44 }, builders: ['split'], par: [44, 34],
+    pieces: [Lp.start(-7, 0), Lp.bell(6, -3.5), Lp.bell(6, 3.5), Lp.wall(5, 0, 3, 90)] },
+  { id: 'p04', title: 'Mind the Gap', note: 'Dominoes cannot stand in water. Bridges can.', bw: 18, bd: 10, goals: ['finish'], inv: { d1: 30, br: 1 }, par: [28, 24],
+    pieces: [Lp.start(-7, 0), Lp.water(0, 0, 2.2, 10), Lp.tr(6.5, 0)] },
+  { id: 'p05', title: 'Up the Steps', note: 'The trophy sits on a high shelf. Climb with the Stairs builder.', bw: 16, bd: 10, goals: ['finish'], inv: { d1: 22, st: 5 }, builders: ['stairs'], par: [20, 16],
+    pieces: [Lp.start(-6, 0), Lp.step(5, 0, 5), Lp.step(5.6, 0, 5), Lp.step(6.2, 0, 5), Lp.step(5, .9, 5, 90), Lp.step(5.6, .9, 5), Lp.step(6.2, .9, 5), Lp.step(5, -.9, 5), Lp.step(5.6, -.9, 5), Lp.step(6.2, -.9, 5), Lp.tr(5.6, 0)] },
+  { id: 'p06', title: 'Roll With It', note: 'A ball rolls the way the last domino falls. Aim for the cup.', bw: 18, bd: 12, goals: ['cup'], inv: { d1: 16 }, par: [14, 9],
+    pieces: [Lp.start(-7, -3.2), Lp.ball(-1, -2), Lp.cup(5, 1.46), Lp.wall(2, -3, 4, 30)] },
+  { id: 'p07', title: 'Giant Leap', note: 'Too wide for a normal domino. A giant reaches almost twice as far.', bw: 18, bd: 10, goals: ['finish'], inv: { d1: 24, d2: 1 }, par: [24, 19],
+    pieces: [Lp.start(-7, 0), Lp.water(0, 0, 1.3, 10), Lp.tr(5.5, 0)] },
+  { id: 'p08', title: 'See-saw Hop', note: 'Knock the high end of the see-saw. Its ball hops the wall.', bw: 16, bd: 10, goals: ['bells'], inv: { d1: 16 }, par: [14, 10],
+    pieces: [Lp.start(-6.5, 2.5), Lp.g('ss', -1, 0, 90), Lp.wall(1.2, 0, 10, 90), Lp.gong(3.3, 0, 90)] },
+  { id: 'p09', title: 'Bucket Brigade', note: 'Tip the bucket by knocking its post. The ball rolls on from where it lands.', bw: 18, bd: 12, goals: ['finish'], inv: { d1: 30 }, par: [26, 20],
+    pieces: [Lp.start(-7.5, -3), Lp.g('bk', -.6, 0, 90), Lp.wall(.1, 0, 12, 90), Lp.tr(6.5, 3.5)] },
+  { id: 'p10', title: 'Forty Max', note: 'Ring both bells using at most forty dominoes.', bw: 20, bd: 12, goals: ['bells'], inv: { d1: 40 }, builders: ['split'], par: [40, 34],
+    pieces: [Lp.start(-8, 0), Lp.bell(4, -3.2, 90), Lp.bell(4, 3.2, 90)] },
+  { id: 'p11', title: 'Around the Wall', note: 'The trophy hides right behind a long wall.', bw: 20, bd: 14, goals: ['finish'], inv: { d1: 54 }, par: [50, 40],
+    pieces: [Lp.start(-7, 0), Lp.wall(0, -1, 12, 90), Lp.wall(-4, -5.5, 6, 0), Lp.tr(1.4, -1)] },
+  { id: 'p12', title: 'Catapult Courier', note: 'Place the catapult so its dashed arc lands in the cup.', bw: 20, bd: 10, goals: ['cup'], inv: { d1: 18, ct: 1 }, par: [16, 11],
+    pieces: [Lp.start(-8.5, 0), Lp.water(1.8, 0, 3.6, 10), Lp.cup(5.5, -1)] },
+  { id: 'p13', title: 'Timber!', note: 'Far too wide even for a giant. Something taller is needed.', bw: 18, bd: 10, goals: ['finish'], inv: { d1: 24, tw: 1 }, par: [22, 17],
+    pieces: [Lp.start(-7, 0), Lp.water(0, 0, 2.6, 10), Lp.tr(6, 0)] },
+  { id: 'p14', title: 'Triple Chime', note: 'Three bells, one push.', bw: 20, bd: 14, goals: ['bells'], inv: { d1: 74 }, builders: ['split'], par: [72, 60],
+    pieces: [Lp.start(-8.5, 0), Lp.bell(7, -5, 90), Lp.bell(7.5, 0, 90), Lp.bell(7, 5, 90), Lp.wall(4.5, -2.5, 3, 90), Lp.wall(4.5, 2.5, 3, 90)] },
+  { id: 'p15', title: 'Corridors', note: 'Wind the run through the drafting office.', bw: 20, bd: 14, goals: ['finish'], inv: { d1: 80 }, par: [76, 64],
+    pieces: [Lp.start(-8.5, -5.5), Lp.wall(-4, -2.2, 12, 0), Lp.wall(4, 1.8, 12, 0), Lp.tr(-7, 5)] },
+  { id: 'p16', title: 'Picture Perfect', note: 'Bring the run to the black sweeper plank. Every domino must fall.', bw: 20, bd: 14, goals: ['all'], inv: { d1: 24 }, par: [22, 16],
+    pieces: [Lp.start(-8, -5), Lp.wall(-4, -1.5, 6, 90)].concat(Build.pixel(3, -3.6, 0, 'heart')) },
+  { id: 'p17', title: 'Downhill Express', note: 'You only have a handful of dominoes. Let the ball do the travelling.', bw: 22, bd: 12, goals: ['finish'], inv: { d1: 12 }, par: [12, 8],
+    pieces: [Lp.start(-8.35, 0), Lp.g('rp', -7, 0, 90), Lp.ball(-7.75, 0, 1), Lp.tr(8.5, 3)] },
+  { id: 'p18', title: 'Grand Opening', note: 'Catch the ball, ring the gong, reach the trophy.', bw: 22, bd: 16, goals: ['cup', 'bells', 'finish'], inv: { d1: 70, ct: 1, br: 1 }, builders: ['split'], par: [66, 54],
+    pieces: [Lp.start(-9.5, 0), Lp.water(1.5, 0, 2.4, 16), Lp.cup(7.5, -5), Lp.gong(8, 1, 90), Lp.tr(8, 5.5)] }
+];
+LEVELS.forEach(l => l.pieces.forEach(p => { p.f = (p.f || 0) | 4; if (p.t === 'd' && p.c == null) p.c = 10; }));
+
+/* ---------------- endless commissions: generated briefs ---------------- */
+function makeCommission(seed) {
+  const R = mulberry(seed * 7919 + 13), r = (a, b) => a + R() * (b - a), pieces = [], goals = ['finish'];
+  const bw = 22, bd = 14, sz = r(-4, 4);
+  pieces.push(Lp.start(-9.5, q2(sz)));
+  const tz = r(-5, 5), tr = Lp.tr(9, q2(tz)); pieces.push(tr);
+  const nb = R() < .35 ? 0 : R() < .7 ? 1 : 2, targets = [[9, tz]];
+  for (let i = 0; i < nb; i++) { const x = r(-2, 6), z = (i ? -1 : 1) * r(2.5, 5.5); pieces.push(Lp.bell(q2(x), q2(z), 90)); targets.push([x, z]); }
+  if (nb) goals.push('bells');
+  const inv = { d1: 0 };
+  const kind = R();
+  if (kind < .33) { pieces.push(Lp.water(q2(r(-4, 0)), 0, 2.1, bd)); inv.br = 1; }
+  else if (kind < .66) { const wz = r(-2, 2); pieces.push(Lp.wall(q2(r(-3, 3)), q2(wz), q2(r(5, 8)), 90)); }
+  else { pieces.push(Lp.wall(q2(r(-4, 2)), q2(r(-6, -3)), q2(r(4, 7)), 0)); pieces.push(Lp.wall(q2(r(-1, 5)), q2(r(3, 6)), q2(r(4, 7)), 0)); }
+  if (R() < .4) { const z = r(-5, 5); pieces.push(Lp.ball(q2(r(-6, -3)), q2(z))); }
+  let est = 0; let px = -9.5, pz = sz; targets.slice().sort((a, b) => a[0] - b[0]).forEach(([x, z]) => { est += Math.hypot(x - px, z - pz); });
+  const n = Math.ceil(est / SPACING * 1.25) + 10 + (nb ? 9 : 0) + (kind >= .33 ? 10 : 0);
+  inv.d1 = n + 12;
+  return { id: 'c' + seed, endless: true, title: `Commission #${seed}`, note: ['A client wants it done by Friday.', 'Budget is tight. Spacing is free.', 'Make it ring, make it land.', 'The trophy is for the client. Probably.'][seed % 4], bw, bd, goals, inv, builders: nb ? ['split'] : [], par: [n, Math.ceil(n * .8)], pieces: pieces.map(p => Object.assign(p, { f: (p.f || 0) | 4 })) };
+}
+
+/* ---------------- showcases: generated runs that look great falling ---------------- */
+function chainPts(pts, size = 1, col = -1) { return Build.path(pts, size, col); }
+const SHOWCASES = [
+  { name: 'Grand Tour', note: 'stairs, a fork, bells, a bridge, a catapult, a tower and a finish', make() {
+    const P = [];
+    P.push({ t: 'd', x: -16, z: 6, a: 90, s: 1, c: 1, f: 1 });
+    P.push(...chainPts([[-15.42, 6], [-11.6, 6]], 1, -1));
+    const st = Build.stairs(-11.02, 6, 90, 'updown', -1, 5); P.push(...st);
+    const last = st[st.length - 1];
+    P.push(...chainPts([[last.x + .58, 6], [-1.5, 6], [1.2, 5], [2.4, 3], [2.4, 1.6]], 1, -1));
+    const sp = Build.split(2.4, 1.02, 180, 3, 4); P.push(...sp);
+    const armA = sp[4], armB = sp[8];
+    P.push(...chainPts([[armA.x + Math.sin(armA.a * D2R) * .58, armA.z + Math.cos(armA.a * D2R) * .58], [armA.x + 1.8, -2.5], [armA.x + 4.2, -3], [9, -3]], 1, -1));
+    P.push({ t: 'bl', x: 10, z: -3, a: 90 });
+    P.push(...chainPts([[armB.x + Math.sin(armB.a * D2R) * .58, armB.z + Math.cos(armB.a * D2R) * .58], [armB.x - 1.6, -2.4], [armB.x - 3, -4], [-3, -6.6]], 1, -1));
+    P.push({ t: 'wt', x: -6, z: -6.6, a: 0, w: 2, d: 5 }, { t: 'br', x: -6, z: -6.6, a: 270 });
+    P.push(...chainPts([[-3.58, -6.6], [-10.5, -6.6]], 1, -1));
+    P.push({ t: 'tw', x: -11.6, z: -6.6, a: 270, c: 8 });
+    P.push(...chainPts([[-14.2, -6.6], [-16, -6.6], [-17, -8], [-17, -11]], 1, -1));
+    P.push({ t: 'gg', x: -17, z: -12.2, a: 0 });
+    P.push(...Build.spiral(9.5, 7.5, 0, 1, -1).reverse().map(p => Object.assign(p, { a: qa(p.a + 180) })));
+    return { pieces: P, bw: 44, bd: 32 };
+  } },
+  { name: 'Pixel Heart', note: 'a rainbow runway into a 110-domino picture wall', make() {
+    const P = [{ t: 'd', x: -12, z: 8, a: 90, s: 1, c: 1, f: 1 }];
+    P.push(...chainPts([[-11.42, 8], [-4, 8], [0, 6.5], [0, 2]], 1, -1));
+    P.push(...Build.pixel(0, .2, 180, 'heart').map(p => p.t === 'pl' ? p : p));
+    return { pieces: P, bw: 32, bd: 26 };
+  } },
+  { name: 'Spiral Galaxy', note: 'one push, four forks, four spirals', make() {
+    const P = [{ t: 'd', x: 0, z: 10, a: 180, s: 1, c: 1, f: 1 }];
+    P.push(...chainPts([[0, 9.42], [0, 7]], 1, 7));
+    const s1 = Build.split(0, 6.42, 180, 8, 3); P.push(...s1);
+    const ends = [s1[3], s1[6]];
+    ends.forEach((e, i) => {
+      const dir = i ? 1 : -1, fx = Math.sin(e.a * D2R), fz = Math.cos(e.a * D2R);
+      P.push(...chainPts([[e.x + fx * .58, e.z + fz * .58], [dir * 5, 3], [dir * 7, 1.5]], 1, i ? 9 : 6));
+      const s2 = Build.split(dir * 7.4, 1.1, 180 - dir * 20, i ? 2 : 5, 3); P.push(...s2);
+      [s2[3], s2[6]].forEach((q, k) => {
+        const qx = Math.sin(q.a * D2R), qz = Math.cos(q.a * D2R), cx = dir * (k ? 4 : 11), cz = -6;
+        const sp = Build.spiral(cx, cz, 90, 1, -1, 3.6, 1);
+        const st = sp[0];
+        P.push(...chainPts([[q.x + qx * .58, q.z + qz * .58], [lerp(q.x, st.x, .5), lerp(q.z, st.z, .5) + .5], [st.x - Math.sin(st.a * D2R) * .7, st.z - Math.cos(st.a * D2R) * .7]], 1, [3, 4, 5, 1][i * 2 + k]));
+        P.push(...sp);
+      });
+    });
+    return { pieces: P, bw: 36, bd: 30 };
+  } },
+  { name: 'Kilo Snake', note: 'a thousand-domino rainbow serpentine', make() {
+    const P = [{ t: 'd', x: -15, z: -12, a: 90, s: 1, c: 1, f: 1 }], pts = [];
+    for (let row = 0; row < 12; row++) {
+      const z = -12 + row * 2.2, l = -14.42, r = 14.5;
+      if (row % 2 === 0) { pts.push([row ? l + .2 : l, z], [r, z]); } else { pts.push([r, z], [l + .2, z]); }
+      if (row < 11) { const x = row % 2 === 0 ? r : l + .2, s = row % 2 === 0 ? 1 : -1; for (let k = 1; k < 8; k++) { const a = k / 8 * Math.PI; pts.push([x + s * Math.sin(a) * 1.1, z + 1.1 - Math.cos(a) * 1.1]); } }
+    }
+    P.push(...chainPts(pts, 1, -1));
+    return { pieces: P, bw: 36, bd: 30 };
+  } },
+  { name: 'Hello Kai', note: 'lettering with tiny dominoes, fed by one long sweep', make() {
+    const P = [{ t: 'd', x: -11, z: 6, a: 90, s: 1, c: 1, f: 1 }];
+    const t = Build.text('KAI', 0, 0, 180, -1, 1.1, 1);
+    P.push(...t);
+    P.push(...chainPts([[-10.42, 6], [-6, 6], [-5.4, 3.5]], 1, 10));
+    return { pieces: P, bw: 30, bd: 22 };
+  } }
+];
+
+/* =====================================================================
+   APP - modes, main loop, runs
+   ===================================================================== */
+const App = {
+  mode: 'title', slow: false, acc: 0, won: false, failShown: false, last: 0, showThumbs: [], titleT: 0, ctx: 'sandbox', levelIdx: -1,
+  init() {
+    Store.load(); Snd.on = !Store.d.mute;
+    V.init(); UI.init(); Input.init(); this.titleWord();
+    $('bPuzzles').onclick = () => { Snd.resume(); UI.levelsDlg(); };
+    $('bSandbox').onclick = () => { Snd.resume(); const o = Store.d.sandbox ? Code.decode(Store.d.sandbox) : null; this.startSandbox(o || { pieces: [], bw: 80, bd: 80, name: 'Untitled run' }); };
+    $('bEndless').onclick = () => { Snd.resume(); this.startEndless(Store.d.endlessSeed || 1); };
+    $('bShow').onclick = () => { Snd.resume(); this.loadShowcase(0); };
+    $('bGallery').onclick = () => { Snd.resume(); UI.galleryDlg(); };
+    this.showThumbs = SHOWCASES.map(s => mapThumb(s.make().pieces));
+    const st = LEVELS.reduce((s, l) => s + (Store.d.stars[l.id] || 0), 0);
+    $('tFoot').textContent = `★ ${st} / ${LEVELS.length * 3} puzzle stars · ${Store.d.endless || 0} commissions · ${Store.d.gallery.length} saved runs`;
+    Sim.ev = {
+      clack: (d, sp) => Snd.clack(sp, d.kind === 'd' ? d.p.s : d.kind === 'tw' ? 2 : 1),
+      tap: d => Snd.tap(d.kind === 'd' ? d.p.s : 1),
+      ring: (o, first) => { o.kind === 'gg' ? Snd.gong() : Snd.bell(1 + (Sim.objs.indexOf(o) % 3) * .26); V.ring(o.x, o.y0 + (o.kind === 'gg' ? 1 : .9), o.z, o.kind === 'gg' ? 0xffb347 : 0xffe680); if (first && W.level) UI.updGoals(); Cam.shake = o.kind === 'gg' ? .25 : .08; },
+      finish: o => { Snd.win(); V.burst(o.x, o.y0 + 1.2, o.z, 120, PAL.slice(1, 10), 5); UI.banner('FINISH!'); },
+      cup: o => { Snd.plop(); V.burst(o.x, o.y0 + .6, o.z, 50, ['#6dffc6', '#ffffff', '#ffd45c'], 3); },
+      launch: o => { o.kind === 'bk' ? Snd.rattle() : (Snd.boing(), Snd.whoosh()); },
+      land: (b, v) => { if (v > 4) Snd.thunk(); },
+      splash: b => { Snd.splash(); V.burst(b.x, .1, b.z, 30, ['#9fe3ff', '#ffffff'], 2.5); },
+      tower: d => { Snd.rattle(); Cam.shake = .35; },
+      bump: b => Snd.tap(1)
+    };
+    this.title();
+    requestAnimationFrame(t => this.loop(t));
+  },
+  titleWord() {
+    const row = (s, cls) => `<div class="tRow ${cls}">${s.split('').map((ch, i) => `<div class="tL c${(i % 5) + 1} fall" style="animation-delay:${(i * .09 + (cls ? .55 : 0)).toFixed(2)}s"><b>${ch}</b></div>`).join('')}</div>`;
+    $('tWord').innerHTML = row('DOMINO', '') + row('ARCHITECT', 'small');
+  },
+  unlocked(i) { return i === 0 || !!Store.d.stars[LEVELS[i - 1].id] || !!Store.d.stars[LEVELS[i].id] || i < 3; },
+  setWorld(o, level) {
+    W.pieces = o.pieces.map(p => Object.assign({}, p)); W.bw = o.bw || 80; W.bd = o.bd || 80; W.level = level || null; W.name = o.name || 'Untitled run';
+    Sel.set.clear(); Sel.clip = null; V.rebuild();
+  },
+  enterBuild() {
+    this.mode = 'build'; $('title').classList.add('hidden'); $('hud').classList.remove('hidden');
+    $('bSave').classList.toggle('hidden', !!W.level); $('bShare').classList.toggle('hidden', !!W.level); $('bGal').classList.toggle('hidden', !!W.level);
+    $('bLvls').classList.toggle('hidden', !W.level || !!W.level.endless);
+    this.resetRunUI(); Hist.reset(); Tools.set(W.level ? 'path' : Tools.cur === 'paste' ? 'path' : Tools.cur);
+    Cam.follow = true; UI.updFollow(); Cam.frame(W.level ? { x0: -W.bw / 2, x1: W.bw / 2, z0: -W.bd / 2, z1: W.bd / 2 } : runBounds(), W.level ? .82 : 1);
+    if (!W.level && !W.pieces.length) { Cam.tx = 0; Cam.tz = 0; Cam.dist = 20; }
+    Cam.pitch = .86; Cam.yaw = W.level ? .0 : .45; this.updChip(); UI.updGoals(); V.markStart();
+  },
+  updChip() {
+    const lv = W.level;
+    $('chip').innerHTML = lv ? `${esc(lv.title)}<small>${lv.endless ? 'endless commission' : 'puzzle ' + (LEVELS.indexOf(lv) + 1) + ' of ' + LEVELS.length}</small>` : `${esc(W.name)}<small>sandbox · ${W.dominoCount()} dominoes</small>`;
+  },
+  title() {
+    this.mode = 'title'; UI.closeModal(); $('hud').classList.add('hidden'); $('title').classList.remove('hidden');
+    const s = SHOWCASES[2].make(); this.setWorld(s); V.clearGhost(); V.markStart();
+    this.titleT = 0; Cam.follow = true; Cam.frame(runBounds(), .7); Cam.pitch = .62; Cam.yaw = .3; Cam.dist *= .55;
+  },
+  startSandbox(o) { this.ctx = 'sandbox'; this.setWorld(o || { pieces: [] }); this.enterBuild(); },
+  startLevel(i) { this.levelIdx = i; const L = LEVELS[i]; this.setWorld({ pieces: L.pieces, bw: L.bw, bd: L.bd, name: L.title }, L); this.enterBuild(); },
+  startEndless(seed) { const L = makeCommission(seed); this.setWorld({ pieces: L.pieces, bw: L.bw, bd: L.bd, name: L.title }, L); this.enterBuild(); },
+  loadShowcase(i) { const s = SHOWCASES[i], o = s.make(); o.name = s.name; this.startSandbox(o); UI.toast(`${s.name} — press GO`); },
+  autosave() { if (W.level || this.mode === 'title') return; clearTimeout(this._as); this._as = setTimeout(() => { Store.d.sandbox = Code.encode(W.pieces); Store.save(); }, 400); this.updChip(); },
+  hitStart(pt) {
+    if (this.mode !== 'build' || !pt) return false;
+    for (const g of V.markers) if (Math.hypot(g.position.x - pt.x, g.position.z - pt.z) < .55) return true;
+    return false;
+  },
+  resetRunUI() {
+    $('go').textContent = 'GO'; $('go').classList.remove('reset'); $('runCtl').classList.add('hidden'); $('readout').classList.add('hidden');
+    $('dock').classList.remove('hidden'); $('props').classList.remove('hidden'); UI.updDock(); UI.updProps(); UI.updUndo();
+  },
+  go() {
+    if (this.mode !== 'build') return;
+    if (!Sim.D.length) { UI.toast('Lay some dominoes first'); return; }
+    Snd.resume(); V.rebuild(); V.clearGhost(); Sel.set.clear(); V.selBox.visible = false;
+    this.mode = 'run'; this.won = false; this.failShown = false; this.acc = 0; this.wonAt = 0;
+    for (const m of V.markers) V.fxRoot.remove(m); V.markers = [];
+    Sim.go(); Cam.follow = true; UI.updFollow();
+    $('go').textContent = 'RESET'; $('go').classList.add('reset'); $('runCtl').classList.remove('hidden'); $('readout').classList.remove('hidden');
+    $('dock').classList.add('hidden'); $('props').classList.add('hidden'); UI.closeSheet(); UI.updUndo(); this.updReadout();
+  },
+  reset() {
+    if (this.mode !== 'run') return;
+    this.mode = 'build'; V.rebuild(); this.resetRunUI(); UI.updGoals(); V.markStart(); $('rdTime').classList.remove('ok'); $('rdFall').classList.remove('ok');
+  },
+  skip() { if (this.mode !== 'run') return; Sim.fastForward(90); for (const d of Sim.D) d.dirty = true; V.sync(0); this.updReadout(); this.checkGoals(); },
+  tapRun(cx, cy) {
+    const pt = Cam.ground(cx, cy); if (!pt) return;
+    let best = null, bd = .5;
+    for (const d of Sim.D) { if (d.st !== 0) continue; const dd = Math.hypot(d.x - pt.x, d.z - pt.z); if (dd < bd) { bd = dd; best = d; } }
+    if (!best) return;
+    const fx = -Math.sin(Cam.yaw), fz = -Math.cos(Cam.yaw);
+    Sim.push(best, fx * best.fx + fz * best.fz >= 0 ? 1 : -1, 3); Snd.tap(1);
+  },
+  goalsMet() {
+    const lv = W.level; if (!lv) return false; const s = Sim.goals();
+    return lv.goals.every(k => k === 'finish' ? s.finHit : k === 'bells' ? s.bells > 0 && s.rung === s.bells : k === 'cup' ? s.cups > 0 && s.filled === s.cups : k === 'all' ? s.fallen === s.total : true);
+  },
+  starsFor(used) { const lv = W.level; return 1 + (used <= lv.par[0] ? 1 : 0) + (used <= lv.par[1] ? 1 : 0); },
+  checkGoals() {
+    if (!W.level || this.won) return;
+    if (this.goalsMet()) {
+      this.won = true; this.wonAt = performance.now();
+      const used = W.dominoCount(true), stars = this.starsFor(used), lv = W.level, t = Sim.t;
+      if (lv.endless) { Store.d.endless = (Store.d.endless || 0) + 1; Store.d.endlessSeed = (Store.d.endlessSeed || 1) + 1; }
+      else Store.d.stars[lv.id] = Math.max(Store.d.stars[lv.id] || 0, stars);
+      Store.save(); UI.updGoals();
+      setTimeout(() => { if (this.mode === 'run' && this.won) { Snd.win(); UI.resultDlg(stars, used, t, lv); } }, 1500);
+    }
+  },
+  updReadout() {
+    $('rdFall').innerHTML = `fallen <b>${Sim.fallen}</b> / ${Sim.total}`; $('rdTime').innerHTML = `<b>${Sim.t.toFixed(2)}</b> s`;
+    $('rdFall').classList.toggle('ok', Sim.fallen === Sim.total && Sim.total > 0); $('rdTime').classList.toggle('ok', Sim.done);
+  },
+  focus() {
+    let x = 0, z = 0, n = 0;
+    for (const d of Sim.active) { x += d.x; z += d.z; n++; }
+    for (const b of Sim.balls) if (b.st === 'move') { x += b.x * 4; z += b.z * 4; n += 4; }
+    for (const k of Sim.debris) if (!k.sleep) { x += k.x; z += k.z; n++; }
+    return n ? { x: x / n, z: z / n } : null;
+  },
+  loop(t) {
+    requestAnimationFrame(tt => this.loop(tt));
+    const dt = Math.min(.05, Math.max(0, (t - (this.last || t)) / 1000)); this.last = t;
+    V.t += dt;
+    if (this.mode === 'run' || this.mode === 'title') {
+      if (this.mode === 'title') {
+        this.titleT += dt;
+        if (!Sim.started && this.titleT > 1.2) Sim.go();
+        if (Sim.done) { if ((this.titleDone = (this.titleDone || 0) + dt) > 2.5) { this.titleDone = 0; V.rebuild(); this.titleT = 0; } }
+        Cam.yaw += dt * .04;
+      }
+      this.acc += dt * (this.slow && this.mode === 'run' ? .25 : 1);
+      let n = 0; const h = 1 / 240;
+      while (this.acc >= h && n < 30) { Sim.step(h); this.acc -= h; n++; }
+      if (n >= 30) this.acc = 0;
+      V.sync(dt);
+      if (Cam.follow) { const f = this.focus(); if (f) { const k = Math.min(1, dt * 2.2); Cam.tx += (f.x - Cam.tx) * k; Cam.tz += (f.z - Cam.tz) * k; } }
+      if (this.mode === 'run') {
+        this.updReadout(); this.checkGoals();
+        let roll = 0; for (const b of Sim.balls) if (b.st === 'move' && b.ground) roll = Math.max(roll, Math.hypot(b.vx, b.vz) / 8); Snd.rollLevel(roll);
+        if (Sim.done && !this.won && !this.failShown && W.level) { this.failShown = true; Snd.fail(); UI.toast('The chain stopped short. Press RESET and adjust the run.', 3200); }
+      }
+    } else { V.syncGadgets(0); Snd.rollLevel(0); }
+    Input.tick(dt);
+    if (Cam.shake > 0) Cam.shake = Math.max(0, Cam.shake - dt * .8);
+    V.tickFx(dt); Cam.apply(); V.render();
+  }
+};
+function mapThumb(pieces) {
+  const c = mkCanvas(320, 200), x = c.getContext('2d');
+  x.fillStyle = '#1f5394'; x.fillRect(0, 0, 320, 200); x.strokeStyle = 'rgba(200,232,255,.18)'; x.lineWidth = 1;
+  for (let i = 0; i < 320; i += 16) { x.beginPath(); x.moveTo(i + .5, 0); x.lineTo(i + .5, 200); x.stroke(); } for (let j = 0; j < 200; j += 16) { x.beginPath(); x.moveTo(0, j + .5); x.lineTo(320, j + .5); x.stroke(); }
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pieces) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  const s = Math.min(290 / Math.max(1, x1 - x0), 170 / Math.max(1, z1 - z0)), ox = 160 - (x0 + x1) / 2 * s, oz = 100 - (z0 + z1) / 2 * s;
+  for (const p of pieces) {
+    if (p.t === 'wt') { x.fillStyle = 'rgba(80,200,255,.6)'; x.fillRect(ox + (p.x - p.w / 2) * s, oz + (p.z - p.d / 2) * s, p.w * s, p.d * s); continue; }
+    x.save(); x.translate(ox + p.x * s, oz + p.z * s); x.rotate(-p.a * D2R);
+    if (p.t === 'd') { const S = SZ[p.s]; x.fillStyle = PAL[p.c || 0]; x.fillRect(-S.w / 2 * s, -S.t * s, S.w * s, S.t * 2 * s); }
+    else { x.fillStyle = PT[p.t].solid ? 'rgba(255,255,255,.5)' : '#ffd45c'; const [hx, hz] = footOf(p); x.fillRect(-hx * s, -hz * s, hx * 2 * s, hz * 2 * s); }
+    x.restore();
+  }
+  return c.toDataURL('image/png');
+}
+App.init();
+</script>
+</body>
+</html>
