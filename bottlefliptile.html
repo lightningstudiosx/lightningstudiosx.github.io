@@ -41,6 +41,7 @@ function row(txt, size, depth, col, edge) {
   return { L, size, depth, col, edge };
 }
 const ROWS = [row('BOTTLE FLIP', 150, 0, '#ffffff', '#123a8a'), row('LEGENDS', 132, 128, '#ffe36b', '#8a4300')];
+const DROPS = [];
 const BUB = []; for (let i = 0; i < 26; i++) BUB.push({ x: XB + 60 + Math.random() * 1000, y: R - Math.random() * 200, r: 3 + Math.random() * 9, s: 40 + Math.random() * 60 });
 // ---- input: parent page posts {type:'tilt', x:-1..1, y:-1..1} and {type:'slosh', v}; phones may tilt
 addEventListener('message', e => { const d = e.data; if (!d || typeof d !== 'object') return;
@@ -50,6 +51,7 @@ addEventListener('deviceorientation', e => { if (e.gamma == null) return; const 
   const v = land ? (e.beta || 0) * Math.sign(window.orientation || 1) : e.gamma; tgt = Math.max(-1, Math.min(1, v / 30)) * MAXT; lastIn = T; });
 addEventListener('pointermove', e => { tgt = ((e.clientX / innerWidth) * 2 - 1) * MAXT; lastIn = T; });
 addEventListener('resize', fit);
+addEventListener('click', () => { try { if (window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {}); } catch (e) {} }, { once: true });
 </script>
 <script>
 function step(dt) {
@@ -59,6 +61,10 @@ function step(dt) {
   // the water lags behind the bottle like a pendulum, so it sloshes back and forth
   const acc = -38 * (wAng - ang) - 1.6 * wVel; wVel += acc * dt; wAng += wVel * dt;
   wAng = Math.max(-0.45, Math.min(0.45, wAng));
+  // a hard slosh throws droplets off the end the water rushes into
+  if (Math.abs(wVel) > 0.35 && DROPS.length < 40 && Math.random() < dt * 30) { const right = wVel > 0, x = right ? XS - 40 : XB + 60;
+    DROPS.push({ x, y: surf(x) - 4, vx: (right ? -1 : 1) * (60 + Math.random() * 160), vy: -(160 + Math.random() * 220), r: 5 + Math.random() * 7 }); }
+  for (let i = DROPS.length - 1; i >= 0; i--) { const d = DROPS[i]; d.vy += 900 * dt; d.x += d.vx * dt; d.y += d.vy * dt; if (d.vy > 0 && d.y > surf(d.x)) DROPS.splice(i, 1); }
   const kick = acc * dt * 6; wv[0] += kick; wv[N] -= kick; wv[2] += kick * 0.5; wv[N - 2] -= kick * 0.5;
   for (let it = 0; it < 2; it++) { const h = dt / 2;
     for (let i = 0; i <= N; i++) { const l = i ? wave[i - 1] : wave[i], r = i < N ? wave[i + 1] : wave[i]; wv[i] += (900 * (l + r - 2 * wave[i]) - 2.2 * wv[i] - 6 * wave[i]) * h; }
@@ -98,6 +104,7 @@ function draw() {
   g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 4; for (let k = 0; k < 6; k++) { g.beginPath(); for (let i = 0; i <= N; i++) { const x = XW(i), y = surf(x) + 40 + k * 34 + Math.sin(i * 0.7 + T * 2 + k) * 6; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
   drawRow(ROWS[1], true); g.fillStyle = 'rgba(40,140,240,.16)'; g.fill(WP);
   g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (const b of BUB) { g.beginPath(); g.arc(b.x, b.y, b.r, 0, 6.283); g.stroke(); }
+  g.fillStyle = 'rgba(90,200,255,.85)'; for (const d of DROPS) { g.beginPath(); g.ellipse(d.x, d.y, d.r * 0.8, d.r * 1.15, Math.atan2(d.vy, d.vx) + 1.57, 0, 6.283); g.fill(); }
   drawRow(ROWS[0], false);
   // ribs + highlights on the plastic
   g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 6; for (const x of [-560, -420, 280, 360]) { g.beginPath(); g.ellipse(x, 0, 26, R - 4, 0, -1.4, 1.4); g.stroke(); }
