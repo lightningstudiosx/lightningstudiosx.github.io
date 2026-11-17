@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bottle Flip Legends</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}</style>
+</head><body><canvas id="c"></canvas>
+<script>
+// Live home-page tile: a water bottle lying on its side. The water sloshes when you tilt it (mouse over the tile via
+// postMessage from the parent page, phone tilt, or a gentle idle sway) and the title letters float in it.
+'use strict';
+const W = 1640, H = 820, cv = document.getElementById('c'), g = cv.getContext('2d');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let S = 1, OX = 0, OY = 0;
+function fit() {
+  const d = Math.min(devicePixelRatio || 1, 2), w = innerWidth, h = innerHeight;
+  cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
+  S = Math.min(w / W, h / H) * d * 0.94; OX = (cv.width - W * S) / 2; OY = (cv.height - H * S) / 2;
+  if (RM) frame(0);
+}
+const R = 250, XB = -700, XS = 420, NR = 92, XN = 600, XC = 650, XE = 770, CR = 106, MAXT = 0.13;
+function bottle(p) { // outline of the bottle lying down, base on the left, cap end on the right (local coords)
+  p.moveTo(XB + 95, -R); p.lineTo(XS, -R); p.bezierCurveTo(XS + 95, -R, XN - 60, -NR, XN, -NR); p.lineTo(XC, -NR);
+  p.lineTo(XC, NR); p.lineTo(XN, NR); p.bezierCurveTo(XN - 60, NR, XS + 95, R, XS, R); p.lineTo(XB + 95, R);
+  p.quadraticCurveTo(XB + 8, R, XB + 4, R - 90); p.bezierCurveTo(XB - 14, R - 140, XB - 14, -R + 140, XB + 4, -R + 90);
+  p.quadraticCurveTo(XB + 8, -R, XB + 95, -R); p.closePath();
+}
+const SHAPE = new Path2D(); bottle(SHAPE);
+// ---- state
+let ang = 0, tgt = 0, wAng = 0, wVel = 0, last = performance.now(), lastIn = -9, T = 0;
+const N = 64, wave = new Float32Array(N + 1), wv = new Float32Array(N + 1), XW = i => XB + (XE - XB) * i / N;
+const LEVEL = 18, XM = -90;
+function surf(x) { // water surface height in bottle coordinates (y down)
+  const f = (x - XB) / (XE - XB) * N, i = Math.max(0, Math.min(N - 1, f | 0)), k = f - i;
+  return LEVEL - Math.tan(wAng) * (x - XM) + (wave[i] * (1 - k) + wave[i + 1] * k);
+}
+const FONT = '"Arial Black","Segoe UI Black","Helvetica Neue",Impact,system-ui,sans-serif';
+function row(txt, size, depth, col, edge) {
+  g.font = '900 ' + size + 'px ' + FONT; const L = [];
+  for (const ch of txt) L.push({ ch, w: ch === ' ' ? size * 0.32 : g.measureText(ch).width, x: 0, vx: 0, r: 0, ph: Math.random() * 6 });
+  const tot = L.reduce((s, l) => s + l.w, 0) + (L.length - 1) * 6; let x = XM - tot / 2 - 20;
+  for (const l of L) { l.x = x + l.w / 2; l.rest = l.x; x += l.w + 6; }
+  return { L, size, depth, col, edge };
+}
+const ROWS = [row('BOTTLE FLIP', 150, 0, '#ffffff', '#123a8a'), row('LEGENDS', 132, 128, '#ffe36b', '#8a4300')];
+const BUB = []; for (let i = 0; i < 26; i++) BUB.push({ x: XB + 60 + Math.random() * 1000, y: R - Math.random() * 200, r: 3 + Math.random() * 9, s: 40 + Math.random() * 60 });
+// ---- input: parent page posts {type:'tilt', x:-1..1, y:-1..1} and {type:'slosh', v}; phones may tilt
+addEventListener('message', e => { const d = e.data; if (!d || typeof d !== 'object') return;
+  if (d.type === 'tilt' && isFinite(d.x)) { tgt = Math.max(-1, Math.min(1, +d.x)) * MAXT + (isFinite(d.y) ? +d.y * 0.02 : 0); lastIn = T; }
+  if (d.type === 'slosh' && isFinite(d.v)) wVel += Math.max(-1, Math.min(1, d.v / 300)) * 0.5; });
+addEventListener('deviceorientation', e => { if (e.gamma == null) return; const land = Math.abs(window.orientation || 0) === 90;
+  const v = land ? (e.beta || 0) * Math.sign(window.orientation || 1) : e.gamma; tgt = Math.max(-1, Math.min(1, v / 30)) * MAXT; lastIn = T; });
+addEventListener('pointermove', e => { tgt = ((e.clientX / innerWidth) * 2 - 1) * MAXT; lastIn = T; });
+addEventListener('resize', fit);
+</script>
+<script>
+function step(dt) {
+  T += dt;
+  if (T - lastIn > 2.5) tgt = Math.sin(T * 0.55) * 0.07 + Math.sin(T * 1.37) * 0.025; // idle sway
+  ang += (tgt - ang) * Math.min(1, dt * 5);
+  // the water lags behind the bottle like a pendulum, so it sloshes back and forth
+  const acc = -38 * (wAng - ang) - 1.6 * wVel; wVel += acc * dt; wAng += wVel * dt;
+  wAng = Math.max(-0.45, Math.min(0.45, wAng));
+  const kick = acc * dt * 6; wv[0] += kick; wv[N] -= kick; wv[2] += kick * 0.5; wv[N - 2] -= kick * 0.5;
+  for (let it = 0; it < 2; it++) { const h = dt / 2;
+    for (let i = 0; i <= N; i++) { const l = i ? wave[i - 1] : wave[i], r = i < N ? wave[i + 1] : wave[i]; wv[i] += (900 * (l + r - 2 * wave[i]) - 2.2 * wv[i] - 6 * wave[i]) * h; }
+    for (let i = 0; i <= N; i++) wave[i] = Math.max(-60, Math.min(60, wave[i] + wv[i] * h)); }
+  // letters ride the water: drift to the low end, springs keep the words in order and pull them home
+  for (const Rw of ROWS) { const L = Rw.L, n = L.length;
+    for (let i = 0; i < n; i++) { const l = L[i];
+      let f = Math.sin(wAng) * 1500 * (Rw.depth ? 0.75 : 1) + (l.rest - l.x) * 1.4 - l.vx * 2.4;
+      if (i > 0) { const gap = (L[i - 1].w + l.w) / 2 + 6; f += (L[i - 1].x + gap - l.x) * 60; }
+      if (i < n - 1) { const gap = (L[i + 1].w + l.w) / 2 + 6; f -= (l.x + gap - L[i + 1].x) * 60; }
+      l.vx += f * dt; }
+    for (const l of L) { l.x += l.vx * dt; const lo = XB + 50 + l.w / 2, hi = XS + 60 - l.w / 2; if (l.x < lo) { l.x = lo; l.vx = Math.abs(l.vx) * 0.3; } if (l.x > hi) { l.x = hi; l.vx = -Math.abs(l.vx) * 0.3; }
+      const sl = (surf(l.x + 8) - surf(l.x - 8)) / 16; l.r += (Math.atan(sl) + Math.sin(T * 2.3 + l.ph) * 0.05 - l.r) * Math.min(1, dt * 6);
+      if (Math.abs(l.vx) > 220 && Math.random() < dt * 20) { const i = Math.round((l.x - XB) / (XE - XB) * N); if (i > 0 && i < N) wv[i] -= 30; } }
+  }
+  for (const b of BUB) { b.y -= b.s * dt; b.x += Math.sin(T * 3 + b.r) * 10 * dt; if (b.y < surf(b.x) + b.r) { b.y = R - 10; b.x = XB + 60 + Math.random() * 1000; } }
+}
+function drawRow(Rw, under) {
+  g.font = '900 ' + Rw.size + 'px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  for (const l of Rw.L) { if (l.ch === ' ') continue;
+    const y = surf(l.x) + Rw.size * 0.28 + Rw.depth + Math.sin(T * 2 + l.ph) * 5;
+    g.save(); g.translate(l.x, y); g.rotate(l.r);
+    g.lineWidth = Rw.size * 0.12; g.strokeStyle = Rw.edge; g.strokeText(l.ch, 0, 0);
+    g.fillStyle = Rw.col; g.globalAlpha = under ? 0.92 : 1; g.fillText(l.ch, 0, 0); g.restore(); }
+}
+function draw() {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.setTransform(S, 0, 0, S, OX + 820 * S + 0, OY + 410 * S); g.rotate(ang); g.translate(-35, 0);
+  // soft shadow + glassy body
+  g.save(); g.shadowColor = 'rgba(10,20,60,.35)'; g.shadowBlur = 40 * S; g.shadowOffsetY = 18 * S; g.fillStyle = 'rgba(220,240,255,.28)'; g.fill(SHAPE); g.restore();
+  g.save(); g.clip(SHAPE);
+  const bg = g.createLinearGradient(0, -R, 0, R); bg.addColorStop(0, 'rgba(255,255,255,.35)'); bg.addColorStop(1, 'rgba(160,210,255,.25)'); g.fillStyle = bg; g.fillRect(XB - 20, -R - 20, XE - XB + 40, 2 * R + 40);
+  // water body
+  const WP = new Path2D(); WP.moveTo(XB - 20, surf(XB)); for (let i = 0; i <= N; i++) WP.lineTo(XW(i), surf(XW(i))); WP.lineTo(XE + 20, surf(XE)); WP.lineTo(XE + 20, R + 200); WP.lineTo(XB - 20, R + 200); WP.closePath();
+  const wg = g.createLinearGradient(0, -R, 0, R); wg.addColorStop(0, 'rgba(70,190,255,.78)'); wg.addColorStop(1, 'rgba(20,90,220,.86)'); g.fillStyle = wg; g.fill(WP);
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 7; g.beginPath(); for (let i = 0; i <= N; i++) { const x = XW(i), y = surf(x) + 3; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 4; for (let k = 0; k < 6; k++) { g.beginPath(); for (let i = 0; i <= N; i++) { const x = XW(i), y = surf(x) + 40 + k * 34 + Math.sin(i * 0.7 + T * 2 + k) * 6; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  drawRow(ROWS[1], true); g.fillStyle = 'rgba(40,140,240,.16)'; g.fill(WP);
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (const b of BUB) { g.beginPath(); g.arc(b.x, b.y, b.r, 0, 6.283); g.stroke(); }
+  drawRow(ROWS[0], false);
+  // ribs + highlights on the plastic
+  g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 6; for (const x of [-560, -420, 280, 360]) { g.beginPath(); g.ellipse(x, 0, 26, R - 4, 0, -1.4, 1.4); g.stroke(); }
+  g.restore();
+  g.lineJoin = 'round'; g.strokeStyle = 'rgba(16,40,110,.55)'; g.lineWidth = 14; g.stroke(SHAPE); g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 6; g.stroke(SHAPE);
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.roundRect ? g.roundRect(XB + 110, -R + 34, 640, 26, 13) : g.rect(XB + 110, -R + 34, 640, 26); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath(); g.ellipse(XB + 70, -60, 14, 90, 0, 0, 6.283); g.fill();
+  // neck ring + ridged cap
+  g.fillStyle = '#1f6fe0'; g.fillRect(XC - 26, -NR - 16, 22, 2 * NR + 32);
+  const cg = g.createLinearGradient(0, -CR, 0, CR); cg.addColorStop(0, '#7cc0ff'); cg.addColorStop(0.45, '#2e7dff'); cg.addColorStop(1, '#1446b8');
+  g.fillStyle = cg; g.strokeStyle = 'rgba(16,40,110,.6)'; g.lineWidth = 8; g.beginPath(); g.roundRect ? g.roundRect(XC, -CR, XE - XC, 2 * CR, 18) : g.rect(XC, -CR, XE - XC, 2 * CR); g.fill(); g.stroke();
+  g.strokeStyle = 'rgba(10,30,90,.35)'; g.lineWidth = 5; for (let y = -CR + 22; y < CR - 10; y += 22) { g.beginPath(); g.moveTo(XC + 10, y); g.lineTo(XE - 10, y); g.stroke(); }
+  g.fillStyle = 'rgba(255,255,255,.45)'; g.fillRect(XC + 12, -CR + 14, XE - XC - 24, 12);
+}
+function frame(now) { if (!RM) { const dt = Math.min(0.033, (now - last) / 1000 || 0.016); last = now; step(dt); } else { ang = wAng = 0.03; T = 1.2; } draw(); if (!RM && !document.hidden) requestAnimationFrame(frame); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !RM) { last = performance.now(); requestAnimationFrame(frame); } });
+fit(); if (!RM) requestAnimationFrame(frame);
+</script>
+</body></html>
