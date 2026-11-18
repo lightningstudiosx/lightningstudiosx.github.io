@@ -233,6 +233,14 @@ b.tag{font-size:10px;background:#3d7bff;color:#fff;border-radius:6px;padding:1px
 }
 @media (prefers-reduced-motion:reduce){#tapeText,.bigName div{animation:none!important;padding:0!important}#tapeView{overflow-x:auto}.bigName{overflow-y:auto}}
 #wEmo .pt{font-size:22px;padding:4px 8px}
+.gumStamp{display:inline-flex;flex-direction:column;align-items:center;border:5px double #7a1f9a;border-radius:14px;padding:4px 16px 3px;color:#7a1f9a;background:rgba(255,255,255,.7);transform:rotate(-4deg);margin:2px 0 6px;animation:rubber .6s cubic-bezier(.3,1.6,.5,1) both;position:relative}
+.gumStamp b{font-family:var(--fc);font-weight:400;font-size:34px;line-height:1.05;letter-spacing:1px;text-transform:uppercase}
+.gumStamp small{font-size:11px;font-weight:900;opacity:.8}
+.gumStamp.again{animation:rubber .6s cubic-bezier(.3,1.6,.5,1) both}
+.gumStamp::after{content:"";position:absolute;inset:-8px;border-radius:18px;background:radial-gradient(circle at 20% 30%,rgba(122,31,154,.18) 0 3px,transparent 4px),radial-gradient(circle at 85% 70%,rgba(122,31,154,.18) 0 4px,transparent 5px);pointer-events:none}
+@keyframes rubber{0%{transform:scale(3.2) rotate(-18deg);opacity:0}55%{transform:scale(.92) rotate(-3deg);opacity:1}75%{transform:scale(1.04) rotate(-5deg)}100%{transform:rotate(-4deg)}}
+b.stampN{font-family:var(--fc);font-weight:400;font-size:17px;color:#7a1f9a;display:block}
+@media (max-width:760px){.gumStamp b{font-size:26px}}
 </style>
 </head>
 <body>
@@ -797,6 +805,7 @@ F('tuttifrutti', 'Tutti Frutti', '🎪', '#ff9ad5', ['etbut', 'isoamyl', ['etace
 F('pinacolada', 'Piña Colada', '🏝️', '#fff0b0', ['allylhex', ['gnona', 'ddeca']], ['etbut', 'casein', 'lipids'], 'Pineapple + coconut.');
 F('earlgrey', 'Earl Grey Tea', '🫖', '#a0714f', ['linacet', ['tannins', 'catechins']], ['limonene', 'casein'], 'Bergamot\'s acetate + tea tannins.');
 F('marzipan', 'Marzipan', '🎂', '#f3dcb0', ['benzald', ['proteins', 'albumin']], ['lipids', 'glucose'], 'The almond aldehyde + some protein.');
+F('burntmallow', 'Burnt Marshmallow', '🍡', '#8a5a3c', ['etmaltol', 'vanillin', 'guaiacol'], ['carbon', 'caramel', 'maltol'], 'Cotton-candy maltol + vanilla + a whiff of campfire smoke.');
 F('realgrape', 'Actual Grape (as found in nature)', '🏆', '#6a2a9a', [], [], 'Recreate EVERYTHING in a real grape. All 47 things. Yes, really.', { special: 'realgrape', legend: true });
 
 // ===== flav2.js =====
@@ -964,6 +973,8 @@ function matchFlavours(gum) {
     const m = scoreFlavour(gum, f, yt); if (!m) continue;
     if (f.real) { if (!real || m.score > real.score) real = m; } else if (!weird || m.score > weird.score) weird = m;
   }
+  // a weird match whose key chemicals are all part of the real flavour is just a lesser version of it (Campfire inside Burnt Marshmallow)
+  if (real && weird && weird.f.key.length < real.f.key.length) { const fam = new Set(real.f.key.flat().concat(real.f.opt)); if (weird.f.key.every((k) => (Array.isArray(k) ? k : [k]).some((id) => fam.has(id) && hasChem(gum, id)))) weird = null; }
   if (GRAPE_LIST.every((id) => hasChem(gum, id)) && yt > 0) real = { f: FLAV.realgrape, score: 999, purity: 1 };
   if (yt === 0) weird = { f: FLAV.justgum, score: 99 };
   else if (gum.items.length >= 60) weird = { f: FLAV.everything, score: 99 };
@@ -1067,11 +1078,72 @@ function localGuess(a) {
   return 'My guess: something ' + feel + ' and ' + a.colName + ', like a mystery candy ' + place + '.';
 }
 
+// ===== namer.js =====
+// namer.js - every gum gets a short, singular STAMP NAME (1-3 words) on top of its official chemical-list name.
+// The built-in namer is instant and offline; the AI namer (ai.js) can replace it when the in-browser AI is on.
+const NM_ADJ = {
+  S: ['Sugar', 'Candy', 'Honey', 'Sweetie', 'Syrupy'], A: ['Sour', 'Zappy', 'Tangy', 'Puckered', 'Snappy'], B: ['Grumpy', 'Bitter', 'Gloomy', 'Stormy'],
+  L: ['Salty', 'Seaside', 'Briny', 'Pirate'], U: ['Savoury', 'Mighty', 'Hearty'], F: ['Juicy', 'Fruity', 'Tropical', 'Jammy'], M: ['Frosty', 'Arctic', 'Chilly', 'Polar'],
+  H: ['Blazing', 'Fiery', 'Spicy', 'Scorching'], R: ['Blossom', 'Petal', 'Garden', 'Dainty'], C: ['Creamy', 'Velvet', 'Silky', 'Dreamy'], W: ['Cosmic', 'Haunted', 'Mystery', 'Wonky', 'Odd']
+};
+const NM_NOUN = {
+  S: ['Cloud', 'Parade', 'Daydream', 'Sprinkle'], A: ['Zap', 'Shock', 'Pucker', 'Lightning'], B: ['Grump', 'Storm', 'Swamp'], L: ['Wave', 'Tide', 'Anchor'],
+  U: ['Feast', 'Banquet'], F: ['Splash', 'Burst', 'Punch', 'Fiesta'], M: ['Blizzard', 'Breeze', 'Frost', 'Glacier'], H: ['Thunder', 'Dragon', 'Blaze', 'Volcano'],
+  R: ['Bouquet', 'Meadow', 'Perfume'], C: ['Cloud', 'Pillow', 'Dream'], W: ['Mystery', 'Goblin', 'Riddle', 'Wobble', 'Gizmo']
+};
+const NM_COL = { purple: ['Purple', 'Violet'], green: ['Green', 'Swamp'], blue: ['Blue', 'Electric'], red: ['Red', 'Ruby'], orange: ['Orange', 'Sunset'], yellow: ['Yellow', 'Golden'],
+  pink: ['Pink', 'Rosy'], black: ['Midnight', 'Shadow'], brown: ['Toasty', 'Cocoa'], white: ['Snowy', 'Ghost'], grey: ['Foggy', 'Misty'], teal: ['Lagoon', 'Mermaid'], peach: ['Peachy', 'Apricot'] };
+const NM_SAD = ['Sad', 'Soggy', 'Lonely', 'Confused', 'Sleepy', 'Mild'], NM_GREAT = ['Super', 'Mega', 'Royal', 'Golden', 'Ultimate'];
+const NM_RIFF = ['Escape', 'Explosion', 'Supreme', 'Party', 'Rocket', 'Dream', 'Storm'];
+const titleCase = (s) => s.toLowerCase().replace(/(^|[\s-])([a-z])/g, (m, p, c) => p + c.toUpperCase());
+// short form of a discovery's name, max 2 words ("Classic Bubblegum", "Old Library Book" -> "Library Book")
+function nmShort(name) { const w = name.replace(/\(.*?\)|[^A-Za-z\s-]/g, '').trim().split(/\s+/).filter((x) => !/^(the|a|of|on|like|then)$/i.test(x)); return w.slice(-2).join(' '); }
+function builtinStamp(a) {
+  const r = mulberry32(hash32(a.name + '|' + a.stars)), pk = (arr) => arr[Math.floor(r() * arr.length)];
+  const tops = topNotes(a.p, 3).map((t) => t[0]), n1 = tops[0] || 'S', n2 = tops[1] || n1;
+  const colAdj = pk(NM_COL[a.colName] || ['Plain']), mood = a.stars < 2 ? pk(NM_SAD) : a.stars >= 4.5 ? pk(NM_GREAT) : null;
+  const real = a.disc.real, weird = a.disc.weird;
+  let name;
+  if (real && real.legend) name = 'The Grape';
+  else if (real) { const x = nmShort(real.name); name = pk([(mood || pk(NM_ADJ[n2 === n1 ? 'W' : n2])) + ' ' + x, x + ' ' + pk(NM_RIFF), colAdj + ' ' + x]); }
+  else if (weird && weird.id !== 'justgum' && r() < 0.6) { const x = nmShort(weird.name); name = r() < 0.5 ? x : (mood || colAdj) + ' ' + x.split(' ').pop(); }
+  else if (!tops.length || (weird && weird.id === 'justgum')) name = pk(['Plain Jane', 'Just Chewing', 'Beige Mystery', 'Rubber Band']);
+  else if (mood && mood !== 'Mild' && NM_SAD.includes(mood)) name = mood + ' ' + pk(NM_NOUN[n1]);
+  else name = pk([colAdj + ' ' + pk(NM_NOUN[n1]), pk(NM_ADJ[n1]) + ' ' + pk(NM_NOUN[n2]), (mood || pk(NM_ADJ[n2])) + ' ' + pk(NM_NOUN[n1])]);
+  return nmClean(name) || 'Mystery Gum';
+}
+// shared sanitiser for any stamp name (built-in, AI or from a share code): 1-3 words, letters/spaces/hyphens, Title Case
+const NM_BAD = /\b(fuck|shit|bitch|cunt|dick|piss|bastard|damn|hell|sex|kill|die|dead|drug|beer|wine|vodka|booze|blood|stupid|idiot|hate|ugly|poop|butt|nazi|slut)\b/i;
+function nmClean(s) {
+  if (!s) return null;
+  s = String(s).replace(/[‘’]/g, "'").replace(/'s\b/gi, 's').replace(/[^A-Za-z\s-]/g, ' ').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+  const w = s.split(' ').filter(Boolean);
+  if (!w.length || w.length > 3 || w.some((x) => x.length > 16 || /^-|-$/.test(x))) return null;
+  s = titleCase(w.join(' '));
+  if (NM_BAD.test(s) || s.replace(/[\s-]/g, '').length < 3) return null;
+  return s;
+}
+// AI output -> stamp, or null. Rejects filler, chemical names and anything that isn't a short name.
+function aiNameFilter(t, a) {
+  if (!t) return null;
+  t = String(t).split(/\n/).map((x) => x.trim()).filter(Boolean)[0] || '';
+  t = t.replace(/^(name|flavou?r|gum|stamp|answer)\s*[:\-]\s*/i, '').replace(/^["'“”*_\s]+|["'“”*_.!?\s]+$/g, '');
+  if (/^(here|sure|i |i'm|okay|ok|this|it|the name)/i.test(t)) return null;
+  const s = nmClean(t); if (!s) return null;
+  const low = s.toLowerCase();
+  if (a) for (const it of a.gum.items) {
+    const cn = CHEM[it.id].name.toLowerCase();
+    if (low === cn || cn.split(/[\s(),-]+/).some((w) => w.length > 5 && low.split(/[\s-]/).includes(w))) return null;
+  }
+  if (/^(bubble ?gum|gum|chewing gum|flavou?r)$/i.test(s)) return null;
+  return s;
+}
+
 // ===== save.js =====
 // save.js - the inventor's profile: coins, level, unlocked jars/bases/patterns, discoveries, stash, inventions, settings
 const TIER_COST = [0, 25, 60, 150], TIER_LVL = [1, 1, 3, 5];
 const SAVE_DEFAULT = () => ({
-  v: 1, coins: 40, xp: 0, made: 0, sold: 0, earned: 0, unlocked: {}, bases: { classic: true }, pats: { plain: true, stripes: true, dots: true },
+  v: 1, free: false, coins: 40, xp: 0, made: 0, sold: 0, earned: 0, unlocked: {}, bases: { classic: true }, pats: { plain: true, stripes: true, dots: true },
   found: {}, stash: [], inv: [], wrap: { paper: '#ff7eb6', ink: '#ffffff', pat: 'stripes', brand: 'GUM LAB', emo: '🫧' },
   orders: [], served: 0, daily: { key: '', done: false }, dailyStreak: 0, dailyLast: '', shiftBest: 0, longest: 0,
   set: { mute: false, music: true, ai: false, aiModel: 'tiny' }, tut: false, cur: null, amt: 2, cat: 'est'
@@ -1100,11 +1172,11 @@ function addXP(n) {
   }
   updateTop(); saveSoon();
 }
-function addCoins(n) { SAVE.coins = Math.max(0, SAVE.coins + Math.round(n)); if (n > 0) SAVE.earned += Math.round(n); updateTop(); saveSoon(); }
-function isChemOpen(c) { return c.tier === 0 || !!SAVE.unlocked[c.id] || GL_DEBUG.unlockAll; }
+function addCoins(n) { if (SAVE.free && n < 0) { updateTop(); return; } SAVE.coins = Math.max(0, SAVE.coins + Math.round(n)); if (n > 0) SAVE.earned += Math.round(n); updateTop(); saveSoon(); }
+function isChemOpen(c) { return c.tier === 0 || !!SAVE.unlocked[c.id] || GL_DEBUG.unlockAll || !!SAVE.free; }
 function chemCost(c) { return TIER_COST[c.tier]; }
 function chemLevel(c) { return TIER_LVL[c.tier]; }
-function isBaseOpen(b) { return !!SAVE.bases[b.id] || GL_DEBUG.unlockAll; }
+function isBaseOpen(b) { return !!SAVE.bases[b.id] || GL_DEBUG.unlockAll || !!SAVE.free; }
 const GL_DEBUG = { unlockAll: false };
 // compact recipe = [baseId, [[id, amountYouAdded], ...]] in the order you added things
 function recipeOf(gum) {
@@ -1120,7 +1192,7 @@ function gumFromRecipe(r) {
   return g;
 }
 function gumRecord(a, wrap) {
-  return { r: recipeOf(a.gum), name: a.name, col: a.col, stars: a.stars, price: a.price, real: a.disc.real ? a.disc.real.id : null, weird: a.disc.weird ? a.disc.weird.id : null,
+  return { r: recipeOf(a.gum), stamp: LAB.stamp || builtinStamp(a), by: LAB.stampBy || 'lab', name: a.name, col: a.col, stars: a.stars, price: a.price, real: a.disc.real ? a.disc.real.id : null, weird: a.disc.weird ? a.disc.weird.id : null,
     bubble: a.bubble, w: Object.assign({}, wrap || SAVE.wrap), t: Date.now() };
 }
 function resetSave() { SAVE = SAVE_DEFAULT(); saveNow(); }
@@ -1506,7 +1578,12 @@ function drawWrapped(g, x, y, w, h, d, info, p) {
     g.fillStyle = d.ink; g.globalAlpha = 0.95; rr(g, bx, h * 0.24, bw, h * 0.52, h * 0.12); g.fill(); g.globalAlpha = 1;
     g.fillStyle = d.paper; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = Math.round(h * 0.2) + 'px Chewy, "Comic Sans MS", cursive';
     const brand = (d.brand || 'GUM').slice(0, 14); let fs = h * 0.2; while (g.measureText(brand).width > bw * 0.7 && fs > 4) { fs -= 1; g.font = Math.round(fs) + 'px Chewy, cursive'; }
-    g.fillText(brand, bx + bw * 0.58, h * 0.5); g.font = Math.round(h * 0.26) + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; g.fillText(d.emo || '🫧', bx + h * 0.2, h * 0.5);
+    if (info.stamp) {   // brand small on top, the gum's stamped name big underneath
+      g.font = Math.round(h * 0.1) + 'px Chewy, cursive'; g.fillText(brand, bx + bw * 0.58, h * 0.34);
+      let ss = h * 0.17; g.font = Math.round(ss) + 'px Chewy, cursive'; while (g.measureText(info.stamp).width > bw * 0.72 && ss > 4) { ss -= 1; g.font = Math.round(ss) + 'px Chewy, cursive'; }
+      g.fillText(info.stamp, bx + bw * 0.58, h * 0.56);
+    } else g.fillText(brand, bx + bw * 0.58, h * 0.5);
+    g.font = Math.round(h * 0.26) + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; g.fillText(d.emo || '🫧', bx + h * 0.2, h * 0.5);
     // ingredients panel: the gum's full name in tiny print
     const ix = w * 0.6, iw = w * 0.34, iy = h * 0.1, ih = h * 0.8;
     g.fillStyle = 'rgba(255,255,255,.93)'; rr(g, ix, iy, iw, ih, h * 0.06); g.fill();
@@ -1543,7 +1620,7 @@ function openWrapperDesigner() {
       s.onclick = () => { d[key] = v; $$('#' + id + ' > *').forEach((x) => x.classList.toggle('on', x === s)); SFX.play('tap'); prev(); }; r.appendChild(s); }); };
   row('wPaper', PAPERS, 'paper', true); row('wInk', INKS, 'ink', true); row('wEmo', EMOS, 'emo', false);
   const pr = $('#wPat');
-  PATTERNS.forEach(([p, cost]) => { const own = SAVE.pats[p] || GL_DEBUG.unlockAll, s = el('button', 'pt' + (own ? '' : ' lk') + (d.pat === p ? ' on' : ''), p + (own ? '' : ' 🪙' + cost));
+  PATTERNS.forEach(([p, cost]) => { const own = SAVE.pats[p] || GL_DEBUG.unlockAll || !!SAVE.free, s = el('button', 'pt' + (own ? '' : ' lk') + (d.pat === p ? ' on' : ''), p + (own ? '' : ' 🪙' + cost));
     s.onclick = () => {
       if (!own) { if (SAVE.coins < cost) { toast('Not enough coins - sell some gum!'); SFX.play('bad'); return; } addCoins(-cost); SAVE.pats[p] = true; SFX.play('buy'); toast('🎨 New pattern: ' + p, 'pink'); d.pat = p; saveSoon(); openWrapperDesigner(); return; }
       d.pat = p; $$('#wPat > *').forEach((x) => x.classList.toggle('on', x === s)); SFX.play('tap'); prev(); };
@@ -1577,7 +1654,7 @@ const LAB = {
   reset(baseId) {
     baseId = BASE[baseId] && isBaseOpen(BASE[baseId]) ? baseId : 'classic';
     this.gum = makeGum(baseId); this.gum.order = []; SAVE.lastBase = baseId;
-    Object.assign(this, { stage: 'mix', stirP: 0, rollP: 0, hopper: 0, liftT: 0, sticks: false, wrapP: 0, wrapLift: false, tasteT: 0, fly: null, holding: false });
+    Object.assign(this, { wrapStamp: null, presetStamp: null, presetBy: null, stamp: null, stage: 'mix', stirP: 0, rollP: 0, hopper: 0, liftT: 0, sticks: false, wrapP: 0, wrapLift: false, tasteT: 0, fly: null, holding: false });
     GUS.bub = 0; GUS.chew = 0; GUS.hold = 0; GUS.mood = 'neutral';
     this.refresh(); this.colDisp = this.an.col; renderTape(); refreshJarCounts(); if (SHELF.cat === 'in') renderJars();
   },
@@ -1642,7 +1719,13 @@ function startTaste() {
   LAB.aiGuess = null; LAB.localGuess = localGuess(LAB.an);
   showNose(LAB.localGuess, false, false);
   const forGum = LAB.an;
-  aiGuessFor(forGum).then((txt) => { if (LAB.an !== forGum && LAB.stage !== 'done') return; LAB.aiGuess = txt; if (txt) showNose(txt, true); else if (AI.state === 'ready') showNose(LAB.localGuess, false); refreshResultNose(); }).catch(() => {});
+  // the stamp name: a friend's (from a share code), else the built-in namer - and the AI may replace it in a moment
+  LAB.stamp = LAB.presetStamp || LAB.wrapStamp || builtinStamp(forGum); LAB.stampBy = LAB.presetStamp ? (LAB.presetBy || 'friend') : 'lab';
+  const live = () => LAB.an === forGum && (LAB.stage === 'taste' || LAB.stage === 'done');
+  aiGuessFor(forGum).then((txt) => {
+    if (!live()) return null; LAB.aiGuess = txt; if (txt) showNose(txt, true); else if (AI.state === 'ready') showNose(LAB.localGuess, false); refreshResultNose();
+    return LAB.presetStamp ? null : aiNameFor(forGum, SAVE.stash.slice(0, 20).map((r) => r.stamp));
+  }).then((n) => { if (n && live()) setStamp(n, 'ai'); }).catch(() => {});
   updateNextBtn();
 }
 function tasteBubbleR(a) { return 10 + a.bubble * 14; }
@@ -1704,6 +1787,8 @@ function drawProcessFx(g) {
   if (LAB.stage === 'wrap' || (LAB.stage === 'taste' && LAB.tasteT < 0.75)) {
     const T = LAB.stage === 'taste' ? easeInOut(clamp(LAB.tasteT / 0.7, 0, 1)) : 0, w = lerp(260, 50, T), h = lerp(100, 18, T);
     const x = lerp(R.x - 130 + 60, WORLD.gus.x - 78, T), y = lerp(150, WORLD.gus.y + 6, T) - Math.sin(T * Math.PI) * 80;
+    if (LAB.stage === 'wrap' && !LAB.wrapStamp && LAB.an) LAB.wrapStamp = LAB.presetStamp || builtinStamp(LAB.an);
+    info.stamp = LAB.stage === 'wrap' ? LAB.wrapStamp : LAB.stamp;
     LAB.wrapLift = true; drawWrapped(g, x, y, w, h, SAVE.wrap, info, LAB.stage === 'wrap' ? LAB.wrapP : 1);
   }
 }
@@ -1914,7 +1999,7 @@ function finishGum() {
   let xp = 10 + Math.round(a.stars * 4), bonus = 0; const fresh = [];
   for (const f of [a.disc.real, a.disc.weird]) {
     if (!f) continue;
-    if (!SAVE.found[f.id]) { SAVE.found[f.id] = { t: Date.now(), name: a.name, stars: a.stars, col: a.col }; fresh.push(f); xp += f.legend ? 500 : 40; bonus += f.legend ? 500 : f.real ? 25 : 15; }
+    if (!SAVE.found[f.id]) { SAVE.found[f.id] = { t: Date.now(), name: a.name, stamp: rec.stamp, stars: a.stars, col: a.col }; fresh.push(f); xp += f.legend ? 500 : 40; bonus += f.legend ? 500 : f.real ? 25 : 15; }
   }
   SAVE.stash.unshift(rec); if (SAVE.stash.length > 40) SAVE.stash.length = 40;
   if (bonus) addCoins(bonus);
@@ -1934,7 +2019,7 @@ function showResult(a, rec, fresh, bonus) {
   const orders = matchingOrders(a);
   b.innerHTML = '<div><canvas id="rCv" width="760" height="330"></canvas><h3>The flavour\'s official name:</h3><div class="bigName"><div style="animation-duration:' + dur + 's">' + esc(a.name) + '</div></div>' +
     '<p class="sm" style="margin-top:4px">' + a.count + ' chemicals · ' + a.nameLen + ' letters long' + (a.count >= SAVE.longest ? ' · your longest yet!' : '') + '</p></div>' +
-    '<div>' + stampHtml(a.disc.real, fresh) + stampHtml(a.disc.weird, fresh) +
+    '<div><div class="gumStamp" id="rStamp">' + stampNameHtml(rec) + '</div>' + stampHtml(a.disc.real, fresh) + stampHtml(a.disc.weird, fresh) +
     '<div class="stars">' + starStr(a.stars) + '</div>' +
     '<div class="quote"><small>GUS SAYS</small>' + esc(LAB.quote || gusQuote(a)) + '</div>' +
     '<div class="quote' + (LAB.aiGuess ? ' ai' : '') + '" id="rNose">' + noseHtml() + '</div>' + profBars(a.p) +
@@ -1944,13 +2029,14 @@ function showResult(a, rec, fresh, bonus) {
     '<div class="rowBtns" id="rOrd"></div>' +
     '<div class="rowBtns"><button class="cbtn butter small" id="rSell">Sell now 🪙' + a.price + '</button><button class="cbtn mint small" id="rSave">⭐ Save invention</button>' +
     '<button class="cbtn sky small" id="rShare">Share code</button><button class="cbtn pink" id="rNext">Next batch →</button></div></div>';
-  openModal(a.disc.real ? 'You invented ' + a.disc.real.name + '!' : 'Your new gum!', b, { onClose: () => { LAB.reset(LAB.gum.base); showNose('', false); $('#aiNose').classList.add('hide'); } });
+  openModal('You invented <span id="rTitle">' + esc(rec.stamp) + '</span>!', b, { onClose: () => { LAB.reset(LAB.gum.base); showNose('', false); $('#aiNose').classList.add('hide'); } });
   if (a.disc.real || a.disc.weird) setTimeout(() => SFX.play('stamp'), 250);
-  const draw = () => { const c = $('#rCv'); if (!c) return; const g = c.getContext('2d'); g.clearRect(0, 0, 760, 330); drawWrapped(g, 30, 45, 700, 240, rec.w, { name: a.name, col: a.col }, 1); };
+  const draw = () => { const c = $('#rCv'); if (!c) return; const g = c.getContext('2d'); g.clearRect(0, 0, 760, 330); drawWrapped(g, 30, 45, 700, 240, rec.w, { name: a.name, col: a.col, stamp: rec.stamp }, 1); };
+  LAB.drawResult = draw; setTimeout(() => SFX.play('stamp'), 120);
   draw(); document.fonts && document.fonts.ready.then(draw);
   const nb = $('.bigName', $('#modalCard')), nd = $('div', nb); requestAnimationFrame(() => { const over = nd.scrollHeight - nb.clientHeight; if (over > 4) { nd.style.setProperty('--sh', -over + 'px'); nd.style.animationDuration = Math.max(6, over / 18) + 's'; nd.classList.add('scroll'); } });
   const ob = $('#rOrd');
-  for (const o of orders) { const bt = el('button', 'cbtn pink small', 'Give to ' + esc(o.who) + ' ' + o.face + ' (+🪙' + o.reward + ')'); bt.onclick = () => { serveOrder(o, rec); bt.remove(); }; ob.appendChild(bt); }
+  for (const o of orders) { const bt = el('button', 'cbtn pink small', 'Give "' + esc(rec.stamp) + '" to ' + esc(o.who) + ' ' + o.face + ' (+🪙' + o.reward + ')'); bt.onclick = () => { serveOrder(o, rec); bt.remove(); }; ob.appendChild(bt); }
   $('#rSell').onclick = (e) => { sellRec(rec); e.target.disabled = true; e.target.textContent = 'Sold!'; };
   $('#rSave').onclick = (e) => { saveInvention(rec); e.target.disabled = true; e.target.textContent = 'Saved ⭐'; };
   $('#rShare').onclick = () => openShare(rec);
@@ -1969,6 +2055,20 @@ function sellRec(rec) {
 function saveInvention(rec) {
   if (SAVE.inv.some((r) => r.name === rec.name)) { toast('Already in your inventions!'); return; }
   SAVE.inv.unshift(Object.assign({}, rec)); if (SAVE.inv.length > 80) SAVE.inv.length = 80; SFX.play('discover'); toast('⭐ Saved to your Flavour Book inventions', 'pink'); saveSoon();
+}
+// the stamped single name (1-3 words) on the result card; the AI can re-stamp it a moment later
+function stampNameHtml(rec) { return '<b>' + esc(rec.stamp) + '</b><small>' + ({ ai: 'named by AI \u00b7 runs on your device', friend: 'named by a friend', lab: 'named by the lab' }[rec.by] || 'named by the lab') + '</small>'; }
+function setStamp(n, by) {
+  n = nmClean(n); if (!n) return; LAB.stamp = n; LAB.stampBy = by;
+  const rec = LAB.lastRec; if (!rec || LAB.stage !== 'done') return;
+  const old = rec.stamp; rec.stamp = n; rec.by = by;
+  for (const r of SAVE.inv.concat(SAVE.stash)) if (r.t === rec.t) { r.stamp = n; r.by = by; }
+  for (const k in SAVE.found) if (SAVE.found[k].stamp === old && SAVE.found[k].name === rec.name) SAVE.found[k].stamp = n;
+  saveSoon();
+  const s = $('#rStamp'); if (s) { s.innerHTML = stampNameHtml(rec); s.classList.remove('again'); void s.offsetWidth; s.classList.add('again'); SFX.play('stamp'); }
+  const t = $('#rTitle'); if (t) t.textContent = n;
+  if (LAB.drawResult) LAB.drawResult();
+  $$('#rOrd button').forEach((b) => { b.innerHTML = b.innerHTML.replace('"' + esc(old) + '"', '"' + esc(n) + '"'); });
 }
 
 // ===== orders.js =====
@@ -2032,7 +2132,7 @@ function matchingOrders(a) {
 function serveOrder(o, rec) {
   const i = SAVE.stash.findIndex((r) => r.t === rec.t); if (i >= 0) SAVE.stash.splice(i, 1);
   addCoins(o.reward); addXP(15); SAVE.served++; SFX.play('coin'); setTimeout(() => SFX.play('fanfare'), 150);
-  toast(o.face + ' <b>' + esc(o.who) + '</b>: "' + pick(['Perfect!', 'EXACTLY what I wanted!', 'You\'re a gum genius!', 'Mmmmm!', 'I\'ll tell all my friends!']) + '" +🪙' + o.reward, 'gold', 3400);
+  toast(o.face + ' <b>' + esc(o.who) + '</b>: "' + (rec.stamp ? esc(rec.stamp) + '! ' : '') + pick(['Perfect!', 'EXACTLY what I wanted!', 'You\'re a gum genius!', 'Mmmmm!', 'I\'ll tell all my friends!']) + '" +🪙' + o.reward, 'gold', 3400);
   if (o.daily) { SAVE.daily.done = true; const y = todayKey(new Date(Date.now() - 864e5)); SAVE.dailyStreak = SAVE.dailyLast === y ? SAVE.dailyStreak + 1 : 1; SAVE.dailyLast = todayKey(); }
   else if (o.shift) shiftServed(o);
   else { SAVE.orders = SAVE.orders.filter((x) => x.id !== o.id); setTimeout(fillOrders, 1200); }
@@ -2120,32 +2220,32 @@ function openBook(tab) {
       list.map((f) => { const got = SAVE.found[f.id], hint = got || SAVE.hints[f.id];
         return '<div class="fcard' + (got ? '' : ' lock') + '"><div class="em">' + f.em + '</div><b>' + (got ? esc(f.name) : '???') + '</b>' +
           (hint ? '<p>' + esc(f.hint) + '</p>' : '<button class="cbtn small butter" data-h="' + f.id + '">Hint 🪙10</button>') +
-          (got ? '<div class="chemName" title="' + esc(got.name) + '">First made as: ' + esc(got.name) + '</div>' : '') + '</div>'; }).join('') + '</div>';
+          (got ? '<div class="chemName" title="' + esc(got.name) + '">First made as ' + (got.stamp ? '<b>\u201c' + esc(got.stamp) + '\u201d</b>: ' : '') + esc(got.name) + '</div>' : '') + '</div>'; }).join('') + '</div>';
   }
   const c = openModal('Flavour Book', b, { tabs });
   $$('.tab', c).forEach((t) => t.onclick = () => { SFX.play('tap'); openBook(t.dataset.t); });
   $$('[data-h]', c).forEach((h) => h.onclick = () => {
-    if (SAVE.coins < 10) { toast('You need 10 coins for a hint.'); SFX.play('bad'); return; }
+    if (!SAVE.free && SAVE.coins < 10) { toast('You need 10 coins for a hint.'); SFX.play('bad'); return; }
     addCoins(-10); SAVE.hints[h.dataset.h] = 1; saveSoon(); SFX.play('coin'); openBook(tab);
   });
   if (tab === 'inv') wireInvList(c);
 }
 function invList() {
   if (!SAVE.inv.length) return '<p style="font-weight:800">No saved inventions yet. Make a gum and press <b>⭐ Save invention</b> on the result card.</p>';
-  return SAVE.inv.map((r, i) => '<div class="inv"><canvas width="192" height="108" data-i="' + i + '"></canvas><div class="nm">' + starStr(r.stars) + ' ' +
+  return SAVE.inv.map((r, i) => '<div class="inv"><canvas width="192" height="108" data-i="' + i + '"></canvas><div class="nm"><b class="stampN">' + esc(r.stamp || 'Unnamed') + '</b> ' + starStr(r.stars) + ' ' +
     (r.real ? '<b>' + FLAV[r.real].em + ' ' + esc(FLAV[r.real].name) + '</b> · ' : '') + (r.weird ? '<b>' + FLAV[r.weird].em + ' ' + esc(FLAV[r.weird].name) + '</b> · ' : '') + esc(r.name) + '</div>' +
     '<div class="bt"><button class="cbtn small mint" data-re="' + i + '">Remake</button><button class="cbtn small sky" data-sh="' + i + '">Share</button><button class="cbtn small ghost" data-rm="' + i + '">Remove</button></div></div>').join('');
 }
 function wireInvList(c) {
-  $$('canvas[data-i]', c).forEach((cv) => { const r = SAVE.inv[+cv.dataset.i]; drawWrapped(cv.getContext('2d'), 6, 12, 180, 84, r.w, { name: r.name, col: r.col }, 1); });
-  $$('[data-re]', c).forEach((b) => b.onclick = () => { closeModal(); remakeRecipe(SAVE.inv[+b.dataset.re].r); });
+  $$('canvas[data-i]', c).forEach((cv) => { const r = SAVE.inv[+cv.dataset.i]; drawWrapped(cv.getContext('2d'), 6, 12, 180, 84, r.w, { name: r.name, col: r.col, stamp: r.stamp }, 1); });
+  $$('[data-re]', c).forEach((b) => b.onclick = () => { closeModal(); const r = SAVE.inv[+b.dataset.re]; remakeRecipe(r.r, false, r.stamp, r.by); });
   $$('[data-sh]', c).forEach((b) => b.onclick = () => openShare(SAVE.inv[+b.dataset.sh]));
   $$('[data-rm]', c).forEach((b) => b.onclick = () => confirmBox('Remove invention?', 'Take this gum out of your saved inventions?', 'Remove', () => { SAVE.inv.splice(+b.dataset.rm, 1); saveSoon(); openBook('inv'); }));
 }
 // load a recipe into the kettle (only chemicals you own, unless it came from a friend's code)
-function remakeRecipe(r, borrowed) {
+function remakeRecipe(r, borrowed, stamp, by) {
   if (LAB.stage !== 'mix' && LAB.stage !== 'stir') { toast('Finish the current batch first!'); return; }
-  LAB.reset(r[0]); let missing = 0;
+  LAB.reset(r[0]); let missing = 0; if (stamp && nmClean(stamp)) { LAB.presetStamp = nmClean(stamp); LAB.presetBy = by || 'friend'; }
   for (const [id, amt] of r[1]) { const c = CHEM[id]; if (!c) continue; if (!borrowed && !isChemOpen(c)) { missing++; continue; } addChem(LAB.gum, id, amt); LAB.gum.order.push(id); }
   LAB.refresh(); renderTape(); renderJars(); SFX.play('glug'); gusSay(borrowed ? 'A recipe from a friend! Let\'s see...' : 'Back by popular demand!', 2.5);
   if (missing) toast(missing + ' chemical' + (missing > 1 ? 's' : '') + ' left out - you haven\'t unlocked ' + (missing > 1 ? 'them' : 'it') + ' yet.');
@@ -2162,7 +2262,7 @@ function openShop(tab) {
     const total = SAVE.stash.reduce((s, r) => s + r.price, 0);
     b.innerHTML = '<p class="sm">Every gum you make lands in your stash. Sell them here or give them to customers. You have 🪙' + fmt(SAVE.coins) + '.</p>' +
       (SAVE.stash.length ? '<div class="rowBtns" style="margin-bottom:10px"><button class="cbtn butter" id="sAll">Sell everything 🪙' + total + '</button></div>' : '<p style="font-weight:800;margin-top:10px">Your stash is empty. Go make some gum!</p>') +
-      SAVE.stash.map((r, i) => '<div class="inv"><canvas width="192" height="108" data-i="' + i + '"></canvas><div class="nm">' + starStr(r.stars) + ' ' + (r.real ? '<b>' + FLAV[r.real].em + ' ' + esc(FLAV[r.real].name) + '</b> · ' : '') + esc(r.name) + '</div>' +
+      SAVE.stash.map((r, i) => '<div class="inv"><canvas width="192" height="108" data-i="' + i + '"></canvas><div class="nm"><b class="stampN">' + esc(r.stamp || 'Unnamed') + '</b> ' + starStr(r.stars) + ' ' + (r.real ? '<b>' + FLAV[r.real].em + ' ' + esc(FLAV[r.real].name) + '</b> · ' : '') + esc(r.name) + '</div>' +
         '<div class="bt"><button class="cbtn small butter" data-s="' + i + '">Sell 🪙' + r.price + '</button><button class="cbtn small sky" data-sh="' + i + '">Share</button></div></div>').join('');
   } else if (tab === 'chem') {
     let h = '<p class="sm">Unlock rarer jars. Uncommon jars cost 🪙' + TIER_COST[1] + ', rare 🪙' + TIER_COST[2] + ' (level ' + TIER_LVL[2] + '), ultra-rare 🪙' + TIER_COST[3] + ' (level ' + TIER_LVL[3] + '). You: level ' + level() + ', 🪙' + fmt(SAVE.coins) + '.</p>';
@@ -2178,7 +2278,7 @@ function openShop(tab) {
   } else b.innerHTML = baseCards(false);
   const c = openModal('The Gum Shop', b, { tabs });
   $$('.tab', c).forEach((t) => t.onclick = () => { SFX.play('tap'); openShop(t.dataset.t); });
-  $$('canvas[data-i]', c).forEach((cv) => { const r = SAVE.stash[+cv.dataset.i]; drawWrapped(cv.getContext('2d'), 6, 12, 180, 84, r.w, { name: r.name, col: r.col }, 1); });
+  $$('canvas[data-i]', c).forEach((cv) => { const r = SAVE.stash[+cv.dataset.i]; drawWrapped(cv.getContext('2d'), 6, 12, 180, 84, r.w, { name: r.name, col: r.col, stamp: r.stamp }, 1); });
   $$('[data-s]', c).forEach((bt) => bt.onclick = () => { sellRec(SAVE.stash[+bt.dataset.s]); openShop('sell'); });
   $$('[data-sh]', c).forEach((bt) => bt.onclick = () => openShare(SAVE.stash[+bt.dataset.sh]));
   const all = $('#sAll', c); if (all) all.onclick = () => { const n = SAVE.stash.length, tot = SAVE.stash.reduce((s, r) => s + r.price, 0); SAVE.stash = []; SAVE.sold += n; addCoins(tot); addXP(n * 2); SFX.play('coin'); toast('🪙 Sold ' + n + ' gums for ' + tot + '!', 'gold'); openShop('sell'); };
@@ -2208,7 +2308,7 @@ function b64urlEncode(str) { const bytes = new TextEncoder().encode(str); let bi
 function b64urlDecode(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); }
 function encodeGum(rec) {
   const w = rec.w || SAVE.wrap;
-  return 'GUM1-' + b64urlEncode(JSON.stringify([rec.r[0], rec.r[1], [w.paper, w.ink, w.pat, w.brand, w.emo]]));
+  return 'GUM1-' + b64urlEncode(JSON.stringify([rec.r[0], rec.r[1], [w.paper, w.ink, w.pat, w.brand, w.emo], rec.stamp || '']));
 }
 // returns {r: recipe, w: wrapper} or null. Unknown chemicals are skipped; amounts are clamped.
 function decodeGum(code) {
@@ -2220,14 +2320,14 @@ function decodeGum(code) {
     const ww = Array.isArray(d[2]) ? d[2] : [], okCol = (c, f) => /^#[0-9a-f]{6}$/i.test(c || '') ? c : f;
     const w = { paper: okCol(ww[0], '#ff7eb6'), ink: okCol(ww[1], '#ffffff'), pat: PATTERNS.some((p) => p[0] === ww[2]) ? ww[2] : 'stripes',
       brand: String(ww[3] || 'GUM').slice(0, 14), emo: EMOS.includes(ww[4]) ? ww[4] : '🫧' };
-    return { r: [base, list], w };
+    return { r: [base, list], w, stamp: nmClean(d[3]) };
   } catch (e) { return null; }
 }
 function openShare(rec) {
   const code = encodeGum(rec), b = el('div');
   b.innerHTML = '<p style="font-weight:800">Send this code to a friend. They paste it into <b>Menu → Taste a friend\'s gum</b> to load your exact recipe (and wrapper).</p>' +
     '<label class="field">Gum code<textarea id="shCode" readonly>' + esc(code) + '</textarea></label><div class="rowBtns"><button class="cbtn pink" id="shCopy">Copy code</button><button class="cbtn" id="shOk">Done</button></div>' +
-    '<p class="sm">Its name: ' + esc(rec.name) + '</p>';
+    '<p class="sm"><b>\u201c' + esc(rec.stamp || '') + '\u201d</b> - full name: ' + esc(rec.name) + '</p>';
   const prevClose = _modalClose; const c = openModal('Share your gum', b, { narrow: true, onClose: prevClose });
   $('#shCopy', c).onclick = () => {
     const ta = $('#shCode', c); ta.select();
@@ -2245,7 +2345,7 @@ function openImport() {
     const d = decodeGum($('#imCode', c).value);
     if (!d) { $('#imMsg', c).textContent = 'Hmm, that code doesn\'t look right. It should start with GUM1-'; SFX.play('bad'); return; }
     if (LAB.stage !== 'mix' && LAB.stage !== 'stir') { $('#imMsg', c).textContent = 'Finish the gum you\'re making first!'; return; }
-    closeModal(); remakeRecipe(d.r, true); toast('🫕 Friend\'s recipe loaded! Stir, roll, wrap and taste it.', 'pink', 3200);
+    closeModal(); remakeRecipe(d.r, true, d.stamp, 'friend'); toast('🫕 Friend\'s recipe loaded! Stir, roll, wrap and taste it.', 'pink', 3200);
   };
 }
 
@@ -2277,7 +2377,7 @@ self.onmessage = async (e) => {
     } catch (err) { self.postMessage({ type: 'error', error: String((err && err.message) || err) }); }
   } else if (m.type === 'gen') {
     try {
-      const out = await gen(m.messages, { max_new_tokens: 32, do_sample: true, temperature: 0.6, top_p: 0.9, repetition_penalty: 1.15 });
+      const out = await gen(m.messages, { max_new_tokens: m.max || 32, do_sample: true, temperature: m.temp || 0.6, top_p: 0.9, repetition_penalty: 1.15 });
       const g = out[0].generated_text, text = Array.isArray(g) ? g[g.length - 1].content : String(g);
       self.postMessage({ type: 'out', id: m.id, text });
     } catch (err) { self.postMessage({ type: 'out', id: m.id, error: String((err && err.message) || err) }); }
@@ -2359,6 +2459,34 @@ function aiGuessFor(a) {
     AI.jobs[id] = (txt) => { clearTimeout(to); res(aiFilter(txt, a)); };
     AI.worker.postMessage({ type: 'gen', id, messages: aiMessages(a) });
   });
+}
+// ---- AI stamp names: 1-3 words, very few tokens, sanitised; one retry, then the caller keeps the built-in name ----
+function aiNameMessages(a) {
+  const added = a.gum.items.filter((i) => i.you > 0).slice(0, 10).map((i) => CHEM[i.id].smell.split('/')[0].trim()).filter((x) => !/^nothing/.test(x));
+  const notes = topNotes(a.p, 3).map(([k]) => NOTE_NAMES[k]).join(', ') || 'mild';
+  return [
+    { role: 'system', content: 'You invent catchy names for new bubble gum flavours. Reply with the name only: one to three words, no quotes.' },
+    { role: 'user', content: 'Smells: marshmallow, vanilla, smoke. Taste: sweet, creamy. Colour: brown.' }, { role: 'assistant', content: 'Burnt Marshmallow' },
+    { role: 'user', content: 'Smells: grape candy, chilli heat. Taste: fruity, spicy. Colour: purple.' }, { role: 'assistant', content: 'Purple Thunder' },
+    { role: 'user', content: 'Smells: lemon, bitter. Taste: sour, bitter. Colour: yellow.' }, { role: 'assistant', content: 'Sad Lemon' },
+    { role: 'user', content: 'Smells: ' + (added.join(', ') || 'plain gum') + '. Taste: ' + notes + '. Colour: ' + a.colName + '.' + (a.disc.real ? ' It tastes like ' + a.disc.real.name + '.' : '') }
+  ];
+}
+function aiRaw(messages, max, temp) {
+  return new Promise((res) => {
+    if (!AI.worker || (AI.state !== 'ready' && AI.state !== 'busy')) { res(null); return; }
+    const id = ++AI.seq, to = setTimeout(() => { if (AI.jobs[id]) { delete AI.jobs[id]; res(null); } }, 20000);
+    AI.jobs[id] = (txt) => { clearTimeout(to); res(txt); };
+    AI.worker.postMessage({ type: 'gen', id, messages, max, temp });
+  });
+}
+async function aiNameFor(a, taken) {
+  if (AI.state !== 'ready' && AI.state !== 'busy') return null;
+  for (let tryN = 0; tryN < 2; tryN++) {
+    const n = aiNameFilter(await aiRaw(aiNameMessages(a), 8, tryN ? 0.9 : 0.7), a);
+    if (n && !(taken || []).includes(n)) return n;
+  }
+  return null;
 }
 
 // ===== menu.js =====
@@ -2527,6 +2655,28 @@ async function renderTile() {
   drawGumText(g, 'Bubble Gum', 820, 300, 230); drawGumText(g, 'Inventor', 820, 560, 250, { pal: ['#c4ebff', '#7cc8f5', '#3d8fd6'] });
   return c.toDataURL('image/png');
 }
+
+// ===== cheat.js =====
+// cheat.js - secret code: type "joessoks4" anywhere (or paste it into any text box) and everything in the lab is free forever
+(function () {
+  const CODE = 'joessoks4'; let buf = '';
+  function activate() {
+    if (SAVE.free) { toast('🧦 Everything is already free!', 'gold'); return; }
+    SAVE.free = true; saveNow();
+    try { renderJars(); } catch (e) { /* lab not built yet */ }
+    try { SFX.play('coin'); } catch (e) { /* no audio yet */ }
+    toast("🧦 JOE'S SOKS! Every jar, base and wrapper is now FREE.", 'gold');
+  }
+  addEventListener('keydown', (e) => {
+    if (!e.key || e.key.length !== 1) return;
+    buf = (buf + e.key.toLowerCase()).slice(-CODE.length);
+    if (buf === CODE) { buf = ''; activate(); }
+  }, true);
+  addEventListener('input', (e) => {
+    const t = e.target; if (!t || typeof t.value !== 'string') return;
+    if (t.value.toLowerCase().includes(CODE)) { t.value = t.value.replace(new RegExp(CODE, 'ig'), ''); activate(); }
+  }, true);
+})();
 
 // ===== main.js =====
 // main.js - boot, the frame loop, top bar, button wiring, and window.GL hooks for tests / the tile maker
