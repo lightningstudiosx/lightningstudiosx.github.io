@@ -217,6 +217,8 @@ mark.hit{background:var(--amber);color:#1b1a17;border-radius:2px;box-shadow:0 0 
 @media (max-width:420px){ .tk:not(.big):not(.on):not(.next) i{width:5px;height:5px} #gut{display:none} }
 #sintro{position:absolute;left:0;right:0;top:38%;text-align:center;color:var(--dim2);font-size:17px;line-height:1.7;transition:opacity 1s;pointer-events:none}
 #sintro b{color:var(--amber);font-weight:500}
+#copyRow{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+#copyRow .rb{font-size:13px}
 
 </style>
 </head>
@@ -1740,6 +1742,53 @@ EN.close = () => { EN.on = false; BY.$('ending').classList.add('hide'); };
     type: n => { for (let i = 0; i < (n || 1); i++) doType(); return S.total.toString(); },
     open: n => pickStage(n), tab: setTab, save: saveNow, prestige, rate: () => E.rate(S)
   };
+})();
+
+// ===== copy.js =====
+// copy.js - copy (or download) all the text you have written so far
+(() => {
+  const CLIP_CAP = 5000000, FILE_CAP = 100000000;        // 5 MB to the clipboard, 100 MB as a .txt
+  const G = BY.gen, CT = BY.counter;
+  const human = b => { const u = BY.UNITS; let i = 0, n = Number(b); while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; } return (i ? n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) : n) + ' ' + u[i]; };
+  const total = () => (window.BYTE && window.BYTE.S ? window.BYTE.S.total : 0n);
+  const fallbackCopy = txt => {
+    const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); return ok;
+  };
+  async function copyAll() {
+    const t = total();
+    if (t <= 0n) { CT.toast('nothing to copy yet', 'type a byte first'); return; }
+    const n = t > BigInt(CLIP_CAP) ? CLIP_CAP : Number(t);
+    let txt = G.range(0n, n);
+    if (t > BigInt(CLIP_CAP)) txt += '\n\n[ ...and ' + (t - BigInt(CLIP_CAP)).toLocaleString() + ' more bytes (' + human(t) + ' total). no clipboard on Earth can hold that much - this is the first 5 MB. ]\n';
+    let ok = false;
+    try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(txt); ok = true; } } catch (e) { ok = false; }
+    if (!ok) ok = fallbackCopy(txt);
+    if (ok) CT.toast('copied!', t > BigInt(CLIP_CAP) ? 'the first 5 MB of your ' + human(t) : 'all ' + Number(t).toLocaleString() + ' bytes you wrote');
+    else CT.toast('copy blocked', 'your browser said no - try the .txt button');
+  }
+  function downloadAll() {
+    const t = total();
+    if (t <= 0n) { CT.toast('nothing to save yet', 'type a byte first'); return; }
+    const n = t > BigInt(FILE_CAP) ? FILE_CAP : Number(t), parts = [], CH = 1000000;
+    for (let o = 0; o < n; o += CH) parts.push(G.range(BigInt(o), Math.min(CH, n - o)));
+    if (t > BigInt(FILE_CAP)) parts.push('\n\n[ ...and ' + (t - BigInt(FILE_CAP)).toLocaleString() + ' more bytes. this file is the first 100 MB of your ' + human(t) + '. ]\n');
+    const url = URL.createObjectURL(new Blob(parts, { type: 'text/plain' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'byte-' + human(t).replace(/\s/g, '') + '.txt';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+    CT.toast('saved .txt', t > BigInt(FILE_CAP) ? 'the first 100 MB of your ' + human(t) : human(t) + ' of text');
+  }
+  const row = BY.$('typeRow');
+  if (row) {
+    const box = document.createElement('div'); box.id = 'copyRow';
+    box.innerHTML = '<button class="rb" id="copyAll" title="Copy all the text you have written">⧉ copy all my text</button><button class="rb" id="saveAll" title="Download it as a .txt file">⬇ .txt</button>';
+    row.after(box);
+    BY.$('copyAll').addEventListener('click', e => { e.stopPropagation(); copyAll(); });
+    BY.$('saveAll').addEventListener('click', e => { e.stopPropagation(); downloadAll(); });
+    ['keydown', 'pointerdown'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+  }
+  BY.copyAll = copyAll; BY.downloadAll = downloadAll;
 })();
 
 </script>
