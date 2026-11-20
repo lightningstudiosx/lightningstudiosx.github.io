@@ -130,6 +130,10 @@ body.touch #hHelp{bottom:150px}
 body.touch #hInv{bottom:196px;max-width:calc(100vw - 24px)}
 @media (max-width:600px){#hTL b{font-size:17px}#hTL span{font-size:7.5px}#hTR{top:62px;right:12px}.guide{columns:1}}
 body.inroom #top{justify-content:flex-end}
+#crosshair{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fbf6ea;box-shadow:0 0 0 1.5px rgba(42,32,24,.75);pointer-events:none;z-index:24;display:none}
+body.locked #crosshair{display:block}body.locked #hoverTag{transition:none}
+#lockHint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(42,32,24,.72);color:#fbf6ea;font-size:13px;padding:6px 12px;border-radius:999px;pointer-events:none;z-index:24;opacity:0;transition:opacity .2s;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+#lockHint.on{opacity:1}
 
 
 #reader{z-index:60;background:rgba(30,20,12,.8);padding:10px}
@@ -427,7 +431,7 @@ v: 1, seed: (Math.random() * 4294967295) >>> 0, first: 0, last: 0, taken: false,
 patience: 0, lastPat: 0, kind: 0, bells: 0, coins: 3, cups: 0, cupT: 0, inv: [], returned: [], story: {}, met: {}, chatT: {},
 mags: {}, books: {}, bm: {}, secrets: {}, notes: {}, forms: {}, puzzles: {}, water: 0, waterT: 0, fed: 0, fedT: 0,
 vend: 0, coffee: 0, wipe: 0, notebook: '', drawer: {}, called: 0, endings: 0, tv: 0, dreams: 0, seats: 0, visits: 0,
-set: { vol: 0.8, music: 0.55, amb: 0.7, grain: 1, quality: 1, sens: 1, dreamSpeed: 3600, mute: 0, invY: 0 }
+set: { vol: 0.8, music: 0.55, amb: 0.7, grain: 1, quality: 1, sens: 1, dreamSpeed: 3600, mute: 0, invY: 0, lock: 1 }
 });
 WR.S = fresh();
 WR.load = () => {
@@ -1888,21 +1892,23 @@ if (e.code === 'KeyM') WR.Audio.toggleMute();
 if (!inRoom()) { if (e.code === 'Escape') WR.UI.escape(); return; }
 if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 if (e.code === 'Space' || e.code === 'KeyF') C.toggle();
-if (e.code === 'Escape') WR.UI.menu();
+if (e.code === 'Escape' && !(WR.Lock && WR.Lock.escSwallow())) WR.UI.menu();
 });
 addEventListener('keyup', e => { C.keys[e.code] = 0; });
 addEventListener('blur', () => { for (const k in C.keys) C.keys[k] = 0; });
 document.addEventListener('pointerdown', e => {
 if (e.target !== cv() || !inRoom()) return; WR.Audio.unlock();
 if (WR.Touch && WR.Touch.owns(e)) return;
+if (WR.Lock && WR.Lock.down(e)) return;
 C.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0, t: performance.now() };
 });
 document.addEventListener('pointermove', e => {
 if (!inRoom()) return;
+if (WR.Lock && WR.Lock.move(e)) return;
 if (C.drag && e.pointerId === C.drag.id) {
 const s = 0.0042 * WR.S.set.sens * (e.pointerType === 'touch' ? 1.3 : 1), dx = e.clientX - C.drag.x, dy = e.clientY - C.drag.y;
 C.yaw += dx * s; C.pitch += dy * s * (WR.S.set.invY ? -1 : 1); C.drag.x = e.clientX; C.drag.y = e.clientY; C.drag.moved += Math.abs(dx) + Math.abs(dy);
-} else if (e.pointerType === 'mouse' && e.target === cv() && performance.now() - (C._hv || 0) > 60) { C._hv = performance.now(); C.hoverAt(e.clientX, e.clientY); }
+} else if (e.pointerType === 'mouse' && e.target === cv() && !(WR.Lock && WR.Lock.enabled()) && performance.now() - (C._hv || 0) > 60) { C._hv = performance.now(); C.hoverAt(e.clientX, e.clientY); }
 });
 const up = e => {
 if (!C.drag || e.pointerId !== C.drag.id) return; const d = C.drag; C.drag = null;
@@ -3105,7 +3111,7 @@ WR.$('panel').addEventListener('pointerdown', e => { if (e.target.id === 'panel'
 UI.escape = () => { if (WR.Reader.cur) return WR.Reader.close(); if (!WR.$('away').classList.contains('hide')) return WR.Away.close(); UI.close(); };
 UI.menu = () => {
 const d = WR.dream.on;
-UI.card({ title: 'Waiting Room', body: '<p class="dim">Drag to look around. Click or tap things to inspect them. WASD / arrows (or the stick) to walk; Space to stand up or sit down. Esc for this menu.</p>', buttons: [
+UI.card({ title: 'Waiting Room', body: '<p class="dim">Click the room to lock the mouse and look around (Esc lets go; turn it off in Settings), or drag to look on touch screens. Click or tap things to inspect them. WASD / arrows (or the stick) to walk; Space to stand up or sit down. Esc for this menu.</p>', buttons: [
 { t: 'Back to waiting', f: UI.close }, { t: d ? 'Wake up' : 'Dream (time flies)', f: () => { UI.close(); UI.dreamMode(!d); } },
 { t: 'Collection', f: () => { UI.close(); WR.UI.collection(); } }, { t: 'Settings', f: () => { UI.close(); WR.UI.settings(); } }, { t: 'Leave the room', f: () => { UI.close(); UI.leave(); } }] });
 };
@@ -3189,7 +3195,7 @@ UI.settings = () => {
 const s = WR.S.set, sl = (k, lab, min, max, step) => '<label class="set"><span>' + lab + '</span><input type="range" data-k="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + s[k] + '"></label>';
 const sel = (k, lab, opts) => '<label class="set"><span>' + lab + '</span><select data-k="' + k + '">' + opts.map(([v, n]) => '<option value="' + v + '"' + (+s[k] === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>';
 UI.card({ title: 'Settings', body: sl('vol', 'Master volume', 0, 1, 0.05) + sl('music', 'Muzak', 0, 1, 0.05) + sl('amb', 'Room tone (hum, clock, rain)', 0, 1, 0.05) + sl('sens', 'Look sensitivity', 0.3, 2.5, 0.1) +
-sel('quality', 'Graphics', [[0, 'Low (fast)'], [1, 'Medium'], [2, 'High (sharp)']]) + sel('grain', 'Film grain', [[1, 'On'], [0, 'Off']]) + sel('invY', 'Invert look', [[0, 'No'], [1, 'Yes']]) +
+sel('quality', 'Graphics', [[0, 'Low (fast)'], [1, 'Medium'], [2, 'High (sharp)']]) + sel('grain', 'Film grain', [[1, 'On'], [0, 'Off']]) + sel('invY', 'Invert look', [[0, 'No'], [1, 'Yes']]) + sel('lock', 'Mouse lock (Esc lets go)', [[1, 'On'], [0, 'Off: drag to look']]) +
 sel('dreamSpeed', 'Dream speed', [[60, '1 minute per second'], [600, '10 minutes per second'], [3600, '1 hour per second'], [86400, '1 day per second']]) +
 '<p class="dim">Everything is saved in this browser only. Time is real: the room uses your computer\'s clock.</p>',
 buttons: [{ t: 'Done', f: UI.close }, { t: 'Start over (forget everything)', cls: 'warn', f: () => UI.card({ title: 'Start over?', body: '<p>This forgets your number, everything you read, everyone you met, and every secret. The room itself will carry on regardless.</p>', buttons: [{ t: 'Yes, forget it all', cls: 'warn', f: () => { WR.reset(); location.reload(); } }, { t: 'No', f: UI.close }] }) }] });
@@ -3208,12 +3214,66 @@ st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end)
 WR.$('tStand').onclick = () => WR.Ctl.toggle();
 WR.on('pose', m => { WR.$('tStand').textContent = m === 'sit' ? 'STAND' : 'SIT'; WR.$('stL').classList.toggle('dim', m === 'sit'); });
 };
-const HINTS = ['Drag to look around. Click or tap anything to inspect it.', 'The NOW SERVING display is above the desk. Your number is a long way off.', 'Magazines on the coffee table are fully readable. New issues arrive every week.', 'The bookshelf on the right: every book can be read, cover to cover.', 'Talk to strangers when they come in. They tell you a little more each visit.', 'Being kind and patient moves you up the queue.', 'Leave and come back in a few days: the room keeps going without you.'];
+const HINTS = ['Click the room to look around with the mouse (Esc lets go), or drag on a phone. Click or tap anything to inspect it.', 'The NOW SERVING display is above the desk. Your number is a long way off.', 'Magazines on the coffee table are fully readable. New issues arrive every week.', 'The bookshelf on the right: every book can be read, cover to cover.', 'Talk to strangers when they come in. They tell you a little more each visit.', 'Being kind and patient moves you up the queue.', 'Leave and come back in a few days: the room keeps going without you.'];
 let hintT = 6, hintI = 0;
 UI.hints = (dt) => {
 const S = WR.S; if ((S.hintsSeen || 0) >= HINTS.length) return WR.$('hHelp').classList.remove('on');
 hintT -= dt; if (hintT > 0) return; hintT = 14; const h = WR.$('hHelp');
 h.textContent = HINTS[S.hintsSeen || 0]; h.classList.add('on'); S.hintsSeen = (S.hintsSeen || 0) + 1; setTimeout(() => h.classList.remove('on'), 9000);
+};
+}
+// ===== lock.js =====
+{
+const L = WR.Lock = { on: false, t: 0, fail: false, was: false };
+L.enabled = () => !L.fail && WR.S.set.lock !== 0 && !!HTMLCanvasElement.prototype.requestPointerLock &&
+(!WR.Q.has('test') || WR.Q.has('lock'));
+L.req = () => {
+try { const p = WR.$('gl').requestPointerLock(); if (p && p.catch) p.catch(() => { L.hint(); }); } catch (e) { L.hint(); }
+};
+L.exit = () => { if (document.pointerLockElement) document.exitPointerLock(); };
+L.cx = () => WR.R.w / 2; L.cy = () => WR.R.h / 2;
+document.addEventListener('pointerlockchange', () => {
+L.on = document.pointerLockElement === WR.$('gl'); L.t = performance.now();
+document.body.classList.toggle('locked', L.on);
+if (!L.on) { WR.$('hoverTag').classList.remove('on'); WR.Ctl.hover = null; for (const k in WR.Ctl.keys) WR.Ctl.keys[k] = 0; }
+L.hint();
+});
+document.addEventListener('pointerlockerror', () => { L.fail = true; L.hint(); });
+L.down = (e) => {
+if (e.pointerType !== 'mouse' || !L.enabled()) return false;
+if (e.button !== 0) return true;
+if (L.on) WR.Act.click(L.cx(), L.cy()); else L.req();
+return true;
+};
+L.move = (e) => {
+if (!L.on) return false;
+const s = 0.0024 * WR.S.set.sens;
+WR.Ctl.yaw -= (e.movementX || 0) * s; WR.Ctl.pitch -= (e.movementY || 0) * s * (WR.S.set.invY ? -1 : 1);
+return true;
+};
+L.escSwallow = () => L.on || performance.now() - L.t < 400;
+L.hint = () => {
+const h = WR.$('lockHint'); if (!h) return;
+h.classList.toggle('on', L.enabled() && !L.on && WR.UI.inRoom() && !WR.isTouch());
+};
+const ov0 = WR.UI.overlay;
+WR.UI.overlay = (on) => {
+const before = WR.UI.ov; ov0(on);
+if (on && before === 0) { L.was = L.on; L.exit(); }
+if (!on && before > 0 && WR.UI.ov === 0 && L.was && L.enabled() && navigator.userActivation && navigator.userActivation.isActive) L.req();
+setTimeout(L.hint, 0);
+};
+L.tick = () => {
+if (L.on && !WR.UI.inRoom()) L.exit();
+if (L.on && performance.now() - (L._hv || 0) > 80) {
+L._hv = performance.now(); WR.Ctl.hoverAt(L.cx(), L.cy());
+}
+L.hint();
+};
+L.init = () => {
+const ch = document.createElement('div'); ch.id = 'crosshair'; ch.setAttribute('aria-hidden', 'true'); document.body.appendChild(ch);
+const h = document.createElement('div'); h.id = 'lockHint'; h.textContent = 'click to look around · Esc to let go of the mouse'; document.body.appendChild(h);
+setInterval(L.tick, 100);
 };
 }
 // ===== away.js =====
@@ -3450,7 +3510,7 @@ if (WR.Q.has('tile')) { window.WAITINGROOM = true; WR.$('boot').classList.add('g
 const scene = WR.R.scene, Rm = WR.Room, P = WR.Props;
 Rm.build(scene); Rm.buildFurniture(); Rm.buildWalls(); Rm.buildShelf(); Rm.buildDesk(); Rm.buildNotes();
 P.buildWindow(); P.buildPlant(); P.buildDust(); P.buildSteam(); WR.Act.setup();
-WR.Ctl.init(); WR.Live.init(); WR.Touch.init(); WR.UI.wireHome(); WR.UI.applySet();
+WR.Ctl.init(); WR.Live.init(); WR.Touch.init(); WR.Lock.init(); WR.UI.wireHome(); WR.UI.applySet();
 const prevLast = WR.S.last; WR.UI.show('home');
 document.body.classList.toggle('touch', WR.isTouch());
 const unlock = () => { WR.Audio.unlock(); WR.Muzak.start(); }; addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
