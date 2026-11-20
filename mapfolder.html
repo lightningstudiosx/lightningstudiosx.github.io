@@ -1,0 +1,2588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FOLDWAY · Kai.fun</title>
+<meta name="description" content="FOLDWAY - fold a paper map so faraway places touch. Tuck, crease, tape, tear and ink your way across 46 hand-made maps in eight atlases, plus a daily fold, an endless map press and a map editor.">
+<meta name="theme-color" content="#3a2616">
+<script src="bdp.js" defer></script>
+<style>
+/* style_base.css - FOLDWAY "Cartographer's Desk": walnut desk, cream paper, sepia ink, red pencil */
+:root {
+--desk: #3a2616; --desk2: #24170d; --paper: #f2e7c9; --paper2: #e6d6ad; --ink: #3b2a1c; --ink2: #6b5238;
+--red: #b4402c; --blue: #4d7a90; --green: #6f8a4a; --gold: #c99a3c; --shadow: rgba(20, 10, 2, .45);
+--serif: Georgia, 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+--hand: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--desk2); color: var(--paper); font-family: var(--serif); overflow: hidden; overscroll-behavior: none; }
+body { -webkit-tap-highlight-color: transparent; }
+button { font-family: inherit; cursor: pointer; }
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; max-width: 100vw; overflow: hidden;
+background: radial-gradient(ellipse at 50% 40%, #5a3b22 0%, #3a2616 55%, #1e130a 100%); }
+#app::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+background: repeating-linear-gradient(92deg, rgba(0,0,0,.0) 0 7px, rgba(0,0,0,.18) 7px 9px, rgba(255,220,170,.04) 9px 15px),
+repeating-linear-gradient(88deg, rgba(0,0,0,0) 0 31px, rgba(0,0,0,.12) 31px 34px); }
+#top { position: relative; z-index: 5; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 8px;
+background: linear-gradient(#2b1b0e, #20140a); border-bottom: 1px solid #5c3f24; box-shadow: 0 2px 8px rgba(0,0,0,.4); flex: none; }
+#kai { color: #f0d9a8; text-decoration: none; font-size: 14px; padding: 6px 8px; border-radius: 6px; white-space: nowrap; }
+#kai:hover { background: rgba(255,255,255,.08); }
+#topT { font-weight: bold; letter-spacing: .18em; color: #f3e2b8; font-size: 15px; white-space: nowrap; }
+#topMid { flex: 1; min-width: 0; text-align: center; font-size: 13px; color: #d9c393; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+.tb { width: 34px; height: 34px; border-radius: 8px; border: 1px solid #5c3f24; background: #3a2616; color: #f0d9a8; font-size: 16px; flex: none; padding: 0; }
+.tb:hover { background: #4a3220; }
+.tb.off { opacity: .45; text-decoration: line-through; }
+#stage { position: relative; flex: 1; min-height: 0; }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.hide { display: none !important; }
+.pb { position: relative; border: 0; border-radius: 4px; padding: 10px 14px; color: var(--ink); text-align: center;
+background: linear-gradient(170deg, #f7edd2, #e7d4a6); box-shadow: 0 3px 0 #b89a62, 0 6px 14px rgba(0,0,0,.45);
+font-size: 15px; transition: transform .12s, box-shadow .12s; }
+.pb::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: linear-gradient(transparent, rgba(110,80,40,.25), transparent); }
+.pb:hover { transform: translateY(-2px) rotate(-.4deg); box-shadow: 0 5px 0 #b89a62, 0 10px 18px rgba(0,0,0,.5); }
+.pb:active { transform: translateY(2px); box-shadow: 0 1px 0 #b89a62, 0 3px 8px rgba(0,0,0,.4); }
+.pb b { display: block; font-size: 1.05em; }
+.pb small { display: block; font-size: .72em; color: var(--ink2); font-style: italic; margin-top: 2px; }
+.pb.big { font-size: 19px; padding: 14px 22px; }
+.pb.sm { padding: 6px 12px; font-size: 14px; }
+.pb.red { background: linear-gradient(170deg, #d35a42, #a83824); color: #fff3e0; box-shadow: 0 3px 0 #6e2416, 0 6px 14px rgba(0,0,0,.45); }
+.pb.red small { color: #ffd9c4; }
+.pb[disabled] { opacity: .45; pointer-events: none; }
+#toasts { position: fixed; left: 50%; top: 54px; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(92vw, 420px); }
+.toast { background: var(--paper); color: var(--ink); padding: 8px 14px; border-radius: 3px; font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+opacity: 0; transform: translateY(-8px) rotate(-.6deg); transition: .3s; text-align: center; border-left: 4px solid var(--red); }
+.toast.in { opacity: 1; transform: none; }
+#modal { position: fixed; inset: 0; z-index: 40; background: rgba(15, 8, 2, .62); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#modalBox { position: relative; width: min(440px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; color: var(--ink); padding: 22px 20px 18px;
+background: linear-gradient(175deg, #f6ecd1, #e9d8ae); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,.6); transform: rotate(-.5deg); }
+#modalBox h2 { margin: 0 0 6px; font-size: 24px; letter-spacing: .04em; }
+#modalBox p { margin: 8px 0; line-height: 1.45; font-size: 15px; }
+#modalBox .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
+#modalBox label { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 15px; }
+#modalBox input[type=range] { flex: 1; accent-color: var(--red); }
+#modalBox input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--red); }
+#modalBox textarea, #modalBox input[type=text] { width: 100%; font-family: monospace; font-size: 12px; padding: 6px; border: 1px solid #b89a62; background: #fffaf0; color: var(--ink); }
+@media (max-width: 520px) { #topT { display: none; } #kai { font-size: 13px; padding: 6px 4px; } .tb { width: 32px; } }
+/* style_play.css - the folding table: hud, board, tools, win card */
+#hud { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px 2px; min-height: 40px; }
+#hName { font-size: 17px; color: #f4e3b9; text-shadow: 0 1px 2px #000; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hName small { display: block; font-size: 11px; color: #cdb07a; font-style: italic; letter-spacing: .05em; }
+#hStat { display: flex; gap: 6px; flex: none; align-items: center; }
+.chip { background: rgba(242,231,201,.92); color: var(--ink); border-radius: 3px; padding: 3px 8px; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,.35); white-space: nowrap; }
+.chip b { color: var(--red); }
+.chip.warn { background: #f3c9a8; }
+#boardWrap { position: relative; flex: 1; min-height: 0; touch-action: none; }
+#board { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#board.drag { cursor: grabbing; }
+#tip { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: min(94%, 560px); text-align: center; cursor: pointer;
+background: rgba(242,231,201,.94); color: var(--ink); padding: 7px 14px; border-radius: 3px; font-size: 14px; line-height: 1.35; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+transition: opacity .4s; font-family: var(--hand); }
+#tip:empty { display: none; }
+#note { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); pointer-events: none; background: #fbe3c8; color: #7a2412; font-size: 14px;
+padding: 5px 12px; border-radius: 3px; box-shadow: 0 3px 10px rgba(0,0,0,.4); opacity: 0; transition: opacity .25s; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis; }
+#note.in { opacity: 1; }
+#tools { flex: none; display: flex; justify-content: center; gap: 6px; padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); flex-wrap: nowrap; }
+.tl { flex: 0 1 64px; min-width: 0; height: 52px; border: 0; border-radius: 4px; color: var(--ink); padding: 2px 0;
+background: linear-gradient(170deg, #f7edd2, #e2cd9b); box-shadow: 0 3px 0 #a88a52, 0 5px 10px rgba(0,0,0,.4); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.tl i { font-style: normal; font-size: 20px; line-height: 1; }
+.tl span { font-size: 11px; margin-top: 3px; letter-spacing: .02em; }
+.tl:active { transform: translateY(2px); box-shadow: 0 1px 0 #a88a52; }
+.tl[disabled] { opacity: .4; pointer-events: none; }
+.tl.on { background: linear-gradient(170deg, #d9654c, #a83824); color: #fff0dc; box-shadow: 0 3px 0 #6e2416, 0 5px 10px rgba(0,0,0,.4); }
+.tl.glow { animation: glow 1.2s infinite; }
+@keyframes glow { 50% { box-shadow: 0 3px 0 #a88a52, 0 0 0 4px rgba(255, 210, 120, .7); } }
+.stamps { display: flex; justify-content: center; gap: 14px; margin: 10px 0 4px; }
+.stamp { width: 64px; height: 64px; border-radius: 50%; border: 3px double rgba(160, 40, 25, .25); color: rgba(160,40,25,.25); display: flex; align-items: center; justify-content: center;
+font-size: 11px; font-weight: bold; letter-spacing: .06em; transform: rotate(-12deg) scale(.6); opacity: .0; transition: .35s cubic-bezier(.3,1.6,.5,1); text-align: center; line-height: 1.05; }
+.stamp.got { border-color: #a8301d; color: #a8301d; background: radial-gradient(rgba(180,50,30,.08), transparent 70%); }
+.stamp.in { transform: rotate(-12deg) scale(1); opacity: 1; }
+.stamp.no { opacity: .55; transform: rotate(-8deg) scale(1); }
+.wl { font-size: 14px; color: var(--ink2); text-align: center; }
+.kbd { font-family: monospace; background: #fff6e2; border: 1px solid #c5a86f; border-radius: 3px; padding: 0 4px; font-size: 12px; }
+@media (max-width: 420px) { .tl { height: 48px; } .tl i { font-size: 18px; } .tl span { font-size: 10px; } #tools { gap: 4px; padding-left: 4px; padding-right: 4px; } #hName { font-size: 15px; } .chip { font-size: 12px; padding: 3px 6px; } }
+/* style_screens.css - the desk home screen, atlas pages and the drafting table (editor) */
+#homeCv { position: absolute; inset: 0; width: 100%; height: 100%; }
+#homeUi { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 16px 16px; pointer-events: none; }
+#homeSpace { flex: 1; }
+#homeBtns { display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: auto; width: 100%; max-width: 560px; }
+#homeBtns .row { display: flex; gap: 10px; width: 100%; justify-content: center; }
+#homeBtns .row .pb { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 14px; }
+#homeFoot { margin-top: 12px; font-size: 13px; color: #e9d3a3; font-style: italic; text-align: center; text-shadow: 0 1px 3px #000; }
+#atHead { flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px; }
+#atTitle { text-align: center; color: #f4e3b9; text-shadow: 0 1px 3px #000; min-width: 0; flex: 1; max-width: 520px; }
+#atTitle b { display: block; font-size: 21px; letter-spacing: .06em; }
+#atTitle small { display: block; font-size: 12px; color: #d4b985; font-style: italic; }
+#atWrap { position: relative; flex: 1; min-height: 0; }
+#atCv { position: absolute; inset: 0; width: 100%; height: 100%; }
+#atPins { position: absolute; inset: 0; }
+.city { position: absolute; transform: translate(-50%, -50%); border: 0; background: none; padding: 0; width: 64px; height: 64px; color: var(--ink); }
+.city .dot { position: absolute; left: 50%; top: 22px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: #f8eed5; border: 3px solid var(--ink);
+box-shadow: 0 2px 4px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; transition: transform .15s; }
+.city:hover .dot { transform: scale(1.18); }
+.city.done .dot { background: #f0c7a6; border-color: #9a2e1c; color: #9a2e1c; }
+.city.lock .dot { background: #cdbb93; border-color: #8f7a55; color: #8f7a55; }
+.city.next .dot { animation: pulse 1.3s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(180, 64, 44, .35); } }
+.city .nm { position: absolute; left: 50%; top: 47px; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-style: italic; background: rgba(242,231,201,.86); padding: 0 4px; border-radius: 2px; }
+.city .st { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); font-size: 12px; color: #a8301d; letter-spacing: -1px; white-space: nowrap; }
+#atFoot { flex: none; display: flex; justify-content: center; gap: 8px; padding: 6px 8px 12px; flex-wrap: wrap; color: #e9d3a3; font-size: 13px; align-items: center; }
+#edBar { flex: none; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 6px; }
+#edBar .pb { padding: 6px 10px; font-size: 13px; }
+#edWrap { position: relative; flex: 1; min-height: 0; touch-action: none; }
+#edCv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+#edPal { flex: none; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 6px 6px calc(10px + env(safe-area-inset-bottom)); }
+.pal { min-width: 40px; height: 40px; border: 0; border-radius: 4px; background: linear-gradient(170deg, #f7edd2, #e2cd9b); color: var(--ink); font-size: 12px; padding: 0 6px;
+box-shadow: 0 2px 0 #a88a52; display: flex; align-items: center; justify-content: center; gap: 3px; }
+.pal.on { background: linear-gradient(170deg, #d9654c, #a83824); color: #fff0dc; box-shadow: 0 2px 0 #6e2416; }
+.pal canvas { width: 22px; height: 22px; }
+@media (max-width: 420px) { .pal { min-width: 36px; height: 36px; font-size: 11px; } #homeBtns .row .pb { font-size: 13px; } #homeBtns .row .pb small { font-size: 10px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <a id="kai" href="index.html">← Kai.fun</a>
+    <button class="tb" id="bHome" title="Back to the desk" aria-label="Home">⌂</button>
+    <span id="topT">FOLDWAY</span>
+    <span id="topMid"></span>
+    <button class="tb" id="bMus" title="Music on / off" aria-label="Music">♪</button>
+    <button class="tb" id="bSnd" title="Sound on / off" aria-label="Sound">🔊</button>
+    <button class="tb" id="bSet" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+  <main id="stage">
+    <section id="home" class="screen">
+      <canvas id="homeCv" aria-label="FOLDWAY - a folded map on a cartographer's desk"></canvas>
+      <div id="homeUi">
+        <div id="homeSpace"></div>
+        <div id="homeBtns">
+          <button class="pb big" id="hPlay"><b>Unfold the map</b><small id="hSub">begin the campaign</small></button>
+          <div class="row">
+            <button class="pb" id="hDaily"><b>Daily Fold</b><small id="hDailySub">today's map</small></button>
+            <button class="pb" id="hEndless"><b>Map Press</b><small id="hEndSub">endless maps</small></button>
+            <button class="pb" id="hEdit"><b>Drafting Table</b><small>make + share</small></button>
+          </div>
+        </div>
+        <div id="homeFoot">Fold the paper. Make faraway places touch. Get the post through.</div>
+      </div>
+    </section>
+    <section id="atlas" class="screen hide">
+      <div id="atHead"><button class="pb sm" id="atPrev" aria-label="Previous atlas">◀</button><div id="atTitle"></div><button class="pb sm" id="atNext" aria-label="Next atlas">▶</button></div>
+      <div id="atWrap"><canvas id="atCv" aria-label="Atlas page"></canvas><div id="atPins"></div></div>
+      <div id="atFoot"></div>
+    </section>
+    <section id="play" class="screen hide">
+      <div id="hud"><div id="hName"></div><div id="hStat"></div></div>
+      <div id="boardWrap"><canvas id="board" aria-label="The folding map. Drag across a grid line to fold."></canvas><div id="tip"></div><div id="note"></div></div>
+      <div id="tools">
+        <button class="tl" id="tUndo" title="Undo (Z)"><i>↶</i><span>Undo</span></button>
+        <button class="tl" id="tRedo" title="Redo (Y)"><i>↷</i><span>Redo</span></button>
+        <button class="tl" id="tUnf" title="Unfold the last fold, keeping creases and ink (U)"><i>⤢</i><span>Unfold</span></button>
+        <button class="tl" id="tMode" title="Fold over the top or tuck under (T)"><i>⤴</i><span>Over</span></button>
+        <button class="tl" id="tTear" title="Tear along a crease (X)"><i>✂</i><span>Tear</span></button>
+        <button class="tl" id="tHint" title="Ghost the next fold (H)"><i>✎</i><span>Hint</span></button>
+        <button class="tl" id="tReset" title="Unfold everything and start over (R)"><i>⟲</i><span>Reset</span></button>
+      </div>
+    </section>
+    <section id="editor" class="screen hide">
+      <div id="edBar"></div>
+      <div id="edWrap"><canvas id="edCv" aria-label="Map editor"></canvas></div>
+      <div id="edPal"></div>
+    </section>
+  </main>
+  <div id="modal" class="hide"><div id="modalBox"></div></div>
+  <div id="toasts"></div>
+</div>
+<script>
+"use strict";
+// ===== util.js =====
+const FW = window.FW = {};
+FW.$ = id => document.getElementById(id);
+FW.qs = (sel, root) => (root || document).querySelector(sel);
+FW.qsa = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+FW.el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+FW.clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+FW.lerp = (a, b, t) => a + (b - a) * t;
+FW.now = () => performance.now() / 1000;
+FW.esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+FW.ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+FW.easeOut = t => 1 - Math.pow(1 - t, 3);
+FW.rng = seed => {
+let a = seed >>> 0;
+const f = () => {
+a = (a + 0x6D2B79F5) >>> 0; let t = a;
+t = Math.imul(t ^ (t >>> 15), t | 1);
+t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+f.int = n => Math.floor(f() * n);
+f.pick = arr => arr[Math.floor(f() * arr.length)];
+f.range = (lo, hi) => lo + f() * (hi - lo);
+f.chance = p => f() < p;
+f.shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(f() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+return f;
+};
+FW.hash = str => {
+let h = 2166136261 >>> 0;
+for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+return h >>> 0;
+};
+FW.store = {
+get(k, def) { try { const v = localStorage.getItem('foldway_' + k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
+set(k, v) { try { localStorage.setItem('foldway_' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+del(k) { try { localStorage.removeItem('foldway_' + k); } catch (e) { /* storage unavailable */ } }
+};
+FW.bus = {
+h: {},
+on(n, f) { (this.h[n] = this.h[n] || []).push(f); },
+emit(n, a) { (this.h[n] || []).forEach(f => { try { f(a); } catch (e) { console.error(e); } }); }
+};
+FW.toast = (msg, ms) => {
+const box = FW.$('toasts'); if (!box) return;
+const t = FW.el('div', 'toast', msg); box.appendChild(t);
+requestAnimationFrame(() => t.classList.add('in'));
+setTimeout(() => { t.classList.remove('in'); setTimeout(() => t.remove(), 400); }, ms || 2200);
+};
+FW.today = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+// ===== terrain.js =====
+FW.N = 1; FW.E = 2; FW.S = 4; FW.W = 8;
+FW.OPP = [0, 4, 8, 0, 1, 0, 0, 0, 2];
+FW.DX = [0, 0, 1, 0, 0, 0, 0, 0, -1];
+FW.DY = [0, -1, 0, 0, 1, 0, 0, 0, 0];
+FW.DIRS = [1, 2, 4, 8];
+FW.DNAME = { 1: 'north', 2: 'east', 4: 'south', 8: 'west' };
+FW.ROAD = { ' ': 0, '─': 10, '│': 5, '┌': 6, '┐': 12, '└': 3, '┘': 9, '├': 7, '┤': 13, '┬': 14, '┴': 11, '┼': 15, '╴': 8, '╶': 2, '╵': 1, '╷': 4 };
+FW.ROADCH = []; for (const k in FW.ROAD) FW.ROADCH[FW.ROAD[k]] = k;
+FW.SIGN = { '>': 2, '<': 8, '^': 1, 'v': 4 };
+FW.xf = (m, sx, sy) => {
+if (sx < 0) m = (m & 5) | ((m & 2) << 2) | ((m & 8) >> 2);
+if (sy < 0) m = (m & 10) | ((m & 1) << 2) | ((m & 4) >> 2);
+return m;
+};
+FW.TERR = { '.': 'grass', 'f': 'forest', 'm': 'mountain', 'h': 'hills', '~': 'water', 's': 'sea', 'd': 'sand', 'v': 'village', 'p': 'field', 'w': 'marsh' };
+FW.WHO = ['post', 'red', 'fogg', 'gull', 'doro', 'pass'];
+FW.parse = o => {
+const rows = o.m, h = rows.length, w = Math.round(rows[0].length / 3), N = w * h;
+const M = { spec: o, id: o.id, w, h, N, terr: [], road: new Uint8Array(N), back: new Uint8Array(N), inkF: new Uint8Array(N), inkB: new Uint8Array(N),
+sign: new Uint8Array(N), pin: new Uint8Array(N), soggy: new Uint8Array(N), trav: [], role: new Int8Array(N).fill(-1), goalOf: new Int8Array(N).fill(-1) };
+const starts = {}, goals = {};
+for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+const i = y * w + x, t = rows[y].substr(x * 3, 3).padEnd(3, ' ');
+M.terr[i] = FW.TERR[t[0]] ? t[0] : '.';
+const r = FW.ROAD[t[1]] || 0, f = t[2];
+if (f === '*') M.inkF[i] = r; else M.road[i] = r;
+if (f >= 'A' && f <= 'D') starts[f.charCodeAt(0) - 65] = i;
+if (f >= 'a' && f <= 'd') goals[f.charCodeAt(0) - 97] = i;
+if (f === '@') M.pin[i] = 1;
+if (f === '%') M.soggy[i] = 1;
+if (FW.SIGN[f]) M.sign[i] = FW.SIGN[f];
+}
+if (o.b) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+const i = y * w + x, t = (o.b[y] || '').substr(x * 2, 2).padEnd(2, ' ');
+const r = FW.ROAD[t[0]] || 0;
+if (t[1] === '*') M.inkB[i] = r; else M.back[i] = r;
+}
+for (const k in starts) {
+const t = +k, s = starts[k], g = goals[k];
+if (g == null) continue;
+M.trav.push({ s, g, who: (o.who && o.who[t]) || FW.WHO[t] || 'post', name: (o.names && o.names[String.fromCharCode(97 + t)]) || '' });
+}
+M.trav.forEach((t, j) => { M.role[t.s] = j; M.goalOf[t.g] = j; });
+M.ea = []; M.eb = []; M.eE = new Int16Array(N).fill(-1); M.eS = new Int16Array(N).fill(-1);
+for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+const i = y * w + x;
+if (x < w - 1) { M.eE[i] = M.ea.length; M.ea.push(i); M.eb.push(i + 1); }
+if (y < h - 1) { M.eS[i] = M.ea.length; M.ea.push(i); M.eb.push(i + w); }
+}
+M.E = M.ea.length;
+const X = o.x || {};
+M.tape = new Uint8Array(M.E); M.worn = new Uint8Array(M.E);
+const edgeAt = (x, y, d) => d === 'E' ? M.eE[y * w + x] : M.eS[y * w + x];
+(X.tape || []).forEach(t => { const e = edgeAt(t[0], t[1], t[2]); if (e >= 0) M.tape[e] = 1; });
+(X.worn || []).forEach(t => { const e = edgeAt(t[0], t[1], t[2]); if (e >= 0) M.worn[e] = t[3] || 1; });
+M.wind = X.wind ? { N: 1, E: 2, S: 4, W: 8 }[X.wind] : 0;
+M.maxL = X.thick || 8;
+M.tears = X.tears || 0;
+M.lim = X.lim || 0;
+M.under = X.under !== false;
+M.pre = FW.P.parseMoves(X.pre || '');
+M.sol = FW.P.parseMoves(o.s || '');
+M.par = o.p || M.sol.length;
+let ink = 0; for (let i = 0; i < N; i++) ink |= M.inkF[i] | M.inkB[i];
+M.hasInk = !!ink; M.hasWorn = M.worn.some(v => v);
+M.unf = M.hasInk || M.tears > 0 || M.trav.length > 1;   // unfolding (keeping creases, ink, deliveries) matters here
+return M;
+};
+// ===== paper.js =====
+FW.P = {};
+FW.P.parseMoves = s => String(s || '').trim().split(/\s+/).filter(Boolean).map(FW.P.parseMove).filter(Boolean);
+FW.P.parseMove = t => {
+if (t === 'U') return { t: 'u' };
+const m = /^(x?)([vh])(-?\d+)([<>])([ou]?)$/.exec(t);
+if (!m) return null;
+return { t: m[1] ? 't' : 'f', ax: m[2] === 'h' ? 1 : 0, k: +m[3], sd: m[4] === '>' ? 1 : 0, u: m[5] === 'u' ? 1 : 0 };
+};
+FW.P.fmt = mv => mv.t === 'u' ? 'U' : (mv.t === 't' ? 'x' : '') + (mv.ax ? 'h' : 'v') + mv.k + (mv.sd ? '>' : '<') + (mv.t === 'f' ? (mv.u ? 'u' : 'o') : '');
+FW.P.fmtAll = a => a.map(FW.P.fmt).join(' ');
+FW.P.init = M => {
+const N = M.N, S = { x: new Int16Array(N), y: new Int16Array(N), sx: new Int8Array(N), sy: new Int8Array(N), z: new Int16Array(N),
+alive: new Uint8Array(N).fill(1), stack: [], base: 0, dlv: 0, stF: new Uint8Array(N), stB: new Uint8Array(N),
+cr: new Uint8Array(M.E), tu: 0, mv: 0 };
+for (let i = 0; i < N; i++) { S.x[i] = i % M.w; S.y[i] = (i / M.w) | 0; S.sx[i] = 1; S.sy[i] = 1; }
+for (const mv of M.pre) FW.P.apply(M, S, mv, { pre: true });
+S.base = S.stack.length; S.mv = 0; M.preSplit = S.cr.slice();
+FW.Wk.deliver(M, S);
+return S;
+};
+FW.P.clone = S => ({ x: S.x.slice(), y: S.y.slice(), sx: S.sx.slice(), sy: S.sy.slice(), z: S.z.slice(), alive: S.alive.slice(),
+stack: S.stack.slice(), base: S.base, dlv: S.dlv, stF: S.stF.slice(), stB: S.stB.slice(), cr: S.cr.slice(), tu: S.tu, mv: S.mv });
+FW.P.snap = S => ({ x: S.x.slice(), y: S.y.slice(), sx: S.sx.slice(), sy: S.sy.slice(), z: S.z.slice() });
+FW.P.pk = (x, y) => (x + 128) * 512 + (y + 128);
+FW.P.up = (S, i) => S.sx[i] * S.sy[i] > 0 ? 0 : 1;     // which face looks up: 0 front, 1 back
+FW.P.levels = (M, alive, x, y, z) => {
+const idx = [];
+for (let i = 0; i < M.N; i++) if (alive[i]) idx.push(i);
+idx.sort((a, b) => (FW.P.pk(x[a], y[a]) - FW.P.pk(x[b], y[b])) || (z[a] - z[b]));
+let tall = 0, run = 0, last = -1;
+for (const i of idx) { const k = FW.P.pk(x[i], y[i]); run = k === last ? run + 1 : 0; last = k; z[i] = run; if (run + 1 > tall) tall = run + 1; }
+return { tall, idx };
+};
+FW.P.bbox = S => {
+let a = 1e9, b = 1e9, c = -1e9, d = -1e9;
+for (let i = 0; i < S.x.length; i++) if (S.alive[i]) { if (S.x[i] < a) a = S.x[i]; if (S.y[i] < b) b = S.y[i]; if (S.x[i] > c) c = S.x[i]; if (S.y[i] > d) d = S.y[i]; }
+return { x0: a, y0: b, x1: c, y1: d };
+};
+FW.P.moving = (M, S, ax, k, sd) => {
+const mov = new Uint8Array(M.N); let nm = 0, ns = 0;
+for (let i = 0; i < M.N; i++) if (S.alive[i]) { const s = ((ax ? S.y[i] : S.x[i]) >= k ? 1 : 0) === sd; if (s) { mov[i] = 1; nm++; } else ns++; }
+return { mov, nm, ns };
+};
+FW.P.split = (M, S, mov) => {
+const out = [];
+for (let e = 0; e < M.E; e++) { const a = M.ea[e], b = M.eb[e]; if (S.alive[a] && S.alive[b] && mov[a] !== mov[b]) out.push(e); }
+return out;
+};
+FW.P.apply = (M, S, mv, opts) => {
+const r = mv.t === 'u' ? FW.P.unfold(M, S) : mv.t === 't' ? FW.P.tear(M, S, mv) : FW.P.fold(M, S, mv, opts || {});
+if (!r.ok) return r;
+if (!(opts && opts.pre)) S.mv++;
+r.dl = FW.Wk.deliver(M, S);
+return r;
+};
+FW.P.unfold = (M, S) => {
+if (S.stack.length <= S.base) return { why: 'nofold' };
+const sn = S.stack.pop(), prev = FW.P.snap(S);
+for (let i = 0; i < M.N; i++) if (S.alive[i]) { S.x[i] = sn.x[i]; S.y[i] = sn.y[i]; S.sx[i] = sn.sx[i]; S.sy[i] = sn.sy[i]; S.z[i] = sn.z[i]; }
+FW.P.levels(M, S.alive, S.x, S.y, S.z);
+return { ok: 1, kind: 'u', prev, mv: { t: 'u' }, fmv: sn.mv };
+};
+FW.P.tear = (M, S, mv) => {
+if (S.tu >= M.tears) return { why: 'scissors' };
+const last = S.stack.length > S.base ? S.stack[S.stack.length - 1] : null;
+const flap = !!(last && last.mv && last.mv.ax === mv.ax && last.mv.k === mv.k);
+const { mov, nm, ns } = flap ? FW.P.moving(M, { alive: S.alive, x: last.x, y: last.y }, last.mv.ax, last.mv.k, last.mv.sd) : FW.P.moving(M, S, mv.ax, mv.k, mv.sd);
+if (!nm || !ns) return { why: 'edge' };
+for (let i = 0; i < M.N; i++) if (mov[i]) {
+if (M.pin[i]) return { why: 'pin', cell: i };
+const t = M.role[i] >= 0 ? M.role[i] : M.goalOf[i];
+if (t >= 0 && !(S.dlv >> t & 1)) return { why: 'keep', cell: i };
+}
+const sp = FW.P.split(M, S, mov);
+for (const e of sp) { if (M.tape[e]) return { why: 'tape', edge: e }; if (!flap && !S.cr[e]) return { why: 'nocrease', edge: e }; }
+const prev = FW.P.snap(S);
+if (flap) S.stack.pop();
+for (let i = 0; i < M.N; i++) if (mov[i]) S.alive[i] = 0;
+FW.P.levels(M, S.alive, S.x, S.y, S.z);
+S.tu++;
+return { ok: 1, kind: 't', mov, prev, mv: { t: 't', ax: mv.ax, k: mv.k, sd: flap ? last.mv.sd : mv.sd }, flap };
+};
+// ===== paper2.js =====
+FW.P.WHY = {
+edge: 'That line is the edge of the paper.', pin: 'A brass pin holds that square down.', tape: 'Tape holds that seam flat.',
+soggy: 'Coffee-soaked paper will not crease.', worn: 'That crease is worn through - one more fold would rip it.',
+thick: 'Too many layers - the paper is too thick to fold there.', limit: 'The paper is too tired for another fold.',
+nofold: 'Nothing left to unfold - and taped folds stay folded.', scissors: 'No more tears allowed on this map.', keep: 'You would tear away a traveller or their destination.',
+nocrease: 'Paper only tears cleanly along an existing crease - fold there first.', under: 'This map only folds over the top.'
+};
+FW.P.flapDir = mv => mv.ax ? (mv.sd ? 1 : 4) : (mv.sd ? 8 : 2);   // where the flap ends up, seen from its hinge
+FW.P.fold = (M, S, mv, opts) => {
+const { ax, k, sd } = mv; let u = mv.u ? 1 : 0;
+if (u && !M.under) return { why: 'under' };
+if (!opts.pre && M.lim && S.mv >= M.lim) return { why: 'limit' };
+const { mov, nm, ns } = FW.P.moving(M, S, ax, k, sd);
+if (!nm || !ns) return { why: 'edge' };
+for (let i = 0; i < M.N; i++) if (mov[i] && M.pin[i]) return { why: 'pin', cell: i };
+const sp = FW.P.split(M, S, mov);
+for (const e of sp) {
+if (M.tape[e]) return { why: 'tape', edge: e };
+if (M.soggy[M.ea[e]] || M.soggy[M.eb[e]]) return { why: 'soggy', cell: M.soggy[M.ea[e]] ? M.ea[e] : M.eb[e] };
+if (M.worn[e] && S.cr[e] >= M.worn[e]) return { why: 'worn', edge: e };
+}
+const x = S.x.slice(), y = S.y.slice(), sx = S.sx.slice(), sy = S.sy.slice(), z = S.z.slice();
+let Z = 0;
+for (let i = 0; i < M.N; i++) if (S.alive[i] && z[i] >= Z) Z = z[i] + 1;
+const occ = new Set();
+for (let i = 0; i < M.N; i++) if (S.alive[i] && !mov[i]) occ.add(FW.P.pk(x[i], y[i]));
+let overlap = false;
+for (let i = 0; i < M.N; i++) if (mov[i]) {
+if (ax) { y[i] = 2 * k - 1 - y[i]; sy[i] = -sy[i]; } else { x[i] = 2 * k - 1 - x[i]; sx[i] = -sx[i]; }
+z[i] = u ? -1 - z[i] : 2 * Z - z[i];
+if (occ.has(FW.P.pk(x[i], y[i]))) overlap = true;
+}
+if (!overlap) u = 0;
+const lv = FW.P.levels(M, S.alive, x, y, z);
+if (lv.tall > M.maxL) return { why: 'thick' };
+const contacts = [];
+const idx = lv.idx;
+for (let j = 1; j < idx.length; j++) {
+const a = idx[j - 1], b = idx[j];
+if (x[a] === x[b] && y[a] === y[b] && mov[a] !== mov[b]) contacts.push([a, b]);   // a below, b above
+}
+const prev = FW.P.snap(S); prev.mv = mv;
+S.stack.push(prev);
+S.x = x; S.y = y; S.sx = sx; S.sy = sy; S.z = z;
+const inked = [];
+if (M.hasInk) for (const [lo, hi] of contacts) {
+const fLo = FW.P.up(S, lo), fHi = 1 - FW.P.up(S, hi);   // lower cell's up face touches upper cell's down face
+const wHi = fHi ? M.inkB[hi] : M.inkF[hi], wLo = fLo ? M.inkB[lo] : M.inkF[lo];
+if (wHi) { const m = FW.xf(FW.xf(wHi, sx[hi], sy[hi]), sx[lo], sy[lo]); FW.P.stamp(S, lo, fLo, m, inked); }
+if (wLo) { const m = FW.xf(FW.xf(wLo, sx[lo], sy[lo]), sx[hi], sy[hi]); FW.P.stamp(S, hi, fHi, m, inked); }
+}
+for (const e of sp) if (S.cr[e] < 250) S.cr[e]++;
+let blown = false;
+if (!opts.pre && M.wind && !u && FW.P.flapDir(mv) === M.wind) {
+blown = true;
+const sn = S.stack.pop();
+S.x = sn.x; S.y = sn.y; S.sx = sn.sx; S.sy = sn.sy; S.z = sn.z;
+}
+return { ok: 1, kind: 'f', mov, prev, mv: Object.assign({}, mv, { u }), overlap, blown, inked, split: sp };
+};
+FW.P.stamp = (S, c, face, m, out) => {
+const arr = face ? S.stB : S.stF;
+if ((arr[c] | m) !== arr[c]) { arr[c] |= m; out.push(c); }
+};
+FW.P.cands = (M, S, withUnfold) => {
+const b = FW.P.bbox(S), out = [];
+for (let ax = 0; ax < 2; ax++) {
+const lo = ax ? b.y0 : b.x0, hi = ax ? b.y1 : b.x1;
+for (let k = lo + 1; k <= hi; k++) for (let sd = 0; sd < 2; sd++) {
+out.push({ t: 'f', ax, k, sd, u: 0 });
+if (M.under) out.push({ t: 'f', ax, k, sd, u: 1 });
+if (M.tears) out.push({ t: 't', ax, k, sd });
+}
+}
+if (S.stack.length > S.base) { const l = S.stack[S.stack.length - 1].mv; if (M.tears && l) out.push({ t: 't', ax: l.ax, k: l.k, sd: l.sd }); if (withUnfold && M.unf) out.push({ t: 'u' }); }
+return out;
+};
+// ===== walk.js =====
+FW.Wk = {};
+FW.Wk.tops = (M, S) => {
+const t = new Map();
+for (let i = 0; i < M.N; i++) if (S.alive[i]) { const k = FW.P.pk(S.x[i], S.y[i]), c = t.get(k); if (c === undefined || S.z[i] > S.z[c]) t.set(k, i); }
+return t;
+};
+FW.Wk.mask = (M, S, i) => {
+const f = FW.P.up(S, i);
+let m;
+if (!f) { m = M.road[i] | M.inkF[i] | S.stF[i]; if (M.role[i] >= 0 || M.goalOf[i] >= 0) m = 15; }
+else m = M.back[i] | M.inkB[i] | S.stB[i];
+return FW.xf(m, S.sx[i], S.sy[i]);
+};
+FW.Wk.sign = (M, S, i) => (!FW.P.up(S, i) && M.sign[i]) ? FW.xf(M.sign[i], S.sx[i], S.sy[i]) : 0;
+FW.Wk.visible = (M, S, tops, i) => S.alive[i] && !FW.P.up(S, i) && tops.get(FW.P.pk(S.x[i], S.y[i])) === i;
+FW.Wk.path = (M, S, tops, t) => {
+const T = M.trav[t];
+if (!FW.Wk.visible(M, S, tops, T.s) || !FW.Wk.visible(M, S, tops, T.g)) return null;
+const prev = new Map([[T.s, -1]]), q = [T.s];
+for (let qi = 0; qi < q.length; qi++) {
+const c = q[qi];
+if (c === T.g) { const out = []; for (let v = c; v !== -1; v = prev.get(v)) out.push(v); return out.reverse(); }
+const m = FW.Wk.mask(M, S, c), sg = FW.Wk.sign(M, S, c);
+for (const d of FW.DIRS) {
+if (!(m & d) || (sg && sg !== d)) continue;
+const n = tops.get(FW.P.pk(S.x[c] + FW.DX[d], S.y[c] + FW.DY[d]));
+if (n === undefined || prev.has(n)) continue;
+const sn = FW.Wk.sign(M, S, n);
+if (sn && sn !== d) continue;
+if (FW.Wk.mask(M, S, n) & FW.OPP[d]) { prev.set(n, c); q.push(n); }
+}
+}
+return null;
+};
+FW.Wk.deliver = (M, S) => {
+const out = [];
+if (!M.trav.length) return out;
+const tops = FW.Wk.tops(M, S);
+M.trav.forEach((T, t) => {
+if (S.dlv >> t & 1) return;
+const p = FW.Wk.path(M, S, tops, t);
+if (p) { S.dlv |= 1 << t; out.push({ t, path: p.map(c => [S.x[c], S.y[c]]) }); }
+});
+return out;
+};
+FW.Wk.done = (M, S) => M.trav.length > 0 && S.dlv === (1 << M.trav.length) - 1;
+FW.Wk.reach = (M, S, tops, t) => {
+const T = M.trav[t], seen = new Set();
+if (!FW.Wk.visible(M, S, tops, T.s)) return seen;
+const q = [T.s]; seen.add(T.s);
+for (let qi = 0; qi < q.length; qi++) {
+const c = q[qi], m = FW.Wk.mask(M, S, c), sg = FW.Wk.sign(M, S, c);
+for (const d of FW.DIRS) {
+if (!(m & d) || (sg && sg !== d)) continue;
+const n = tops.get(FW.P.pk(S.x[c] + FW.DX[d], S.y[c] + FW.DY[d]));
+if (n === undefined || seen.has(n)) continue;
+const sn = FW.Wk.sign(M, S, n);
+if (sn && sn !== d) continue;
+if (FW.Wk.mask(M, S, n) & FW.OPP[d]) { seen.add(n); q.push(n); }
+}
+}
+return seen;
+};
+// ===== solver.js =====
+FW.Sv = {};
+FW.Sv.geoKey = (M, S, src, mx, my) => {
+let s = '';
+for (let i = 0; i < M.N; i++) s += S.alive[i] ? String.fromCharCode(100 + src.x[i] - mx, 100 + src.y[i] - my,66 + src.sx[i] + 3 * src.sy[i], 48 + src.z[i]) : '_';
+return s;
+};
+FW.Sv.key = (M, S) => {
+const b = FW.P.bbox(S);
+let k = FW.Sv.geoKey(M, S, S, b.x0, b.y0) + '|' + S.dlv;
+if (M.hasInk) k += '|' + Array.prototype.join.call(S.stF, '') + Array.prototype.join.call(S.stB, '');
+if (M.unf || M.hasWorn) { let c = ''; for (let e = 0; e < M.E; e++) c += M.hasWorn ? S.cr[e] : (S.cr[e] ? 1 : 0); k += '|' + c + S.tu; }
+if (M.unf) for (let j = S.base; j < S.stack.length; j++) k += '#' + FW.Sv.geoKey(M, S, S.stack[j], b.x0, b.y0);
+if (M.lim) k += '|' + S.mv;
+return k;
+};
+FW.Sv.solve = (M, S0, opts) => {
+opts = opts || {};
+const maxD = opts.maxDepth || 6, maxN = opts.maxNodes || 120000, t0 = performance.now(), ms = opts.ms || 1e9;
+if (FW.Wk.done(M, S0)) return { sol: [], nodes: 1, depth: 0 };
+const seen = new Set([FW.Sv.key(M, S0)]);
+let layer = [{ S: S0, path: [] }], nodes = 1;
+for (let d = 1; d <= maxD; d++) {
+const next = [];
+for (const nd of layer) {
+for (const mv of FW.P.cands(M, nd.S, true)) {
+const S = FW.P.clone(nd.S), r = FW.P.apply(M, S, mv);
+if (!r.ok) continue;
+if (mv.t === 'f' && mv.u && !r.overlap) continue;       // same as the over fold
+const k = FW.Sv.key(M, S);
+if (seen.has(k)) continue;
+seen.add(k); nodes++;
+const path = nd.path.concat([r.mv || mv]);
+if (FW.Wk.done(M, S)) return { sol: path, nodes, depth: d };
+next.push({ S, path });
+if (nodes > maxN || performance.now() - t0 > ms) return { sol: null, nodes, depth: d, cut: true };
+}
+}
+if (!next.length) return { sol: null, nodes, depth: d, exhausted: true };
+layer = next;
+}
+return { sol: null, nodes, depth: maxD, cut: true };
+};
+FW.Sv.replay = (M, moves) => {
+const S = FW.P.init(M);
+for (let i = 0; i < moves.length; i++) { const r = FW.P.apply(M, S, moves[i]); if (!r.ok) return { ok: false, S, at: i, why: r.why }; }
+return { ok: FW.Wk.done(M, S), S, at: moves.length };
+};
+FW.Sv.grade = (M, par, nodes) => {
+let g = par * 2 + (M.w * M.h > 24 ? 1 : 0) + (nodes > 4000 ? 1 : 0) + (nodes > 30000 ? 1 : 0);
+return g <= 3 ? 0 : g <= 5 ? 1 : g <= 7 ? 2 : 3;
+};
+FW.Sv.GRADES = ['Gentle', 'Brisk', 'Tricky', 'Fiendish'];
+// ===== gen.js =====
+FW.Gen = {};
+FW.Gen.blank = (w, h) => FW.parse({ id: 'blank', m: Array.from({ length: h }, () => '.  '.repeat(w)) });
+FW.Gen.TIERS = [
+{ w: [4, 5], h: [3, 4], f: [2, 2], back: 0, dec: 2, min: 2, mech: 0 },
+{ w: [4, 5], h: [4, 5], f: [2, 3], back: 0, dec: 3, min: 2, mech: 1 },
+{ w: [5, 6], h: [4, 5], f: [2, 3], back: 1, dec: 4, min: 3, mech: 2 },
+{ w: [5, 6], h: [5, 6], f: [3, 4], back: 1, dec: 5, min: 3, mech: 3 }
+];
+FW.Gen.make = (seed, tier, cfg) => {
+const T = Object.assign({}, FW.Gen.TIERS[FW.clamp(tier | 0, 0, 3)], cfg || {});
+for (let tries = 0; tries < (T.tries || 50); tries++) {
+const r = FW.rng(seed * 7919 + tries * 104729 + 17);
+if (!cfg && T.mech) { const pool = ['pins', 'tape', 'coffee', 'wind', 'signs', 'thick', 'worn', 'trav2', 'ink'].slice(0, 3 + T.mech * 2); T.use = {}; for (let k = 0; k < T.mech; k++) T.use[r.pick(pool)] = 1; }
+let spec = null;
+try { spec = FW.Gen.attempt(r, T); } catch (e) { spec = null; }
+if (spec) { spec.id = 'gen' + seed + '_' + tier; spec.seed = seed; spec.tier = tier; return spec; }
+}
+return FW.Gen.fallback(seed);
+};
+FW.Gen.folds = (r, M0, S, n, log) => {
+const out = [];
+for (let f = 0; f < n; f++) {
+const c = r.shuffle(FW.P.cands(M0, S, false).filter(m => m.t === 'f'));
+let ok = false;
+for (const mv of c) {
+const S2 = FW.P.clone(S), q = FW.P.apply(M0, S2, mv);
+if (!q.ok || (mv.u && !q.overlap) || FW.Gen.area(M0, S2) < 5) continue;
+Object.assign(S, S2); out.push(q.mv); if (log) log.push({ mv: q.mv, mov: q.mov, split: q.split, S: FW.P.clone(S) }); ok = true; break;
+}
+if (!ok) return null;
+}
+return out;
+};
+FW.Gen.area = (M, S) => { let n = 0; FW.Wk.tops(M, S).forEach(c => { if (!FW.P.up(S, c)) n++; }); return n; };
+FW.Gen.route = (r, M0, S, T, used, road, back) => {
+const tops = FW.Wk.tops(M0, S), up = [...tops.values()].filter(c => !FW.P.up(S, c) && !used.has(c)), w = M0.w;
+if (up.length < 2) return null;
+let best = null;
+for (let i = 0; i < 40; i++) {
+const a = r.pick(up), b = r.pick(up); if (a === b) continue;
+const flat = Math.abs(a % w - b % w) + Math.abs(((a / w) | 0) - ((b / w) | 0)), now = Math.abs(S.x[a] - S.x[b]) + Math.abs(S.y[a] - S.y[b]);
+const sc = flat * 2 - now * 0.4 + r() + (now >= 2 ? 2 : 0);
+if (!best || sc > best.sc) best = { a, b, sc, flat };
+}
+if (!best || best.flat < 3) return null;
+const path = FW.Gen.walk(r, M0, S, tops, best.a, best.b, T.back, used);
+if (!path) return null;
+const steps = [];
+for (let i = 0; i + 1 < path.length; i++) {
+const c = path[i], n = path[i + 1], dx = S.x[n] - S.x[c], dy = S.y[n] - S.y[c];
+const d = dx > 0 ? 2 : dx < 0 ? 8 : dy > 0 ? 4 : 1;
+steps.push({ c, n, d });
+for (const [cell, wd] of [[c, d], [n, FW.OPP[d]]]) {
+const lm = FW.xf(wd, S.sx[cell], S.sy[cell]);
+if (FW.P.up(S, cell)) back[cell] |= lm; else road[cell] |= lm;
+}
+}
+path.forEach(c => used.add(c));
+return { a: best.a, b: best.b, path, steps, S: FW.P.clone(S) };
+};
+FW.Gen.walk = (r, M, S, tops, a, b, allowBack, used) => {
+const ok = c => (c === a || c === b) || (!used.has(c) && (allowBack || !FW.P.up(S, c)));
+const dist = new Map([[b, 0]]), q = [b];
+for (let qi = 0; qi < q.length; qi++) {
+const c = q[qi];
+for (const d of FW.DIRS) { const n = tops.get(FW.P.pk(S.x[c] + FW.DX[d], S.y[c] + FW.DY[d])); if (n !== undefined && !dist.has(n) && ok(n)) { dist.set(n, dist.get(c) + 1); q.push(n); } }
+}
+if (!dist.has(a)) return null;
+const path = [a];
+let c = a;
+while (c !== b) {
+const opts = FW.DIRS.map(d => tops.get(FW.P.pk(S.x[c] + FW.DX[d], S.y[c] + FW.DY[d]))).filter(n => n !== undefined && dist.get(n) === dist.get(c) - 1);
+c = r.pick(opts); path.push(c);
+}
+return path;
+};
+FW.Gen.decoys = (r, M, road, used, n) => {
+for (let i = 0; i < n * 3 && n > 0; i++) {
+const c = r.int(M.N); if (used.has(c)) continue;
+const x = c % M.w, y = (c / M.w) | 0, d = r.pick(FW.DIRS), nx = x + FW.DX[d], ny = y + FW.DY[d];
+if (nx < 0 || ny < 0 || nx >= M.w || ny >= M.h) { road[c] |= d; n--; continue; }
+const c2 = ny * M.w + nx; if (used.has(c2)) continue;
+road[c] |= d; road[c2] |= FW.OPP[d]; n--;
+}
+};
+// ===== gen2.js =====
+FW.Gen.NAMES1 = ['Little', 'Upper', 'Nether', 'Old', 'East', 'West', 'Much', 'Long', 'Saint', 'Kings', 'High', 'Low'];
+FW.Gen.NAMES2 = ['Pudding', 'Wobbleton', 'Inkwell', 'Creasey', 'Foldham', 'Marrow', 'Puddle', 'Thimble', 'Bramble', 'Quill', 'Hollow', 'Crumpet',
+'Fennick', 'Mapleby', 'Tumble', 'Parchley', 'Otterby', 'Sealing', 'Hatchet', 'Kettlewick', 'Gristle', 'Dimmock', 'Plover', 'Wending'];
+FW.Gen.place = r => (r.chance(0.45) ? r.pick(FW.Gen.NAMES1) + ' ' : '') + r.pick(FW.Gen.NAMES2);
+FW.Gen.noise = (r, w, h) => {
+const g = [], pts = Array.from({ length: 4 }, () => [r() * w, r() * h, r() * 2 - 1]);
+for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+let v = 0; for (const p of pts) v += p[2] * Math.exp(-((x - p[0]) ** 2 + (y - p[1]) ** 2) / 3);
+g.push(v + (r() - 0.5) * 0.5);
+}
+return g;
+};
+FW.Gen.spec = (r, o, X) => {
+const { w, h, road, back, inkF, inkB, feat } = o, n = FW.Gen.noise(r, w, h), m = [], bk = [];
+const coast = r.chance(0.4) ? r.int(4) : -1;
+let anyBack = false;
+for (let y = 0; y < h; y++) {
+let row = '', brow = '';
+for (let x = 0; x < w; x++) {
+const i = y * w + x, v = n[i], f = feat[i], busy = road[i] || inkF[i] || f !== '.';
+const edge = coast === 0 ? y === 0 : coast === 1 ? x === w - 1 : coast === 2 ? y === h - 1 : coast === 3 ? x === 0 : false;
+let t = v < -0.55 ? '~' : v > 0.7 ? 'm' : v > 0.3 ? 'f' : v < -0.25 ? 'p' : r.chance(0.15) ? 'h' : '.';
+if (edge && !busy) t = 's';
+if (busy && t === 'm') t = 'h';
+if (busy && t === 's') t = '~';
+if ('ABab'.includes(f)) t = '.';
+row += t + FW.ROADCH[f === '*' ? inkF[i] : road[i]] + f;
+brow += FW.ROADCH[inkB[i] || back[i]] + (inkB[i] ? '*' : '.');
+if (back[i] || inkB[i]) anyBack = true;
+}
+m.push(row); bk.push(brow);
+}
+const o2 = { m, n: FW.Gen.place(r), names: { a: FW.Gen.place(r), b: FW.Gen.place(r) } };
+if (anyBack) o2.b = bk;
+if (X && Object.keys(X).length) o2.x = X;
+return o2;
+};
+FW.Gen.fallback = seed => ({ id: 'gen' + seed + '_f', n: 'Pudding Lane', m: ['.┼A~  ~  .┼a'], s: 'v1<u v2<o', p: 2, g: 0 });
+FW.Gen.daily = day => {
+const d = day || FW.today();
+const spec = FW.Gen.make(FW.hash('daily' + d) % 1000000, 2);
+spec.id = 'daily' + d; spec.n = 'The Daily Fold';
+return spec;
+};
+// ===== gen3.js =====
+FW.Gen.attempt = (r, T) => {
+const U = T.use || {}, w = T.w[0] + r.int(T.w[1] - T.w[0] + 1), h = T.h[0] + r.int(T.h[1] - T.h[0] + 1);
+const M0 = FW.Gen.blank(w, h), N = M0.N, S = FW.P.init(M0), sol = [];
+const road = new Uint8Array(N), back = new Uint8Array(N), inkF = new Uint8Array(N), inkB = new Uint8Array(N), feat = Array(N).fill('.'), used = new Set(), X = {};
+const nf = T.f[0] + r.int(T.f[1] - T.f[0] + 1);
+if (U.tear) {
+M0.tears = 1; let ok = false;
+for (const mv of r.shuffle(FW.P.cands(M0, S, false).filter(m => m.t === 'f' && !m.u))) {
+const S2 = FW.P.clone(S), q = FW.P.apply(M0, S2, mv);
+if (!q.ok || q.mov.reduce((a, b) => a + b, 0) > N * 0.4) continue;
+const t = { t: 't', ax: q.mv.ax, k: q.mv.k, sd: q.mv.sd }, q2 = FW.P.apply(M0, S2, t);
+if (!q2.ok) continue;
+Object.assign(S, S2); sol.push(q.mv, t); ok = true; break;
+}
+M0.tears = 0; if (!ok) return null; X.tears = 1;
+}
+const F1 = FW.Gen.folds(r, M0, S, nf); if (!F1) return null; sol.push(...F1);
+const R1 = FW.Gen.route(r, M0, S, T, used, road, back); if (!R1) return null;
+feat[R1.a] = 'A'; feat[R1.b] = 'a';
+if (U.trav2 && !U.tear) {
+while (S.stack.length > S.base) { FW.P.unfold(M0, S); sol.push({ t: 'u' }); }
+const F2 = FW.Gen.folds(r, M0, S, Math.max(2, nf - 1)); if (!F2) return null; sol.push(...F2);
+const R2 = FW.Gen.route(r, M0, S, T, used, road, back); if (!R2) return null;
+feat[R2.a] = 'B'; feat[R2.b] = 'b';
+} else if (U.ink && !U.tear) {
+const flat = FW.P.init(M0), cand = r.shuffle(R1.path.filter(c => c !== R1.a && c !== R1.b && road[c] && !FW.P.up(R1.S, c)));
+let done = false;
+for (const P of cand) {
+for (const mv of r.shuffle(FW.P.cands(M0, flat, false).filter(m => m.t === 'f' && !m.u))) {
+const S2 = FW.P.clone(flat), q = FW.P.apply(M0, S2, mv); if (!q.ok) continue;
+let Q = -1; for (let i = 0; i < N; i++) if (i !== P && S2.alive[i] && S2.x[i] === S2.x[P] && S2.y[i] === S2.y[P]) Q = i;
+if (Q < 0 || used.has(Q) || road[Q] || feat[Q] !== '.') continue;
+inkF[Q] = FW.xf(FW.xf(road[P], S2.sx[P], S2.sy[P]), S2.sx[Q], S2.sy[Q]); road[P] = 0; feat[Q] = '*';
+sol.unshift(q.mv, { t: 'u' }); done = true; break;
+}
+if (done) break;
+}
+if (!done) return null;
+}
+FW.Gen.decoys(r, M0, road, new Set([...used, ...feat.map((f, i) => f !== '.' ? i : -1)]), T.dec);
+FW.Gen.rules(r, M0, sol, R1, U, feat, X);
+const spec = FW.Gen.spec(r, { w, h, road, back, inkF, inkB, feat }, X);
+spec.s = FW.P.fmtAll(sol);
+const M = FW.parse(spec), S0 = FW.P.init(M);
+if (S0.dlv) return null;
+const rp = FW.Sv.replay(M, sol); if (!rp.ok) return null;
+const sv = FW.Sv.solve(M, S0, { maxDepth: Math.max(1, sol.length - 1), maxNodes: T.nodes || 50000, ms: T.ms || 1500 });
+const best = sv.sol && sv.sol.length < sol.length ? sv.sol : sol;
+if (best.length < T.min) return null;
+spec.s = FW.P.fmtAll(best); spec.p = best.length; spec.g = FW.Sv.grade(M, best.length, sv.nodes);
+return spec;
+};
+FW.Gen.rules = (r, M0, sol, R1, U, feat, X) => {
+const S = FW.P.init(M0), moved = new Uint8Array(M0.N), split = new Uint8Array(M0.E), dirs = new Set();
+let tall = 1; M0.tears = 1;
+for (const mv of sol) {
+const q = FW.P.apply(M0, S, mv); if (!q.ok) break;
+if (q.kind === 'f') { q.mov.forEach((v, i) => { if (v) moved[i] = 1; }); q.split.forEach(e => split[e]++); if (!q.mv.u) dirs.add(FW.P.flapDir(q.mv)); }
+if (q.kind === 't') q.mov.forEach((v, i) => { if (v) moved[i] = 1; });
+tall = Math.max(tall, FW.P.levels(M0, S.alive, S.x, S.y, S.z.slice()).tall);
+}
+M0.tears = 0;
+const free = i => feat[i] === '.';
+if (U.pins) { const c = r.shuffle([...Array(M0.N).keys()].filter(i => !moved[i] && free(i))); c.slice(0, 1 + r.int(2)).forEach(i => feat[i] = '@'); }
+if (U.coffee) {
+const c = r.shuffle([...Array(M0.N).keys()].filter(i => free(i) && [M0.eE[i], M0.eS[i], i % M0.w ? M0.eE[i - 1] : -1, i >= M0.w ? M0.eS[i - M0.w] : -1].every(e => e < 0 || !split[e])));
+c.slice(0, 1 + r.int(2)).forEach(i => feat[i] = '%');
+}
+const edgeXY = e => { const a = M0.ea[e], b = M0.eb[e]; return [a % M0.w, (a / M0.w) | 0, b - a === 1 ? 'E' : 'S']; };
+if (U.tape) { const c = r.shuffle([...Array(M0.E).keys()].filter(e => !split[e])); X.tape = c.slice(0, 2 + r.int(3)).map(edgeXY); }
+if (U.worn) { const c = r.shuffle([...Array(M0.E).keys()].filter(e => split[e])); X.worn = c.slice(0, 1 + r.int(3)).map(e => edgeXY(e).concat([split[e]])); }
+if (U.wind) { const d = r.shuffle([1, 2, 4, 8]).find(d => !dirs.has(d)); if (d) X.wind = { 1: 'N', 2: 'E', 4: 'S', 8: 'W' }[d]; }
+if (U.thick && tall <= 4) X.thick = Math.max(2, tall);
+if (U.signs && R1) {
+for (const st of r.shuffle(R1.steps.filter((q, i) => i > 0 && R1.steps[i - 1].d === q.d))) {
+const c = st.c, S1 = R1.S; if (!free(c) || FW.P.up(S1, c)) continue;
+feat[c] = { 1: '^', 2: '>', 4: 'v', 8: '<' }[FW.xf(st.d, S1.sx[c], S1.sy[c])];
+if (r() < 0.5) break;
+}
+}
+};
+// ===== save.js =====
+FW.Save = {};
+FW.Save.fresh = () => ({ v: 1, lv: {}, daily: {}, endless: { tier: 0, solved: 0, best: {} }, atlas: 0, seen: {}, hints: 0, folds: 0, edit: null });
+FW.Save.load = () => {
+const d = FW.store.get('save', null), f = FW.Save.fresh();
+FW.S0 = (!d || typeof d !== 'object' || d.v !== 1) ? f : Object.assign(f, d, { endless: Object.assign(f.endless, d.endless || {}) });
+return FW.S0;
+};
+FW.Save._t = 0;
+FW.Save.write = () => { clearTimeout(FW.Save._t); FW.Save._t = setTimeout(() => FW.store.set('save', FW.S0), 200); };
+FW.Save.now = () => FW.store.set('save', FW.S0);
+FW.Save.reset = () => { FW.store.del('save'); FW.Save.load(); };
+FW.Save.level = (id, moves, stamps) => {
+const o = FW.S0.lv[id] || {};
+const better = !o.s || stamps > o.s || (stamps === o.s && moves < o.m);
+if (better) FW.S0.lv[id] = { m: o.m ? Math.min(o.m, moves) : moves, s: Math.max(o.s || 0, stamps) };
+else if (moves < o.m) o.m = moves;
+FW.Save.write();
+};
+FW.Save.stamps = () => Object.values(FW.S0.lv).reduce((a, o) => a + (o.s || 0), 0);
+FW.Set = { o: { sfx: 0.7, mus: 0.35, sound: true, music: true, motion: true, dots: true, grid: true } };
+FW.Set.load = () => { FW.Set.o = Object.assign(FW.Set.o, FW.store.get('opts', {})); };
+FW.Set.save = () => FW.store.set('opts', FW.Set.o);
+FW.Set.apply = () => {
+const o = FW.Set.o;
+if (FW.A) { FW.A.setOn(o.sound); FW.A.setVol(o.sfx, o.mus); }
+if (FW.Mu) FW.Mu.enable(o.music && o.sound);
+const s = FW.$('bSnd'), m = FW.$('bMus');
+if (s) s.classList.toggle('off', !o.sound);
+if (m) m.classList.toggle('off', !o.music);
+};
+FW.Set.show = () => {
+const o = FW.Set.o;
+FW.UI.modal(`<h2>Settings</h2>
+<label>Sound <input type="checkbox" id="oSound" ${o.sound ? 'checked' : ''}></label>
+<label>Effects <input type="range" id="oSfx" min="0" max="1" step="0.05" value="${o.sfx}"></label>
+<label>Music <input type="checkbox" id="oMusic" ${o.music ? 'checked' : ''}></label>
+<label>Music volume <input type="range" id="oMus" min="0" max="1" step="0.05" value="${o.mus}"></label>
+<label>Smooth fold animations <input type="checkbox" id="oMotion" ${o.motion ? 'checked' : ''}></label>
+<label>Pencil dots where travellers can already walk <input type="checkbox" id="oDots" ${o.dots ? 'checked' : ''}></label>
+<p class="wl">Drag across a grid line to fold the part you grabbed over it. Keys: arrows pick a crease, <span class="kbd">Q</span>/<span class="kbd">E</span> fold either side,
+<span class="kbd">T</span> over/under, <span class="kbd">U</span> unfold, <span class="kbd">Z</span>/<span class="kbd">Y</span> undo/redo, <span class="kbd">H</span> hint, <span class="kbd">X</span> tear, <span class="kbd">R</span> reset.</p>
+<div class="btns"><button class="pb sm" id="oReset">Erase progress</button><button class="pb red sm" id="oClose">Done</button></div>`);
+const bind = (id, k, num) => FW.$(id).addEventListener('input', e => { o[k] = num ? +e.target.value : e.target.checked; FW.Set.save(); FW.Set.apply(); });
+bind('oSound', 'sound'); bind('oSfx', 'sfx', 1); bind('oMusic', 'music'); bind('oMus', 'mus', 1); bind('oMotion', 'motion'); bind('oDots', 'dots');
+FW.$('oClose').onclick = () => FW.UI.close();
+FW.$('oReset').onclick = () => { if (confirm('Erase all FOLDWAY progress in this browser?')) { FW.Save.reset(); FW.UI.close(); FW.toast('Progress erased.'); FW.UI.home(); } };
+};
+// ===== audio.js =====
+FW.A = { ctx: null, on: true, sfxVol: 0.7, musVol: 0.35 };
+FW.A.init = () => {
+const A = FW.A;
+if (A.ctx) { if (A.ctx.state === 'suspended') A.ctx.resume(); return; }
+try {
+const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+const ctx = A.ctx = new C();
+A.master = ctx.createGain(); A.master.gain.value = A.on ? 1 : 0;
+const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+A.master.connect(comp); comp.connect(ctx.destination);
+A.sfx = ctx.createGain(); A.sfx.gain.value = A.sfxVol; A.sfx.connect(A.master);
+A.mus = ctx.createGain(); A.mus.gain.value = A.musVol * 0.5; A.mus.connect(A.master);
+const len = ctx.sampleRate * 2; A.nbuf = ctx.createBuffer(1, len, ctx.sampleRate);
+const d = A.nbuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+if (FW.Mu) FW.Mu.boot();
+} catch (e) { A.ctx = null; }
+};
+FW.A.setOn = v => { FW.A.on = v; if (FW.A.master) FW.A.master.gain.value = v ? 1 : 0; };
+FW.A.setVol = (s, m) => { const A = FW.A; A.sfxVol = s; A.musVol = m; if (A.sfx) A.sfx.gain.value = s; if (A.mus) A.mus.gain.value = m * 0.5; };
+FW.A.ok = () => FW.A.ctx && FW.A.on;
+FW.A.grain = (dur, vol, f, f2, q, delay, type) => {
+if (!FW.A.ok()) return;
+const c = FW.A.ctx, t = c.currentTime + (delay || 0), s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+s.buffer = FW.A.nbuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
+fl.type = type || 'bandpass'; fl.Q.value = q || 1.2; fl.frequency.setValueAtTime(f, t);
+if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
+g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.01, dur * 0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+s.connect(fl); fl.connect(g); g.connect(FW.A.sfx);
+s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
+};
+FW.A.tone = (f, dur, type, vol, f2, delay, dest) => {
+if (!FW.A.ok()) return;
+const c = FW.A.ctx, t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+if (f2) o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
+g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+o.connect(g); g.connect(dest || FW.A.sfx); o.start(t); o.stop(t + dur + 0.05);
+};
+FW.A.rustle = amt => {
+amt = amt || 0.5; const n = Math.round(6 + amt * 14);
+for (let i = 0; i < n; i++) FW.A.grain(0.03 + Math.random() * 0.08, (0.05 + Math.random() * 0.12) * amt, 1500 + Math.random() * 5000, 0, 0.8 + Math.random(), i * (0.02 + Math.random() * 0.03) * (0.6 + amt));
+};
+FW.A.crinkle = amt => {
+amt = amt || 0.4;
+for (let i = 0; i < 10 + amt * 20; i++) FW.A.grain(0.004 + Math.random() * 0.01, (0.04 + Math.random() * 0.15) * amt, 3000 + Math.random() * 6000, 0, 2, Math.random() * 0.25 * (0.5 + amt), 'highpass');
+};
+FW.A.lift = () => { FW.A.grain(0.18, 0.12, 900, 2600, 0.9); FW.A.crinkle(0.3); };
+FW.A.fold = under => {
+FW.A.grain(0.12, 0.22, under ? 700 : 1100, under ? 1800 : 3400, 1.1);
+FW.A.tone(under ? 95 : 130, 0.16, 'sine', 0.28, 60, 0.06);
+FW.A.crinkle(0.7); FW.A.grain(0.05, 0.25, 5200, 0, 1.5, 0.08);
+};
+FW.A.unfold = () => { FW.A.grain(0.3, 0.16, 3200, 900, 0.8); FW.A.rustle(0.4); };
+FW.A.tear = () => {
+for (let i = 0; i < 26; i++) FW.A.grain(0.02 + Math.random() * 0.03, 0.12 + Math.random() * 0.2, 1200 + i * 140 + Math.random() * 800, 0, 1.6, i * 0.022);
+FW.A.grain(0.6, 0.12, 600, 4000, 0.7);
+};
+FW.A.thud = () => { FW.A.tone(90, 0.14, 'triangle', 0.25, 55); FW.A.grain(0.06, 0.12, 400, 0, 1); };
+FW.A.click = () => { FW.A.grain(0.02, 0.2, 3500, 0, 3); FW.A.tone(900, 0.03, 'square', 0.03); };
+FW.A.stamp = v => { v = v || 1; FW.A.tone(70, 0.18, 'sine', 0.45 * v, 40); FW.A.grain(0.05, 0.35 * v, 1800, 0, 0.8); FW.A.grain(0.12, 0.1 * v, 300, 0, 0.7, 0.02, 'lowpass'); };
+FW.A.go = () => { [523, 659, 784].forEach((f, i) => FW.A.tone(f, 0.25, 'triangle', 0.08, 0, i * 0.08)); };
+FW.A.step = () => FW.A.grain(0.03, 0.08, 700 + Math.random() * 300, 0, 2);
+FW.A.wind = () => { FW.A.grain(1.1, 0.22, 300, 1200, 0.5, 0, 'lowpass'); FW.A.grain(0.9, 0.08, 1800, 700, 0.6, 0.2); };
+FW.A.squelch = () => { FW.A.tone(240, 0.22, 'sine', 0.12, 110); FW.A.grain(0.18, 0.12, 500, 260, 3, 0.02); };
+FW.A.win = () => {
+const notes = [784, 988, 1175, 1568, 1319, 1568];
+notes.forEach((f, i) => { FW.A.tone(f, 0.6, 'sine', 0.09, 0, 0.12 * i); FW.A.tone(f * 2, 0.3, 'sine', 0.025, 0, 0.12 * i); });
+};
+// ===== music.js =====
+FW.Mu = { on: false, timer: 0, next: 0, beat: 0, r: FW.rng(Date.now() & 0xffff) };
+FW.Mu.CH = [[62, 66, 69, 74], [59, 62, 66, 71], [55, 59, 62, 67], [57, 61, 64, 69], [54, 57, 62, 66], [55, 59, 62, 67], [57, 61, 64, 69], [62, 66, 69, 74]];
+FW.Mu.PENTA = [62, 64, 66, 69, 71, 74, 76, 78, 81];
+FW.Mu.hz = m => 440 * Math.pow(2, (m - 69) / 12);
+FW.Mu.boot = () => {
+const A = FW.A, c = A.ctx; if (!c || FW.Mu.bus) return;
+const bus = FW.Mu.bus = c.createGain(); bus.gain.value = 1;
+const dl = c.createDelay(1), fb = c.createGain(), lp = c.createBiquadFilter();
+dl.delayTime.value = 0.42; fb.gain.value = 0.33; lp.type = 'lowpass'; lp.frequency.value = 2200;
+bus.connect(A.mus); bus.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(A.mus);
+if (FW.Mu.want) FW.Mu.enable(true);
+};
+FW.Mu.enable = v => {
+FW.Mu.want = v;
+if (!FW.A.ctx || !FW.Mu.bus) return;
+if (v && !FW.Mu.on) { FW.Mu.on = true; FW.Mu.next = FW.A.ctx.currentTime + 0.3; FW.Mu.timer = setInterval(FW.Mu.sched, 180); }
+if (!v && FW.Mu.on) { FW.Mu.on = false; clearInterval(FW.Mu.timer); }
+};
+FW.Mu.pluck = (m, t, vol, dur) => {
+const c = FW.A.ctx, f = FW.Mu.hz(m);
+for (const [mul, v, type] of [[1, 1, 'triangle'], [2, 0.3, 'sine'], [3, 0.12, 'sine']]) {
+const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f * mul;
+g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur / mul);
+o.connect(g); g.connect(FW.Mu.bus); o.start(t); o.stop(t + dur + 0.1);
+}
+};
+FW.Mu.pad = (notes, t, dur) => {
+const c = FW.A.ctx, lp = c.createBiquadFilter(), g = c.createGain();
+lp.type = 'lowpass'; lp.frequency.value = 900; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + dur * 0.4); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+lp.connect(g); g.connect(FW.Mu.bus);
+for (const m of notes.slice(0, 3)) for (const det of [-5, 5]) { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = FW.Mu.hz(m - 12); o.detune.value = det; o.connect(lp); o.start(t); o.stop(t + dur + 0.1); }
+};
+FW.Mu.sched = () => {
+const M = FW.Mu, c = FW.A.ctx; if (!c || !M.on) return;
+const spb = 60 / 70 / 2, r = M.r;   // eighth notes at 70 bpm
+while (M.next < c.currentTime + 0.6) {
+const t = M.next, b = M.beat, bar = Math.floor(b / 6), ch = M.CH[Math.floor(bar / 2) % M.CH.length], pos = b % 6;
+if (pos === 0 && bar % 2 === 0) M.pad(ch, t, spb * 12);
+if (pos === 0) M.pluck(ch[0] - 12, t, 0.07, 2.2);
+const arp = [0, 1, 2, 3, 2, 1][pos];
+if (r() < 0.8) M.pluck(ch[arp], t, 0.035 + r() * 0.02, 1.2);
+if (pos % 3 === 0 && r() < 0.45) {
+M.mel = M.mel == null ? 4 : FW.clamp(M.mel + Math.round((r() - 0.5) * 3), 0, M.PENTA.length - 1);
+M.pluck(M.PENTA[M.mel] + 12, t + spb * 0.02, 0.045, 1.8);
+}
+M.beat++; M.next += spb * (pos % 2 ? 0.94 : 1.06);   // a lazy swing
+}
+};
+// ===== art_paper.js =====
+FW.Art = {};
+FW.Art.cv = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+FW.Art.paperTex = (tone) => {
+const S = 256, c = FW.Art.cv(S, S), g = c.getContext('2d'), r = FW.rng(tone === 'back' ? 77 : 41);
+g.fillStyle = tone === 'back' ? '#e9dfc6' : '#f1e5c5'; g.fillRect(0, 0, S, S);
+const wrap = (f) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { g.save(); g.translate(ox, oy); f(); g.restore(); } };
+for (let i = 0; i < 26; i++) {
+const x = r() * S, y = r() * S, rad = 20 + r() * 60, a = 0.03 + r() * 0.05, dark = r() < 0.6;
+wrap(() => { const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, dark ? `rgba(150,110,60,${a})` : `rgba(255,250,235,${a * 1.6})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); });
+}
+g.lineCap = 'round';
+for (let i = 0; i < 700; i++) {
+const x = r() * S, y = r() * S, l = 2 + r() * 9, a = r() * Math.PI * 2, dark = r() < 0.55;
+g.strokeStyle = dark ? `rgba(120,90,50,${0.05 + r() * 0.09})` : `rgba(255,252,240,${0.1 + r() * 0.2})`; g.lineWidth = 0.4 + r() * 0.7;
+wrap(() => { g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + 0.6) * l * 0.5, y + Math.sin(a + 0.6) * l * 0.5, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); });
+}
+for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(90,60,30,${r() * 0.12})`; g.fillRect(r() * S, r() * S, 0.6 + r(), 0.6 + r()); }
+return c;
+};
+FW.Art.tex = {};
+FW.Art.pattern = (g, tone) => {
+if (!FW.Art.tex[tone]) FW.Art.tex[tone] = FW.Art.paperTex(tone);
+return g.createPattern(FW.Art.tex[tone], 'repeat');
+};
+FW.Art.wob = (g, pts, r, amt) => {
+g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+for (let i = 1; i < pts.length; i++) {
+const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+const mx = (x0 + x1) / 2 + (r() - 0.5) * amt, my = (y0 + y1) / 2 + (r() - 0.5) * amt;
+g.quadraticCurveTo(mx, my, x1, y1);
+}
+};
+FW.Art.blob = (g, cx, cy, rad, r, n) => {
+n = n || 9; g.beginPath();
+for (let i = 0; i <= n; i++) {
+const a = i / n * Math.PI * 2, rr = rad * (0.82 + r() * 0.3), x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+if (!i) g.moveTo(x, y); else g.lineTo(x, y);
+}
+g.closePath();
+};
+FW.Art.coffee = (g, cx, cy, rad, r, wet) => {
+g.save();
+g.fillStyle = wet ? 'rgba(110,62,24,.30)' : 'rgba(130,85,40,.10)';
+FW.Art.blob(g, cx, cy, rad, r, 14); g.fill();
+g.strokeStyle = wet ? 'rgba(90,48,16,.55)' : 'rgba(120,75,35,.22)'; g.lineWidth = Math.max(1.5, rad * 0.09);
+g.beginPath(); g.arc(cx, cy, rad * 0.98, r() * 6, r() * 6 + 5.6); g.stroke();
+if (wet) { g.fillStyle = 'rgba(255,240,220,.25)'; g.beginPath(); g.ellipse(cx - rad * 0.3, cy - rad * 0.35, rad * 0.25, rad * 0.1, -0.6, 0, 7); g.fill(); }
+g.restore();
+};
+FW.Art.desk = (g, W, H, seed) => {
+const r = FW.rng(seed || 3);
+const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#4a3019'); bg.addColorStop(0.5, '#3a2514'); bg.addColorStop(1, '#2a1a0d');
+g.fillStyle = bg; g.fillRect(0, 0, W, H);
+for (let i = 0; i < 90; i++) {
+const y = r() * H, amp = 3 + r() * 14, f = 0.002 + r() * 0.006, ph = r() * 9;
+g.strokeStyle = `rgba(${r() < 0.5 ? '20,10,4' : '120,80,45'},${0.08 + r() * 0.14})`; g.lineWidth = 0.6 + r() * 2.2;
+g.beginPath(); for (let x = 0; x <= W; x += 16) { const yy = y + Math.sin(x * f + ph) * amp + Math.sin(x * f * 3.1 + ph) * amp * 0.25; if (!x) g.moveTo(x, yy); else g.lineTo(x, yy); } g.stroke();
+}
+const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+v.addColorStop(0, 'rgba(255,200,120,.10)'); v.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
+};
+// ===== art_map.js =====
+FW.Art.INK = '#3b2a1c';
+FW.Art.wetMask = (M, T) => {
+const c = FW.Art.cv(M.w * T, M.h * T), g = c.getContext('2d'), wet = (x, y) => x < 0 || y < 0 || x >= M.w || y >= M.h ? null : 'ws~'.includes(M.terr[y * M.w + x]) && M.terr[y * M.w + x] !== 'w';
+g.fillStyle = '#fff';
+const ins = T * 0.12, rad = T * 0.34;
+for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) {
+if (!wet(x, y)) continue;
+const side = (dx, dy) => { const v = wet(x + dx, y + dy); return v === null || v ? 0 : ins; };
+const l = side(-1, 0), t = side(0, -1), rr = side(1, 0), b = side(0, 1);
+const x0 = x * T + l, y0 = y * T + t, x1 = (x + 1) * T - rr, y1 = (y + 1) * T - b;
+const cr = [(l && t) ? rad : 0, (rr && t) ? rad : 0, (rr && b) ? rad : 0, (l && b) ? rad : 0];
+g.beginPath(); g.moveTo(x0 + cr[0], y0); g.lineTo(x1 - cr[1], y0); g.quadraticCurveTo(x1, y0, x1, y0 + cr[1]);
+g.lineTo(x1, y1 - cr[2]); g.quadraticCurveTo(x1, y1, x1 - cr[2], y1); g.lineTo(x0 + cr[3], y1); g.quadraticCurveTo(x0, y1, x0, y1 - cr[3]);
+g.lineTo(x0, y0 + cr[0]); g.quadraticCurveTo(x0, y0, x0 + cr[0], y0); g.fill();
+}
+return c;
+};
+FW.Art.tint = (mask, col) => { const c = FW.Art.cv(mask.width, mask.height), g = c.getContext('2d'); g.drawImage(mask, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height); return c; };
+FW.Art.water = (g, M, T, r) => {
+const mask = FW.Art.wetMask(M, T), dark = FW.Art.tint(mask, 'rgba(59,42,28,.85)'), u = Math.max(1, T / 60);
+for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-.7, -.7], [.7, .7], [.7, -.7], [-.7, .7]]) g.drawImage(dark, dx * u * 1.3, dy * u * 1.3);
+const blue = FW.Art.cv(mask.width, mask.height), b = blue.getContext('2d');
+b.drawImage(mask, 0, 0); b.globalCompositeOperation = 'source-in';
+const gr = b.createLinearGradient(0, 0, blue.width, blue.height); gr.addColorStop(0, '#a9c9cf'); gr.addColorStop(1, '#8db4c2');
+b.fillStyle = gr; b.fillRect(0, 0, blue.width, blue.height);
+b.globalCompositeOperation = 'source-atop';
+for (let i = 0; i < M.N; i++) if (M.terr[i] === 's') { b.fillStyle = 'rgba(60,100,125,.32)'; b.fillRect((i % M.w) * T - 1, ((i / M.w) | 0) * T - 1, T + 2, T + 2); }
+b.strokeStyle = 'rgba(255,255,255,.35)'; b.lineWidth = u * 1.2;
+for (let i = 0; i < M.N; i++) if ('s~'.includes(M.terr[i])) {
+const x = (i % M.w) * T, y = ((i / M.w) | 0) * T, n = M.terr[i] === 's' ? 3 : 2;
+for (let k = 0; k < n; k++) { const px = x + T * (0.2 + r() * 0.5), py = y + T * (0.25 + k * 0.25 + r() * 0.08), l = T * 0.18;
+b.beginPath(); b.moveTo(px, py); b.quadraticCurveTo(px + l * 0.5, py - l * 0.3, px + l, py); b.quadraticCurveTo(px + l * 1.5, py + l * 0.3, px + l * 2, py); b.stroke(); }
+}
+g.drawImage(blue, 0, 0);
+};
+FW.Art.tree = (g, x, y, s, r) => {
+g.fillStyle = '#6b4a2c'; g.fillRect(x - s * 0.06, y, s * 0.12, s * 0.32);
+g.fillStyle = r() < 0.5 ? '#7f9a55' : '#6c8a4a'; g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, s * 0.07);
+FW.Art.blob(g, x, y - s * 0.12, s * 0.32, r, 8); g.fill(); g.stroke();
+g.fillStyle = 'rgba(255,255,230,.25)'; g.beginPath(); g.arc(x - s * 0.1, y - s * 0.22, s * 0.1, 0, 7); g.fill();
+};
+FW.Art.peak = (g, x, y, s, r) => {
+const h = s * (0.75 + r() * 0.25), w = s * (0.55 + r() * 0.15);
+g.fillStyle = '#e3d2a6'; g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, s * 0.05); g.lineJoin = 'round';
+g.beginPath(); g.moveTo(x - w, y); g.lineTo(x - w * 0.15, y - h); g.lineTo(x + w * 0.05, y - h * 0.9); g.lineTo(x + w, y); g.closePath(); g.fill();
+g.fillStyle = 'rgba(110,80,45,.35)'; g.beginPath(); g.moveTo(x - w * 0.1, y - h * 0.95); g.lineTo(x + w, y); g.lineTo(x + w * 0.1, y); g.closePath(); g.fill();
+g.fillStyle = '#fbf7ec'; g.beginPath(); g.moveTo(x - w * 0.15, y - h); g.lineTo(x - w * 0.36, y - h * 0.62); g.lineTo(x - w * 0.12, y - h * 0.7); g.lineTo(x + w * 0.12, y - h * 0.62); g.lineTo(x + w * 0.05, y - h * 0.9); g.closePath(); g.fill();
+g.beginPath(); g.moveTo(x - w, y); g.lineTo(x - w * 0.15, y - h); g.lineTo(x + w * 0.05, y - h * 0.9); g.lineTo(x + w, y); g.stroke();
+g.lineWidth = Math.max(0.7, s * 0.025);
+for (let k = 1; k < 5; k++) { const t = k / 5; g.beginPath(); g.moveTo(x + w * 0.05 + (w * 0.95) * t * 0.7, y - h * 0.9 * (1 - t)); g.lineTo(x + w * 0.05 + (w * 0.95) * t * 0.7 - s * 0.08, y - h * 0.9 * (1 - t) + s * 0.1); g.stroke(); }
+};
+FW.Art.terrain = (g, M, T, r) => {
+const u = T / 100;
+for (let i = 0; i < M.N; i++) {
+const x = (i % M.w) * T, y = ((i / M.w) | 0) * T, t = M.terr[i];
+g.save(); g.beginPath(); g.rect(x, y, T, T); g.clip();
+if (t === '.' || t === 'v') {
+g.fillStyle = 'rgba(140,165,90,.10)'; g.fillRect(x, y, T, T);
+g.strokeStyle = 'rgba(90,110,55,.45)'; g.lineWidth = 1.1 * u;
+for (let k = 0; k < 5; k++) { const px = x + T * (0.1 + r() * 0.8), py = y + T * (0.15 + r() * 0.75); g.beginPath(); g.moveTo(px - 3 * u, py); g.lineTo(px - 1.5 * u, py - 5 * u); g.moveTo(px, py); g.lineTo(px + 0.5 * u, py - 6 * u); g.moveTo(px + 3 * u, py); g.lineTo(px + 3.5 * u, py - 4 * u); g.stroke(); }
+} else if (t === 'p') {
+g.fillStyle = 'rgba(205,170,90,.28)'; g.fillRect(x + 6 * u, y + 6 * u, T - 12 * u, T - 12 * u);
+g.strokeStyle = 'rgba(140,105,50,.45)'; g.lineWidth = 1.3 * u;
+for (let k = -T; k < T; k += 10 * u) { g.beginPath(); g.moveTo(x + 6 * u + k, y + 6 * u); g.lineTo(x + 6 * u + k + T, y + T - 6 * u); g.stroke(); }
+} else if (t === 'f') {
+g.fillStyle = 'rgba(100,130,70,.18)'; g.fillRect(x, y, T, T);
+const pts = [[0.28, 0.4], [0.7, 0.32], [0.5, 0.62], [0.22, 0.82], [0.78, 0.78]];
+for (const p of pts) FW.Art.tree(g, x + T * (p[0] + (r() - 0.5) * 0.1), y + T * (p[1] + (r() - 0.5) * 0.08), T * 0.36, r);
+} else if (t === 'm') {
+g.fillStyle = 'rgba(160,125,75,.16)'; g.fillRect(x, y, T, T);
+FW.Art.peak(g, x + T * 0.36, y + T * 0.62, T * 0.42, r); FW.Art.peak(g, x + T * 0.68, y + T * 0.86, T * 0.36, r);
+} else if (t === 'h') {
+g.strokeStyle = FW.Art.INK; g.lineWidth = 1.4 * u; g.fillStyle = 'rgba(170,150,85,.25)';
+for (const p of [[0.3, 0.45], [0.66, 0.4], [0.48, 0.78]]) { const px = x + T * p[0], py = y + T * p[1]; g.beginPath(); g.moveTo(px - 15 * u, py); g.quadraticCurveTo(px, py - 18 * u, px + 15 * u, py); g.fill(); g.stroke(); }
+} else if (t === 'd') {
+g.fillStyle = 'rgba(225,190,120,.35)'; g.fillRect(x, y, T, T); g.fillStyle = 'rgba(130,95,50,.5)';
+for (let k = 0; k < 40; k++) g.fillRect(x + r() * T, y + r() * T, 1.2 * u, 1.2 * u);
+} else if (t === 'w') {
+g.fillStyle = 'rgba(120,150,110,.22)'; g.fillRect(x, y, T, T); g.strokeStyle = 'rgba(70,95,60,.7)'; g.lineWidth = 1.2 * u;
+for (let k = 0; k < 6; k++) { const px = x + T * (0.12 + r() * 0.76), py = y + T * (0.2 + r() * 0.7); g.beginPath(); g.moveTo(px - 4 * u, py); g.lineTo(px - 6 * u, py - 7 * u); g.moveTo(px, py); g.lineTo(px, py - 9 * u); g.moveTo(px + 4 * u, py); g.lineTo(px + 6 * u, py - 7 * u); g.stroke();
+g.strokeStyle = 'rgba(80,120,140,.6)'; g.beginPath(); g.moveTo(px - 7 * u, py + 3 * u); g.lineTo(px + 7 * u, py + 3 * u); g.stroke(); g.strokeStyle = 'rgba(70,95,60,.7)'; }
+}
+g.restore();
+}
+};
+// ===== art_map2.js =====
+FW.Art.COL = ['#b4402c', '#2f6f8f', '#5f7f2a', '#8a4f9a'];
+FW.Art.roadCell = (g, m, x, y, T, style, pass, r, wet) => {
+if (!m) return;
+const cx = x + T / 2, cy = y + T / 2, u = T / 100;
+const ends = FW.DIRS.filter(d => m & d).map(d => [cx + FW.DX[d] * T / 2, cy + FW.DY[d] * T / 2, d]);
+g.lineCap = 'round'; g.lineJoin = 'round';
+const path = () => {
+g.beginPath();
+for (const [ex, ey, d] of ends) {
+const j = r ? (r() - 0.5) * 6 * u : 0, px = FW.DY[d] ? j : 0, py = FW.DX[d] ? j : 0;
+g.moveTo(cx, cy); g.quadraticCurveTo((cx + ex) / 2 + px, (cy + ey) / 2 + py, ex, ey);
+}
+if (ends.length === 1) { g.moveTo(cx, cy); g.lineTo(cx + 0.01, cy); }
+};
+const seed = r ? r() : 0.5;
+if (style === 'print') {
+if (!pass) { g.strokeStyle = wet ? '#5b3a22' : FW.Art.INK; g.lineWidth = (wet ? 26 : 20) * u; path(); g.stroke(); }
+else {
+g.strokeStyle = wet ? '#b98a58' : '#f2cf74'; g.lineWidth = (wet ? 19 : 13) * u; path(); g.stroke();
+if (wet) { g.strokeStyle = 'rgba(70,40,20,.55)'; g.lineWidth = 1.5 * u; g.setLineDash([2 * u, 5 * u]); g.lineWidth = 15 * u; g.globalAlpha = 0.3; path(); g.stroke(); g.globalAlpha = 1; g.setLineDash([]); }
+}
+} else if (style === 'pencil') {
+g.strokeStyle = 'rgba(85,85,95,.42)'; g.lineWidth = 16 * u; path(); g.stroke();
+g.strokeStyle = 'rgba(45,45,55,.9)'; g.lineWidth = 2.2 * u;
+for (const off of [-7, 7]) { g.save(); g.translate(ends.length && FW.DY[ends[0][2]] ? off * u : 0, ends.length && FW.DX[ends[0][2]] ? off * u : 0); path(); g.stroke(); g.restore(); }
+g.strokeStyle = 'rgba(40,40,50,.75)'; g.lineWidth = 1.6 * u; g.setLineDash([5 * u, 5 * u]); path(); g.stroke(); g.setLineDash([]);
+} else {
+const col = style === 'ink' ? '#6d1f4f' : 'rgba(120,40,85,.78)';
+if (!pass) { g.strokeStyle = col; g.lineWidth = 15 * u; path(); g.stroke(); }
+else { g.strokeStyle = style === 'ink' ? 'rgba(255,200,235,.45)' : 'rgba(255,230,240,.25)'; g.lineWidth = 4 * u; path(); g.stroke(); }
+}
+};
+FW.Art.roads = (g, M, T, r) => {
+for (let pass = 0; pass < 2; pass++) for (let i = 0; i < M.N; i++) {
+const x = (i % M.w) * T, y = ((i / M.w) | 0) * T, wet = 's~'.includes(M.terr[i]);
+const rr = FW.rng(i * 31 + 7);
+FW.Art.roadCell(g, M.road[i], x, y, T, 'print', pass, rr, wet);
+if (M.inkF[i]) FW.Art.roadCell(g, M.inkF[i], x, y, T, 'ink', pass, FW.rng(i * 31 + 7));
+}
+};
+FW.Art.house = (g, x, y, s, roof) => {
+g.fillStyle = '#f4ead0'; g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, s * 0.08); g.lineJoin = 'round';
+g.fillRect(x - s * 0.4, y - s * 0.45, s * 0.8, s * 0.5); g.strokeRect(x - s * 0.4, y - s * 0.45, s * 0.8, s * 0.5);
+g.fillStyle = roof; g.beginPath(); g.moveTo(x - s * 0.52, y - s * 0.42); g.lineTo(x, y - s * 0.9); g.lineTo(x + s * 0.52, y - s * 0.42); g.closePath(); g.fill(); g.stroke();
+g.fillStyle = FW.Art.INK; g.fillRect(x - s * 0.08, y - s * 0.25, s * 0.16, s * 0.3);
+};
+FW.Art.flag = (g, x, y, s, col) => {
+g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, s * 0.06); g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - s); g.stroke();
+g.fillStyle = col; g.beginPath(); g.moveTo(x, y - s); g.quadraticCurveTo(x + s * 0.35, y - s * 1.05, x + s * 0.6, y - s * 0.85); g.quadraticCurveTo(x + s * 0.35, y - s * 0.7, x, y - s * 0.6); g.closePath(); g.fill(); g.stroke();
+};
+FW.Art.label = (g, txt, x, y, s, italic) => {
+if (!txt) return;
+g.font = (italic ? 'italic ' : '') + 'bold ' + Math.round(s) + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+g.lineWidth = s * 0.32; g.strokeStyle = 'rgba(246,238,214,.92)'; g.strokeText(txt, x, y); g.fillStyle = FW.Art.INK; g.fillText(txt, x, y);
+};
+FW.Art.towns = (g, M, T) => {
+const u = T / 100;
+M.trav.forEach((tr, j) => {
+const col = FW.Art.COL[j % 4];
+let x = (tr.s % M.w) * T, y = ((tr.s / M.w) | 0) * T;
+g.fillStyle = 'rgba(246,238,214,.9)'; g.beginPath(); g.arc(x + T / 2, y + T / 2, T * 0.3, 0, 7); g.fill();
+g.strokeStyle = col; g.lineWidth = 3 * u; g.setLineDash([5 * u, 4 * u]); g.beginPath(); g.arc(x + T / 2, y + T / 2, T * 0.3, 0, 7); g.stroke(); g.setLineDash([]);
+FW.Art.house(g, x + T * 0.5, y + T * 0.68, T * 0.36, col);
+x = (tr.g % M.w) * T; y = ((tr.g / M.w) | 0) * T;
+g.fillStyle = 'rgba(246,238,214,.9)'; g.beginPath(); g.arc(x + T / 2, y + T / 2, T * 0.34, 0, 7); g.fill();
+g.strokeStyle = FW.Art.INK; g.lineWidth = 2.5 * u; g.beginPath(); g.arc(x + T / 2, y + T / 2, T * 0.34, 0, 7); g.stroke();
+FW.Art.house(g, x + T * 0.36, y + T * 0.66, T * 0.26, '#a5643a'); FW.Art.house(g, x + T * 0.62, y + T * 0.6, T * 0.3, '#8a5a3a');
+FW.Art.flag(g, x + T * 0.5, y + T * 0.36, T * 0.24, col);
+FW.Art.label(g, tr.name || '', x + T / 2, y + T * 0.88, 13 * u, true);
+});
+};
+FW.Art.signs = (g, M, T) => {
+const u = T / 100;
+for (let i = 0; i < M.N; i++) if (M.sign[i]) {
+const x = (i % M.w) * T, y = ((i / M.w) | 0) * T, d = M.sign[i];
+const px = x + (FW.DY[d] ? T * 0.78 : T * 0.5), py = y + (FW.DX[d] ? T * 0.2 : T * 0.5);
+const ang = { 1: -Math.PI / 2, 2: 0, 4: Math.PI / 2, 8: Math.PI }[d];
+g.save(); g.translate(px, py); g.rotate(ang);
+g.fillStyle = '#e7c98f'; g.strokeStyle = FW.Art.INK; g.lineWidth = 2 * u;
+g.beginPath(); g.moveTo(-22 * u, -10 * u); g.lineTo(14 * u, -10 * u); g.lineTo(26 * u, 0); g.lineTo(14 * u, 10 * u); g.lineTo(-22 * u, 10 * u); g.closePath(); g.fill(); g.stroke();
+g.fillStyle = FW.Art.INK; g.font = 'bold ' + Math.round(9 * u) + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+if (d === 8) { g.rotate(Math.PI); g.fillText('ONE WAY', -2 * u, 0); } else g.fillText('ONE WAY', 0, 0);
+g.restore();
+}
+};
+// ===== art_map3.js =====
+FW.Art.compass = (g, cx, cy, R, rot) => {
+g.save(); g.translate(cx, cy); g.rotate(rot || 0);
+g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, R * 0.03);
+g.beginPath(); g.arc(0, 0, R * 0.62, 0, 7); g.stroke(); g.beginPath(); g.arc(0, 0, R * 0.55, 0, 7); g.stroke();
+for (let k = 0; k < 8; k++) {
+const a = k * Math.PI / 4, L = k % 2 ? R * 0.55 : R, w = k % 2 ? R * 0.1 : R * 0.16;
+g.save(); g.rotate(a);
+g.fillStyle = k === 0 ? '#b4402c' : '#f3e7c6'; g.beginPath(); g.moveTo(0, -L); g.lineTo(w, 0); g.lineTo(0, 0); g.closePath(); g.fill(); g.stroke();
+g.fillStyle = k === 0 ? '#7a2414' : FW.Art.INK; g.beginPath(); g.moveTo(0, -L); g.lineTo(-w, 0); g.lineTo(0, 0); g.closePath(); g.fill(); g.stroke();
+g.restore();
+}
+g.fillStyle = FW.Art.INK; g.font = 'bold ' + Math.round(R * 0.3) + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+g.fillText('N', 0, -R * 1.18);
+g.restore();
+};
+FW.Art.serpent = (g, cx, cy, s, r, flip) => {
+g.save(); g.translate(cx, cy); if (flip) g.scale(-1, 1);
+g.strokeStyle = FW.Art.INK; g.lineWidth = Math.max(1, s * 0.05); g.fillStyle = '#7d9c8a';
+for (let k = 0; k < 3; k++) { const x = -s * 0.5 + k * s * 0.32; g.beginPath(); g.moveTo(x - s * 0.12, 0); g.quadraticCurveTo(x, -s * 0.36, x + s * 0.12, 0); g.closePath(); g.fill(); g.stroke(); }
+g.beginPath(); g.moveTo(s * 0.42, 0); g.quadraticCurveTo(s * 0.5, -s * 0.55, s * 0.72, -s * 0.48); g.quadraticCurveTo(s * 0.8, -s * 0.36, s * 0.6, -s * 0.3); g.quadraticCurveTo(s * 0.55, -s * 0.15, s * 0.58, 0); g.closePath(); g.fill(); g.stroke();
+g.fillStyle = '#fff'; g.beginPath(); g.arc(s * 0.66, -s * 0.42, s * 0.05, 0, 7); g.fill(); g.fillStyle = FW.Art.INK; g.beginPath(); g.arc(s * 0.67, -s * 0.42, s * 0.025, 0, 7); g.fill();
+g.strokeStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.moveTo(-s * 0.7, s * 0.04); g.lineTo(s * 0.7, s * 0.04); g.stroke();
+g.restore();
+};
+FW.Art.decor = (g, M, T, r) => {
+const free = [];
+for (let i = 0; i < M.N; i++) if (!M.road[i] && !M.inkF[i] && M.role[i] < 0 && M.goalOf[i] < 0 && !M.sign[i]) free.push(i);
+const sea = free.filter(i => M.terr[i] === 's'), land = free.filter(i => '.ph'.includes(M.terr[i]));
+const pick = a => a.splice(r.int(a.length), 1)[0];
+if (sea.length) { const i = pick(sea); FW.Art.serpent(g, (i % M.w + 0.5) * T, ((i / M.w | 0) + 0.68) * T, T * 0.7, r, r() < 0.5); }
+const cs = sea.length ? sea : land;
+if (cs.length && M.N >= 9) { const i = pick(cs); FW.Art.compass(g, (i % M.w + 0.5) * T, ((i / M.w | 0) + 0.55) * T, T * 0.32, 0); }
+for (let k = 0; k < 2; k++) FW.Art.coffee(g, r() * M.w * T, r() * M.h * T, T * (0.3 + r() * 0.25), r, false);
+};
+FW.Art.border = (g, M, T) => {
+const W = M.w * T, H = M.h * T, u = T / 100;
+const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(140,95,40,.22)'); g.fillStyle = v; g.fillRect(0, 0, W, H);
+g.strokeStyle = 'rgba(80,60,40,.16)'; g.lineWidth = 1.2 * u; g.setLineDash([3 * u, 5 * u]);
+for (let x = 1; x < M.w; x++) { g.beginPath(); g.moveTo(x * T, 0); g.lineTo(x * T, H); g.stroke(); }
+for (let y = 1; y < M.h; y++) { g.beginPath(); g.moveTo(0, y * T); g.lineTo(W, y * T); g.stroke(); }
+g.setLineDash([]);
+g.strokeStyle = 'rgba(59,42,28,.75)'; g.lineWidth = 2.4 * u; g.strokeRect(5 * u, 5 * u, W - 10 * u, H - 10 * u);
+g.lineWidth = 1 * u; g.strokeRect(9 * u, 9 * u, W - 18 * u, H - 18 * u);
+};
+FW.Art.soggy = (g, M, T) => {
+for (let i = 0; i < M.N; i++) if (M.soggy[i]) FW.Art.coffee(g, (i % M.w + 0.5) * T, ((i / M.w | 0) + 0.5) * T, T * 0.44, FW.rng(i + 99), true);
+};
+FW.Art.front = (M, T) => {
+const c = FW.Art.cv(M.w * T, M.h * T), g = c.getContext('2d'), r = FW.rng(FW.hash(String(M.id) + 'front'));
+g.fillStyle = FW.Art.pattern(g, 'front'); g.fillRect(0, 0, c.width, c.height);
+FW.Art.terrain(g, M, T, r);
+FW.Art.water(g, M, T, r);
+FW.Art.decor(g, M, T, r);
+FW.Art.roads(g, M, T, r);
+FW.Art.towns(g, M, T);
+FW.Art.signs(g, M, T);
+FW.Art.soggy(g, M, T);
+g.save(); g.globalAlpha = 0.2;
+for (let i = 0; i < M.N; i++) { const x = (i % M.w) * T, y = ((i / M.w) | 0) * T; if (M.back[i]) FW.Art.roadCell(g, M.back[i], x, y, T, 'pencil', 1, FW.rng(i * 13 + 5)); if (M.inkB[i]) FW.Art.roadCell(g, M.inkB[i], x, y, T, 'ink', 0, FW.rng(i * 13 + 5)); }
+g.restore();
+FW.Art.border(g, M, T);
+return c;
+};
+FW.Art.back = (M, T, front) => {
+const c = FW.Art.cv(M.w * T, M.h * T), g = c.getContext('2d');
+g.fillStyle = FW.Art.pattern(g, 'back'); g.fillRect(0, 0, c.width, c.height);
+g.save(); g.globalAlpha = 0.13; try { g.filter = 'grayscale(1) blur(0.6px)'; } catch (e) { /* no canvas filters */ }
+g.drawImage(front, 0, 0); g.restore();
+for (let pass = 0; pass < 2; pass++) for (let i = 0; i < M.N; i++) {
+const x = (i % M.w) * T, y = ((i / M.w) | 0) * T;
+if (M.back[i] && pass) FW.Art.roadCell(g, M.back[i], x, y, T, 'pencil', 1, FW.rng(i * 13 + 5));
+if (M.inkB[i]) FW.Art.roadCell(g, M.inkB[i], x, y, T, 'ink', pass, FW.rng(i * 13 + 5));
+}
+FW.Art.soggy(g, M, T);
+g.strokeStyle = 'rgba(80,60,40,.08)'; g.lineWidth = 1;
+for (let x = 1; x < M.w; x++) { g.beginPath(); g.moveTo(x * T, 0); g.lineTo(x * T, c.height); g.stroke(); }
+for (let y = 1; y < M.h; y++) { g.beginPath(); g.moveTo(0, y * T); g.lineTo(c.width, y * T); g.stroke(); }
+return c;
+};
+// ===== art_people.js =====
+FW.PEOPLE = {
+post: { name: 'the Postman', coat: '#b4402c', hat: '#2c3e63', hatK: 'cap', bag: '#8a5a2b', skin: '#f0c9a0' },
+red: { name: 'Little Red Riding Hood', coat: '#c0302a', hat: '#c0302a', hatK: 'hood', bag: '#a77a3c', skin: '#f3cfa8' },
+fogg: { name: 'Phileas Fogg', coat: '#2b2b33', hat: '#1d1d22', hatK: 'top', bag: '#7a4a2a', skin: '#efc6a0' },
+pass: { name: 'Passepartout', coat: '#3b5f8a', hat: '#3a2a1e', hatK: 'bowler', bag: '#a0522d', skin: '#e9bf96' },
+gull: { name: 'Gulliver', coat: '#2f5d7c', hat: '#2a2018', hatK: 'tricorn', bag: '#6b4a2c', skin: '#f0c49c' },
+doro: { name: 'Dorothy', coat: '#5c8fc4', hat: '#7a4a24', hatK: 'braids', bag: '#b08950', skin: '#f3cfa8' }
+};
+FW.Art.person = (g, who, x, y, s, t, walking) => {
+const P = FW.PEOPLE[who] || FW.PEOPLE.post, k = s / 40, sw = walking ? Math.sin(t * 14) : 0, bob = walking ? Math.abs(Math.sin(t * 14)) * 1.5 * k : Math.sin(t * 2) * 0.6 * k;
+g.save(); g.translate(x, y);
+g.fillStyle = 'rgba(30,15,5,.28)'; g.beginPath(); g.ellipse(0, 0, 11 * k, 4 * k, 0, 0, 7); g.fill();
+g.translate(0, -bob);
+g.strokeStyle = FW.Art.INK; g.lineWidth = 1.6 * k; g.lineCap = 'round'; g.lineJoin = 'round';
+g.strokeStyle = '#2a2018'; g.lineWidth = 3 * k;
+g.beginPath(); g.moveTo(-3 * k, -12 * k); g.lineTo(-3 * k + sw * 3 * k, -1 * k); g.moveTo(3 * k, -12 * k); g.lineTo(3 * k - sw * 3 * k, -1 * k); g.stroke();
+g.strokeStyle = FW.Art.INK; g.lineWidth = 1.5 * k; g.fillStyle = P.coat;
+g.beginPath();
+if (who === 'red' || who === 'doro') { g.moveTo(-4 * k, -27 * k); g.lineTo(4 * k, -27 * k); g.lineTo(10 * k, -10 * k); g.lineTo(-10 * k, -10 * k); }
+else { g.moveTo(-6 * k, -27 * k); g.lineTo(6 * k, -27 * k); g.lineTo(7 * k, -11 * k); g.lineTo(-7 * k, -11 * k); }
+g.closePath(); g.fill(); g.stroke();
+if (who === 'doro') { g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1 * k; for (let i = -8; i <= 8; i += 3) { g.beginPath(); g.moveTo(i * k, -24 * k); g.lineTo(i * k * 1.2, -11 * k); g.stroke(); } g.strokeStyle = FW.Art.INK; }
+if (who === 'pass') { g.strokeStyle = '#f3ead2'; g.lineWidth = 1.2 * k; for (let yy = -24; yy < -12; yy += 4) { g.beginPath(); g.moveTo(-6 * k, yy * k); g.lineTo(6 * k, yy * k); g.stroke(); } g.strokeStyle = FW.Art.INK; }
+g.fillStyle = P.bag; g.lineWidth = 1.3 * k;
+if (who === 'post') { g.beginPath(); g.moveTo(-6 * k, -26 * k); g.lineTo(8 * k, -15 * k); g.stroke(); g.fillRect(4 * k, -19 * k, 8 * k, 7 * k); g.strokeRect(4 * k, -19 * k, 8 * k, 7 * k);
+g.fillStyle = '#fff'; g.fillRect(5 * k, -22 * k, 6 * k, 4 * k); g.strokeRect(5 * k, -22 * k, 6 * k, 4 * k); }
+else if (who === 'red' || who === 'doro') { g.beginPath(); g.ellipse(10 * k, -15 * k, 5 * k, 3 * k, 0, 0, Math.PI); g.fill(); g.stroke(); g.beginPath(); g.arc(10 * k, -16 * k, 4 * k, Math.PI, 0); g.stroke(); }
+else { g.fillRect(7 * k, -14 * k, 8 * k, 6 * k); g.strokeRect(7 * k, -14 * k, 8 * k, 6 * k); }
+g.fillStyle = P.skin; g.beginPath(); g.arc(0, -32 * k, 5.5 * k, 0, 7); g.fill(); g.stroke();
+g.fillStyle = FW.Art.INK; g.beginPath(); g.arc(2 * k, -32.5 * k, 0.9 * k, 0, 7); g.fill();
+g.fillStyle = P.hat;
+const H = P.hatK;
+if (H === 'cap') { g.beginPath(); g.ellipse(0, -36 * k, 6.5 * k, 3 * k, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillRect(-1 * k, -36 * k, 9 * k, 2 * k); }
+else if (H === 'hood') { g.beginPath(); g.moveTo(-7 * k, -27 * k); g.quadraticCurveTo(-8 * k, -42 * k, 0, -40 * k); g.quadraticCurveTo(7 * k, -40 * k, 6 * k, -33 * k); g.lineTo(3 * k, -36 * k); g.quadraticCurveTo(-3 * k, -37 * k, -4 * k, -28 * k); g.closePath(); g.fill(); g.stroke(); }
+else if (H === 'top') { g.fillRect(-4.5 * k, -46 * k, 9 * k, 10 * k); g.strokeRect(-4.5 * k, -46 * k, 9 * k, 10 * k); g.beginPath(); g.moveTo(-8 * k, -36 * k); g.lineTo(8 * k, -36 * k); g.stroke(); }
+else if (H === 'bowler') { g.beginPath(); g.arc(0, -36 * k, 5 * k, Math.PI, 0); g.fill(); g.stroke(); g.beginPath(); g.moveTo(-7.5 * k, -36 * k); g.lineTo(7.5 * k, -36 * k); g.stroke(); }
+else if (H === 'tricorn') { g.beginPath(); g.moveTo(-9 * k, -36 * k); g.lineTo(0, -42 * k); g.lineTo(9 * k, -36 * k); g.quadraticCurveTo(0, -38 * k, -9 * k, -36 * k); g.fill(); g.stroke(); }
+else { g.strokeStyle = P.hat; g.lineWidth = 2.2 * k; g.beginPath(); g.moveTo(-5 * k, -33 * k); g.lineTo(-7 * k, -26 * k); g.moveTo(5 * k, -33 * k); g.lineTo(7 * k, -26 * k); g.stroke();
+g.fillStyle = P.hat; g.beginPath(); g.arc(0, -34 * k, 5.6 * k, Math.PI * 1.05, Math.PI * 1.95); g.fill(); }
+g.restore();
+};
+// ===== art_title.js =====
+FW.Title = {};
+FW.Title.L = {
+F: [[0, 5, 0, 0], [0, 0, 3, 0], [0, 2.5, 2.3, 2.5]],
+O: [[0.9, 0, 2.1, 0], [2.1, 0, 3, 1], [3, 1, 3, 4], [3, 4, 2.1, 5], [2.1, 5, 0.9, 5], [0.9, 5, 0, 4], [0, 4, 0, 1], [0, 1, 0.9, 0]],
+L: [[0, 0, 0, 5], [0, 5, 3, 5]],
+D: [[0, 0, 0, 5], [0, 0, 2, 0], [2, 0, 3, 1.3], [3, 1.3, 3, 3.7], [3, 3.7, 2, 5], [2, 5, 0, 5]],
+W: [[0, 0, 0.9, 5], [0.9, 5, 1.8, 1.8], [1.8, 1.8, 2.7, 5], [2.7, 5, 3.6, 0]],
+A: [[0, 5, 1.6, 0], [1.6, 0, 3.2, 5], [0.65, 3.2, 2.55, 3.2]],
+Y: [[0, 0, 1.6, 2.7], [3.2, 0, 1.6, 2.7], [1.6, 2.7, 1.6, 5]]
+};
+FW.Title.width = ch => Math.max(...FW.Title.L[ch].flatMap(s => [s[0], s[2]]));
+FW.Title.strip = (g, x0, y0, x1, y1, w, r, tint) => {
+const L = Math.hypot(x1 - x0, y1 - y0), a = Math.atan2(y1 - y0, x1 - x0), ext = w * 0.5;
+g.save(); g.translate(x0, y0); g.rotate(a);
+g.save(); g.shadowColor = 'rgba(10,5,0,.55)'; g.shadowBlur = w * 0.35; g.shadowOffsetX = w * 0.08; g.shadowOffsetY = w * 0.16;
+g.fillStyle = '#efe2bf'; g.fillRect(-ext, -w / 2, L + ext * 2, w); g.restore();
+g.fillStyle = FW.Art.pattern(g, 'front'); g.fillRect(-ext, -w / 2, L + ext * 2, w);
+const n = Math.max(2, Math.round((L + ext * 2) / (w * 0.95))), pl = (L + ext * 2) / n;
+for (let k = 0; k < n; k++) {
+const px = -ext + k * pl, t = tint[(k + Math.floor(r() * 3)) % tint.length];
+if (t) { g.fillStyle = t; g.fillRect(px, -w / 2, pl, w); }
+if (t === 'rgba(120,165,185,.55)') { g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = w * 0.03; for (let j = 0; j < 2; j++) { const yy = -w * 0.3 + j * w * 0.55; g.beginPath(); g.moveTo(px + pl * 0.15, yy); g.quadraticCurveTo(px + pl * 0.3, yy - w * 0.06, px + pl * 0.45, yy); g.stroke(); } }
+if (t === 'rgba(110,140,80,.45)') for (let j = 0; j < 3; j++) FW.Art.tree(g, px + pl * (0.25 + j * 0.25), (j % 2 ? -1 : 1) * w * 0.27, w * 0.22, r);
+const sh = g.createLinearGradient(px, 0, px + pl, 0), up = k % 2 === 0;
+sh.addColorStop(0, up ? 'rgba(255,250,235,.28)' : 'rgba(60,35,10,.22)'); sh.addColorStop(1, up ? 'rgba(60,35,10,.10)' : 'rgba(255,250,235,.12)');
+g.fillStyle = sh; g.fillRect(px, -w / 2, pl, w);
+}
+g.lineCap = 'round'; g.strokeStyle = FW.Art.INK; g.lineWidth = w * 0.2;
+const road = () => { g.beginPath(); g.moveTo(-ext * 0.6, 0); for (let k = 1; k <= 4; k++) g.quadraticCurveTo(-ext + (k - 0.5) / 4 * (L + ext * 2), (r() - 0.5) * w * 0.25, -ext + k / 4 * (L + ext * 2) - (k === 4 ? ext * 0.4 : 0), 0); };
+const rs = r(); const rr = FW.rng(Math.floor(rs * 1e6));
+const R2 = r; r = rr; road(); g.stroke(); r = FW.rng(Math.floor(rs * 1e6)); g.strokeStyle = '#f2cf74'; g.lineWidth = w * 0.12; road(); g.stroke(); r = R2;
+for (let k = 1; k < n; k++) {
+const px = -ext + k * pl;
+g.strokeStyle = 'rgba(70,45,20,.5)'; g.lineWidth = Math.max(1, w * 0.025); g.beginPath(); g.moveTo(px, -w / 2); g.lineTo(px, w / 2); g.stroke();
+g.strokeStyle = 'rgba(255,252,240,.55)'; g.beginPath(); g.moveTo(px + w * 0.025, -w / 2); g.lineTo(px + w * 0.025, w / 2); g.stroke();
+}
+g.strokeStyle = 'rgba(59,42,28,.65)'; g.lineWidth = Math.max(1, w * 0.03); g.strokeRect(-ext, -w / 2, L + ext * 2, w);
+g.restore();
+};
+FW.Title.draw = (g, bx, by, bw, bh, seed, word, noX) => {
+word = word || 'FOLDWAY'; const gap = 1.45, r = FW.rng(seed || 11);
+const widths = [...word].map(FW.Title.width), total = widths.reduce((a, b) => a + b, 0) + gap * (word.length - 1);
+const u = Math.min(bw / (total + 1.2), bh / 6.2), w = u * 0.95;
+let x = bx + (bw - total * u) / 2;
+const y = by + (bh - 5 * u) / 2, route = [];
+const tints = [[0, 'rgba(150,175,95,.35)', 0, 'rgba(120,165,185,.55)'], [0, 'rgba(110,140,80,.45)', 'rgba(205,170,90,.3)'], [0, 'rgba(150,175,95,.35)', 'rgba(205,170,90,.3)', 0]];
+[...word].forEach((ch, li) => {
+const segs = FW.Title.L[ch], ox = x;
+segs.forEach((s, si) => {
+const p0 = [ox + s[0] * u, y + s[1] * u], p1 = [ox + s[2] * u, y + s[3] * u];
+FW.Title.strip(g, p0[0], p0[1], p1[0], p1[1], w, r, tints[(li + si) % tints.length]);
+});
+route.push([ox + widths[li] * u / 2, y + 5 * u + w * 0.15]);
+x += (widths[li] + gap) * u;
+});
+g.save(); g.strokeStyle = '#b4402c'; g.lineWidth = Math.max(2, u * 0.12); g.setLineDash([u * 0.06, u * 0.28]); g.lineCap = 'round';
+g.beginPath(); g.moveTo(bx + (bw - total * u) / 2 - u * 0.4, route[0][1]);
+route.forEach((p, i) => { const q = route[i - 1] || [p[0] - u * 2, p[1]]; g.quadraticCurveTo((q[0] + p[0]) / 2, p[1] + u * (i % 2 ? 0.55 : 0.85), p[0], p[1]); });
+g.stroke(); g.setLineDash([]);
+const e = route[route.length - 1]; if (noX) { g.restore(); return { u, y, h: 5 * u }; } g.lineWidth = Math.max(2, u * 0.14);
+g.beginPath(); g.moveTo(e[0] + u * 1.5, e[1] - u * 0.25); g.lineTo(e[0] + u * 2, e[1] + u * 0.25); g.moveTo(e[0] + u * 2, e[1] - u * 0.25); g.lineTo(e[0] + u * 1.5, e[1] + u * 0.25); g.stroke();
+g.restore();
+return { u, y, h: 5 * u };
+};
+// ===== render.js =====
+FW.R = { cam: { cs: 60, ox: 0, oy: 0 }, tgt: { cs: 60, ox: 0, oy: 0 }, W: 300, H: 300, dpr: 1, art: null };
+FW.R.init = cv => {
+FW.R.cv = cv; FW.R.g = cv.getContext('2d');
+FW.R.resize();
+addEventListener('resize', () => FW.R.resize());
+};
+FW.R.resize = () => {
+const R = FW.R, c = R.cv; if (!c) return;
+const b = c.getBoundingClientRect(); R.dpr = Math.min(2.5, devicePixelRatio || 1);
+R.W = Math.max(50, b.width); R.H = Math.max(50, b.height);
+c.width = Math.round(R.W * R.dpr); c.height = Math.round(R.H * R.dpr);
+if (R.M) { const T = R.tileSize(R.M); if (!R.art || Math.abs(R.art.T - T) > 24) R.paint(R.M); R.fit(true); }
+};
+FW.R.tileSize = M => FW.clamp(Math.round(Math.min(FW.R.W / M.w, FW.R.H / M.h) * FW.R.dpr * 0.95), 64, 170);
+FW.R.setLevel = M => { FW.R.M = M; FW.R.paint(M); FW.R.fit(true); };
+FW.R.paint = M => {
+const T = FW.R.tileSize(M), front = FW.Art.front(M, T);
+FW.R.art = { T, front, back: FW.Art.back(M, T, front) };
+};
+FW.R.fit = (snap, extra) => {
+const R = FW.R, S = FW.G && FW.G.S; if (!S || !R.M) return;
+const b = FW.P.bbox(S);
+if (extra) { b.x0 = Math.min(b.x0, extra.x0); b.y0 = Math.min(b.y0, extra.y0); b.x1 = Math.max(b.x1, extra.x1); b.y1 = Math.max(b.y1, extra.y1); }
+const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1, pad = Math.min(R.W, R.H) * 0.05 + 8;
+const tip = FW.$('tip'), th = tip && tip.innerHTML ? tip.offsetHeight + 14 : 16, AH = R.H - th;
+const fit0 = Math.min((R.W - pad * 2) / R.M.w, (AH - pad * 2) / R.M.h);
+const cs = Math.min((R.W - pad * 2) / bw, (AH - pad * 2) / bh, fit0 * 1.35, 150);
+R.tgt = { cs, ox: R.W / 2 - (b.x0 + bw / 2) * cs, oy: AH / 2 - (b.y0 + bh / 2) * cs + 4 };
+if (snap) R.cam = Object.assign({}, R.tgt);
+};
+FW.R.step = () => {
+const c = FW.R.cam, t = FW.R.tgt, k = 0.16;
+c.cs += (t.cs - c.cs) * k; c.ox += (t.ox - c.ox) * k; c.oy += (t.oy - c.oy) * k;
+};
+FW.R.toWorld = (px, py) => ({ x: (px - FW.R.cam.ox) / FW.R.cam.cs, y: (py - FW.R.cam.oy) / FW.R.cam.cs });
+FW.R.lift = L => L * Math.max(1.2, FW.R.cam.cs * 0.025);
+FW.R.cell = (g, M, S, i, X, Y, sx, sy, L) => {
+const R = FW.R, A = R.art, T = A.T, cs = R.cam.cs, lf = R.lift(L);
+const px = R.cam.ox + X * cs - lf, py = R.cam.oy + Y * cs - lf * 1.3, face = sx * sy > 0 ? 0 : 1;
+const src = face ? A.back : A.front, ox = (i % M.w) * T, oy = ((i / M.w) | 0) * T, e = 0.6;
+g.save(); g.translate(px + cs / 2, py + cs / 2); g.scale(sx * cs / T, sy * cs / T);
+const ex = e * T / cs;
+const s0x = Math.max(0, ox - ex), s0y = Math.max(0, oy - ex), s1x = Math.min(src.width, ox + T + ex), s1y = Math.min(src.height, oy + T + ex);
+g.drawImage(src, s0x, s0y, s1x - s0x, s1y - s0y, s0x - ox - T / 2, s0y - oy - T / 2, s1x - s0x, s1y - s0y);
+FW.R.overlay(g, M, S, i, face, T);
+g.restore();
+};
+FW.R.overlay = (g, M, S, i, face, T) => {
+const h = T / 2, u = T / 100;
+const st = face ? S.stB[i] : S.stF[i];
+if (st) { const r = FW.rng(i * 7 + face); FW.Art.roadCell(g, st, -h, -h, T, 'dry', 0, r); FW.Art.roadCell(g, st, -h, -h, T, 'dry', 1, FW.rng(i * 7 + face)); }
+const x = i % M.w, y = (i / M.w) | 0;
+const edges = [[y > 0 ? M.eS[i - M.w] : -1, 1], [x < M.w - 1 ? M.eE[i] : -1, 2], [y < M.h - 1 ? M.eS[i] : -1, 4], [x > 0 ? M.eE[i - 1] : -1, 8]];
+for (const [e, d] of edges) {
+const ax = FW.DX[d], ay = FW.DY[d];
+const x0 = ax ? ax * h : -h, y0 = ay ? ay * h : -h, x1 = ax ? ax * h : h, y1 = ay ? ay * h : h;
+const nb = e < 0 ? -1 : (M.ea[e] === i ? M.eb[e] : M.ea[e]);
+const mem = e >= 0 && FW.G.mem ? FW.G.mem[e] : 0, cr = e >= 0 ? (S.cr[e] || (mem ? 0.35 : 0)) : 0;
+if (cr) {
+g.strokeStyle = `rgba(80,50,20,${Math.min(0.5, 0.06 + cr * 0.12)})`; g.lineWidth = 2.2 * u;
+g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+g.strokeStyle = 'rgba(255,252,240,.45)'; g.lineWidth = 1.6 * u;
+g.beginPath(); g.moveTo(x0 - ax * 3 * u, y0 - ay * 3 * u); g.lineTo(x1 - ax * 3 * u, y1 - ay * 3 * u); g.stroke();
+const gr = g.createLinearGradient(x0, y0, x0 - ax * 14 * u, y0 - ay * 14 * u);
+gr.addColorStop(0, `rgba(90,60,25,${Math.min(0.22, 0.06 * cr)})`); gr.addColorStop(1, 'rgba(90,60,25,0)');
+g.fillStyle = gr; g.fillRect(Math.min(x0, x1 - ax * 14 * u), Math.min(y0, y1 - ay * 14 * u), Math.abs(x1 - x0) + Math.abs(ax) * 14 * u, Math.abs(y1 - y0) + Math.abs(ay) * 14 * u);
+}
+if (e >= 0 && M.worn[e]) {
+const left = Math.max(0, M.worn[e] - S.cr[e]);
+g.strokeStyle = left ? '#8a3b1e' : '#c0301e'; g.lineWidth = 2 * u;
+g.beginPath();
+for (let k = 0; k <= 8; k++) { const t = -h + k / 8 * T, o = (k % 2 ? 5 : 0) * u; const px = ax ? x0 - ax * o : t, py = ay ? y0 - ay * o : t; if (!k) g.moveTo(px, py); else g.lineTo(px, py); }
+g.stroke();
+g.fillStyle = '#8a3b1e'; g.font = 'bold ' + Math.round(14 * u) + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+if (!face) g.fillText(String(left), ax ? x0 - ax * 14 * u : 0, ay ? y0 - ay * 14 * u : 0);
+}
+if (e >= 0 && M.tape[e] && !face) {
+g.fillStyle = 'rgba(236,220,170,.82)'; g.strokeStyle = 'rgba(150,125,70,.6)'; g.lineWidth = 1 * u;
+const w = 24 * u, l = 40 * u;
+if (ax) g.fillRect(ax > 0 ? h - w / 2 : -h, -l / 2, w / 2 + 0.5, l); else g.fillRect(-l / 2, ay > 0 ? h - w / 2 : -h, l, w / 2 + 0.5);
+}
+const here = FW.R.cur;
+if (here && nb >= 0 && S.alive[nb]) {
+const wx = here.x[i] + FW.DX[FW.xf(d, here.sx[i], here.sy[i])], wy = here.y[i] + FW.DY[FW.xf(d, here.sx[i], here.sy[i])];
+if (here.x[nb] === here.x[i] && here.y[nb] === here.y[i]) { g.strokeStyle = 'rgba(255,250,232,.85)'; g.lineWidth = 4 * u; g.beginPath(); g.moveTo(x0 - ax * 2 * u, y0 - ay * 2 * u); g.lineTo(x1 - ax * 2 * u, y1 - ay * 2 * u); g.stroke();
+g.strokeStyle = 'rgba(90,60,30,.45)'; g.lineWidth = 1.5 * u; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+if (M.preSplit && M.preSplit[e]) { g.fillStyle = 'rgba(236,220,170,.88)'; g.strokeStyle = 'rgba(150,125,70,.6)'; const w = 30 * u, l = 44 * u;
+if (ax) { g.fillRect(ax > 0 ? h - w / 2 : -h, -l / 2, w / 2, l); g.strokeRect(ax > 0 ? h - w / 2 : -h, -l / 2, w / 2, l); } else { g.fillRect(-l / 2, ay > 0 ? h - w / 2 : -h, l, w / 2); g.strokeRect(-l / 2, ay > 0 ? h - w / 2 : -h, l, w / 2); } }
+continue; }
+if (here.x[nb] === wx && here.y[nb] === wy) continue;
+}
+g.strokeStyle = 'rgba(70,45,22,.55)'; g.lineWidth = 1.6 * u; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+}
+};
+// ===== render2.js =====
+FW.R.drawGeo = (g, M, S, geo, skip) => {
+const R = FW.R, cs = R.cam.cs, byL = [];
+R.cur = geo;
+for (let i = 0; i < M.N; i++) if (S.alive[i] && !(skip && skip[i])) (byL[geo.z[i]] = byL[geo.z[i]] || []).push(i);
+byL.forEach((list, L) => {
+if (!list) return;
+g.save();
+g.shadowColor = L ? 'rgba(25,12,3,.42)' : 'rgba(10,5,0,.55)'; g.shadowBlur = L ? cs * 0.14 : cs * 0.3;
+g.shadowOffsetX = L ? cs * 0.03 : cs * 0.06; g.shadowOffsetY = L ? cs * 0.06 : cs * 0.12;
+g.fillStyle = '#e8dcbc'; g.beginPath();
+const lf = R.lift(L);
+for (const i of list) g.rect(R.cam.ox + geo.x[i] * cs - lf + 1, R.cam.oy + geo.y[i] * cs - lf * 1.3 + 1, cs - 2, cs - 2);
+g.fill(); g.restore();
+for (const i of list) FW.R.cell(g, M, S, i, geo.x[i], geo.y[i], geo.sx[i], geo.sy[i], L);
+});
+};
+FW.R.center = (x, y, L) => { const R = FW.R, cs = R.cam.cs, lf = R.lift(L || 0); return [R.cam.ox + (x + 0.5) * cs - lf, R.cam.oy + (y + 0.5) * cs - lf * 1.3]; };
+FW.R.pins = (g, M, S, geo) => {
+for (let i = 0; i < M.N; i++) if (S.alive[i] && M.pin[i]) {
+const [x, y] = FW.R.center(geo.x[i], geo.y[i], geo.z[i]), s = FW.R.cam.cs;
+g.fillStyle = 'rgba(20,10,0,.35)'; g.beginPath(); g.ellipse(x + s * 0.06, y + s * 0.08, s * 0.1, s * 0.06, 0, 0, 7); g.fill();
+const gr = g.createRadialGradient(x - s * 0.04, y - s * 0.05, 1, x, y, s * 0.11); gr.addColorStop(0, '#fff3c4'); gr.addColorStop(0.4, '#d8a640'); gr.addColorStop(1, '#7a5418');
+g.fillStyle = gr; g.beginPath(); g.arc(x, y - s * 0.02, s * 0.1, 0, 7); g.fill(); g.strokeStyle = '#4a3210'; g.lineWidth = 1; g.stroke();
+}
+};
+FW.R.people = (g, M, S, geo, skip, t) => {
+const G = FW.G, tops = FW.Wk.tops(M, S), cs = FW.R.cam.cs;
+M.trav.forEach((T, j) => {
+const wk = G.walk && G.walk[j];
+if (wk) return;
+if (G.arrived && G.arrived[j]) {
+if (FW.Wk.visible(M, S, tops, T.g)) { const [x, y] = FW.R.center(geo.x[T.g], geo.y[T.g], geo.z[T.g]); FW.Art.person(g, T.who, x + cs * 0.2, y + cs * 0.34, cs * 0.5, t + j, false); }
+return;
+}
+if (skip && skip[T.s]) return;
+const [x, y] = FW.R.center(geo.x[T.s], geo.y[T.s], geo.z[T.s]);
+if (FW.Wk.visible(M, S, tops, T.s)) FW.Art.person(g, T.who, x, y + cs * 0.3, cs * 0.62, t + j * 1.7, false);
+else {
+g.fillStyle = 'rgba(40,20,5,.25)'; g.beginPath(); g.ellipse(x, y + cs * 0.1, cs * 0.18, cs * 0.12, 0, 0, 7); g.fill();
+g.fillStyle = '#f6ecd2'; g.strokeStyle = FW.Art.INK; g.lineWidth = 1.2; g.beginPath(); g.arc(x + cs * 0.12, y - cs * 0.12, cs * 0.12, 0, 7); g.fill(); g.stroke();
+g.fillStyle = FW.Art.INK; g.font = 'bold ' + Math.round(cs * 0.16) + 'px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', x + cs * 0.12, y - cs * 0.11);
+}
+});
+};
+FW.R.reach = (g, M, S, t) => {
+const G = FW.G; if (!FW.Set.o.dots) return;
+const tops = FW.Wk.tops(M, S), cs = FW.R.cam.cs;
+M.trav.forEach((T, j) => {
+if (S.dlv >> j & 1) return;
+const seen = FW.Wk.reach(M, S, tops, j);
+g.fillStyle = FW.Art.COL[j % 4]; g.globalAlpha = 0.55;
+for (const c of seen) {
+if (c === T.s) continue;
+const [x, y] = FW.R.center(S.x[c], S.y[c], S.z[c]);
+g.beginPath(); g.arc(x, y, Math.max(2, cs * 0.045), 0, 7); g.fill();
+}
+g.globalAlpha = 1;
+});
+};
+FW.R.ghost = (g, M, S, t) => {
+const G = FW.G, h = G.hint; if (!h) return;
+const R = FW.R, cs = R.cam.cs, b = FW.P.bbox(S), mv = h.mv, a = 0.55 + Math.sin(t * 5) * 0.3;
+g.save(); g.globalAlpha = a; g.strokeStyle = mv.t === 't' ? '#c0301e' : '#2b5f86'; g.lineWidth = 3; g.setLineDash([9, 7]); g.lineDashOffset = -t * 30;
+if (mv.t === 'u') { g.restore(); return; }
+let x0, y0, x1, y1, cx, cy, dx = 0, dy = 0;
+if (!mv.ax) { x0 = x1 = R.cam.ox + mv.k * cs; y0 = R.cam.oy + b.y0 * cs - 12; y1 = R.cam.oy + (b.y1 + 1) * cs + 12; cy = (y0 + y1) / 2; cx = x0; dx = mv.sd ? -1 : 1; }
+else { y0 = y1 = R.cam.oy + mv.k * cs; x0 = R.cam.ox + b.x0 * cs - 12; x1 = R.cam.ox + (b.x1 + 1) * cs + 12; cx = (x0 + x1) / 2; cy = y0; dy = mv.sd ? -1 : 1; }
+g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.setLineDash([]);
+const L = cs * 1.1, sx = cx - dx * L, sy = cy - dy * L, ex = cx + dx * L, ey = cy + dy * L;
+g.lineWidth = 4; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(cx - dy * L * 0.8, cy - dx * L * 0.8, ex, ey); g.stroke();
+const an = Math.atan2(ey - (cy - dx * L * 0.8), ex - (cx - dy * L * 0.8));
+g.fillStyle = g.strokeStyle; g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - Math.cos(an - 0.5) * 14, ey - Math.sin(an - 0.5) * 14); g.lineTo(ex - Math.cos(an + 0.5) * 14, ey - Math.sin(an + 0.5) * 14); g.fill();
+g.restore();
+};
+FW.R.hover = (g, M, S, force) => {
+const G = FW.G, h = G.hover; if (!h || (!force && (G.drag || G.anim))) return;
+const R = FW.R, cs = R.cam.cs, b = FW.P.bbox(S);
+g.save(); g.strokeStyle = G.tear ? 'rgba(200,50,30,.7)' : 'rgba(255,245,215,.75)'; g.lineWidth = 2; g.setLineDash([6, 6]);
+g.beginPath();
+if (!h.ax) { const x = R.cam.ox + h.k * cs; g.moveTo(x, R.cam.oy + b.y0 * cs - 8); g.lineTo(x, R.cam.oy + (b.y1 + 1) * cs + 8); }
+else { const y = R.cam.oy + h.k * cs; g.moveTo(R.cam.ox + b.x0 * cs - 8, y); g.lineTo(R.cam.ox + (b.x1 + 1) * cs + 8, y); }
+g.stroke(); g.restore();
+};
+// ===== render3d.js =====
+FW.R3 = {};
+FW.R3.proj = (A, wx, wy, flat) => {
+const R = FW.R, cs = R.cam.cs, th = A.th, c = Math.cos(th), s = Math.sin(th), k = A.mv.k;
+let X = wx, Y = wy, h = 0;
+if (!A.mv.ax) { const d = wx - k; X = k + d * c; h = Math.abs(d) * s; } else { const d = wy - k; Y = k + d * c; h = Math.abs(d) * s; }
+if (A.under) h *= -0.55;
+let px = R.cam.ox + X * cs, py = R.cam.oy + Y * cs;
+if (flat) return [px + s * cs * 0.12, py + s * cs * 0.2];
+const F = Math.max(R.W, R.H) * 1.6, sc = F / (F - h * cs), cx = R.W / 2, cy = R.H / 2;
+return [cx + (px - cx) * sc, cy + (py - cy) * sc - h * cs * 0.06];
+};
+FW.R3.local = (geo, i, u, v) => [geo.x[i] + (geo.sx[i] > 0 ? u : 1 - u), geo.y[i] + (geo.sy[i] > 0 ? v : 1 - v)];
+FW.R3.flap = (g, M, S, A) => {
+const R = FW.R, art = R.art, T = art.T, d = R.dpr, geo = A.base, ax = A.mv.ax;
+const list = [];
+for (let i = 0; i < M.N; i++) if (A.mov[i] && S.alive[i]) list.push(i);
+list.sort((a, b) => geo.z[a] - geo.z[b]);
+if (A.th > Math.PI / 2) list.reverse();
+const P = (i, u, v) => { const [wx, wy] = FW.R3.local(geo, i, u, v); const p = FW.R3.proj(A, wx, wy); const lf = R.lift(geo.z[i]); return [p[0] - lf, p[1] - lf * 1.3]; };
+const shade = Math.sin(A.th);
+for (const i of list) {
+const ox = (i % M.w) * T, oy = ((i / M.w) | 0) * T, n = 4;
+for (let sl = 0; sl < n; sl++) {
+const a = sl / n, b = (sl + 1) / n;
+const P0 = ax ? P(i, 0, a) : P(i, a, 0), P1 = ax ? P(i, 1, a) : P(i, b, 0), P2 = ax ? P(i, 0, b) : P(i, a, 1);
+const sw = ax ? T : (b - a) * T, sh = ax ? (b - a) * T : T;
+const m0 = (P1[0] - P0[0]) / sw, m1 = (P1[1] - P0[1]) / sw, m2 = (P2[0] - P0[0]) / sh, m3 = (P2[1] - P0[1]) / sh;
+const det = m0 * m3 - m1 * m2; if (Math.abs(det) < 1e-6) continue;
+const src = det > 0 ? art.front : art.back;
+g.setTransform(m0 * d, m1 * d, m2 * d, m3 * d, P0[0] * d, P0[1] * d);
+const sx0 = ox + (ax ? 0 : a * T), sy0 = oy + (ax ? a * T : 0), e = 1.2;
+g.drawImage(src, sx0, sy0, Math.min(sw + e, src.width - sx0), Math.min(sh + e, src.height - sy0), 0, 0, Math.min(sw + e, src.width - sx0), Math.min(sh + e, src.height - sy0));
+g.fillStyle = `rgba(30,15,0,${(0.05 + 0.2 * shade * (det > 0 ? 0.6 : 1)).toFixed(3)})`; g.fillRect(0, 0, sw, sh);
+if (A.bad) { g.fillStyle = 'rgba(200,40,20,.22)'; g.fillRect(0, 0, sw, sh); }
+if (shade > 0.2 && det < 0) { g.fillStyle = `rgba(255,248,225,${(0.12 * shade).toFixed(3)})`; g.fillRect(0, 0, sw, sh * 0.3); }
+}
+const Q0 = P(i, 0, 0), Q1 = P(i, 1, 0), Q2 = P(i, 0, 1);
+const m0 = (Q1[0] - Q0[0]) / T, m1 = (Q1[1] - Q0[1]) / T, m2 = (Q2[0] - Q0[0]) / T, m3 = (Q2[1] - Q0[1]) / T, det = m0 * m3 - m1 * m2;
+if (Math.abs(det) > 1e-6) { g.setTransform(m0 * d, m1 * d, m2 * d, m3 * d, (Q0[0] + (m0 + m2) * T / 2) * d, (Q0[1] + (m1 + m3) * T / 2) * d); FW.R.cur = geo; FW.R.overlay(g, M, S, i, det > 0 ? 0 : 1, T); }
+}
+g.setTransform(d, 0, 0, d, 0, 0);
+};
+FW.R3.shadow = (g, M, S, A) => {
+const s = Math.sin(A.th); if (s < 0.02 || A.under) return;
+g.save(); g.fillStyle = `rgba(20,10,0,${(0.3 * s).toFixed(3)})`;
+try { g.filter = 'blur(' + Math.round(4 + 10 * s) + 'px)'; } catch (e) { /* no filter */ }
+g.beginPath();
+for (let i = 0; i < M.N; i++) if (A.mov[i] && S.alive[i]) {
+const c = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([u, v]) => { const [wx, wy] = FW.R3.local(A.base, i, u, v); return FW.R3.proj(A, wx, wy, true); });
+g.moveTo(c[0][0], c[0][1]); for (let k = 1; k < 4; k++) g.lineTo(c[k][0], c[k][1]); g.closePath();
+}
+g.fill(); g.restore();
+};
+FW.R3.draw = (g, M, S, A) => {
+if (A.kind === 'tear') {
+FW.R.drawGeo(g, M, S, S, null);
+const R = FW.R, cs = R.cam.cs, k = A.p, geo = A.base;
+g.save(); g.globalAlpha = Math.max(0, 1 - k * 1.1);
+const dx = (A.mv.ax ? 0 : (A.mv.sd ? 1 : -1)) * k * cs * 2.5, dy = (A.mv.ax ? (A.mv.sd ? 1 : -1) * k * cs * 2.5 : 0) + k * k * cs * 2;
+g.translate(dx, dy); g.translate(R.W / 2, R.H / 2); g.rotate((A.mv.sd ? 1 : -1) * k * 0.5); g.translate(-R.W / 2, -R.H / 2);
+const fake = Object.assign({}, S, { alive: A.mov });
+FW.R.drawGeo(g, M, fake, geo, null);
+g.restore(); return;
+}
+if (A.under) FW.R3.flap(g, M, S, A);
+FW.R.drawGeo(g, M, S, A.base, A.mov);
+if (!A.under) { FW.R3.shadow(g, M, S, A); FW.R3.flap(g, M, S, A); }
+};
+// ===== fx.js =====
+FW.Fx = { list: [] };
+FW.Fx.stamp = (wx, wy, txt) => FW.Fx.list.push({ k: 'stamp', wx, wy, txt, t0: FW.now(), rot: (Math.random() - 0.5) * 0.5 });
+FW.Fx.confetti = () => {
+const R = FW.R;
+for (let i = 0; i < 60; i++) FW.Fx.list.push({ k: 'bit', x: R.W / 2 + (Math.random() - 0.5) * R.W * 0.6, y: R.H * 0.35 + (Math.random() - 0.5) * 60,
+vx: (Math.random() - 0.5) * 300, vy: -150 - Math.random() * 250, r: Math.random() * 6, vr: (Math.random() - 0.5) * 10, s: 5 + Math.random() * 7, t0: FW.now(),
+c: ['#f2e7c9', '#e7d4a6', '#b4402c', '#4d7a90', '#f2cf74'][i % 5] });
+};
+FW.Fx.puff = (x, y, n, col) => {
+for (let i = 0; i < n; i++) FW.Fx.list.push({ k: 'bit', x, y, vx: (Math.random() - 0.5) * 160, vy: -40 - Math.random() * 120, r: Math.random() * 6, vr: (Math.random() - 0.5) * 8, s: 3 + Math.random() * 4, t0: FW.now(), c: col || '#efe2c0' });
+};
+FW.Fx.draw = (g, t) => {
+const R = FW.R, cs = R.cam.cs, dt = 1 / 60;
+FW.Fx.list = FW.Fx.list.filter(f => t - f.t0 < (f.k === 'stamp' ? 2.6 : 2.2));
+for (const f of FW.Fx.list) {
+const a = t - f.t0;
+if (f.k === 'stamp') {
+const [x, y] = FW.R.center(f.wx, f.wy, 0), sc = a < 0.12 ? 1.8 - a / 0.12 * 0.8 : 1, al = a > 2 ? Math.max(0, 1 - (a - 2) / 0.6) : 1;
+g.save(); g.translate(x, y); g.rotate(f.rot); g.scale(sc, sc); g.globalAlpha = al * 0.85;
+g.strokeStyle = '#a8301d'; g.fillStyle = '#a8301d'; g.lineWidth = 3;
+const w = cs * 1.25, h = cs * 0.42;
+g.strokeRect(-w / 2, -h / 2, w, h); g.lineWidth = 1.2; g.strokeRect(-w / 2 + 4, -h / 2 + 4, w - 8, h - 8);
+g.font = 'bold ' + Math.round(h * 0.42) + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.txt, 0, 1);
+g.restore();
+} else {
+f.vy += 420 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r += f.vr * dt;
+g.save(); g.translate(f.x, f.y); g.rotate(f.r); g.globalAlpha = Math.max(0, 1 - a / 2.2);
+g.fillStyle = f.c; g.fillRect(-f.s / 2, -f.s * 0.35, f.s, f.s * 0.7); g.strokeStyle = 'rgba(60,40,20,.4)'; g.lineWidth = 0.6; g.strokeRect(-f.s / 2, -f.s * 0.35, f.s, f.s * 0.7);
+g.restore();
+}
+}
+};
+FW.Fx.trail = (g, path, upto, col) => {
+if (!path || path.length < 2) return;
+g.save(); g.strokeStyle = col || '#b4402c'; g.lineWidth = Math.max(2, FW.R.cam.cs * 0.045); g.setLineDash([2, Math.max(5, FW.R.cam.cs * 0.1)]); g.lineCap = 'round';
+g.beginPath();
+const n = Math.min(path.length - 1, upto);
+for (let i = 0; i <= Math.ceil(n); i++) {
+const j = Math.min(i, n), a = path[Math.floor(j)], b = path[Math.min(path.length - 1, Math.floor(j) + 1)], f = j - Math.floor(j);
+const [x, y] = FW.R.center(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, 0);
+if (!i) g.moveTo(x, y); else g.lineTo(x, y);
+}
+g.stroke(); g.restore();
+};
+FW.Fx.walkers = (g, M, t) => {
+const G = FW.G, cs = FW.R.cam.cs;
+(G.trail || []).forEach((p, i) => FW.Fx.trail(g, p, p.length, 'rgba(180,64,44,.55)'));
+for (const k in G.walk) {
+const w = G.walk[k], pos = FW.G.walkPos(w);
+FW.Fx.trail(g, w.path, pos.seg || 0, FW.Art.COL[k % 4]);
+const [x, y] = FW.R.center(pos.x, pos.y, 0);
+FW.Art.person(g, M.trav[k].who, x, y + cs * 0.3, cs * 0.62, t, true);
+}
+};
+// ===== board.js =====
+FW.R.frame = t => {
+const R = FW.R, G = FW.G, g = R.g, M = G.M, S = G.S;
+if (!M || !R.art) return;
+G.tick(); G.walkTick(); R.step();
+g.setTransform(R.dpr, 0, 0, R.dpr, 0, 0); g.clearRect(0, 0, R.W, R.H);
+if (G.shake && t - G.shake < 0.3) { const k = (0.3 - (t - G.shake)) * 20; g.translate(Math.sin(t * 90) * k, 0); }
+const A = G.anim || (G.preview && !G.preview.tear ? G.preview : null);
+if (A) FW.R3.draw(g, M, S, A); else FW.R.drawGeo(g, M, S, S, null);
+const geo = A && A.kind !== 'tear' ? A.base : S;
+FW.R.pins(g, M, S, geo);
+if (!A && !Object.keys(G.walk).length) FW.R.reach(g, M, S, t);
+FW.R.people(g, M, S, geo, A && A.kind !== 'tear' ? A.mov : null, t);
+FW.Fx.walkers(g, M, t);
+if (G.preview && G.preview.tear) FW.R.hover(g, M, S, true);
+else FW.R.hover(g, M, S);
+if (!A) FW.R.ghost(g, M, S, t);
+FW.Fx.draw(g, t);
+};
+// ===== game.js =====
+FW.G = { M: null, S: null, hist: [], fut: [], under: false, tear: false, anim: null, drag: null, hint: null, hover: null, walk: {}, arrived: {}, kc: null };
+FW.G.load = (spec, meta) => {
+const G = FW.G;
+G.spec = spec; G.meta = meta || { mode: 'free' };
+G.M = FW.parse(spec); G.S = FW.P.init(G.M);
+G.hist = []; G.fut = []; G.anim = null; G.drag = null; G.hint = null; G.hover = null; G.walk = {}; G.arrived = {}; G.won = false; G.trail = [];
+G.hintsUsed = 0; G.mem = new Uint8Array(G.M.E); G.under = false; G.tear = false; G.kc = null; G.t0 = FW.now();
+FW.UI.show('play');
+FW.R.resize(); FW.R.setLevel(G.M);
+FW.Hud.update(); FW.Hud.tip(spec.t || '');
+if (FW.A) FW.A.rustle(0.6);
+};
+FW.G.busy = () => !!(FW.G.anim || Object.keys(FW.G.walk).length || FW.G.won);
+FW.G.refuse = (r, mv) => {
+FW.Hud.note(FW.P.WHY[r.why] || 'That fold will not go.');
+if (FW.A) FW.A.thud();
+FW.G.shake = FW.now();
+};
+FW.G.move = (mv, fromTh) => {
+const G = FW.G; if (!G.S || G.busy()) return false;
+const S2 = FW.P.clone(G.S), r = FW.P.apply(G.M, S2, mv);
+if (!r.ok) { G.refuse(r, mv); if (fromTh) G.spring(mv, fromTh); return false; }
+S2.log = (G.S.log || []).concat([r.mv || mv]);
+G.hist.push(G.S); G.fut = []; G.S = S2; G.hint = null;
+if (G.hist.length > 400) G.hist.shift();
+FW.S0.folds = (FW.S0.folds || 0) + 1;
+G.animate(r, fromTh || 0);
+FW.Hud.update();
+return true;
+};
+FW.G.animate = (r, fromTh) => {
+const G = FW.G, M = G.M, fast = !FW.Set.o.motion || FW.T.fast;
+const after = () => { G.startWalks(r.dl); FW.Hud.update(); };
+if (r.kind === 'f') {
+FW.R.fit(false, FW.P.bbox(Object.assign({}, G.S, r.prev)));
+G.anim = { kind: 'fold', mv: r.mv, base: r.prev, mov: r.mov, under: !!r.mv.u, th: fromTh, from: fromTh, to: Math.PI, t0: FW.now(), dur: fast ? 0.01 : 0.42 * (1 - fromTh / Math.PI) + 0.12,
+then: () => {
+if (FW.A) FW.A.fold(r.mv.u);
+if (r.inked.length) { FW.Hud.note('The wet ink pressed onto the paper beneath.'); if (FW.A) FW.A.squelch(); }
+if (r.blown) {
+if (FW.A) FW.A.wind();
+FW.Hud.note('Whoosh! The wind caught the flap and blew it open.');
+G.anim = { kind: 'fold', mv: r.mv, base: r.prev, mov: r.mov, under: false, th: Math.PI, from: Math.PI, to: 0, t0: FW.now(), dur: fast ? 0.01 : 0.5, then: () => { FW.R.fit(); after(); } };
+} else { FW.R.fit(); after(); }
+} };
+if (FW.A) FW.A.lift();
+} else if (r.kind === 'u') {
+const mv = r.fmv, mov = FW.P.moving(M, G.S, mv.ax, mv.k, mv.sd).mov;
+FW.R.fit(false, FW.P.bbox(Object.assign({}, G.S, r.prev)));
+G.anim = { kind: 'fold', mv, base: FW.P.snap(G.S), mov, under: !!mv.u, th: Math.PI, from: Math.PI, to: 0, t0: FW.now(), dur: fast ? 0.01 : 0.45, then: () => { FW.R.fit(); after(); } };
+if (FW.A) FW.A.unfold();
+} else if (r.kind === 't') {
+G.anim = { kind: 'tear', mv: r.mv, base: r.prev, mov: r.mov, p: 0, t0: FW.now(), dur: fast ? 0.01 : 0.8, then: () => { FW.R.fit(); after(); } };
+if (FW.A) FW.A.tear();
+}
+};
+FW.G.spring = (mv, th) => {
+const G = FW.G, mov = FW.P.moving(G.M, G.S, mv.ax, mv.k, mv.sd).mov;
+G.anim = { kind: 'fold', mv, base: FW.P.snap(G.S), mov, under: !!mv.u, th, from: th, to: 0, t0: FW.now(), dur: 0.25, then: () => {} };
+};
+FW.G.tick = () => {
+const G = FW.G, A = G.anim; if (!A) return;
+const p = FW.clamp((FW.now() - A.t0) / A.dur, 0, 1), e = FW.ease(p);
+if (A.kind === 'tear') A.p = e; else A.th = A.from + (A.to - A.from) * e;
+if (p >= 1) { G.anim = null; A.then(); }
+};
+FW.G.undo = () => {
+const G = FW.G; if (G.anim || G.won || !G.hist.length) return;
+G.walk = {}; G.trail = []; G.fut.push(G.S); G.S = G.hist.pop(); G.syncArrived(); G.hint = null;
+FW.R.fit(); FW.Hud.update(); if (FW.A) FW.A.rustle(0.35);
+};
+FW.G.redo = () => {
+const G = FW.G; if (G.busy() || !G.fut.length) return;
+G.hist.push(G.S); G.S = G.fut.pop(); G.syncArrived(); G.hint = null;
+FW.R.fit(); FW.Hud.update(); if (FW.A) FW.A.rustle(0.35);
+if (FW.Wk.done(G.M, G.S)) G.win();
+};
+FW.G.syncArrived = () => { const G = FW.G; G.arrived = {}; G.M.trav.forEach((t, j) => { if (G.S.dlv >> j & 1) G.arrived[j] = 1; }); };
+FW.G.reset = () => {
+const G = FW.G; if (G.busy()) return;
+if (!G.hist.length && !G.S.mv) return;
+G.hist.push(G.S); G.fut = []; G.S = FW.P.init(G.M); G.syncArrived(); G.trail = []; G.hint = null;
+FW.R.fit(); FW.Hud.update(); if (FW.A) FW.A.rustle(1);
+FW.Hud.note('Smoothed flat again. The old creases still show faintly.');
+};
+// ===== game2.js =====
+FW.G.startWalks = dl => {
+const G = FW.G;
+(dl || []).forEach(d => { G.walk[d.t] = { path: d.path, t0: FW.now() + 0.15, dur: FW.T.fast ? 0.05 : Math.max(0.6, d.path.length * 0.26) }; });
+if (dl && dl.length && FW.A) FW.A.go();
+};
+FW.G.walkTick = () => {
+const G = FW.G;
+for (const k in G.walk) {
+const w = G.walk[k], seg = Math.floor(FW.clamp((FW.now() - w.t0) / w.dur, 0, 1) * (w.path.length - 1) * 2);
+if (seg !== w.seg) { w.seg = seg; if (FW.A && seg > 0) FW.A.step(); }
+if (FW.now() - w.t0 < w.dur) continue;
+delete G.walk[k]; G.arrived[k] = 1;
+const T = G.M.trav[k], last = w.path[w.path.length - 1];
+G.trail = G.trail || []; G.trail.push(w.path);
+FW.Fx.stamp(last[0], last[1], 'DELIVERED');
+if (FW.A) FW.A.stamp();
+FW.Hud.note((FW.PEOPLE[T.who] || FW.PEOPLE.post).name + ' made it' + (T.name ? ' to ' + T.name : '') + '!');
+if (FW.Wk.done(G.M, G.S) && !Object.keys(G.walk).length) setTimeout(() => G.win(), FW.T.fast ? 10 : 700);
+}
+};
+FW.G.walkPos = w => {
+const p = FW.clamp((FW.now() - w.t0) / w.dur, 0, 1) * (w.path.length - 1), i = Math.min(w.path.length - 2, Math.floor(p)), f = p - i;
+if (w.path.length < 2) return { x: w.path[0][0], y: w.path[0][1], p: 1 };
+const a = w.path[i], b = w.path[i + 1];
+return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, p: p / (w.path.length - 1), seg: p };
+};
+FW.G.stampsFor = (moves, par) => moves <= par ? 3 : moves <= par + 2 ? 2 : 1;
+FW.G.win = () => {
+const G = FW.G; if (G.won) return;
+G.won = true;
+const moves = G.S.mv, par = G.M.par || moves;
+let st = G.stampsFor(moves, par);
+if (G.hintsUsed && st > 2) st = 2;
+G.result = { moves, par, stamps: st };
+if (FW.A) FW.A.win();
+FW.Fx.confetti();
+FW.bus.emit('win', G.result);
+setTimeout(() => FW.UI.winCard(G.result), FW.T.fast ? 10 : 900);
+};
+FW.G.hintMe = () => {
+const G = FW.G; if (G.busy()) return;
+const M = G.M, S = G.S;
+let mv = null;
+const so = G.pathSoFar();
+if (so.length < M.sol.length && so.every((m, i) => FW.P.fmt(m) === FW.P.fmt(M.sol[i]))) mv = M.sol[so.length];
+if (!mv) {
+const r = FW.Sv.solve(M, S, { maxDepth: 4, maxNodes: 25000, ms: 700 });
+if (r.sol && r.sol.length) mv = r.sol[0];
+}
+G.hintsUsed++; FW.S0.hints = (FW.S0.hints || 0) + 1; FW.Save.write();
+if (!mv) { FW.Hud.note(S.stack.length > S.base ? 'Lost the thread - try Undo or Reset and fold again.' : 'Hmm. Try tucking something under.'); return; }
+G.hint = { mv, t0: FW.now() };
+const what = mv.t === 'u' ? 'Unfold the last fold.' : mv.t === 't' ? 'Tear along the red line.' :
+(mv.u ? 'Tuck the ' : 'Fold the ') + FW.G.sideName(mv) + (mv.u ? ' under.' : ' over.');
+FW.Hud.note('Hint: ' + what);
+if (mv.t === 'f' && !!mv.u !== G.under) FW.$('tMode').classList.add('glow');
+if (mv.t === 'u') FW.$('tUnf').classList.add('glow');
+if (mv.t === 't') FW.$('tTear').classList.add('glow');
+};
+FW.G.sideName = mv => mv.ax ? (mv.sd ? 'bottom part' : 'top part') : (mv.sd ? 'right part' : 'left part');
+FW.G.pathSoFar = () => FW.G.S.log || [];
+// ===== input.js =====
+FW.In = {};
+FW.In.cand = (p0, p1) => {
+const G = FW.G, S = G.S, b = FW.P.bbox(S), dx = p1.x - p0.x, dy = p1.y - p0.y;
+const ax = Math.abs(dx) >= Math.abs(dy) ? 0 : 1, a0 = ax ? p0.y : p0.x, d = ax ? dy : dx;
+const lo = (ax ? b.y0 : b.x0) + (G.tear ? 0 : 1), hi = (ax ? b.y1 : b.x1) + (G.tear ? 1 : 0);
+if (lo > hi) return null;
+const k = FW.clamp(Math.round(a0 + d / 2), lo, hi), sd = a0 >= k ? 1 : 0;
+if ((sd && d > 0) || (!sd && d < 0)) return { ax, k, sd, th: 0 };
+const dist = Math.max(0.5, Math.abs(a0 - k));
+return { ax, k, sd, th: Math.PI * FW.clamp(Math.abs(d) / (2 * dist), 0, 1) };
+};
+FW.In.ev = e => { const r = FW.R.cv.getBoundingClientRect(); return { px: e.clientX - r.left, py: e.clientY - r.top }; };
+FW.In.wire = () => {
+const cv = FW.$('board'), G = FW.G;
+cv.addEventListener('pointerdown', e => {
+if (G.busy() || e.button > 0) return;
+const p = FW.In.ev(e); cv.setPointerCapture(e.pointerId);
+G.drag = { p0: FW.R.toWorld(p.px, p.py), s0: p, on: false, c: null };
+cv.classList.add('drag');
+});
+cv.addEventListener('pointermove', e => {
+const p = FW.In.ev(e), w = FW.R.toWorld(p.px, p.py);
+if (!G.drag) { FW.In.hover(w); return; }
+const D = G.drag;
+if (!D.on && Math.hypot(p.px - D.s0.px, p.py - D.s0.py) < 7) return;
+D.on = true; G.hover = null;
+const c = FW.In.cand(D.p0, w); D.c = c;
+if (!c) { G.anim = null; return; }
+const mv = G.tear ? { t: 't', ax: c.ax, k: c.k, sd: c.sd } : { t: 'f', ax: c.ax, k: c.k, sd: c.sd, u: G.under ? 1 : 0 };
+const key = FW.P.fmt(mv);
+if (D.key !== key) {
+D.key = key; D.mv = mv;
+const S2 = FW.P.clone(G.S), r = FW.P.apply(G.M, S2, mv); D.ok = r.ok; D.why = r.why;
+if (!r.ok) FW.Hud.note(FW.P.WHY[r.why] || 'That fold will not go.'); else FW.Hud.note('');
+if (r.ok && FW.A) FW.A.crinkle(0.25);
+D.mov = FW.P.moving(G.M, G.S, c.ax, c.k, c.sd).mov; D.under = mv.t === 'f' && mv.u && r.overlap;
+}
+const th = G.tear ? Math.min(0.25, c.th) : (D.ok ? c.th : Math.min(c.th, 0.35));
+D.th = th; if (G.tear) G.hover = { ax: c.ax, k: c.k };
+G.preview = { kind: 'fold', mv: D.mv, base: FW.P.snap(G.S), mov: D.mov, under: !!D.under, th, bad: !D.ok, tear: G.tear };
+});
+const up = e => {
+const D = G.drag; G.drag = null; cv.classList.remove('drag'); G.preview = null;
+if (!D || !D.on || !D.c || !D.mv) return;
+if (G.tear) { if (D.c.th > 0.4) { G.move(D.mv); G.setTear(false); } return; }
+if (D.ok && D.th > Math.PI * 0.3) G.move(D.mv, D.th);
+else if (D.th > 0.02) G.spring(D.mv, D.th);
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', () => { if (!G.drag) G.hover = null; });
+addEventListener('keydown', FW.In.key);
+};
+FW.In.hover = w => {
+const G = FW.G; if (!G.S || G.busy()) { G.hover = null; return; }
+const b = FW.P.bbox(G.S), fx = Math.abs(w.x - Math.round(w.x)), fy = Math.abs(w.y - Math.round(w.y));
+const inX = w.x > b.x0 - 0.3 && w.x < b.x1 + 1.3, inY = w.y > b.y0 - 0.3 && w.y < b.y1 + 1.3;
+if (inX && inY && fx < 0.18 && fx <= fy && Math.round(w.x) > b.x0 && Math.round(w.x) <= b.x1) G.hover = { ax: 0, k: Math.round(w.x) };
+else if (inX && inY && fy < 0.18 && Math.round(w.y) > b.y0 && Math.round(w.y) <= b.y1) G.hover = { ax: 1, k: Math.round(w.y) };
+else G.hover = null;
+};
+FW.In.key = e => {
+const G = FW.G, ui = FW.UI.cur;
+if (e.key === 'Escape') { if (!FW.$('modal').classList.contains('hide')) FW.UI.close(); return; }
+if (ui !== 'play' || !G.S || !FW.$('modal').classList.contains('hide')) return;
+const k = e.key.toLowerCase(), b = FW.P.bbox(G.S);
+const kc = G.kc || { ax: 0, k: Math.round((b.x0 + b.x1 + 1) / 2) };
+if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(k)) {
+e.preventDefault();
+const ax = k === 'arrowup' || k === 'arrowdown' ? 1 : 0, dir = k === 'arrowleft' || k === 'arrowup' ? -1 : 1;
+const lo = (ax ? b.y0 : b.x0) + 1, hi = ax ? b.y1 : b.x1;
+let nk = kc.ax === ax ? kc.k + dir : Math.round(((ax ? b.y0 + b.y1 : b.x0 + b.x1) + 1) / 2);
+G.kc = { ax, k: FW.clamp(nk, lo, hi) }; G.hover = G.kc; return;
+}
+if (k === 'q' || k === 'e' || k === '[' || k === ']') {
+const c = G.kc || kc, sd = k === 'e' || k === ']' ? 1 : 0;
+G.move(G.tear ? { t: 't', ax: c.ax, k: c.k, sd } : { t: 'f', ax: c.ax, k: c.k, sd, u: G.under ? 1 : 0 });
+if (G.tear) G.setTear(false);
+G.kc = null; G.hover = null; return;
+}
+const act = { z: () => G.undo(), y: () => G.redo(), u: () => G.unfoldBtn(), t: () => G.setUnder(!G.under), h: () => G.hintMe(), x: () => G.setTear(!G.tear), r: () => G.reset() }[k];
+if (act && !e.ctrlKey && !e.metaKey) { act(); e.preventDefault(); }
+if ((e.ctrlKey || e.metaKey) && k === 'z') { G.undo(); e.preventDefault(); }
+};
+FW.G.setUnder = v => { const G = FW.G; if (!G.M.under && v) { FW.Hud.note(FW.P.WHY.under); return; } G.under = v; FW.Hud.update(); if (FW.A) FW.A.click(); };
+FW.G.setTear = v => { const G = FW.G; if (v && !G.M.tears) return; G.tear = v; FW.Hud.update(); if (v) FW.Hud.note('Tear mode: pull a strip away along a crease.'); };
+FW.G.unfoldBtn = () => { const G = FW.G; G.move({ t: 'u' }); };
+// ===== hud.js =====
+FW.Hud = {};
+FW.Hud.update = () => {
+const G = FW.G, M = G.M, S = G.S; if (!M) return;
+for (let e = 0; e < M.E; e++) if (S.cr[e]) G.mem[e] = 1;
+const meta = G.meta || {}, sp = G.spec;
+const sub = meta.mode === 'campaign' ? (FW.ATLAS[meta.atlas] ? FW.ATLAS[meta.atlas].name + ' · map ' + (meta.idx + 1) : '') :
+meta.mode === 'daily' ? 'Daily Fold · ' + meta.day : meta.mode === 'endless' ? 'Map Press · ' + FW.Sv.GRADES[sp.g || 0] + ' · #' + (meta.n || 1) : meta.mode === 'test' ? 'Drafting Table · test fold' : 'Shared map';
+FW.$('hName').innerHTML = FW.esc(sp.n || 'Untitled map') + '<small>' + FW.esc(sub) + '</small>';
+const left = M.trav.filter((t, j) => !(S.dlv >> j & 1)).length;
+let h = `<span class="chip">Moves <b>${S.mv}</b> · par ${M.par}</span>`;
+if (M.lim) h += `<span class="chip ${S.mv >= M.lim - 1 ? 'warn' : ''}">Paper life ${Math.max(0, M.lim - S.mv)}</span>`;
+if (M.tears) h += `<span class="chip">✂ ${M.tears - S.tu}</span>`;
+if (M.trav.length > 1) h += `<span class="chip">✉ ${M.trav.length - left}/${M.trav.length}</span>`;
+if (M.wind) h += `<span class="chip" title="Wind">${{ 1: '↓', 2: '←', 4: '↑', 8: '→' }[M.wind]} wind</span>`;
+FW.$('hStat').innerHTML = h;
+FW.$('topMid').textContent = sp.n || '';
+const tu = FW.$('tUndo'), tr = FW.$('tRedo'), tf = FW.$('tUnf'), tm = FW.$('tMode'), tt = FW.$('tTear');
+tu.disabled = !G.hist.length; tr.disabled = !G.fut.length; tf.disabled = S.stack.length <= S.base;
+tm.disabled = !M.under; tm.classList.toggle('on', G.under);
+tm.querySelector('i').textContent = G.under ? '⤵' : '⤴'; tm.querySelector('span').textContent = G.under ? 'Under' : 'Over';
+tt.classList.toggle('hide', !M.tears); tt.classList.toggle('on', !!G.tear); tt.disabled = M.tears <= S.tu;
+for (const b of [tm, tf, tt]) b.classList.remove('glow');
+if (G.hint) { const mv = G.hint.mv; if (mv.t === 'f' && !!mv.u !== G.under) tm.classList.add('glow'); if (mv.t === 'u') tf.classList.add('glow'); if (mv.t === 't' && !G.tear) tt.classList.add('glow'); }
+if (S.mv && G.tipShown && !G.tipT) G.tipT = setTimeout(() => FW.Hud.tip(''), 7000);
+};
+FW.Hud.tip = txt => { const G = FW.G; clearTimeout(G.tipT); G.tipT = 0; G.tipShown = !!txt; FW.$('tip').innerHTML = txt || ''; FW.R.fit(); };
+FW.Hud.note = txt => {
+const n = FW.$('note'); clearTimeout(FW.Hud._nt);
+if (!txt) { n.classList.remove('in'); return; }
+n.textContent = txt; n.classList.add('in');
+FW.Hud._nt = setTimeout(() => n.classList.remove('in'), 2600);
+};
+FW.Hud.wire = () => {
+const G = FW.G;
+FW.$('tUndo').onclick = () => G.undo();
+FW.$('tRedo').onclick = () => G.redo();
+FW.$('tUnf').onclick = () => G.unfoldBtn();
+FW.$('tMode').onclick = () => G.setUnder(!G.under);
+FW.$('tTear').onclick = () => G.setTear(!G.tear);
+FW.$('tHint').onclick = () => G.hintMe();
+FW.$('tReset').onclick = () => G.reset();
+FW.$('tip').onclick = () => FW.Hud.tip('');
+};
+// ===== camp.js =====
+FW.ATLAS = [
+{ name: 'The Valley Post', sub: 'Folds, tucks and the blank back of the map', who: 'post', ink: '#b4402c', land: '#cfd9a8',
+intro: 'The Postman only walks printed roads. The back of the map is blank paper - terra incognita - and nobody walks on that. Fold the sheet so the road ends meet.' },
+{ name: "Riding Hood's Wood", sub: 'Folding both ways - squares turn upside down', who: 'red', ink: '#c0302a', land: '#b9c98f',
+intro: 'Fold one way, then the other, and a square comes back face up - turned half around. Thick card only takes so many layers.' },
+{ name: 'Brown Paper & Tape', sub: 'Taped seams, brass pins, two travellers', who: 'post', ink: '#8a5a2b', land: '#e0c9a0',
+intro: 'Tape holds a seam flat. Pins hold a square to the desk. And now two travellers share one map - deliver one, unfold, fold again.' },
+{ name: 'The Scissor Coast', sub: 'Tear a strip away along a crease', who: 'gull', ink: '#2f5d7c', land: '#c7d6c4',
+intro: 'Paper only tears cleanly where it has been creased. Fold, unfold, then tear off what is in the way.' },
+{ name: 'Inkwell Fens', sub: 'Wet ink presses onto whatever it touches', who: 'doro', ink: '#6d1f4f', land: '#cbd1b0',
+intro: 'Fresh purple ink is still wet. Fold it face-down onto another square and it prints there - mirrored. Unfold to use the copy.' },
+{ name: 'The Windy Downs', sub: 'Wind, and creases worn thin', who: 'red', ink: '#4d7a90', land: '#d5dcae',
+intro: 'A flap folded over INTO the wind gets blown straight back open (it still creases and still prints). Tuck under, or fold the other way. Worn creases only take so many more folds.' },
+{ name: 'Coffee & Signposts', sub: 'Soggy paper and one-way signs', who: 'pass', ink: '#6b4423', land: '#dccba0',
+intro: 'Coffee-soaked squares will not crease. One-way signs must be obeyed - and a sign seen mirrored points the other way.' },
+{ name: 'Around the World', sub: 'Maps of maps: everything at once', who: 'fogg', ink: '#2b2b33', land: '#d9cfa8',
+intro: 'Mr. Fogg has wagered he can cross the world in eighty folds. Every trick you have learned, on one sheet.' }
+];
+FW.LEVELS = [];
+FW.LV = (a, spec) => { spec.atlas = a; spec.who = spec.who || (spec.m.join('').match(/[A-D]/g) || []).map((c, j) => j ? (FW.ATLAS[a].who === 'fogg' ? 'pass' : j === 1 ? 'red' : 'gull') : FW.ATLAS[a].who); (FW.ATLAS[a].levels = FW.ATLAS[a].levels || []).push(spec); FW.LEVELS.push(spec); };
+FW.Camp = {};
+FW.Camp.list = a => FW.ATLAS[a].levels || [];
+FW.Camp.done = spec => !!(FW.S0.lv[spec.id] && FW.S0.lv[spec.id].s);
+FW.Camp.open = a => {
+if (a <= 0 || FW.T.all) return true;
+const prev = FW.Camp.list(a - 1); return prev.filter(FW.Camp.done).length >= prev.length - 1;
+};
+FW.Camp.unlocked = (a, i) => {
+if (!FW.Camp.open(a)) return false;
+if (i === 0 || FW.T.all) return true;
+const L = FW.Camp.list(a); return FW.Camp.done(L[i - 1]) || (i >= 2 && FW.Camp.done(L[i - 2]));
+};
+FW.Camp.next = (a, i) => {
+const L = FW.Camp.list(a);
+if (i + 1 < L.length) return { atlas: a, idx: i + 1, spec: L[i + 1] };
+if (a + 1 < FW.ATLAS.length) return { atlas: a + 1, idx: 0, spec: FW.Camp.list(a + 1)[0] };
+return null;
+};
+FW.Camp.play = (a, i) => {
+const spec = FW.Camp.list(a)[i]; if (!spec) return;
+FW.S0.atlas = a; FW.Save.write();
+FW.G.load(spec, { mode: 'campaign', atlas: a, idx: i });
+if (i === 0 && !FW.S0.seen['atlas' + a]) {
+FW.S0.seen['atlas' + a] = 1; FW.Save.write();
+const A = FW.ATLAS[a];
+FW.UI.modal(`<h2>${FW.esc(A.name)}</h2><p class="wl"><i>${FW.esc(A.sub)}</i></p><p>${FW.esc(A.intro)}</p><div class="btns"><button class="pb red" id="aGo"><b>Unfold it</b></button></div>`);
+FW.$('aGo').onclick = () => FW.UI.close();
+}
+};
+FW.Camp.firstOpen = () => {
+for (let a = 0; a < FW.ATLAS.length; a++) { const L = FW.Camp.list(a); for (let i = 0; i < L.length; i++) if (!FW.Camp.done(L[i]) && FW.Camp.unlocked(a, i)) return { a, i }; }
+return { a: 0, i: 0 };
+};
+// ===== levels1.js =====
+FW.LV(0, {"n": "First Post", "m": [".╷Am  m  .╷a", "~  ~  ~  ~  ", ".  p  p  .  "], "b": ["        ", "        ", "┌.─.─.┐."], "names": {"a": "Puddleby"}, "s": "h2>o", "p": 1, "t": "The Postman must reach Puddleby, but the river is in the way. Someone pencilled a detour on the <b>back</b> of the map - you can see it showing through the bottom edge. <b>Drag the bottom row up</b> over the river.", "id": "a1_1"});
+FW.LV(0, {"n": "Over the Hill", "m": ["f  f  m  s  ", ".╶Am  m  .╴a", "p  .  h  s  "], "names": {"a": "Seacombe"}, "s": "v1<u v2<o", "p": 2, "t": "Two mountains. Press <b>Over</b> to switch to <b>Under</b>, then tuck the Postman's column under the mountain... and fold it straight back over the next one. Places that were far apart now touch.", "id": "a1_2"});
+FW.LV(0, {"m": [".╷Ap .p╷.p╷.", "~│.~ .~╵.p╵.", "~┘.~ .~ ..╶a"], "names": {"a": "Nether Thimble", "b": "Bramble"}, "s": "v1<u v3<u", "p": 2, "n": "Brambly Lane", "t": "Roads only join when their ends meet. The pencil dots show where the Postman can already walk.", "id": "a1_3"});
+FW.LV(0, {"m": [". .. ..╷.f ..╴A", ".┐..╷..╵.f .f .", "h╵a.╵.. .f .m ."], "names": {"a": "Upper Puddle", "b": "West Creasey"}, "s": "h1<u v2>u", "p": 2, "n": "The Long Strand", "id": "a1_4"});
+FW.LV(0, {"m": ["h╴.h╷.h─.s .s .", ".╴ah╵.f .f ..┌.", ". .. .f .f ..│.", ". .. .f╶.f╴.h╵A"], "names": {"a": "Saint Kettlewick", "b": "Wending"}, "s": "h1>u v4<o v7<u", "p": 3, "n": "Three Turns", "t": "Some maps need three folds. The par is the fewest moves we know.", "id": "a1_5"});
+FW.LV(0, {"m": ["f .f .f .f .f .", ".╶Af┐.f╷.f .f .", "m .f .f│.f╷.. .", "s .s .h╵..╵..╷a"], "names": {"a": "Upper Wobbleton", "b": "West Mapleby"}, "s": "v3<u h3<u", "p": 2, "n": "Shortcut on the Back", "t": "Pencil marks on the back become real roads when that side faces up.", "id": "a1_6"});
+FW.LV(1, {"n": "Grandmother's Gate", "m": [".╶A.┐ f  .  ", "f  .└ .╴ m  ", "m  m  m  f  ", ".  .╷af  .  "], "names": {"a": "Grandmother's"}, "s": "h1<u h2<o", "p": 2, "t": "Little Red Riding Hood takes the road through the wood - but the wood is in the way. Fold top to bottom this time: tuck, then fold back.", "id": "a2_1"});
+FW.LV(1, {"m": ["~╷.. ..┌..╴A", "~╵.~ .f .h .", "~ .p .p╶..╴.", ".╶ap─.p┘.p ."], "x": {"thick": 3}, "names": {"a": "Little Mapleby", "b": "Parchley"}, "s": "h3>u h2>o", "p": 2, "n": "Thick Card", "t": "This card is thick: only so many layers fit in one stack.", "id": "a2_2"});
+FW.LV(1, {"m": [".╷as .s .s .", "h│.f .f .w .", "h .h .f .w .", ".╴.. .. ..╷A", ". ..╶..╴.. ."], "names": {"a": "Kings Thimble", "b": "Kings Pudding"}, "s": "h4>u v2<u h3<u", "p": 3, "n": "Wolf Wood", "t": "Fold one way, then the other - a square comes back face up, turned half around.", "id": "a2_3"});
+FW.LV(1, {"m": [". .. .. .. ..╷a", ". .. .. .. .s .", ".╶Ap┐.p╷.p╷.s .", ". .p .p└.p┘.s ."], "names": {"a": "Upper Foldham", "b": "Foldham"}, "s": "h3>u v3<u h2>o", "p": 3, "n": "Basket of Cakes", "id": "a2_4"});
+FW.LV(1, {"m": ["h .. ..╴Ap .s .", "h .p .p .p .s .", ". .~ .p .p .s .", ".╶.~╴.~ .. ..┐.", "h .h╶..╴.. ..╵a"], "names": {"a": "Quill", "b": "Little Thimble"}, "s": "h2>u v2<u v3>u", "p": 3, "n": "Woodcutter's Track", "id": "a2_5"});
+FW.LV(1, {"m": [". .. .. .. .. .", "f .f .. .. .f .", "f .f .~ .~└..╴a", "f .f .~ .~╷.. .", ".╴Ah ..╶..┘.. ."], "b": [" . .─.┘. .", " . . . . .", " . . . . .", " . . . . .", " . . . . ."], "names": {"a": "Marrow", "b": "Inkwell"}, "s": "h1<o h3>u v1<o", "p": 3, "n": "Deep Forest", "id": "a2_6"});
+// ===== levels2.js =====
+FW.LV(2, {"m": [". .m .. ..╷A", ". .h ..╷..│.", "h╶.p╴.p╵.f .", ".╷ap .p .f ."], "x": {"tape": [[0, 1, "E"], [2, 0, "S"], [3, 0, "S"]]}, "names": {"a": "Hollow", "b": "Bramble"}, "s": "v2>u h3<u", "p": 2, "n": "Brown Paper Parcel", "t": "Masking tape holds those seams flat - no crease can run through tape.", "id": "a3_1"});
+FW.LV(2, {"m": [".╶Aw .w ..┐..╶.", "s .. .h .h│@h .", "s .. .h .h @h .", "h╷.. .h .h ..╷a"], "names": {"a": "Saint Puddle", "b": "Sealing"}, "s": "v3<u v4>u h3>o", "p": 3, "n": "Pinned to the Desk", "t": "A brass pin holds its square to the desk: you can only fold the other side.", "id": "a3_2"});
+FW.LV(2, {"m": [".╵A.╷.f .f .. .", "w ..╵.. .. .h .", "h╴.w .f .f ..╶a", ".┌..─.f─.h .h ."], "names": {"a": "Low Otterby", "b": "Little Hollow"}, "s": "h-1>o v4<u", "p": 2, "x": {"pre": "h1>u"}, "n": "Parcel Taped Shut", "t": "This map arrived already folded, and the fold is <b>taped</b> - it can never be unfolded. Work with it.", "id": "a3_3"});
+FW.LV(2, {"m": ["h╷Bf .. .. ..╶a", "f└.f┐.m .. ..┌.", ". ..└.~─.m ..╵.", ".╶A. .m .m ..╶b"], "names": {"a": "Bramble", "b": "Pudding"}, "s": "h1<u h3<u v1<u v4<u", "p": 4, "n": "Two for the Post", "t": "Two travellers. When one arrives she stays delivered - <b>Unfold</b> keeps deliveries (Undo does not).", "id": "a3_4"});
+FW.LV(2, {"m": ["s .s .s .s .s .", ". ..╶A.─..─..┘.", "f @f╷.f .w .h .", "~ @f╵.m .h╶..╴.", "~ .~ .m .. ..╷a"], "x": {"tape": [[3, 1, "E"], [2, 0, "S"], [3, 2, "E"], [2, 3, "E"]]}, "names": {"a": "Hatchet", "b": "Foldham"}, "s": "h2<u h4>u v1>o", "p": 3, "n": "Tape and Tacks", "id": "a3_5"});
+FW.LV(2, {"m": [".╴Bh .p .p╵..╷a", "h╴.h .. .p .p│.", "h .h .. ..┌..┘.", "h .w ..┐.h .s .", ".╷Ah @h└..─..╴b"], "names": {"a": "Parchley", "b": "Puddle"}, "s": "v2>u h4<u U U h2<u v1<o", "p": 6, "n": "Sorting Office", "id": "a3_6"});
+FW.LV(2, {"m": [".╴b~ .~ .~ .h ..╶A", "s .~ .~ .~ .f╶.h╴.", "p╷.. .~ .f .f .. .", ".╵..╶a.─..─..─..╴B"], "x": {"tape": [[3, 0, "E"], [3, 2, "E"], [5, 0, "S"]]}, "names": {"a": "Dimmock", "b": "Wending"}, "s": "h2<u v1<o U v5>o", "p": 4, "n": "Return to Sender", "id": "a3_7"});
+FW.LV(3, {"m": [".╶A.─..─.f┐.f .", "s ..╷.. .f .f .", "s ..╵.h╷.h╷.h╷a", "s .h .h╵.h╵.p ."], "x": {"tears": 1, "thick": 4}, "names": {"a": "Long Hatchet", "b": "East Hatchet"}, "s": "h3>o xh3> v4>u h2>o", "p": 4, "n": "Ragged Edge", "t": "Tear mode: drag across the hinge of your last fold to rip that flap clean off. Paper elsewhere only tears along an old crease.", "id": "a4_1"});
+FW.LV(3, {"m": [".╶af┐.f ..╷.s .", ". .f│.h╶.h┘.s .", ". .h .h .h .s .", ". .. ..╷Ap .s ."], "x": {"tears": 1, "tape": [[4, 1, "S"], [0, 3, "E"], [3, 2, "S"], [3, 0, "E"]]}, "names": {"a": "Kettlewick", "b": "Marrow"}, "s": "v3>o xv3> v2>u h3>o", "p": 4, "n": "Lilliput Shore", "id": "a4_2"});
+FW.LV(3, {"m": [". .. .f .f ..╴A", ".┐.f .f .f .p .", "h│.f .f .f .f .", ".╵a. .. .w ..╶.", ". ..╶..╴.w .w ."], "x": {"tears": 1, "tape": [[4, 1, "S"], [1, 4, "E"]], "thick": 4}, "names": {"a": "Dimmock", "b": "Foldham"}, "s": "h4>o xh4> h1<u v2>u", "p": 4, "n": "Brobdingnag Cliffs", "id": "a4_3"});
+FW.LV(3, {"m": [".╴.p .p @.└..╴a", "w .w .w .. .. .", "p│.w .w .. .. .", ".╵Ap ..╶..╴.. .", "p .p .h .h .h ."], "x": {"tears": 1, "tape": [[3, 3, "E"], [1, 4, "E"], [4, 1, "S"], [3, 0, "E"]]}, "names": {"a": "Bramble", "b": "Kings Parchley"}, "s": "h4>o xh4> v2<u h1>u", "p": 4, "n": "The Flying Island", "id": "a4_4"});
+FW.LV(3, {"m": [".╷a. .. .~ .~ .", "f└.f┐.f .~ .~ .", "f .f .f .. .. .", "f .f .f .h ..╷A", "f╴.s .s .s .h╷."], "x": {"tears": 1, "tape": [[1, 1, "S"], [2, 4, "E"]]}, "names": {"a": "Low Thimble", "b": "Hollow"}, "s": "h4>o xh4> v3<u h3<u", "p": 4, "n": "Houyhnhnm Downs", "id": "a4_5"});
+// ===== levels3.js =====
+FW.LV(4, {"n": "Wet Ink", "m": [".╶A.─ ~  .╴a", "p  .  .─*.  "], "names": {"a": "Blotting"}, "s": "h1>o U", "p": 2, "t": "That purple bridge is <b>wet ink</b>. Fold the bottom row up over the river so the ink presses onto it, then <b>Unfold</b> - the bridge stays printed (mirrored).", "id": "a5_1"});
+FW.LV(4, {"m": [".╶ah .h─*~ .", "h .h .h .~╷.", ". .h .~ .~╵.", ".╴.s .s .h╶A"], "names": {"a": "Gristle", "b": "Kings Sealing"}, "s": "v2<o U h2<u v3<u", "p": 4, "n": "Smudge Bridge", "id": "a5_2"});
+FW.LV(4, {"m": ["~╵.s .s .s .s .", "~ .~ .. .h ..╷a", "~ .. .. .f┘*f .", "h╶A. .f .~╷.f ."], "names": {"a": "West Crumpet", "b": "Saint Quill"}, "s": "v4<o U h3<u v3>o", "p": 4, "n": "Quill Marsh", "t": "Wet ink prints onto the face it touches, mirrored. Fold, unfold, then fold the way you need.", "id": "a5_3"});
+FW.LV(4, {"m": ["s .~ @f─@f ..╴a", "s .~ .f .p─*.╶.", "s .f .p .p ..╷.", ".╴A. .p .p╶..┘."], "names": {"a": "Crumpet", "b": "Low Gristle"}, "s": "h1>o U h2>u v1<o", "p": 4, "n": "Pinned Blotter", "id": "a5_4"});
+FW.LV(4, {"m": ["f .f╷..─..─..╴A", "f .f╵.w ..┌*s .", ".╵a.╷.h .~ .s .", ". ..╵.. .f .s .", ". .. .. .f .s ."], "x": {"tape": [[2, 2, "E"], [4, 1, "S"]]}, "names": {"a": "Old Fennick", "b": "East Kettlewick"}, "s": "v2<o U h1<u v1>u", "p": 4, "n": "Emerald Fen", "id": "a5_5"});
+FW.LV(4, {"m": [". .. .p .p .p ..╵A", ". .. .p┘*p .~ .~ .", ". .. .~ .~ .f .f .", "s ..╷..╵as .s .f╷."], "b": [" . . . . . .", " . . . . . .", " . . . .─.┘.", " . . . . . ."], "names": {"a": "Crumpet", "b": "Wobbleton"}, "s": "h2>o U v2<u h1>u v3<o", "p": 5, "n": "The Yellow Brick Smear", "id": "a5_6"});
+FW.LV(5, {"m": [".╵Af╶..╴.s .", "f .f .f ..╶.", "f .f .~ .h│.", "~ .~ .~ ..╵a"], "x": {"wind": "E"}, "names": {"a": "Pudding", "b": "Nether Marrow"}, "s": "v2>u h1>u", "p": 2, "n": "Breezy Common", "t": "Wind! A flap folded over <i>into</i> the wind is blown straight back open. Tuck under, or fold the other way.", "id": "a6_1"});
+FW.LV(5, {"m": ["s .f .f .f ..╷.", ".╶Ah┘.h .f ..╵.", "s .h .h .. .. .", ".─.~╴.~ .. .h╵a"], "x": {"worn": [[0, 1, "S", 1], [2, 3, "E", 1], [4, 1, "S", 1]]}, "names": {"a": "Saint Pudding", "b": "Long Plover"}, "s": "v3>u h1>u h0>o", "p": 3, "n": "Threadbare", "t": "The red stitches mark a worn crease; the number is how many more folds it can take.", "id": "a6_2"});
+FW.LV(5, {"m": ["h╷as ..╶.h╴.s .", "h│.h .. .h .h╶.", "h┘.h .h .h ..╶A", ". .h .h─.m .h ."], "x": {"wind": "S"}, "names": {"a": "East Kettlewick", "b": "Puddle"}, "s": "h3<u v4>o v1<o", "p": 3, "n": "Kite Hill", "id": "a6_3"});
+FW.LV(5, {"m": [".╶ah┐.f .f .s .", "f .f .f .f╷.s .", "f .w .. ..╵..╷A", "f .w .w .. .s .", "f .w .w .. ..╷."], "x": {"worn": [[1, 2, "S", 1], [2, 2, "E", 1], [0, 1, "S", 1]], "wind": "W"}, "names": {"a": "Kettlewick", "b": "Crumpet"}, "s": "v3<u h3<u h4<o", "p": 3, "n": "Gale Barrow", "id": "a6_4"});
+FW.LV(5, {"m": [". @p .p .h .h╶.", "h .p .p .m ..╶A", ".╶.p╴.p┌.m .. .", ". .p .f│.f .. .", ". .p ..╵af .f ."], "x": {"wind": "S"}, "names": {"a": "Thimble", "b": "Old Dimmock"}, "s": "h2>u v1>u v-2<o", "p": 3, "n": "Weathervane", "id": "a6_5"});
+FW.LV(5, {"m": ["f .f .m .m .s .", ". .p .p .h╶.h╴.", ". .p .p .p└.h╴a", ".╶.p╴.p .w .s .", ".╴A. .. .w .s ."], "b": [" . . . . .", " . . . . .", " . . . . .", " . . . . .", " . .─.┘. ."], "x": {"worn": [[0, 3, "E", 1], [0, 4, "E", 1], [1, 2, "S", 1]], "wind": "W"}, "names": {"a": "East Sealing", "b": "Puddle"}, "s": "h2>u h1>o v1<o", "p": 3, "n": "Eye of the Storm", "id": "a6_6"});
+// ===== levels4.js =====
+FW.LV(6, {"m": [". .. .f─..╴a", ".─.h╴.h .h .", "m .m .h .h .", ".╴As .h╷.h %"], "names": {"a": "Nether Crumpet", "b": "Saint Fennick"}, "s": "h2>u v1<o", "p": 2, "n": "Coffee Break", "t": "Coffee-soaked paper is soggy: no crease will run along its edges.", "id": "a7_1"});
+FW.LV(6, {"m": [". ..╷.. .h ..╷a", "w ..╵.. .f .p└.", ".╶A.─..─>f╷.p ."], "names": {"a": "Saint Gristle", "b": "Thimble"}, "s": "h2>u v4<u", "p": 2, "n": "One Way Street", "t": "Travellers obey one-way signs - and a sign flipped round by your folds points the other way.", "id": "a7_2"});
+FW.LV(6, {"m": ["f .f .. .~ .~ .", "f .f .. .~╷..╵a", ". .. .. ..└.h╴.", ".╶A.┘%. .w .h %"], "names": {"a": "Marrow", "b": "Old Tumble"}, "s": "v3<u h1>u h0>o", "p": 3, "n": "Saucer Ring", "id": "a7_3"});
+FW.LV(6, {"m": ["s .. .. .. ..╷a", "s .h .w .f .f│^", "s .h┌..╶.f╴.f┘.", "h╶.h╴.. .. .. .", "s .h ..╷A. .. ."], "names": {"a": "Crumpet", "b": "Otterby"}, "s": "v2<u h4<u v3>u", "p": 3, "n": "Mirror Lane", "id": "a7_4"});
+FW.LV(6, {"m": ["f %s .s .s .s .", ".╶A. .. .. ..╷.", ".╷.. ..┌.f ..╵.", ".╵.. ..│.f .f .", ". .w ..╵af .f╶."], "x": {"tape": [[0, 4, "E"], [0, 0, "E"], [3, 3, "S"], [1, 2, "S"]]}, "names": {"a": "Puddle", "b": "Sealing"}, "s": "v3<u h2>o v4>u", "p": 3, "n": "Spilt Milk", "id": "a7_5"});
+FW.LV(6, {"m": ["p .p ..╵Aw .. .. @", "p .w .w .f .f .s .", "w .h╶..╴.f│vf .s .", ".╶..╴.. .f└.f┐.s .", ". .. .. .p ..╵as ."], "names": {"a": "Saint Crumpet", "b": "Plover"}, "s": "v3<u v5<u h1>u", "p": 3, "n": "Last Orders", "id": "a7_6"});
+FW.LV(7, {"m": ["h╶Bp┌.p─..─.h╴a", "f .p│.p╷.. .h┌.", "f .p╷.f╵.f ..│.", ".╷Af╵.f .f ..╵b", "f .f .h .. .. ."], "x": {"wind": "N"}, "names": {"a": "London", "b": "Suez"}, "s": "h2<u v1>u U v2<o", "p": 4, "n": "London to Suez", "t": "Mr. Fogg and Passepartout each have a train to catch.", "id": "a8_1"});
+FW.LV(7, {"m": [".╶A~ .f┌*f .f .", "~╷.~ .f .f .f .", ".╵.~ .~ .f .f .", ". .. .~ .~╷.. .", ". .. .. ..╵..╷a"], "x": {"wind": "S"}, "names": {"a": "Bombay", "b": "Calcutta"}, "s": "v2>o U v3<u h3<u", "p": 4, "n": "Bombay Ink", "id": "a8_2"});
+FW.LV(7, {"m": [". .. .. .f╷.f .", ". .w .m .f╵.f .", "m .m .h╷.f└..╴A", ". .h .h╵.. ..╶.", ".╵ah .h .. .. ."], "x": {"tears": 1, "tape": [[2, 1, "E"], [3, 4, "E"], [1, 1, "E"]]}, "names": {"a": "Hong Kong", "b": "Yokohama"}, "s": "h2<o xh2< v2<u h3>u", "p": 4, "n": "Calcutta Cut", "id": "a8_3"});
+FW.LV(7, {"m": [".╷A.╵B. .f .f .~ %", ".└.h .f .f┐.~╶.~╴.", "s .. .. .f│v~ .w .", "s .h╷.m .h│vw .. %", "s .h╵.m .h╵a.└..╴b"], "names": {"a": "San Francisco", "b": "New York"}, "s": "v3<u v4>u U h2<o", "p": 4, "n": "Hong Kong Harbour", "id": "a8_4"});
+FW.LV(7, {"m": ["f .f .f .. .. ..╴A", "h─*f .. .h .p .p .", "h .h .. .p╷.p .p .", "h .h╶.f╴.p╵.f .p .", "h .. ..╷af .p .. ."], "b": [" . .┐. . . .", " . . . . . .", " . . . . . .", " . . . . . .", " . . . . . ."], "x": {"tape": [[3, 1, "E"], [3, 0, "E"], [4, 4, "E"]], "worn": [[2, 4, "E", 1]]}, "names": {"a": "Reform Club", "b": "Liverpool"}, "s": "h1>o U h3<u v1>o v-1>o", "p": 5, "n": "Yokohama Folds", "id": "a8_5"});
+FW.LV(7, {"m": ["s .h└..╴As .f╵.", "~ .h .h .. .f .", "~ .h .h .. .. .", ". .h .h .h .w .", ".╵a. .. .w ..╶."], "x": {"tears": 1, "tape": [[3, 1, "S"], [0, 2, "S"], [1, 3, "E"], [3, 0, "S"]], "wind": "N"}, "names": {"a": "Allahabad", "b": "Omaha"}, "s": "v3>o xv3> v1>u h2<o", "p": 4, "n": "Eighty Folds", "id": "a8_6"});
+// ===== atlas_ui.js =====
+FW.Atlas = { a: 0 };
+FW.Atlas.pos = (n, i, a, tall) => {
+const t = n > 1 ? i / (n - 1) : 0.5;
+return tall ? { x: 0.5 + 0.28 * Math.sin(i * 1.75 + a), y: 0.1 + 0.8 * t } : { x: 0.1 + 0.8 * t, y: 0.5 + 0.27 * Math.sin(i * 1.8 + a) };
+};
+FW.Atlas.open = a => {
+FW.UI.close(); FW.UI.show('atlas');
+FW.Atlas.a = FW.clamp(a == null ? FW.S0.atlas || 0 : a, 0, FW.ATLAS.length - 1);
+FW.Atlas.render();
+};
+FW.Atlas.render = () => {
+const a = FW.Atlas.a, A = FW.ATLAS[a], L = FW.Camp.list(a), open = FW.Camp.open(a);
+const got = L.reduce((s, sp) => s + ((FW.S0.lv[sp.id] || {}).s || 0), 0);
+FW.$('atTitle').innerHTML = `<b>${FW.esc(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'][a] + '. ' + A.name)}</b><small>${FW.esc(A.sub)}${open ? ' · ' + got + '/' + L.length * 3 + ' stamps' : ' · locked'}</small>`;
+FW.$('atPrev').disabled = a === 0; FW.$('atNext').disabled = a === FW.ATLAS.length - 1;
+const cv = FW.$('atCv'), r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+const W = r.width, H = r.height, tall = H > W * 1.1;
+FW.Atlas.sheet(g, W, H, a, tall, L.length);
+const pins = FW.$('atPins'); pins.innerHTML = '';
+L.forEach((sp, i) => {
+const p = FW.Atlas.pos(L.length, i, a, tall), un = FW.Camp.unlocked(a, i), rec = FW.S0.lv[sp.id];
+const b = FW.el('button', 'city' + (rec && rec.s ? ' done' : '') + (!un ? ' lock' : '') + (un && !(rec && rec.s) ? ' next' : ''));
+b.style.left = (p.x * 100) + '%'; b.style.top = (p.y * 100) + '%';
+b.innerHTML = `<span class="st">${rec && rec.s ? '✦'.repeat(rec.s) : ''}</span><span class="dot">${un ? i + 1 : '🔒'}</span><span class="nm">${FW.esc(sp.n)}</span>`;
+b.title = sp.n + (un ? '' : ' (locked)');
+b.onclick = () => { if (un) FW.Camp.play(a, i); else FW.toast('Fold the earlier maps first.'); };
+pins.appendChild(b);
+});
+const total = FW.Save.stamps(), all = FW.LEVELS.length * 3;
+FW.$('atFoot').innerHTML = `<span>Stamps collected: <b>${total}</b> / ${all}</span><button class="pb sm" id="atDesk">Desk</button>`;
+FW.$('atDesk').onclick = () => FW.UI.home();
+};
+FW.Atlas.sheet = (g, W, H, a, tall, n) => {
+const A = FW.ATLAS[a], r = FW.rng(a * 97 + 5), m = 10;
+g.clearRect(0, 0, W, H);
+g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 18; g.shadowOffsetY = 8; g.fillStyle = '#efe3c2'; g.fillRect(m, m, W - m * 2, H - m * 2); g.restore();
+g.fillStyle = FW.Art.pattern(g, 'front'); g.fillRect(m, m, W - m * 2, H - m * 2);
+g.fillStyle = 'rgba(120,160,175,.35)'; g.fillRect(m, m, W - m * 2, H - m * 2);
+g.fillStyle = A.land; g.strokeStyle = FW.Art.INK; g.lineWidth = 2;
+g.beginPath();
+const cx = W / 2, cy = H / 2, R0 = Math.min(W, H) * 0.42, sx = tall ? 0.85 : 1.25, sy = tall ? 1.15 : 0.8;
+for (let i = 0; i <= 40; i++) { const t = i / 40 * Math.PI * 2, rr = R0 * (0.86 + 0.16 * Math.sin(t * 3 + a) + 0.08 * Math.sin(t * 7 + a * 2) + r() * 0.05); const x = cx + Math.cos(t) * rr * sx, y = cy + Math.sin(t) * rr * sy; if (!i) g.moveTo(x, y); else g.lineTo(x, y); }
+g.closePath(); g.fill(); g.stroke();
+for (let i = 0; i < 14; i++) { const x = cx + (r() - 0.5) * W * 0.6, y = cy + (r() - 0.5) * H * 0.55; if (r() < 0.5) FW.Art.tree(g, x, y, 16, r); else FW.Art.peak(g, x, y, 14, r); }
+FW.Art.compass(g, W - m - 46, H - m - 52, 30, 0);
+FW.Art.serpent(g, m + 60, H - m - 36, 50, r, false);
+FW.Art.coffee(g, W * 0.78, H * 0.2, 40, r, false);
+g.strokeStyle = A.ink; g.lineWidth = 2.5; g.setLineDash([3, 7]); g.lineCap = 'round'; g.beginPath();
+for (let i = 0; i < n; i++) { const p = FW.Atlas.pos(n, i, a, tall), x = p.x * W, y = p.y * H; if (!i) g.moveTo(x, y); else { const q = FW.Atlas.pos(n, i - 1, a, tall); g.quadraticCurveTo((q.x * W + x) / 2 + (r() - 0.5) * 40, (q.y * H + y) / 2 + (r() - 0.5) * 40, x, y); } }
+g.stroke(); g.setLineDash([]);
+g.strokeStyle = 'rgba(59,42,28,.7)'; g.lineWidth = 2; g.strokeRect(m + 6, m + 6, W - m * 2 - 12, H - m * 2 - 12);
+g.strokeStyle = 'rgba(90,60,30,.18)'; g.lineWidth = 1.5;
+g.beginPath(); g.moveTo(W / 2, m); g.lineTo(W / 2, H - m); g.moveTo(m, H / 2); g.lineTo(W - m, H / 2); g.stroke();
+};
+FW.Atlas.wire = () => {
+FW.$('atPrev').onclick = () => { if (FW.Atlas.a > 0) { FW.Atlas.a--; FW.Atlas.render(); if (FW.A) FW.A.rustle(0.5); } };
+FW.$('atNext').onclick = () => { if (FW.Atlas.a < FW.ATLAS.length - 1) { FW.Atlas.a++; FW.Atlas.render(); if (FW.A) FW.A.rustle(0.5); } };
+addEventListener('resize', () => { if (FW.UI.cur === 'atlas') FW.Atlas.render(); });
+};
+// ===== modes.js =====
+FW.Code = {};
+FW.Code.KEYS = ['n', 'm', 'b', 'x', 'names', 's', 'p', 't'];
+FW.Code.enc = spec => {
+const o = {}; for (const k of FW.Code.KEYS) if (spec[k] != null && spec[k] !== '') o[k] = spec[k];
+const json = JSON.stringify(o), bytes = new TextEncoder().encode(json);
+let bin = ''; for (const b of bytes) bin += String.fromCharCode(b);
+return 'F1' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+FW.Code.dec = code => {
+try {
+code = String(code || '').trim(); if (code.slice(0, 2) !== 'F1') return null;
+const b64 = code.slice(2).replace(/-/g, '+').replace(/_/g, '/'), bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+const bytes = Uint8Array.from(bin, c => c.charCodeAt(0)), o = JSON.parse(new TextDecoder().decode(bytes));
+if (!o || !Array.isArray(o.m) || !o.m.length || o.m.length > 9 || o.m.some(r => typeof r !== 'string' || r.length > 27)) return null;
+const spec = {}; for (const k of FW.Code.KEYS) if (o[k] != null) spec[k] = o[k];
+spec.id = 'shared' + FW.hash(code);
+FW.parse(spec);
+return spec;
+} catch (e) { return null; }
+};
+FW.Code.url = spec => location.href.split('#')[0] + '#map=' + FW.Code.enc(spec);
+FW.Modes = {};
+FW.Modes.daily = () => {
+const day = FW.today(), spec = FW.Gen.daily(day);
+FW.G.load(spec, { mode: 'daily', day: String(day).replace(/(\d{4})(\d\d)(\d\d)/, '$1-$2-$3') });
+FW.Hud.tip('A fresh sheet every day. Everyone in the world gets the same one.');
+};
+FW.Modes.streak = () => {
+let n = 0; const d = new Date();
+for (let i = 0; i < 400; i++) {
+const k = (d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate());
+const key = String(k).replace(/(\d{4})(\d\d)(\d\d)/, '$1-$2-$3');
+if (FW.S0.daily[key]) n++; else if (i > 0) break;
+d.setDate(d.getDate() - 1);
+}
+return n;
+};
+FW.Modes.endless = () => {
+const E = FW.S0.endless, seed = (E.solved * 7 + 1 + (E.seed || 0)) >>> 0;
+const spec = FW.Gen.make(seed, E.tier);
+spec.n = spec.n || 'Pressed map';
+FW.G.load(spec, { mode: 'endless', n: E.solved + 1 });
+if (!E.solved) FW.Hud.tip('Every pressed map was folded at random first, then the road was drawn across it - so it can always be folded back.');
+};
+FW.Modes.endlessWin = res => {
+const E = FW.S0.endless; E.solved++;
+E.best[E.tier] = (E.best[E.tier] || 0) + 1;
+if (res.stamps >= 2 && E.tier < 3 && E.best[E.tier] % 3 === 0) E.tier++;
+else if (res.stamps === 1 && E.tier > 0 && Math.random() < 0.4) E.tier--;
+FW.Save.write();
+};
+FW.Modes.fromHash = () => {
+const m = /[#&]map=([A-Za-z0-9_-]+)/.exec(location.hash || '');
+if (!m) return false;
+const spec = FW.Code.dec(m[1]);
+if (!spec) { FW.toast('That shared map code is smudged - could not read it.'); return false; }
+FW.G.load(spec, { mode: 'shared' });
+FW.Hud.tip('Someone folded this map for you at their drafting table.');
+return true;
+};
+// ===== ui.js =====
+FW.UI = { cur: 'home' };
+FW.UI.show = id => {
+for (const s of ['home', 'atlas', 'play', 'editor']) FW.$(s).classList.toggle('hide', s !== id);
+FW.UI.cur = id;
+FW.$('bHome').classList.toggle('hide', id === 'home');
+if (id !== 'play') FW.$('topMid').textContent = { home: '', atlas: 'The Atlas', editor: 'Drafting Table' }[id] || '';
+if (id === 'play') requestAnimationFrame(() => FW.R.resize());
+FW.bus.emit('screen', id);
+};
+FW.UI.modal = html => { FW.$('modalBox').innerHTML = html; FW.$('modal').classList.remove('hide'); };
+FW.UI.close = () => { FW.$('modal').classList.add('hide'); FW.$('modalBox').innerHTML = ''; };
+FW.UI.home = () => { FW.UI.close(); FW.UI.show('home'); FW.Home.refresh(); };
+FW.UI.winCard = res => {
+const G = FW.G, meta = G.meta || {}, sp = G.spec, labels = ['FOLDED', 'NEAT', 'PAR'];
+let extra = '', btns = '';
+if (meta.mode === 'campaign') {
+FW.Save.level(sp.id, res.moves, res.stamps);
+const nx = FW.Camp.next(meta.atlas, meta.idx);
+btns = `<button class="pb sm" id="wAgain">Fold again</button><button class="pb sm" id="wAtlas">Atlas</button>` + (nx ? `<button class="pb red" id="wNext"><b>Next map</b><small>${FW.esc(nx.spec.n)}</small></button>` : '');
+if (!nx) extra = '<p><b>You folded every map in the atlas.</b> The post always gets through.</p>';
+else if (nx.atlas !== meta.atlas) extra = `<p>A new atlas opens: <b>${FW.esc(FW.ATLAS[nx.atlas].name)}</b>.</p>`;
+} else if (meta.mode === 'daily') {
+const d = FW.S0.daily[meta.day]; if (!d || res.moves < d.m) FW.S0.daily[meta.day] = { m: res.moves, s: res.stamps }; FW.Save.write();
+extra = `<p>Daily streak: <b>${FW.Modes.streak()}</b> day(s). Come back tomorrow for a new sheet.</p>`;
+btns = `<button class="pb sm" id="wAgain">Fold again</button><button class="pb red" id="wDesk"><b>Back to the desk</b></button>`;
+} else if (meta.mode === 'endless') {
+FW.Modes.endlessWin(res);
+extra = `<p>Maps pressed: <b>${FW.S0.endless.solved}</b> · next sheet: <b>${FW.Sv.GRADES[FW.S0.endless.tier]}</b></p>`;
+btns = `<button class="pb sm" id="wDesk">Desk</button><button class="pb red" id="wNext"><b>Press another map</b></button>`;
+} else if (meta.mode === 'test') {
+btns = `<button class="pb red" id="wEdit"><b>Back to the drafting table</b></button>`;
+FW.Ed.tested(res);
+} else btns = `<button class="pb sm" id="wAgain">Fold again</button><button class="pb red" id="wDesk"><b>Back to the desk</b></button>`;
+FW.UI.modal(`<h2>Delivered!</h2><p class="wl">${FW.esc(sp.n || '')} — ${res.moves} move${res.moves === 1 ? '' : 's'} (par ${res.par})${G.hintsUsed ? ' · hint used' : ''}</p>
+<div class="stamps">${labels.map((l, i) => `<div class="stamp" data-i="${i}">${l}</div>`).join('')}</div>${extra}<div class="btns">${btns}</div>`);
+FW.qsa('.stamp').forEach((el, i) => setTimeout(() => { el.classList.add(i < res.stamps ? 'got' : 'no'); el.classList.add('in'); if (i < res.stamps && FW.A) FW.A.stamp(0.6); }, 250 + i * 330));
+const on = (id, f) => { const e = FW.$(id); if (e) e.onclick = f; };
+on('wAgain', () => { FW.UI.close(); FW.G.load(sp, meta); });
+on('wAtlas', () => { FW.UI.close(); FW.Atlas.open(meta.atlas); });
+on('wDesk', () => FW.UI.home());
+on('wEdit', () => { FW.UI.close(); FW.Ed.open(); });
+on('wNext', () => {
+FW.UI.close();
+if (meta.mode === 'endless') FW.Modes.endless();
+else { const nx = FW.Camp.next(meta.atlas, meta.idx); if (nx) FW.Camp.play(nx.atlas, nx.idx); }
+});
+};
+FW.UI.wire = () => {
+FW.$('bHome').onclick = () => { if (FW.UI.cur === 'play' && FW.G.meta && FW.G.meta.mode === 'campaign') FW.Atlas.open(FW.G.meta.atlas); else if (FW.UI.cur === 'play' && FW.G.meta && FW.G.meta.mode === 'test') FW.Ed.open(); else FW.UI.home(); };
+FW.$('bSet').onclick = () => FW.Set.show();
+FW.$('bSnd').onclick = () => { FW.Set.o.sound = !FW.Set.o.sound; FW.Set.save(); FW.Set.apply(); };
+FW.$('bMus').onclick = () => { FW.Set.o.music = !FW.Set.o.music; FW.Set.save(); FW.Set.apply(); };
+FW.$('modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal' && !FW.G.won) FW.UI.close(); });
+};
+// ===== home.js =====
+FW.Home = { open: 0, t0: 0 };
+FW.Home.map = () => {
+if (FW.Home._m) return FW.Home._m;
+const spec = { id: 'deskmap', m: ['s  .┌A.─ .┐ f  ', 's  .│ f  .└ .┐a', '~  .└ .─ m  ~│ ', 'f  f  .  .  ~  '], names: { a: 'Inkwell' } };
+const M = FW.parse(spec); FW.Home._m = FW.Art.front(M, 90); return FW.Home._m;
+};
+FW.Home.frame = t => {
+const cv = FW.$('homeCv'); if (!cv) return;
+const d = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect();
+if (cv.width !== Math.round(r.width * d) || cv.height !== Math.round(r.height * d)) { cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); FW.Home.bg = null; }
+const g = cv.getContext('2d'), W = r.width, H = r.height;
+if (!FW.Home.bg) {
+const b = FW.Art.cv(cv.width, cv.height), bg = b.getContext('2d'); bg.scale(d, d);
+FW.Art.desk(bg, W, H, 7);
+const rr = FW.rng(4);
+FW.Art.coffee(bg, W * 0.86, H * 0.18, Math.min(W, H) * 0.09, rr, false);
+FW.Art.coffee(bg, W * 0.1, H * 0.82, Math.min(W, H) * 0.07, rr, false);
+FW.Home.pencil(bg, W * 0.08, H * 0.25, Math.min(W, H) * 0.32, -0.5);
+FW.Home.pencil(bg, W * 0.9, H * 0.72, Math.min(W, H) * 0.26, 2.3);
+FW.Art.compass(bg, W * 0.9, H * 0.42, Math.min(W, H) * 0.05, 0.3);
+FW.Home.bg = b;
+}
+g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(FW.Home.bg, 0, 0); g.setTransform(d, 0, 0, d, 0, 0);
+const lamp = g.createRadialGradient(W * 0.5, H * 0.1, 10, W * 0.5, H * 0.3, Math.max(W, H) * 0.7);
+lamp.addColorStop(0, `rgba(255,214,140,${0.16 + Math.sin(t * 0.7) * 0.015})`); lamp.addColorStop(1, 'rgba(255,214,140,0)'); g.fillStyle = lamp; g.fillRect(0, 0, W, H);
+const tall = H > W * 1.2, th = tall ? H * 0.3 : H * 0.3;
+if (tall) { FW.Title.draw(g, W * 0.1, H * 0.02, W * 0.8, th * 0.5, 11, 'FOLD', true); FW.Title.draw(g, W * 0.18, H * 0.02 + th * 0.5, W * 0.64, th * 0.5, 12, 'WAY'); }
+else FW.Title.draw(g, W * 0.05, H * 0.03, W * 0.9, th, 11);
+const btnTop = FW.$('homeBtns').getBoundingClientRect().top - r.top;
+const area = { y0: H * 0.03 + th + 8, y1: Math.max(H * 0.03 + th + 60, btnTop - 12) };
+FW.Home.drawMap(g, W / 2, (area.y0 + area.y1) / 2, Math.min(W * 0.86, (area.y1 - area.y0) * 1.7), t);
+};
+FW.Home.pencil = (g, x, y, L, a) => {
+g.save(); g.translate(x, y); g.rotate(a);
+g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(4, 6, L, 12);
+g.fillStyle = '#c94f2e'; g.fillRect(0, 0, L * 0.82, 12); g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(0, 2, L * 0.82, 3);
+g.fillStyle = '#e8c79a'; g.beginPath(); g.moveTo(L * 0.82, 0); g.lineTo(L, 6); g.lineTo(L * 0.82, 12); g.fill();
+g.fillStyle = '#333'; g.beginPath(); g.moveTo(L * 0.95, 4.5); g.lineTo(L, 6); g.lineTo(L * 0.95, 7.5); g.fill();
+g.fillStyle = '#c9a74a'; g.fillRect(-10, 0, 10, 12); g.fillStyle = '#e59a9a'; g.fillRect(-18, 0, 8, 12);
+g.restore();
+};
+FW.Home.drawMap = (g, cx, cy, maxW, t) => {
+const img = FW.Home.map(), ar = img.height / img.width, H0 = Math.min(maxW * ar, maxW);
+const Wf = H0 / ar, pw = Wf / 4, ph = H0 / 2, p = FW.Home.open ? FW.clamp((FW.now() - FW.Home.t0) / 1.4, 0, 1) : 0;
+const e1 = FW.ease(FW.clamp(p * 2, 0, 1)), e2 = FW.ease(FW.clamp(p * 2 - 1, 0, 1));
+const vis = ph + ph * e2, wid = pw + pw * 3 * e1;
+const x0 = cx - wid / 2, y0 = cy - vis / 2 + Math.sin(t * 1.3) * 1.5;
+g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 24; g.shadowOffsetY = 10; g.fillStyle = '#e9dcb8'; g.fillRect(x0, y0, wid, vis); g.restore();
+const cols = 4;
+for (let c = 0; c < cols; c++) {
+const span = c === 0 ? 1 : FW.clamp(e1 * 3 - (c - 1), 0, 1), w = pw * span;
+if (w <= 0.5) continue;
+const px = x0 + pw * Math.min(c, e1 * 3), sx = c * img.width / 4;
+g.drawImage(img, sx, 0, img.width / 4, img.height / 2, px, y0, w, ph);
+if (e2 > 0.02) g.drawImage(img, sx, img.height / 2, img.width / 4, img.height / 2, px, y0 + ph, w, ph * e2);
+g.fillStyle = `rgba(60,35,10,${(0.25 * (1 - span) + (c % 2 ? 0.08 : 0)).toFixed(3)})`; g.fillRect(px, y0, w, ph + ph * e2);
+if (c) { g.strokeStyle = 'rgba(80,50,20,.45)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(px, y0); g.lineTo(px, y0 + vis); g.stroke(); }
+}
+if (e2 < 1) { g.fillStyle = 'rgba(232,220,185,.9)'; g.fillRect(x0, y0 + vis - 3, wid, 3); }
+g.strokeStyle = 'rgba(80,50,20,.35)'; g.beginPath(); g.moveTo(x0, y0 + ph); g.lineTo(x0 + wid, y0 + ph); g.stroke();
+};
+FW.Home.refresh = () => {
+FW.Home.open = 0;
+const done = FW.LEVELS.filter(FW.Camp.done).length;
+FW.$('hSub').textContent = done ? `continue · ${done}/${FW.LEVELS.length} maps · ${FW.Save.stamps()} stamps` : `${FW.LEVELS.length} maps in ${FW.ATLAS.length} atlases`;
+const day = String(FW.today()).replace(/(\d{4})(\d\d)(\d\d)/, '$1-$2-$3');
+FW.$('hDailySub').textContent = FW.S0.daily[day] ? 'done today ✦' : "today's map";
+FW.$('hEndSub').textContent = FW.S0.endless.solved ? FW.S0.endless.solved + ' pressed' : 'endless maps';
+};
+FW.Home.wire = () => {
+FW.$('hPlay').onclick = () => {
+if (FW.A) { FW.A.init(); FW.A.unfold(); FW.A.rustle(0.8); }
+FW.Home.open = 1; FW.Home.t0 = FW.now();
+setTimeout(() => { const f = FW.Camp.firstOpen(); FW.Atlas.open(f.a); }, FW.T.fast ? 0 : 1500);
+};
+FW.$('hDaily').onclick = () => FW.Modes.daily();
+FW.$('hEndless').onclick = () => FW.Modes.endless();
+FW.$('hEdit').onclick = () => FW.Ed.open();
+};
+// ===== editor.js =====
+FW.Ed = { tool: 'road', back: false };
+FW.Ed.TOOLS = [
+['road', 'Road'], ['ink', 'Wet ink'], ['erase', 'Erase'], ['A', 'Trav A'], ['a', 'Dest a'], ['B', 'Trav B'], ['b', 'Dest b'],
+['@', 'Pin'], ['%', 'Coffee'], ['sign', 'Sign'], ['tape', 'Tape'],
+['.', 'Grass'], ['p', 'Field'], ['f', 'Forest'], ['h', 'Hills'], ['m', 'Peaks'], ['~', 'Lake'], ['s', 'Sea'], ['w', 'Marsh'], ['d', 'Sand']
+];
+FW.Ed.blank = (w, h) => ({ w, h, terr: Array(w * h).fill('.'), road: Array(w * h).fill(0), ink: Array(w * h).fill(0), back: Array(w * h).fill(0), inkB: Array(w * h).fill(0),
+feat: Array(w * h).fill('.'), tape: [], x: {}, n: 'My map', names: { a: 'Home Farm', b: 'Mill End' }, s: '', p: 0 });
+FW.Ed.fromSpec = sp => {
+const M = FW.parse(sp), E = FW.Ed.blank(M.w, M.h);
+for (let i = 0; i < M.N; i++) { E.terr[i] = M.terr[i]; E.road[i] = M.road[i]; E.ink[i] = M.inkF[i]; E.back[i] = M.back[i]; E.inkB[i] = M.inkB[i];
+const f = sp.m[(i / M.w) | 0].substr((i % M.w) * 3 + 2, 1); E.feat[i] = f === '*' ? '.' : f; }
+E.tape = ((sp.x || {}).tape || []).map(t => t.slice()); E.x = Object.assign({}, sp.x || {}); delete E.x.tape;
+E.n = sp.n || 'Shared map'; E.names = Object.assign({}, sp.names || {}); E.s = sp.s || ''; E.p = sp.p || 0;
+return E;
+};
+FW.Ed.spec = () => {
+const E = FW.Ed.E, m = [], b = []; let anyB = false;
+for (let y = 0; y < E.h; y++) {
+let row = '', brow = '';
+for (let x = 0; x < E.w; x++) {
+const i = y * E.w + x, ink = E.ink[i] && !E.road[i];
+row += E.terr[i] + FW.ROADCH[ink ? E.ink[i] : E.road[i]] + (ink ? '*' : E.feat[i]);
+brow += FW.ROADCH[E.inkB[i] || E.back[i]] + (E.inkB[i] ? '*' : '.');
+if (E.back[i] || E.inkB[i]) anyB = true;
+}
+m.push(row); b.push(brow);
+}
+const x = Object.assign({}, E.x); if (E.tape.length) x.tape = E.tape;
+const sp = { id: 'ed' + FW.hash(JSON.stringify(m) + JSON.stringify(b) + JSON.stringify(x)), n: E.n, m, names: E.names };
+if (anyB) sp.b = b;
+if (Object.keys(x).length) sp.x = x;
+if (E.s) { sp.s = E.s; sp.p = E.p; }
+return sp;
+};
+FW.Ed.open = () => {
+FW.UI.close(); FW.UI.show('editor');
+if (!FW.Ed.E) FW.Ed.E = FW.S0.edit ? FW.Ed.fromSpec(FW.S0.edit) : FW.Ed.sample();
+FW.Ed.bar(); FW.Ed.pal(); FW.Ed.draw();
+};
+FW.Ed.sample = () => FW.Ed.fromSpec({ n: 'Two Bridges', m: ['.┼A~  ~  .┼a', 'f  m  m  f  ', '.  ~  ~  .  '] });
+FW.Ed.changed = () => { FW.Ed.E.s = ''; FW.Ed.E.p = 0; FW.S0.edit = FW.Ed.spec(); FW.Save.write(); FW.Ed.draw(); FW.Ed.bar(); };
+FW.Ed.bar = () => {
+const E = FW.Ed.E, X = E.x;
+FW.$('edBar').innerHTML = `<button class="pb" id="eW">↔ ${E.w}</button><button class="pb" id="eH">↕ ${E.h}</button>
+<button class="pb ${FW.Ed.back ? 'red' : ''}" id="eSide">${FW.Ed.back ? 'Back side' : 'Front side'}</button>
+<button class="pb" id="eWind">Wind: ${X.wind || 'none'}</button><button class="pb" id="eThick">Layers: ${X.thick || 8}</button><button class="pb" id="eTear">Tears: ${X.tears || 0}</button>
+<button class="pb" id="eName">Name</button><button class="pb red" id="eTest">▶ Test</button><button class="pb ${E.s ? 'red' : ''}" id="eShare">Share${E.s ? ' ✓' : ''}</button><button class="pb" id="eLoad">Load code</button><button class="pb" id="eClear">Clear</button>`;
+const cyc = (k, vals) => { const i = vals.indexOf(X[k] || vals[0]); X[k] = vals[(i + 1) % vals.length]; if (!X[k] || X[k] === 'none' || (k === 'thick' && X[k] === 8)) delete X[k]; FW.Ed.changed(); };
+FW.$('eW').onclick = () => FW.Ed.resize(E.w >= 9 ? 3 : E.w + 1, E.h);
+FW.$('eH').onclick = () => FW.Ed.resize(E.w, E.h >= 8 ? 2 : E.h + 1);
+FW.$('eSide').onclick = () => { FW.Ed.back = !FW.Ed.back; FW.Ed.bar(); FW.Ed.draw(); };
+FW.$('eWind').onclick = () => cyc('wind', ['none', 'N', 'E', 'S', 'W']);
+FW.$('eThick').onclick = () => cyc('thick', [8, 4, 3, 2]);
+FW.$('eTear').onclick = () => cyc('tears', [0, 1, 2, 3]);
+FW.$('eName').onclick = () => { const n = prompt('Name this map:', E.n); if (n) { E.n = n.slice(0, 40); FW.Ed.changed(); } };
+FW.$('eTest').onclick = () => FW.Ed.test();
+FW.$('eShare').onclick = () => FW.Ed.share();
+FW.$('eLoad').onclick = () => FW.Ed.load();
+FW.$('eClear').onclick = () => { if (confirm('Clear the drafting table?')) { FW.Ed.E = FW.Ed.blank(5, 4); FW.Ed.changed(); } };
+};
+FW.Ed.resize = (w, h) => {
+const O = FW.Ed.E, E = FW.Ed.blank(w, h);
+for (let y = 0; y < Math.min(h, O.h); y++) for (let x = 0; x < Math.min(w, O.w); x++) {
+const i = y * w + x, j = y * O.w + x;
+for (const k of ['terr', 'road', 'ink', 'back', 'inkB', 'feat']) E[k][i] = O[k][j];
+if (x === w - 1) { E.road[i] &= ~2; E.ink[i] &= ~2; E.back[i] &= ~2; E.inkB[i] &= ~2; }
+if (y === h - 1) { E.road[i] &= ~4; E.ink[i] &= ~4; E.back[i] &= ~4; E.inkB[i] &= ~4; }
+}
+E.tape = O.tape.filter(t => t[0] < w && t[1] < h); E.x = O.x; E.n = O.n; E.names = O.names;
+FW.Ed.E = E; FW.Ed.changed();
+};
+FW.Ed.pal = () => {
+const P = FW.$('edPal'); P.innerHTML = '';
+for (const [id, label] of FW.Ed.TOOLS) {
+const b = FW.el('button', 'pal' + (FW.Ed.tool === id ? ' on' : ''), FW.esc(label)); b.dataset.t = id;
+b.onclick = () => { FW.Ed.tool = id; FW.Ed.pal(); };
+P.appendChild(b);
+}
+};
+// ===== editor2.js =====
+FW.Ed.lay = () => {
+const cv = FW.$('edCv'), r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1), E = FW.Ed.E;
+if (cv.width !== Math.round(r.width * d) || cv.height !== Math.round(r.height * d)) { cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); }
+const cs = Math.min((r.width - 24) / E.w, (r.height - 24) / E.h, 110);
+return { cv, d, cs, ox: (r.width - cs * E.w) / 2, oy: (r.height - cs * E.h) / 2, W: r.width, H: r.height };
+};
+FW.Ed.draw = () => {
+if (FW.UI.cur !== 'editor') return;
+const L = FW.Ed.lay(), g = L.cv.getContext('2d'), E = FW.Ed.E, sp = FW.Ed.spec(), M = FW.parse(sp);
+const T = Math.max(48, Math.round(L.cs * L.d)), front = FW.Art.front(M, T), art = FW.Ed.back ? FW.Art.back(M, T, front) : front;
+g.setTransform(L.d, 0, 0, L.d, 0, 0); g.clearRect(0, 0, L.W, L.H);
+g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 18; g.shadowOffsetY = 8; g.fillStyle = '#efe3c2'; g.fillRect(L.ox, L.oy, L.cs * E.w, L.cs * E.h); g.restore();
+g.save();
+if (FW.Ed.back) { g.translate(L.ox * 2 + L.cs * E.w, 0); g.scale(-1, 1); }
+g.drawImage(art, L.ox, L.oy, L.cs * E.w, L.cs * E.h);
+g.restore();
+const cx = x => FW.Ed.back ? L.ox + (E.w - 1 - x) * L.cs : L.ox + x * L.cs;
+g.strokeStyle = 'rgba(60,40,20,.35)'; g.lineWidth = 1;
+for (let x = 0; x <= E.w; x++) { g.beginPath(); g.moveTo(L.ox + x * L.cs, L.oy); g.lineTo(L.ox + x * L.cs, L.oy + E.h * L.cs); g.stroke(); }
+for (let y = 0; y <= E.h; y++) { g.beginPath(); g.moveTo(L.ox, L.oy + y * L.cs); g.lineTo(L.ox + E.w * L.cs, L.oy + y * L.cs); g.stroke(); }
+for (let i = 0; i < E.w * E.h; i++) {
+const x = cx(i % E.w), y = L.oy + ((i / E.w) | 0) * L.cs, f = E.feat[i];
+if (f === '@') { g.fillStyle = '#c99a3c'; g.beginPath(); g.arc(x + L.cs / 2, y + L.cs / 2, L.cs * 0.1, 0, 7); g.fill(); g.strokeStyle = '#4a3210'; g.stroke(); }
+if ('ABab'.includes(f) && !FW.Ed.back) { g.fillStyle = FW.Art.COL['AaBb'.indexOf(f) >> 1]; g.font = 'bold ' + Math.round(L.cs * 0.22) + 'px Georgia'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(f, x + 4, y + 3); }
+}
+g.fillStyle = 'rgba(236,220,170,.9)';
+for (const t of E.tape) {
+const x = cx(t[0]), y = L.oy + t[1] * L.cs;
+if (t[2] === 'E') { const ex = FW.Ed.back ? x : x + L.cs; g.fillRect(ex - L.cs * 0.12, y + L.cs * 0.3, L.cs * 0.24, L.cs * 0.4); }
+else g.fillRect(x + L.cs * 0.3, y + L.cs - L.cs * 0.12, L.cs * 0.4, L.cs * 0.24);
+}
+g.fillStyle = '#f3e2b8'; g.font = 'italic 13px Georgia'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+g.fillText((FW.Ed.back ? 'Back of the sheet (seen flipped over) - ' : '') + FW.Ed.E.n + (E.s ? ' · par ' + E.p : ' · untested'), L.W / 2, L.oy - 4);
+};
+FW.Ed.cellAt = (e, L) => {
+const r = L.cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, E = FW.Ed.E;
+let fx = (px - L.ox) / L.cs, fy = (py - L.oy) / L.cs;
+if (FW.Ed.back) fx = E.w - fx;
+const x = Math.floor(fx), y = Math.floor(fy);
+return { x, y, fx, fy, ok: x >= 0 && y >= 0 && x < E.w && y < E.h, i: y * E.w + x };
+};
+FW.Ed.paint = (c, prev) => {
+const E = FW.Ed.E, t = FW.Ed.tool, i = c.i;
+if (!c.ok) return;
+if (t === 'road' || t === 'ink') {
+const key = FW.Ed.back ? (t === 'ink' ? 'inkB' : 'back') : (t === 'ink' ? 'ink' : 'road');
+if (prev && prev.ok && prev.i !== i && Math.abs(prev.x - c.x) + Math.abs(prev.y - c.y) === 1) {
+const d = c.x > prev.x ? 2 : c.x < prev.x ? 8 : c.y > prev.y ? 4 : 1;
+E[key][prev.i] |= d; E[key][i] |= FW.OPP[d];
+}
+return;
+}
+if (t === 'erase') { E.road[i] = E.ink[i] = E.back[i] = E.inkB[i] = 0; E.feat[i] = '.'; return; }
+if ('ABab'.includes(t)) { E.feat = E.feat.map(f => f === t ? '.' : f); E.feat[i] = t; return; }
+if (t === '@' || t === '%') { if (!prev) E.feat[i] = E.feat[i] === t ? '.' : t; return; }
+if (t === 'sign') { if (!prev) { const cyc = ['.', '>', 'v', '<', '^']; E.feat[i] = cyc[(cyc.indexOf(E.feat[i]) + 1) % 5] || '>'; } return; }
+if (t === 'tape') {
+if (prev) return;
+const fx = c.fx - c.x, fy = c.fy - c.y, dE = Math.min(fx, 1 - fx), dS = Math.min(fy, 1 - fy);
+let tx = c.x, ty = c.y, d;
+if (dE < dS) { d = 'E'; if (fx < 0.5) tx--; } else { d = 'S'; if (fy < 0.5) ty--; }
+if (tx < 0 || ty < 0 || (d === 'E' && tx >= E.w - 1) || (d === 'S' && ty >= E.h - 1)) return;
+const k = E.tape.findIndex(q => q[0] === tx && q[1] === ty && q[2] === d);
+if (k >= 0) E.tape.splice(k, 1); else E.tape.push([tx, ty, d]);
+return;
+}
+if (FW.TERR[t]) E.terr[i] = t;
+};
+FW.Ed.wire = () => {
+const cv = FW.$('edCv'); let prev = null, down = false, moved = false, start = null;
+cv.addEventListener('pointerdown', e => { const L = FW.Ed.lay(); cv.setPointerCapture(e.pointerId); down = true; moved = false; start = FW.Ed.cellAt(e, L); prev = start; if (!['road', 'ink'].includes(FW.Ed.tool)) { FW.Ed.paint(start, null); FW.Ed.changed(); } });
+cv.addEventListener('pointermove', e => {
+if (!down) return; const L = FW.Ed.lay(), c = FW.Ed.cellAt(e, L);
+if (!c.ok || (prev && c.i === prev.i)) return;
+moved = true; FW.Ed.paint(c, prev); prev = c; FW.Ed.changed();
+});
+const up = () => {
+if (down && !moved && start && start.ok && ['road', 'ink'].includes(FW.Ed.tool)) {
+const E = FW.Ed.E, key = FW.Ed.back ? (FW.Ed.tool === 'ink' ? 'inkB' : 'back') : (FW.Ed.tool === 'ink' ? 'ink' : 'road');
+E[key][start.i] = 0; FW.Ed.changed();
+}
+down = false; prev = null;
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+addEventListener('resize', () => FW.Ed.draw());
+};
+FW.Ed.test = () => {
+const sp = FW.Ed.spec(), M = FW.parse(sp);
+if (!M.trav.length) { FW.toast('Place a traveller (A) and their destination (a) first.'); return; }
+const S = FW.P.init(M);
+if (S.dlv) { FW.toast('The road already joins up - no folding needed! Break it somewhere.'); return; }
+const r = FW.Sv.solve(M, S, { maxDepth: 6, maxNodes: 150000, ms: 2500 });
+if (r.sol) { FW.Ed.E.s = FW.P.fmtAll(r.sol); FW.Ed.E.p = r.sol.length; sp.s = FW.Ed.E.s; sp.p = FW.Ed.E.p; }
+FW.G.load(sp, { mode: 'test' });
+FW.Hud.tip(r.sol ? `The solver folds this in ${r.sol.length}. Can you?` : 'The solver could not crack this in 6 moves - fold it yourself to prove it can be done.');
+};
+FW.Ed.tested = res => {
+const E = FW.Ed.E;
+if (!E.s) { E.s = FW.P.fmtAll(FW.G.pathSoFar()); E.p = res.moves; }
+FW.S0.edit = FW.Ed.spec(); FW.Save.write();
+};
+FW.Ed.share = () => {
+const E = FW.Ed.E;
+if (!E.s) { FW.toast('Test-fold the map first, so everyone knows it can be solved.'); return; }
+const url = FW.Code.url(FW.Ed.spec());
+FW.UI.modal(`<h2>Share this map</h2><p>Anyone who opens this link gets your map on their desk:</p><textarea id="eUrl" rows="4" readonly>${FW.esc(url)}</textarea>
+<div class="btns"><button class="pb sm" id="eCopy">Copy link</button><button class="pb red sm" id="eOk">Done</button></div>`);
+FW.$('eCopy').onclick = () => { const t = FW.$('eUrl'); t.select(); try { navigator.clipboard.writeText(url).then(() => FW.toast('Link copied.'), () => document.execCommand('copy')); } catch (e) { document.execCommand('copy'); } };
+FW.$('eOk').onclick = () => FW.UI.close();
+};
+FW.Ed.load = () => {
+const s = prompt('Paste a FOLDWAY map link or code:'); if (!s) return;
+const m = /(F1[A-Za-z0-9_-]+)/.exec(s), sp = m && FW.Code.dec(m[1]);
+if (!sp) { FW.toast('Could not read that code.'); return; }
+FW.Ed.E = FW.Ed.fromSpec(sp); FW.S0.edit = FW.Ed.spec(); FW.Save.write(); FW.Ed.bar(); FW.Ed.draw();
+};
+// ===== main.js =====
+FW.T = { fast: false, all: false };
+FW.boot = () => {
+const q = location.search;
+if (q.includes('reset')) FW.store.del('save');
+if (q.includes('test')) FW.T.fast = true;
+if (q.includes('all')) FW.T.all = true;
+FW.Save.load(); FW.Set.load();
+FW.R.init(FW.$('board'));
+FW.UI.wire(); FW.Hud.wire(); FW.In.wire(); FW.Home.wire(); FW.Atlas.wire(); FW.Ed.wire();
+FW.Set.apply();
+const gest = () => { FW.A.init(); FW.Set.apply(); };
+addEventListener('pointerdown', gest, { once: true }); addEventListener('keydown', gest, { once: true });
+FW.UI.show('home'); FW.Home.refresh();
+if (!q.includes('tile')) FW.Modes.fromHash();
+addEventListener('hashchange', () => FW.Modes.fromHash());
+requestAnimationFrame(FW.loop);
+window.FOLDWAY = true;
+};
+FW.loop = () => {
+requestAnimationFrame(FW.loop);
+try {
+const t = FW.now();
+if (FW.UI.cur === 'home') FW.Home.frame(t);
+else if (FW.UI.cur === 'play') FW.R.frame(t);
+} catch (e) { FW.lastError = String(e && e.stack || e); console.error(e); }
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', FW.boot); else FW.boot();
+</script>
+</body>
+</html>
