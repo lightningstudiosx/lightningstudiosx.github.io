@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Build a Roblox Game · Kai.fun</title>
+<meta name="description" content="One giant block wall that everyone builds together, live, from the web AND from inside a Roblox game. Pick any colour, place a block, or hop in as a player and walk around and chat. Opens on Roblox November 27, 2026.">
+<meta name="theme-color" content="#2f8cff">
+<script src="bdp.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+
+:root { --ink: #10213f; --blue: #1e6fe8; --red: #e8453c; --yel: #f7c600; --grn: #2fb24c; --card: rgba(255,255,255,.94); --glass: rgba(12,32,74,.62); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #7cc4ff; color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior: none; touch-action: none; }
+#app { position: fixed; inset: 0; overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; touch-action: none; }
+body.player #gl { cursor: grab; }
+.hide { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+#top { position: absolute; top: 0; left: 0; right: 0; height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 12px; padding-top: env(safe-area-inset-top);
+  background: var(--glass); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff; z-index: 5; }
+#kai { color: #fff; text-decoration: none; font-weight: 800; font-size: 15px; white-space: nowrap; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.12); }
+#kai:hover { background: rgba(255,255,255,.24); }
+#title { flex: 1; margin: 0; font-size: 19px; font-weight: 900; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+#title b { color: var(--yel); }
+.pill { display: flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; background: rgba(255,255,255,.14); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.pill i { width: 10px; height: 10px; border-radius: 50%; background: #9aa4b2; box-shadow: 0 0 0 2px rgba(255,255,255,.25); flex: none; }
+.pill.ok i { background: #36d672; } .pill.demo i { background: #ffb020; } .pill.off i { background: #ff4d4d; } .pill.wait i { background: #9ad0ff; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.ib { width: 38px; height: 38px; border: 0; border-radius: 11px; background: rgba(255,255,255,.14); display: grid; place-items: center; flex: none; }
+.ib:hover { background: rgba(255,255,255,.26); }
+.ib svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#bSnd svg path:first-child { fill: #fff; }
+#bSnd .x { display: none; } #bSnd.muted .x { display: inline; } #bSnd.muted .wave { display: none; }
+
+#launch { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 16px; border-radius: 99px;
+  background: var(--card); box-shadow: 0 4px 0 rgba(0,0,0,.15); font-size: 14px; font-weight: 600; white-space: nowrap; z-index: 4; max-width: calc(100vw - 24px); }
+#lTxt b { color: var(--red); }
+#lCount { font-variant-numeric: tabular-nums; font-weight: 800; background: var(--ink); color: #fff; border-radius: 99px; padding: 3px 11px; }
+#lCount:empty { display: none; }
+#bPlay { background: var(--grn); color: #fff; text-decoration: none; font-weight: 900; border-radius: 99px; padding: 5px 14px; box-shadow: 0 3px 0 #1b7a31; }
+
+#side { position: absolute; top: 106px; right: 12px; width: 250px; padding: 12px 14px; border-radius: 16px; background: var(--card); box-shadow: 0 5px 0 rgba(0,0,0,.14); z-index: 3; font-size: 13px; }
+#stats { display: flex; align-items: baseline; gap: 6px; }
+#stats b { font-size: 26px; font-weight: 900; color: var(--blue); font-variant-numeric: tabular-nums; }
+#online { margin-top: 2px; font-weight: 700; color: #4a5a78; }
+#online .r { color: #1e6fe8; } #online .w { color: #d03a8c; }
+#feed { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 2px dashed #dfe5ee; max-height: 168px; overflow: hidden; }
+#feed li { display: flex; align-items: center; gap: 7px; padding: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: feedIn .3s ease-out; }
+#feed li i { width: 13px; height: 13px; border-radius: 3px; flex: none; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+#feed li em { font-style: normal; font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 5px; background: #e3edff; color: #1e6fe8; }
+#feed li em.w { background: #ffe3f1; color: #c0287a; }
+#feed li span { overflow: hidden; text-overflow: ellipsis; }
+@keyframes feedIn { from { opacity: 0; transform: translateX(10px); } }
+
+#hint { position: absolute; top: 108px; left: 12px; max-width: min(300px, calc(100vw - 290px)); padding: 9px 13px; border-radius: 14px; background: var(--glass); color: #fff; font-size: 13px; font-weight: 600; z-index: 3; pointer-events: none; transition: opacity .4s; }
+#hint:empty { display: none; }
+#demoTag { position: absolute; left: 12px; bottom: 90px; padding: 5px 10px; border-radius: 8px; background: #ffb020; color: #3a2600; font-size: 11px; font-weight: 900; letter-spacing: .06em; z-index: 3; box-shadow: 0 3px 0 rgba(0,0,0,.15); }
+#toast { position: absolute; left: 50%; bottom: 150px; transform: translate(-50%, 20px); opacity: 0; padding: 10px 18px; border-radius: 14px; background: var(--ink); color: #fff; font-weight: 700; font-size: 14px;
+  pointer-events: none; transition: all .25s; z-index: 9; max-width: calc(100vw - 32px); text-align: center; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#boot { position: absolute; inset: 0; display: grid; place-items: center; background: #2f8cff; color: #fff; font-size: 22px; font-weight: 900; z-index: 20; transition: opacity .5s; text-align: center; padding: 20px; }
+#boot.gone { opacity: 0; pointer-events: none; }
+#boot a { color: #fff; display: block; margin-top: 14px; font-size: 16px; }
+
+
+#dock { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 8px 10px; padding-bottom: calc(8px + env(safe-area-inset-bottom) * .5);
+  border-radius: 20px; background: var(--card); box-shadow: 0 5px 0 rgba(0,0,0,.16); z-index: 4; max-width: calc(100vw - 16px); }
+#pick { position: relative; width: 54px; height: 54px; flex: none; cursor: pointer; }
+#cPick { position: absolute; inset: 7px; width: 40px; height: 40px; border: 0; padding: 0; border-radius: 10px; cursor: pointer; background: none; }
+#cPick::-webkit-color-swatch-wrapper { padding: 0; } #cPick::-webkit-color-swatch { border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 2px #10213f; }
+#cPick::-moz-color-swatch { border: 3px solid #fff; border-radius: 10px; }
+#cdSw { position: absolute; inset: 0; width: 54px; height: 54px; pointer-events: none; transform: rotate(-90deg); }
+#cdSw circle, #ring circle { fill: none; stroke-width: 4; }
+#cdSw .bg { stroke: transparent; } #cdSw .fg { stroke: var(--ink); stroke-dasharray: 113.1; stroke-dashoffset: 113.1; stroke-linecap: round; }
+#recent { display: flex; gap: 6px; }
+#recent button { width: 30px; height: 30px; border-radius: 8px; border: 0; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2), 0 0 0 2px #fff, 0 0 0 3px #c5cedb; padding: 0; }
+#recent button.on { box-shadow: inset 0 -4px 0 rgba(0,0,0,.2), 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+.hb { border: 0; border-radius: 14px; padding: 12px 18px; background: var(--grn); color: #fff; font-weight: 900; font-size: 15px; letter-spacing: .04em; box-shadow: 0 4px 0 #1b7a31; white-space: nowrap; }
+.hb:active { transform: translateY(2px); box-shadow: 0 2px 0 #1b7a31; }
+.hb.ghost { background: #e7ecf3; color: var(--ink); box-shadow: 0 4px 0 #b9c3d1; }
+.hb.leave { background: var(--red); box-shadow: 0 4px 0 #a52a22; }
+#ring { position: absolute; width: 40px; height: 40px; margin: -20px 0 0 -20px; pointer-events: none; z-index: 6; transform: rotate(-90deg); opacity: 0; transition: opacity .15s; }
+#ring.on { opacity: 1; }
+#ring .fg { stroke: #fff; stroke-dasharray: 100.5; stroke-dashoffset: 0; stroke-linecap: round; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); }
+#chatBar { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 6px; width: min(520px, calc(100vw - 24px)); z-index: 4; }
+#chatIn { flex: 1; min-width: 0; border: 3px solid #fff; border-radius: 14px; padding: 10px 14px; font: inherit; font-size: 15px; background: rgba(255,255,255,.95); color: var(--ink); outline: none; box-shadow: 0 4px 0 rgba(0,0,0,.15); }
+#chatIn:focus { border-color: var(--blue); }
+#bSay { border: 0; border-radius: 14px; padding: 0 16px; background: var(--blue); color: #fff; font-weight: 900; box-shadow: 0 4px 0 #1450ad; }
+#stick { position: absolute; left: 18px; bottom: 100px; width: 128px; height: 128px; border-radius: 50%; background: rgba(12,32,74,.35); border: 3px solid rgba(255,255,255,.6); z-index: 4; touch-action: none; }
+#stick .nub { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+#bJump { position: absolute; right: 18px; bottom: 112px; width: 84px; height: 84px; border-radius: 50%; border: 3px solid #fff; background: rgba(30,111,232,.85); color: #fff; font-weight: 900; z-index: 4; touch-action: none; }
+.ov { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,20,48,.55); z-index: 10; padding: 16px; overflow-y: auto; }
+.card { width: min(440px, 100%); background: #fff; border-radius: 22px; padding: 20px 22px; box-shadow: 0 8px 0 rgba(0,0,0,.2); font-size: 15px; line-height: 1.45; }
+.card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 900; }
+.card p { margin: 8px 0; } .card .fine { font-size: 12px; color: #5b6a85; } .card .keys { font-size: 13px; color: #33425e; }
+.card .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+.fl { display: block; font-weight: 800; font-size: 13px; margin: 12px 0 4px; }
+.fl input { display: block; width: 100%; margin-top: 5px; border: 3px solid #d6deea; border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; outline: none; }
+.fl input:focus { border-color: var(--blue); }
+#hopCols { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+#hopCols button { width: 34px; height: 34px; border-radius: 9px; border: 0; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2), 0 0 0 2px #fff, 0 0 0 3px #c5cedb; }
+#hopCols button.on { box-shadow: inset 0 -4px 0 rgba(0,0,0,.2), 0 0 0 2px #fff, 0 0 0 5px var(--ink); }
+.err { color: #d0302a; font-weight: 700; min-height: 1px; }
+.err:empty { margin: 0; }
+
+.pill .ps { display: none; }
+#pick.pulse { animation: shake .32s; }
+@keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (max-width: 720px) {
+  .pill .pl { display: none; } .pill .ps { display: inline; }
+  #top { height: 46px; gap: 6px; padding: 0 8px; }
+  #kai { font-size: 13px; padding: 6px 8px; }
+  #title { font-size: 14px; letter-spacing: .01em; }
+  .pill { padding: 5px 8px; font-size: 11px; } .ib { width: 34px; height: 34px; }
+  #launch { top: 52px; font-size: 12px; gap: 6px; padding: 5px 6px 5px 12px; }
+  #side { top: 92px; left: 8px; right: 8px; width: auto; padding: 8px 12px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; font-size: 12px; }
+  #stats b { font-size: 18px; } #online { margin: 0; }
+  #feed { flex-basis: 100%; max-height: 26px; margin-top: 4px; padding-top: 4px; }
+  #feed li:nth-child(n+2) { display: none; }
+  #hint { top: auto; bottom: 88px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 24px); text-align: center; }
+  body.player #hint { display: none; }
+  #dock { left: 8px; right: 8px; transform: none; bottom: 8px; gap: 7px; padding: 6px 8px; justify-content: space-between; }
+  #pick, #cdSw { width: 48px; height: 48px; } #cPick { inset: 6px; width: 36px; height: 36px; }
+  #recent { gap: 5px; overflow: hidden; padding: 4px; } #recent button { width: 26px; height: 26px; flex: none; }
+  #recent button:nth-child(n+7) { display: none; }
+  .hb { padding: 11px 13px; font-size: 14px; }
+  #chatBar { top: 164px; bottom: auto; }
+  #demoTag { bottom: 84px; left: 8px; }
+  #hint { bottom: 118px; }
+  body.player #demoTag { display: none; }
+  #toast { bottom: 240px; }
+}
+@media (max-width: 380px) { #recent button:nth-child(n+5) { display: none; } #title { font-size: 12px; } }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl" tabindex="-1"></canvas>
+  <header id="top">
+    <a id="kai" href="index.html">← Kai.fun</a>
+    <h1 id="title">BUILD A <b>ROBLOX</b> GAME</h1>
+    <div id="pill" class="pill" title="Connection"><i></i><span>Starting…</span></div>
+    <button class="ib" id="bSnd" title="Sound on / off (M)" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+    <button class="ib" id="bInfo" title="About this game" aria-label="About"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
+  </header>
+  <div id="launch"><span id="lTxt">Opens on Roblox: <b>Nov 27, 2026</b></span><span id="lCount"></span><a id="bPlay" class="hide" target="_blank" rel="noopener">Play on Roblox</a></div>
+
+  <aside id="side">
+    <div id="stats"><b id="nBlocks">0</b> <span>blocks placed by everyone</span></div>
+    <div id="online"></div>
+    <ol id="feed" aria-live="polite"></ol>
+  </aside>
+
+  <div id="hint"></div>
+
+  <div id="dock">
+    <label id="pick" title="Pick any colour"><input type="color" id="cPick" value="#e8453c" aria-label="Block colour">
+      <svg id="cdSw" viewBox="0 0 40 40"><circle class="bg" cx="20" cy="20" r="18"/><circle class="fg" cx="20" cy="20" r="18"/></svg></label>
+    <div id="recent" aria-label="Recent colours"></div>
+    <button id="bHop" class="hb">HOP IN</button>
+  </div>
+
+  <form id="chatBar" class="hide" autocomplete="off"><input id="chatIn" maxlength="80" placeholder="Say something nice… (Enter)" enterkeyhint="send"><button id="bSay" type="submit">SAY</button></form>
+  <div id="stick" class="hide"><div class="nub"></div></div>
+  <button id="bJump" class="hide" aria-label="Jump">JUMP</button>
+  <svg id="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="fg" cx="20" cy="20" r="16"/></svg>
+
+  <section id="hopDlg" class="ov hide"><form class="card" id="hopForm" autocomplete="off">
+    <h2>Hop in as a player</h2>
+    <p>Walk around in front of the wall as a block with a face. Roblox players see you moving around in their game, with your name and what you say.</p>
+    <label class="fl">Your name<input id="hopName" maxlength="16" placeholder="Blocky"></label>
+    <div class="fl">Your colour<div id="hopCols"></div></div>
+    <p id="hopErr" class="err"></p>
+    <div class="row"><button type="button" class="hb ghost" id="bHopNo">Cancel</button><button type="submit" class="hb" id="bHopGo">HOP IN</button></div>
+    <p class="fine">Be kind. No real names, ages, schools or addresses. Chat is filtered and links are removed.</p>
+  </form></section>
+
+  <section id="infoDlg" class="ov hide"><div class="card">
+    <h2>Build a Roblox Game</h2>
+    <p>One giant wall of blocks that everybody builds together, live. Pick <b>any colour</b> and place a block. Every block is shared with everyone on this page <b>and</b> with everyone playing the Roblox game.</p>
+    <p id="infoLaunch"></p>
+    <p>The game never stays the same: the wall is built live by everyone, so after launch it keeps changing every minute.</p>
+    <p><b>Hop in</b> to walk around as a block. Roblox players see you as a moving block with a chat sign, and you see them as blocky figures.</p>
+    <p class="keys"><b>Build:</b> drag to move, wheel / pinch to zoom, click / tap to place. <b>Player:</b> WASD or the stick to walk, drag to look, Space to jump, Enter to chat.</p>
+    <div class="row"><button class="hb" id="bInfoOk">BUILD!</button></div>
+  </div></section>
+
+  <div id="demoTag" class="hide">LOCAL DEMO MODE</div>
+  <div id="toast"></div>
+  <div id="boot">Loading the wall…</div>
+</div>
+<script>
+"use strict";
+// ===== config.js =====
+{
+const CONFIG = window.CONFIG = {
+DB: 'https://kaifun-wall-default-rtdb.firebaseio.com',
+ROBLOX_URL: '',
+LAUNCH: 1795809600000,            // Fri Nov 27, 2026, 12:00 PM Pacific (20:00 UTC)
+LAUNCH_TEXT: 'Nov 27, 2026',
+W: 80, H: 40, CELL: 2,            // 3,200 cells: a big wall, still a sane Part count in Roblox
+COOLDOWN: 1.5,                    // seconds between blocks (per tab)
+SEND_HZ: 5,                       // player position updates per second (only when you moved)
+HEARTBEAT: 3,                     // resend every 3 s while standing still so others know you are here
+STALE: 10,                        // a player not heard from for 10 s is hidden
+DEAD: 60,                         // ...and after 60 s their leftover record is cleaned up
+BOUNDS: { x: 150, zMin: 3.2, zMax: 190 },
+WALK: 16, JUMP: 50, GRAVITY: 196.2 // Roblox defaults, so web players move like Roblox players
+};
+}
+// ===== util.js =====
+{
+const BR = window.BR = {};
+BR.Q = new URLSearchParams(location.search);
+BR.$ = id => document.getElementById(id);
+BR.el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+BR.clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+BR.lerp = (a, b, t) => a + (b - a) * t;
+BR.damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
+BR.angWrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+BR.esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+BR.now = () => performance.now() / 1000;
+BR.num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+BR.r2 = v => Math.round(v * 100) / 100;
+BR.fmt = n => Number(n).toLocaleString('en-US');
+BR.isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+BR.canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+BR.rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+BR.hex = v => {
+const s = String(v == null ? '' : v).trim().toLowerCase();
+if (/^#[0-9a-f]{6}$/.test(s)) return s;
+if (/^#[0-9a-f]{3}$/.test(s)) return '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+return null;
+};
+BR.shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = c => BR.clamp(Math.round(c * k), 0, 255); return '#' + [f(n >> 16), f(n >> 8 & 255), f(n & 255)].map(c => c.toString(16).padStart(2, '0')).join(''); };
+BR.light = hex => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * 299 + (n >> 8 & 255) * 587 + (n & 255) * 114) / 1000 > 150; };
+BR.key = (x, y) => x + '_' + y;
+BR.unkey = k => { const m = /^(\d{1,2})_(\d{1,2})$/.exec(k); if (!m) return null; const x = +m[1], y = +m[2]; return x < CONFIG.W && y < CONFIG.H ? { x, y } : null; };
+BR.cellX = x => (x - (CONFIG.W - 1) / 2) * CONFIG.CELL;
+BR.cellY = y => y * CONFIG.CELL + CONFIG.CELL / 2;
+const subs = {};
+BR.on = (n, f) => (subs[n] = subs[n] || []).push(f);
+BR.emit = (n, ...a) => (subs[n] || []).forEach(f => { try { f(...a); } catch (e) { console.error(e); } });
+BR.load = (k, d) => { try { const v = localStorage.getItem('br_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+BR.save = (k, v) => { try { localStorage.setItem('br_' + k, JSON.stringify(v)); } catch (e) { } };
+BR.myId = (() => {
+let id = null;
+try { id = sessionStorage.getItem('br_id'); } catch (e) { }
+if (!/^w[a-z0-9]{10}$/.test(id || '')) {
+id = 'w' + Array.from(crypto.getRandomValues(new Uint8Array(10)), b => (b % 36).toString(36)).join('');
+try { sessionStorage.setItem('br_id', id); } catch (e) { }
+}
+return id;
+})();
+let toastT = 0;
+BR.toast = (msg, ms) => { const t = BR.$('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms || 2200); };
+}
+// ===== filter.js =====
+{
+const F = BR.Filter = {};
+const STEMS = ['fuck', 'fuk', 'fck', 'shit', 'bitch', 'cunt', 'nigg', 'niga', 'fagg', 'slut', 'whore', 'penis', 'vagina', 'porn',
+'dildo', 'retard', 'pussy', 'boob', 'titties', 'nazi', 'hitler', 'asshole', 'bastard', 'wank', 'jizz', 'horny', 'sexy', 'nude',
+'naked', 'killyourself', 'molest', 'pedophil', 'blowjob', 'handjob', 'motherf', 'stfu', 'kys'];
+const WORDS = new Set(['ass', 'arse', 'dick', 'dicks', 'cock', 'cocks', 'sex', 'tit', 'tits', 'damn', 'piss', 'hoe', 'hoes', 'fag', 'cum',
+'rape', 'raped', 'rapist', 'suicide', 'wtf', 'omfg', 'discord', 'snapchat', 'insta', 'instagram', 'whatsapp', 'tiktok', 'telegram',
+'kik', 'pedo', 'email', 'gmail', 'password', 'robux', 'freerobux']);
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i', '+': 't' };
+const norm = w => !/[a-z]/i.test(w) ? '' : w.toLowerCase().replace(/[0134578@$!|+]/g, c => LEET[c]).replace(/[^a-z]/g, '');
+const squash = w => w.replace(/(.)\1+/g, '$1');
+const badWord = w => {
+const n = norm(w); if (!n) return false;
+const c = squash(n);
+if (WORDS.has(n) || WORDS.has(c)) return true;
+for (const s of STEMS) if (n.includes(s) || c.includes(s)) return true;
+return false;
+};
+const CTRL = new RegExp('[' + [[0, 31], [127, 159], [173, 173], [0x200b, 0x200f], [0x2028, 0x202e], [0x2060, 0x206f], [0xfeff, 0xfeff]].map(([a, b]) => String.fromCharCode(a) + '-' + String.fromCharCode(b)).join('') + ']', 'g');
+const STRIP = [
+/\S+@\S+/g,                                                             // emails / handles
+/\b(?:https?:\/\/|www\.)\S*/gi,                                          // links
+/\b[\w-]+\s*(?:\.|\(dot\)|\[dot\]|\sdot\s)\s*(?:com|net|org|io|gg|fun|xyz|ly|me|co|tv|uk|us|app|dev|site|link|ru|be)\b\S*/gi,
+/(?:\+?\d[\s().\-_/]*){7,}/g,                                            // phone numbers, 7+ digits with any separators
+/\d{5,}/g                                                               // long numbers (ids, codes, addresses)
+];
+F.cut = (s, max) => { s = s.slice(0, max); const c = s.charCodeAt(s.length - 1); return c >= 0xd800 && c <= 0xdbff ? s.slice(0, -1) : s; };
+F.clean = (text, max) => {
+let s = String(text == null ? '' : text).replace(CTRL, '').replace(/\s+/g, ' ').trim();
+for (const re of STRIP) s = s.replace(re, '###');
+const parts = s.split(' ');
+for (let i = 0; i < parts.length; i++) {
+let j = i; while (j < parts.length && norm(parts[j]).length === 1) j++;
+if (j - i >= 3 && badWord(parts.slice(i, j).join(''))) { for (let k = i; k < j; k++) parts[k] = '#'; i = j - 1; }
+}
+s = parts.map(p => {
+if (badWord(p)) return '#'.repeat(Math.min(6, Math.max(3, p.length)));
+const bits = p.split(/[^a-zA-Z0-9@$!|+]+/);
+return bits.length > 1 && bits.some(badWord) ? '###' : p;
+}).join(' ');
+return F.cut(s.trim(), max || 80).trim();
+};
+F.name = raw => {
+const s = F.cut(String(raw || '').replace(CTRL, '').replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim(), 16).trim();
+if (!s) return { ok: false, why: 'Type a name (letters and numbers)' };
+if (F.clean(s, 16) !== s || /\d{5,}/.test(s)) return { ok: false, why: 'Please pick a different name' };
+return { ok: true, value: s };
+};
+const sent = [];
+F.chat = raw => {
+const s = F.clean(raw, 80);
+if (!s.replace(/[#\s.,!?]/g, '')) return { ok: false, why: s ? 'That message was filtered' : 'Type something first' };
+const t = Date.now();
+while (sent.length && t - sent[0] > 20000) sent.shift();
+if (sent.length && t - sent[sent.length - 1] < 2000) return { ok: false, why: 'Slow down a little' };
+if (sent.length >= 5) return { ok: false, why: 'Lots of messages! Wait a few seconds' };
+sent.push(t);
+return { ok: true, value: s };
+};
+F.show = (text, max) => F.clean(typeof text === 'string' ? text : '', max || 80);
+}
+// ===== net.js =====
+{
+const PLACEHOLDER = 'https://YOUR-PROJECT-default-rtdb.firebaseio.com';
+const FB_RE = /^https:\/\/[a-z0-9-]+\.(firebaseio\.com|[a-z0-9-]+\.firebasedatabase\.app)$/i;
+BR.SV = { '.sv': 'timestamp' };
+BR.pickDB = () => {
+const q = BR.Q.get('db');
+if (q && /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(q)) return { mode: 'live', base: q, local: true };
+const db = String(CONFIG.DB || '').trim().replace(/\/+$/, '');
+if (BR.Q.has('demo') || db === PLACEHOLDER || !FB_RE.test(db)) return { mode: 'demo', configured: false, bad: db !== PLACEHOLDER && !!db };
+return { mode: 'live', base: db };
+};
+BR.liveNet = base => {
+const N = { mode: 'live', status: 'wait', base };
+const set = s => { if (N.status !== s) { N.status = s; BR.emit('status', s); } };
+const req = (method, path, body, keepalive) => fetch(base + '/' + path + '.json', {
+method, keepalive: !!keepalive, cache: 'no-store',
+body: body === undefined ? undefined : JSON.stringify(body)
+}).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+N.put = (p, v) => req('PUT', p, v);
+N.patch = (p, v) => req('PATCH', p, v);
+N.del = (p, keepalive) => req('DELETE', p, undefined, keepalive);
+let onEv = null, opened = false, errs = 0, es = null;
+N.start = f => { onEv = f; if (!window.EventSource || BR.Q.has('poll')) poll(); else stream(); };
+const stream = () => {
+set('wait'); es = N.es = new EventSource(base + '/.json');
+const h = kind => e => {
+let d = null; try { d = JSON.parse(e.data); } catch (err) { return; }
+if (d && typeof d.path === 'string') onEv(kind, d.path, d.data);
+};
+es.addEventListener('put', h('put')); es.addEventListener('patch', h('patch'));
+es.addEventListener('cancel', () => { es.close(); N.es = null; set('off'); setTimeout(poll, 1000); }); // rules said no
+es.onopen = () => { opened = true; errs = 0; set('ok'); };
+es.onerror = () => {
+errs++;
+if (!opened && errs >= 2) { es.close(); N.es = null; poll(); return; } // streaming blocked: poll instead
+if (es.readyState === 2) { N.es = null; set('off'); setTimeout(stream, Math.min(30000, 2000 * errs)); }
+else set('wait');                                                       // EventSource reconnects by itself
+};
+};
+let first = true, pollErr = 0;
+const get = (p, q) => fetch(base + '/' + p + '.json' + (q || ''), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+const poll = async () => {
+N.polling = true;
+try {
+if (first) { onEv('put', '/', await get('')); first = false; }
+else {
+let w = null;
+try { w = await get('wall', '?orderBy=%22t%22&startAt=' + BR.S.maxT); } catch (e) { onEv('put', '/wall', await get('wall')); }
+if (w && typeof w === 'object') onEv('patch', '/wall', w);
+onEv('put', '/web', await get('web')); onEv('put', '/rbx', await get('rbx'));
+}
+pollErr = 0; set('ok');
+} catch (e) { pollErr++; set(/HTTP 40[13]/.test(e.message) ? 'locked' : 'off'); } // 401: rules not published yet
+setTimeout(poll, Math.min(20000, 2000 * (1 + pollErr)));
+};
+return N;
+};
+}
+// ===== demo.js =====
+{
+BR.demoNet = () => {
+const N = { mode: 'demo', status: 'demo' };
+const tree = { wall: BR.load('demo_wall', null) || seedWall(), web: {}, rbx: {} };
+const ch = window.BroadcastChannel ? new BroadcastChannel('buildaroblox-demo-v1') : null;
+let onEv = null;
+const clone = v => v == null ? null : JSON.parse(JSON.stringify(v));
+const sv = v => (v && typeof v === 'object') ? (v['.sv'] === 'timestamp' ? Date.now() : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, sv(x)]))) : v;
+const setAt = (path, v) => {
+const s = path.split('/').filter(Boolean); let o = tree;
+for (let i = 0; i < s.length - 1; i++) { if (!o[s[i]] || typeof o[s[i]] !== 'object') { if (v == null) return; o[s[i]] = {}; } o = o[s[i]]; }
+if (v == null) delete o[s[s.length - 1]]; else o[s[s.length - 1]] = v;
+};
+const emit = (kind, path, data) => { if (onEv) onEv(kind, path, clone(data)); };
+const persist = () => BR.save('demo_wall', tree.wall);
+const write = (kind, path, v) => new Promise((res, rej) => {
+const p = '/' + path.replace(/^\/+/, '');
+if (/^\/wall\/[^/]+$/.test(p) && v == null) return rej(new Error('demo rules: wall cells cannot be deleted'));
+const data = sv(v);
+if (kind === 'patch') for (const k of Object.keys(data)) setAt(p + '/' + k, data[k]); else setAt(p, data);
+if (p.startsWith('/wall')) persist();
+if (ch) ch.postMessage({ k: 'ev', kind, path: p, data });
+setTimeout(() => { emit(kind, p, data); res(null); }, 40);
+});
+N.put = (p, v) => write('put', p, v);
+N.patch = (p, v) => write('patch', p, v);
+N.del = p => write('put', p, null);
+if (ch) ch.onmessage = e => {
+const m = e.data || {};
+if (m.k === 'ev') { if (m.kind === 'patch') for (const k of Object.keys(m.data || {})) setAt(m.path + '/' + k, m.data[k]); else setAt(m.path, m.data); emit(m.kind, m.path, m.data); }
+else if (m.k === 'hello' && m.from !== BR.myId) {
+const me = tree.web[BR.myId];
+ch.postMessage({ k: 'snap', to: m.from, wall: tree.wall, web: me ? { [BR.myId]: me } : {} });
+} else if (m.k === 'snap' && m.to === BR.myId) {
+for (const [id, r] of Object.entries(m.web || {})) { tree.web[id] = r; emit('put', '/web/' + id, r); }
+const patch = {};
+for (const [k, r] of Object.entries(m.wall || {})) { const mine = tree.wall[k]; if (!mine || (r && r.t > mine.t)) { tree.wall[k] = r; patch[k] = r; } }
+if (Object.keys(patch).length) { persist(); emit('patch', '/wall', patch); }
+}
+};
+N.start = f => {
+onEv = f;
+setTimeout(() => { emit('put', '/', tree); BR.emit('status', 'demo'); if (ch) ch.postMessage({ k: 'hello', from: BR.myId }); }, 60);
+if (!BR.Q.has('nobots')) setInterval(bots, 200);
+};
+const SAY_R = ['hi web people!', 'this wall is huge', 'who made the rainbow?', 'placing blue blocks', 'opening day soon!', 'gg', 'nice colour!'];
+const SAY_W = ['hello from the website', 'I am a block :)', 'come build with me', 'pink is the best', 'jumping!'];
+const HEART = ['.##...##.', '####.####', '#########', '#########', '.#######.', '..#####..', '...###...', '....#....'];
+const heart = []; HEART.forEach((row, j) => [...row].forEach((c, i) => { if (c === '#') heart.push([58 + i, 30 - j]); }));
+const ROUND = ['#ff4f9a', '#e8453c', '#8e44ad', '#1e88e5'];
+let lastSlot = -1;
+const bots = () => {
+const now = Date.now(), t = now / 1000;
+const a = t * 0.22, rx = Math.sin(a) * 32, rz = 26 + Math.sin(a * 2) * 9, rdx = Math.cos(a) * 32, rdz = Math.cos(a * 2) * 18;
+const rs = Math.floor(t / 9), rm = SAY_R[rs % SAY_R.length];
+const rb = { n: 'BlockyBuilder', x: BR.r2(rx), y: 0, z: BR.r2(rz), r: BR.r2(Math.atan2(-rdx, -rdz)), ch: '#f5cd30', ct: '#0d69ac', ca: '#f5cd30', cl: '#a4bd47', t: now };
+if (rs % 2 === 0) { rb.m = rm; rb.mt = rs * 9000; }
+tree.rbx['1'] = rb; emit('put', '/rbx/1', rb);
+const b = t * 0.35, wx = -26 + Math.cos(b) * 15, wz = 16 + Math.sin(b) * 7, ws = Math.floor(t / 11);
+const wb = { n: 'PixelPal', c: '#ff6fb5', x: BR.r2(wx), y: BR.r2(Math.max(0, Math.sin(t * 3.1) * 4)), z: BR.r2(wz), r: BR.r2(Math.atan2(Math.sin(b), -Math.cos(b))), t: now };
+if (ws % 2 === 1) { wb.m = SAY_W[ws % SAY_W.length]; wb.mt = ws * 11000; }
+tree.web.wbot0pixelp = wb; emit('put', '/web/wbot0pixelp', wb);
+const slot = Math.floor(t / 4); if (slot === lastSlot) return; lastSlot = slot;
+const [x, y] = heart[slot % heart.length], c = ROUND[Math.floor(slot / heart.length) % ROUND.length], k = BR.key(x, y);
+if (tree.wall[k] && tree.wall[k].c === c) return;
+const rec = { c, t: slot * 4000, n: 'BlockyBuilder', s: 'rbx' }; tree.wall[k] = rec; emit('put', '/wall/' + k, rec);
+};
+return N;
+};
+function seedWall() {
+const w = {}, t = Date.now() - 3600e3, put = (x, y, c) => { if (x >= 0 && x < CONFIG.W && y >= 0 && y < CONFIG.H) w[BR.key(x, y)] = { c, t, n: 'kai.fun', s: 'web' }; };
+const RB = ['#8e44ad', '#1e88e5', '#2fb24c', '#f7c600', '#ff8a1a', '#e8453c'];
+for (let x = 0; x < 40; x++) for (let y = 1; y < 24; y++) { const d = Math.hypot(x - 20, y - 1); if (d >= 11 && d < 17) put(x, y, RB[Math.floor(d - 11)]); }
+for (let x = 0; x < 9; x++) for (let y = 0; y < 9; y++) if (Math.hypot(x - 4, y - 4) < 4.4) put(70 + x, 28 + y, '#ffd23f');
+for (let x = 0; x < CONFIG.W; x++) put(x, 0, x % 3 ? '#2fb24c' : '#3fc85c');
+return w;
+}
+}
+// ===== store.js =====
+{
+const S = BR.S = { tree: { wall: {}, web: {}, rbx: {} }, ready: false, pend: new Map(), maxT: 0 };
+const COLLS = ['wall', 'web', 'rbx'];
+const isObj = v => v && typeof v === 'object';
+S.apply = (kind, path, data) => {
+const segs = String(path || '/').split('/').filter(Boolean);
+if (kind === 'patch') { if (isObj(data)) for (const k of Object.keys(data)) put(segs.concat(k.split('/').filter(Boolean)), data[k]); }
+else put(segs, data);
+if (!S.ready && kind === 'put' && segs.length === 0) { S.ready = true; BR.emit('ready'); }
+};
+const put = (segs, v) => {
+if (segs.length === 0) {
+const old = S.tree; S.tree = { wall: {}, web: {}, rbx: {} };
+for (const c of COLLS) { S.tree[c] = isObj(v) && isObj(v[c]) ? v[c] : {}; touchAll(c, old[c]); }
+return;
+}
+const c = segs[0]; if (!COLLS.includes(c)) return;
+if (segs.length === 1) { const old = S.tree[c]; S.tree[c] = isObj(v) ? v : {}; touchAll(c, old); return; }
+const coll = S.tree[c], id = segs[1];
+if (segs.length === 2) { if (v == null) delete coll[id]; else coll[id] = v; }
+else {
+let o = coll[id]; if (!isObj(o)) { if (v == null) return; o = coll[id] = {}; }
+for (let i = 2; i < segs.length - 1; i++) { if (!isObj(o[segs[i]])) o[segs[i]] = {}; o = o[segs[i]]; }
+const k = segs[segs.length - 1]; if (v == null) delete o[k]; else o[k] = v;
+}
+touch(c, id);
+};
+const touchAll = (c, old) => { for (const k of new Set([...Object.keys(old || {}), ...Object.keys(S.tree[c])])) touch(c, k); };
+const touch = (c, id) => {
+const rec = S.tree[c][id];
+if (c !== 'wall') { BR.emit('player', c, id, isObj(rec) ? rec : null); return; }
+if (!BR.unkey(id)) return;
+const ok = isObj(rec) && BR.hex(rec.c);
+if (ok && typeof rec.t === 'number' && rec.t > S.maxT) S.maxT = rec.t;
+const p = S.pend.get(id);
+if (p && ok && BR.hex(rec.c) === p.c) S.pend.delete(id);
+BR.emit('cell', id);
+if (ok && typeof rec.t === 'number' && seenT.get(id) !== rec.t) { seenT.set(id, rec.t); if (S.ready) BR.emit('placed', id, rec); }
+};
+const seenT = new Map();
+S.colorOf = k => { const p = S.pend.get(k); if (p) return p.c; const r = S.tree.wall[k]; return isObj(r) ? BR.hex(r.c) : null; };
+S.optimistic = (k, c) => { S.pend.set(k, { c, at: Date.now() }); BR.emit('cell', k); };
+S.rollback = k => { if (S.pend.delete(k)) BR.emit('cell', k); };
+S.tick = () => { const n = Date.now(); for (const [k, p] of S.pend) if (n - p.at > 10000) S.rollback(k); };
+S.count = () => Object.keys(S.tree.wall).filter(k => BR.unkey(k) && isObj(S.tree.wall[k]) && BR.hex(S.tree.wall[k].c)).length;
+}
+// ===== audio.js =====
+{
+const A = BR.Audio = { muted: !!BR.load('muted', false), ctx: null };
+A.unlock = () => {
+if (A.ctx) { if (A.ctx.state === 'suspended') A.ctx.resume(); return; }
+const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+try {
+A.ctx = new C(); A.out = A.ctx.createGain(); A.out.gain.value = A.muted ? 0 : 0.55; A.out.connect(A.ctx.destination);
+const len = Math.floor(A.ctx.sampleRate * 0.4), b = A.ctx.createBuffer(1, len, A.ctx.sampleRate), d = b.getChannelData(0);
+for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+A.noiseBuf = b;
+} catch (e) { A.ctx = null; }
+};
+A.setMuted = m => { A.muted = !!m; BR.save('muted', A.muted); if (A.out) A.out.gain.value = A.muted ? 0 : 0.55; BR.emit('muted', A.muted); };
+const ok = () => A.ctx && !A.muted && A.ctx.state === 'running';
+const env = (g, t, peak, a, d) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+const tone = (type, f0, f1, peak, dur, delay) => {
+const t = A.ctx.currentTime + (delay || 0), o = A.ctx.createOscillator(), g = A.ctx.createGain();
+o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+env(g, t, peak, 0.005, dur); o.connect(g); g.connect(A.out); o.start(t); o.stop(t + dur + 0.05);
+};
+const noise = (freq, q, peak, dur, type) => {
+const t = A.ctx.currentTime, s = A.ctx.createBufferSource(), f = A.ctx.createBiquadFilter(), g = A.ctx.createGain();
+s.buffer = A.noiseBuf; f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+env(g, t, peak, 0.002, dur); s.connect(f); f.connect(g); g.connect(A.out); s.start(t, Math.random() * 0.2); s.stop(t + dur + 0.05);
+};
+A.clack = () => { if (!ok()) return; const p = 0.9 + Math.random() * 0.2; noise(2400 * p, 3, 0.5, 0.05); tone('triangle', 330 * p, 180 * p, 0.35, 0.09); tone('square', 990 * p, 0, 0.04, 0.03); };
+A.thud = () => { if (!ok()) return; tone('sine', 140, 70, 0.25, 0.12); };
+A.step = () => { if (!ok()) return; noise(380 + Math.random() * 120, 1.2, 0.18, 0.05, 'lowpass'); };
+A.pop = () => { if (!ok()) return; tone('sine', 520, 1150, 0.3, 0.11); tone('sine', 1300, 0, 0.08, 0.06, 0.06); };
+A.nope = () => { if (!ok()) return; tone('square', 150, 120, 0.08, 0.1); };
+A.tick = () => { if (!ok()) return; tone('triangle', 880, 0, 0.12, 0.04); };
+A.join = () => { if (!ok()) return; [523, 659, 784].forEach((f, i) => tone('triangle', f, 0, 0.18, 0.12, i * 0.08)); };
+A.jump = () => { if (!ok()) return; tone('square', 300, 600, 0.06, 0.12); };
+}
+// ===== render.js =====
+{
+const R = BR.R = { w: 1, h: 1 };
+R.tex = (c, rx, ry) => { const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; if (rx) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry || rx); } t.anisotropy = R.aniso || 1; return t; };
+R.lam = (hex, map) => new THREE.MeshLambertMaterial({ color: new THREE.Color(hex).convertSRGBToLinear(), map: map || null });
+R.studCanvas = (base, size, inset) => {
+const s = size || 64, c = BR.canvas(s, s), g = c.getContext('2d'), b = base || '#ffffff';
+g.fillStyle = b; g.fillRect(0, 0, s, s);
+g.fillStyle = 'rgba(0,0,0,.10)'; g.fillRect(0, s - 2, s, 2); g.fillRect(s - 2, 0, 2, s);
+g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(0, 0, s, 2); g.fillRect(0, 0, 2, s);
+if (inset !== false) {
+const r = s * 0.24, cx = s / 2, cy = s / 2;
+g.fillStyle = 'rgba(0,0,0,.16)'; g.beginPath(); g.arc(cx + s * 0.03, cy + s * 0.04, r, 0, 7); g.fill();
+g.fillStyle = b; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+g.fillStyle = 'rgba(255,255,255,.28)'; g.beginPath(); g.arc(cx - r * 0.25, cy - r * 0.25, r * 0.55, 0, 7); g.fill();
+}
+return c;
+};
+R.init = () => {
+try { R.renderer = new THREE.WebGLRenderer({ canvas: BR.$('gl'), antialias: true, preserveDrawingBuffer: BR.Q.has('test') || BR.Q.has('tile') }); }
+catch (e) { return false; }
+const r = R.renderer;
+r.outputEncoding = THREE.sRGBEncoding; R.aniso = Math.min(8, r.capabilities.getMaxAnisotropy());
+R.scene = new THREE.Scene();
+const sky = BR.canvas(4, 256), g = sky.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+gr.addColorStop(0, '#2f8cff'); gr.addColorStop(0.55, '#7cc4ff'); gr.addColorStop(1, '#d9f0ff');
+g.fillStyle = gr; g.fillRect(0, 0, 4, 256); R.scene.background = R.tex(sky);
+R.scene.fog = new THREE.Fog(0xcfeaff, 220, 520);
+R.cam = new THREE.PerspectiveCamera(55, 1, 0.5, 1400);
+R.scene.add(new THREE.HemisphereLight(0xffffff, 0x6a8a5a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff4e0, 0.75); sun.position.set(-60, 140, 120); R.scene.add(sun);
+R.buildGround(R.scene); R.buildDecor(R.scene);
+R.resize(); addEventListener('resize', R.resize);
+return true;
+};
+R.buildGround = (scene) => {
+const plate = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), R.lam('#ffffff', R.tex(R.studCanvas('#56b847', 64), 450, 450)));
+plate.rotation.x = -Math.PI / 2; scene.add(plate);
+const path = new THREE.Mesh(new THREE.PlaneGeometry(170, 26), R.lam('#ffffff', R.tex(R.studCanvas('#c9ccd1', 64), 85, 13)));
+path.rotation.x = -Math.PI / 2; path.position.set(0, 0.03, 15); scene.add(path);
+};
+R.buildDecor = (scene) => {
+const rr = BR.rng(9), white = R.lam('#ffffff'), box = new THREE.BoxGeometry(1, 1, 1);
+R.clouds = [];
+for (let i = 0; i < 16; i++) {
+const c = new THREE.Group(), n = 3 + Math.floor(rr() * 4);
+for (let j = 0; j < n; j++) { const m = new THREE.Mesh(box, white); m.scale.set(14 + rr() * 16, 5 + rr() * 4, 10 + rr() * 10); m.position.set(j * 11 - n * 5, rr() * 4, (rr() - 0.5) * 8); c.add(m); }
+c.position.set((rr() - 0.5) * 700, 130 + rr() * 70, -260 + rr() * 420); scene.add(c); R.clouds.push(c);
+}
+const trunk = R.lam('#8a5a32'), leaf = [R.lam('#2f9e44'), R.lam('#40b85a'), R.lam('#278a3a')];
+for (let i = 0; i < 18; i++) {
+const side = i % 2 ? 1 : -1, x = side * (100 + rr() * 90), z = -30 + rr() * 200, h = 6 + Math.floor(rr() * 6), t = new THREE.Group();
+const tr = new THREE.Mesh(box, trunk); tr.scale.set(2, h, 2); tr.position.y = h / 2; t.add(tr);
+for (let j = 0; j < 3; j++) { const s = 9 - j * 2.6, l = new THREE.Mesh(box, leaf[j]); l.scale.set(s, 3, s); l.position.y = h + j * 2.8; t.add(l); }
+t.position.set(x, 0, z); t.rotation.y = rr() * 3; scene.add(t);
+}
+};
+R.update = dt => { for (const c of R.clouds || []) { c.position.x += dt * 2.5; if (c.position.x > 380) c.position.x = -380; } };
+R.resize = () => {
+const w = innerWidth, h = innerHeight; R.w = w; R.h = h; if (!R.renderer) return;
+R.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, BR.isTouch() ? 1.5 : 2)); R.renderer.setSize(w, h, false);
+R.cam.aspect = w / h; R.cam.fov = w < h ? 62 : 55; R.cam.updateProjectionMatrix();
+};
+R.ndc = (sx, sy) => new THREE.Vector2(sx / R.w * 2 - 1, -(sy / R.h) * 2 + 1);
+R.toScreen = v => { const p = v.clone().project(R.cam); if (p.z > 1) return null; return { x: (p.x + 1) / 2 * R.w, y: (1 - p.y) / 2 * R.h }; };
+}
+// ===== wall.js =====
+{
+const R = BR.R;
+const Wl = BR.Wall = { cols: new Map(), count: 0, pops: new Map() };
+const W = CONFIG.W, H = CONFIG.H, CELL = CONFIG.CELL, W2 = W * CELL, H2 = H * CELL;
+const M4 = new THREE.Matrix4(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0), C = new THREE.Color(), V = new THREE.Vector3(), Q = new THREE.Quaternion();
+Wl.FRAME = ['#e8453c', '#f7b500', '#2fb24c', '#1e88e5', '#8e44ad', '#ff7a1a'];
+Wl.signCanvas = () => {
+const c = BR.canvas(2048, 232), g = c.getContext('2d');
+g.fillStyle = '#e8453c'; g.fillRect(0, 0, 2048, 232); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 200, 2048, 32); g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(0, 0, 2048, 14);
+g.font = '900 150px "Arial Black", Impact, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+g.lineJoin = 'round'; g.lineWidth = 22; g.strokeStyle = '#3a1410'; g.strokeText('BUILD A ROBLOX GAME', 1024, 112);
+g.fillStyle = '#ffffff'; g.fillText('BUILD A ROBLOX GAME', 1024, 108);
+return c;
+};
+Wl.build = (scene) => {
+const back = new THREE.Mesh(new THREE.BoxGeometry(W2 + 8, H2 + 6, 2), R.lam('#4a5568'));
+back.position.set(0, H2 / 2 + 1, -2); scene.add(back);
+const gc = BR.canvas(64, 64), g = gc.getContext('2d');
+g.fillStyle = '#eef1f5'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#c9d0da'; g.fillRect(0, 0, 64, 3); g.fillRect(0, 0, 3, 64);
+g.fillStyle = 'rgba(0,0,0,.05)'; g.beginPath(); g.arc(33, 33, 14, 0, 7); g.fill();
+const grid = new THREE.Mesh(new THREE.PlaneGeometry(W2, H2), R.lam('#ffffff', R.tex(gc, W, H)));
+grid.position.set(0, H2 / 2, -0.98); scene.add(grid);
+const mat = new THREE.MeshLambertMaterial({ map: R.tex(R.studCanvas('#ffffff', 64)) });
+const mesh = Wl.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.94, 1.94, 1.94), mat, W * H);
+mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false;
+for (let i = 0; i < W * H; i++) { mesh.setMatrixAt(i, ZERO); mesh.setColorAt(i, C.set(0xffffff)); }
+scene.add(mesh);
+const fr = [];
+for (let x = -1; x <= W; x++) fr.push([x, -1], [x, H]);
+for (let y = 0; y < H; y++) fr.push([-1, y], [W, y]);
+const fm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.96, 1.96, 2.6), new THREE.MeshLambertMaterial({ map: R.tex(R.studCanvas('#ffffff', 64)) }), fr.length);
+fr.forEach(([x, y], i) => { fm.setMatrixAt(i, M4.makeTranslation(BR.cellX(x), y < 0 ? -0.6 : BR.cellY(y), 0.2)); fm.setColorAt(i, C.set(Wl.FRAME[((x + y) % 6 + 6) % 6]).convertSRGBToLinear()); });
+fm.frustumCulled = false; scene.add(fm);
+const side = R.lam('#b8322a'), sign = new THREE.Mesh(new THREE.BoxGeometry(124, 14, 2), [side, side, side, side, new THREE.MeshLambertMaterial({ map: R.tex(Wl.signCanvas()) }), side]);
+sign.position.set(0, H2 + 11, 0); scene.add(sign);
+for (const sx of [-50, 50]) { const post = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 2), R.lam('#4a5568')); post.position.set(sx, H2 + 2.5, 0); scene.add(post); }
+Wl.ghostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false });
+Wl.ghostObj = new THREE.Group();
+Wl.ghostObj.add(new THREE.Mesh(new THREE.BoxGeometry(2.08, 2.08, 2.08), Wl.ghostMat));
+Wl.ghostObj.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.16, 2.16, 2.16)), new THREE.LineBasicMaterial({ color: 0xffffff })));
+Wl.ghostObj.visible = false; Wl.ghostObj.renderOrder = 5; scene.add(Wl.ghostObj);
+};
+Wl.set = k => {
+const cell = BR.unkey(k); if (!cell || !Wl.mesh) return;
+const i = cell.y * W + cell.x, c = BR.S.colorOf(k), had = Wl.cols.get(k);
+if (c) {
+Wl.cols.set(k, c);
+Wl.mesh.setMatrixAt(i, M4.makeTranslation(BR.cellX(cell.x), BR.cellY(cell.y), 0));
+Wl.mesh.setColorAt(i, C.set(c).convertSRGBToLinear()); Wl.mesh.instanceColor.needsUpdate = true;
+if (had !== c && BR.S.ready) Wl.pops.set(i, 0);
+} else { Wl.cols.delete(k); Wl.mesh.setMatrixAt(i, ZERO); }
+Wl.mesh.instanceMatrix.needsUpdate = true; Wl.count = Wl.cols.size;
+};
+BR.on('cell', k => Wl.set(k));
+Wl.update = dt => {
+for (const [i, t0] of Wl.pops) {
+const t = t0 + dt, k = BR.key(i % W, Math.floor(i / W)), s = t >= 0.28 ? 1 : 1 + Math.sin(t / 0.28 * Math.PI) * 0.35;
+if (!Wl.cols.has(k)) { Wl.pops.delete(i); continue; }
+V.set(BR.cellX(i % W), BR.cellY(Math.floor(i / W)), (s - 1) * 2);
+Wl.mesh.setMatrixAt(i, M4.compose(V, Q, new THREE.Vector3(s, s, s))); Wl.mesh.instanceMatrix.needsUpdate = true;
+if (t >= 0.28) Wl.pops.delete(i); else Wl.pops.set(i, t);
+}
+if (Wl.ghostObj.visible) Wl.ghostObj.children[1].material.color.setHSL(0, 0, 0.75 + Math.sin(BR.now() * 6) * 0.25);
+};
+Wl.pick = (sx, sy) => {
+const ray = new THREE.Raycaster(); ray.setFromCamera(R.ndc(sx, sy), R.cam);
+const o = ray.ray.origin, d = ray.ray.direction; if (d.z >= -1e-4 || o.z <= 1) return null;
+const t = (1 - o.z) / d.z, px = o.x + d.x * t, py = o.y + d.y * t;
+const x = Math.floor((px + W2 / 2) / CELL), y = Math.floor(py / CELL);
+return x >= 0 && x < W && y >= 0 && y < H ? { x, y } : null;
+};
+Wl.ghost = (cell, hex) => {
+Wl.ghostObj.visible = !!cell; if (!cell) return;
+Wl.ghostObj.position.set(BR.cellX(cell.x), BR.cellY(cell.y), 0.12); Wl.ghostMat.color.set(hex).convertSRGBToLinear();
+};
+Wl.screenOf = (x, y) => R.toScreen(new THREE.Vector3(BR.cellX(x), BR.cellY(y), 1));
+}
+// ===== avatar.js =====
+{
+const Av = BR.Av = {};
+const R = BR.R;
+const faceCanvas = (base, size) => {
+const s = size || 128, c = BR.canvas(s, s), g = c.getContext('2d');
+g.fillStyle = base; g.fillRect(0, 0, s, s);
+g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, 0, s, s * 0.06); g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(0, s * 0.94, s, s * 0.06);
+const ink = BR.light(base) ? '#1b1b1f' : '#101014';
+g.fillStyle = ink;
+g.beginPath(); g.ellipse(s * 0.34, s * 0.4, s * 0.06, s * 0.1, 0, 0, 7); g.ellipse(s * 0.66, s * 0.4, s * 0.06, s * 0.1, 0, 0, 7); g.fill();
+g.fillStyle = '#fff'; g.beginPath(); g.arc(s * 0.355, s * 0.36, s * 0.022, 0, 7); g.arc(s * 0.675, s * 0.36, s * 0.022, 0, 7); g.fill();
+g.strokeStyle = ink; g.lineWidth = s * 0.05; g.lineCap = 'round'; g.beginPath(); g.arc(s * 0.5, s * 0.55, s * 0.18, 0.25 * Math.PI, 0.75 * Math.PI); g.stroke();
+return c;
+};
+const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
+const addShadow = (g, r) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 20), shadowMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.06; g.add(m); g.userData.shadow = m; };
+Av.block = hex => {
+const g = new THREE.Group(), side = new THREE.MeshLambertMaterial({ map: R.tex(R.studCanvas(hex, 128)) });
+const face = new THREE.MeshLambertMaterial({ map: R.tex(faceCanvas(hex)) });
+const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.6, 3.6), [side, side, side, side, side, face]); // index 5 = -Z = front
+body.position.y = 1.8; g.add(body); addShadow(g, 2.3);
+g.userData = Object.assign(g.userData, { kind: 'block', body, top: 3.6, phase: 0 });
+return g;
+};
+Av.recolorBlock = (g, hex) => {
+const ms = g.userData.body.material; ms[0].map.dispose(); ms[5].map.dispose();
+ms[0].map = R.tex(R.studCanvas(hex, 128)); ms[5].map = R.tex(faceCanvas(hex)); ms[0].needsUpdate = ms[5].needsUpdate = true;
+};
+Av.figure = cols => {
+const g = new THREE.Group(), mk = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+const M = { h: R.lam(cols.ch), t: R.lam(cols.ct), a: R.lam(cols.ca), l: R.lam(cols.cl) };
+const faceM = new THREE.MeshLambertMaterial({ map: R.tex(faceCanvas(cols.ch, 128)) });
+const limb = (x, y, mat, len) => { const p = new THREE.Group(); p.position.set(x, y, 0); const m = mk(0.98, len, 0.98, mat); m.position.y = -len / 2; p.add(m); g.add(p); return p; };
+const legL = limb(-0.5, 2, M.l, 2), legR = limb(0.5, 2, M.l, 2);
+const torso = mk(2, 2, 1, M.t); torso.position.y = 3; g.add(torso);
+const armL = limb(-1.5, 3.95, M.a, 1.95), armR = limb(1.5, 3.95, M.a, 1.95);
+const head = mk(1.25, 1.2, 1.2, [M.h, M.h, M.h, M.h, M.h, faceM]); head.position.y = 4.62; g.add(head);
+addShadow(g, 1.7);
+g.userData = Object.assign(g.userData, { kind: 'figure', legL, legR, armL, armR, head, M, faceM, cols: Object.assign({}, cols), top: 5.3, phase: 0 });
+return g;
+};
+Av.recolorFigure = (g, cols) => {
+const u = g.userData; let changed = false;
+for (const k of ['ch', 'ct', 'ca', 'cl']) if (u.cols[k] !== cols[k]) { u.cols[k] = cols[k]; changed = true; }
+if (!changed) return;
+u.M.h.color.set(cols.ch).convertSRGBToLinear(); u.M.t.color.set(cols.ct).convertSRGBToLinear();
+u.M.a.color.set(cols.ca).convertSRGBToLinear(); u.M.l.color.set(cols.cl).convertSRGBToLinear();
+u.faceM.map.dispose(); u.faceM.map = R.tex(faceCanvas(cols.ch, 128)); u.faceM.needsUpdate = true;
+};
+Av.animate = (g, dt, speed, airborne) => {
+const u = g.userData, amt = BR.clamp(speed / 14, 0, 1);
+u.phase += dt * (4 + speed * 0.55);
+if (u.kind === 'figure') {
+const sw = airborne ? 0.5 : Math.sin(u.phase) * 0.85 * amt;
+u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw * 0.9; u.armR.rotation.x = sw * 0.9;
+if (airborne) { u.armL.rotation.x = u.armR.rotation.x = -2.6; }
+} else {
+u.body.position.y = 1.8 + Math.abs(Math.sin(u.phase)) * 0.45 * amt;
+u.body.rotation.z = Math.sin(u.phase) * 0.06 * amt;
+}
+if (u.shadow) { u.shadow.position.y = 0.06 - g.position.y; const k = 1 / (1 + g.position.y * 0.08); u.shadow.scale.set(k, k, k); }
+};
+const sprite = (w, h) => {
+const c = BR.canvas(w, h), tex = R.tex(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+sp.userData.c = c; sp.userData.tex = tex; sp.renderOrder = 20; return sp;
+};
+Av.tag = (text, roblox) => { const sp = sprite(512, 96); Av.setTag(sp, text, roblox); return sp; };
+Av.setTag = (sp, text, roblox) => {
+const c = sp.userData.c, g = c.getContext('2d'); g.clearRect(0, 0, 512, 96);
+g.font = '800 46px system-ui, "Segoe UI", Arial, sans-serif'; const tw = Math.min(480, g.measureText(text).width + 40), x0 = 256 - tw / 2;
+g.fillStyle = roblox ? 'rgba(20,70,170,.82)' : 'rgba(20,24,40,.72)'; g.beginPath(); g.roundRect ? g.roundRect(x0, 14, tw, 68, 22) : g.rect(x0, 14, tw, 68); g.fill();
+g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 50, 460);
+sp.userData.tex.needsUpdate = true; sp.scale.set(5.6, 1.05, 1);
+};
+Av.bubble = () => { const sp = sprite(512, 220); sp.visible = false; return sp; };
+Av.setBubble = (sp, text) => {
+const c = sp.userData.c, g = c.getContext('2d'); g.clearRect(0, 0, 512, 220);
+g.font = '700 38px system-ui, "Segoe UI", Arial, sans-serif';
+const words = String(text).split(' '), lines = []; let cur = '';
+for (const w of words) { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > 440 && cur) { lines.push(cur); cur = w; } else cur = t; }
+if (cur) lines.push(cur); lines.splice(3);
+const bh = lines.length * 44 + 30, bw = Math.min(490, Math.max(...lines.map(l => g.measureText(l).width)) + 44), y0 = 190 - bh, x0 = 256 - bw / 2;
+g.fillStyle = '#ffffff'; g.strokeStyle = 'rgba(16,33,63,.35)'; g.lineWidth = 4;
+g.beginPath(); g.roundRect ? g.roundRect(x0, y0, bw, bh, 26) : g.rect(x0, y0, bw, bh); g.fill(); g.stroke();
+g.beginPath(); g.moveTo(236, 188); g.lineTo(256, 214); g.lineTo(276, 188); g.closePath(); g.fill();
+g.fillStyle = '#10213f'; g.textAlign = 'center'; g.textBaseline = 'top';
+lines.forEach((l, i) => g.fillText(l, 256, y0 + 16 + i * 44, 470));
+sp.userData.tex.needsUpdate = true; sp.scale.set(8, 3.44, 1); sp.center.set(0.5, 0);
+};
+}
+// ===== players.js =====
+{
+const P = BR.Players = { map: new Map(), web: 0, rbx: 0 };
+const Av = BR.Av, F = BR.Filter, B = CONFIG.BOUNDS;
+const num = (v, d, lo, hi) => BR.clamp(BR.num(v, d), lo, hi);
+P.init = () => { BR.on('player', onPlayer); };
+const onPlayer = (coll, id, rec) => {
+if (coll === 'web' && id === BR.myId) return; // that's us
+const key = coll + '/' + id; let p = P.map.get(key);
+if (!rec) { if (p) drop(p); return; }
+const now = BR.now(), t = BR.num(rec.t, 0);
+if (!p) {
+p = { key, coll, id, t, seen: now, live: BR.S.ready, mt: BR.S.ready ? null : rec.mt, pos: null, yaw: 0, speed: 0, chatUntil: 0, name: '' };
+P.map.set(key, p);
+} else if (t !== p.t) { p.t = t; p.seen = now; p.live = true; }
+p.rec = rec;
+p.target = { x: num(rec.x, 0, -2048, 2048), y: num(rec.y, 0, -50, 500), z: num(rec.z, 20, -2048, 2048), r: BR.num(rec.r, 0) };
+if (p.obj) restyle(p);
+if (rec.m && rec.mt !== p.mt) { p.mt = rec.mt; if (p.live) { p.msg = F.show(rec.m, 80); p.chatUntil = now + 8; if (p.obj) Av.setBubble(p.bubble, p.msg); BR.Audio.pop(); BR.emit('chat', p); } }
+};
+const cols = rec => ({ ch: BR.hex(rec.ch) || '#f5cd30', ct: BR.hex(rec.ct) || '#0d69ac', ca: BR.hex(rec.ca) || '#f5cd30', cl: BR.hex(rec.cl) || '#a4bd47' });
+const nameOf = p => F.show(p.rec.n, 16) || (p.coll === 'rbx' ? 'Roblox player' : 'Web player');
+const build = p => {
+const rec = p.rec;
+p.obj = p.coll === 'rbx' ? Av.figure(cols(rec)) : Av.block(BR.hex(rec.c) || '#888888');
+p.color = BR.hex(rec.c);
+p.name = nameOf(p); p.tag = Av.tag(p.name, p.coll === 'rbx'); p.tag.position.y = p.obj.userData.top + 1.1; p.obj.add(p.tag);
+p.bubble = Av.bubble(); p.bubble.position.y = p.obj.userData.top + 1.8; p.obj.add(p.bubble);
+if (p.msg && p.chatUntil > BR.now()) Av.setBubble(p.bubble, p.msg);
+p.pos = new THREE.Vector3(p.target.x, p.target.y, p.target.z); p.yaw = p.target.r;
+p.obj.position.copy(p.pos); p.obj.rotation.y = p.yaw; BR.R.scene.add(p.obj);
+};
+const restyle = p => {
+const n = nameOf(p); if (n !== p.name) { p.name = n; Av.setTag(p.tag, n, p.coll === 'rbx'); }
+if (p.coll === 'rbx') Av.recolorFigure(p.obj, cols(p.rec));
+else { const c = BR.hex(p.rec.c); if (c && c !== p.color) { p.color = c; Av.recolorBlock(p.obj, c); } }
+};
+const drop = p => { if (p.obj) BR.R.scene.remove(p.obj); P.map.delete(p.key); };
+const V = new THREE.Vector3();
+P.update = dt => {
+const now = BR.now(); let web = 0, rbx = 0;
+for (const p of [...P.map.values()]) {
+const age = now - p.seen, visible = p.live && age < CONFIG.STALE;
+if (age > CONFIG.DEAD && !p.reaped) { p.reaped = true; BR.Net.del(p.coll + '/' + p.id).catch(() => { }); }
+if (!visible) { if (p.obj) p.obj.visible = false; continue; }
+if (!p.obj) build(p);
+p.obj.visible = true; if (p.coll === 'rbx') rbx++; else web++;
+V.set(p.target.x, p.target.y, p.target.z);
+if (p.pos.distanceTo(V) > 40) p.pos.copy(V);
+const before = p.pos.clone();
+p.pos.x = BR.damp(p.pos.x, V.x, 9, dt); p.pos.y = BR.damp(p.pos.y, V.y, 12, dt); p.pos.z = BR.damp(p.pos.z, V.z, 9, dt);
+const sp = Math.hypot(p.pos.x - before.x, p.pos.z - before.z) / Math.max(dt, 1e-3);
+p.speed = BR.damp(p.speed, sp, 10, dt);
+p.yaw += BR.angWrap(p.target.r - p.yaw) * (1 - Math.exp(-10 * dt));
+p.obj.position.copy(p.pos); p.obj.rotation.y = p.yaw;
+Av.animate(p.obj, dt, p.speed, p.pos.y > 0.4);
+p.bubble.visible = p.chatUntil > now;
+const k = BR.clamp(BR.R.cam.position.distanceTo(p.pos) / 50, 1, 2.6); p.tag.scale.set(5.6 * k, 1.05 * k, 1); p.bubble.scale.set(8 * k, 3.44 * k, 1); p.tag.position.y = p.obj.userData.top + 1.1 * k; p.bubble.position.y = p.obj.userData.top + 1.8 * k;
+}
+P.web = web; P.rbx = rbx;
+};
+P.list = () => [...P.map.values()].filter(p => p.obj && p.obj.visible).map(p => ({ coll: p.coll, id: p.id, name: p.name, msg: p.chatUntil > BR.now() ? p.msg : '', x: p.pos.x, z: p.pos.z }));
+}
+// ===== me.js =====
+{
+const M = BR.Me = { on: false, name: '', color: '#3d8bff', pos: new THREE.Vector3(0, 0, 30), yaw: 0, vy: 0, camYaw: 0, camPitch: 0.32, camDist: 18 };
+const Av = BR.Av, C = CONFIG, B = CONFIG.BOUNDS;
+let fly = null, obj = null, tag = null, bubble = null, chatUntil = 0, sendT = 0, beatT = 0, busy = false, sent = null, stepT = 0, created = false;
+const path = () => 'web/' + BR.myId;
+const snap = () => ({ x: BR.r2(M.pos.x), y: BR.r2(M.pos.y), z: BR.r2(M.pos.z), r: BR.r2(BR.angWrap(M.yaw)) });
+const rec = () => Object.assign(snap(), { t: BR.SV });
+const changed = (a, b) => !b || Math.abs(a.x - b.x) > 0.04 || Math.abs(a.y - b.y) > 0.04 || Math.abs(a.z - b.z) > 0.04 || Math.abs(BR.angWrap(a.r - b.r)) > 0.03;
+M.init = () => { const s = BR.load('me', null); if (s) { M.name = s.name || ''; M.color = BR.hex(s.color) || M.color; } };
+M.join = (name, color) => {
+if (M.on) M.leave();
+M.name = name; M.color = color; M.on = true; created = false; busy = true; sent = null;
+M.pos.set((Math.random() - 0.5) * 30, 0, 22 + Math.random() * 6); M.yaw = 0; M.camYaw = 0; M.vy = 0;
+obj = Av.block(color);
+tag = Av.tag(name, false); tag.position.y = 4.7; obj.add(tag);
+bubble = Av.bubble(); bubble.position.y = 5.4; obj.add(bubble);
+BR.R.scene.add(obj); place(0, 0);
+BR.Net.put(path(), Object.assign(rec(), { n: name, c: color })).then(
+() => { created = true; busy = false; sent = snap(); },
+() => { busy = false; BR.toast('Could not hop in right now. Try again in a moment.'); M.leave(); });
+BR.save('me', { name, color });
+document.body.classList.add('player'); BR.emit('mode', 'player'); BR.Audio.join();
+};
+M.leave = keepalive => {
+if (!M.on) return;
+M.on = false; created = false;
+if (obj) BR.R.scene.remove(obj); obj = null;
+const del = () => BR.Net.del(path(), keepalive).catch(() => { });
+if (fly && !keepalive) fly.then(del, del); else del();
+document.body.classList.remove('player'); BR.emit('mode', 'build');
+};
+M.say = text => {
+if (!M.on) return false;
+const r = BR.Filter.chat(text);
+if (!r.ok) { BR.toast(r.why); BR.Audio.nope(); return false; }
+BR.Net.patch(path(), { m: r.value, mt: Date.now(), t: BR.SV }).catch(() => BR.toast('Message not sent - connection problem'));
+M.msg = r.value; chatUntil = BR.now() + 8; Av.setBubble(bubble, r.value); BR.Audio.pop(); BR.emit('chat', { coll: 'web', name: M.name, msg: r.value, me: true });
+return true;
+};
+const place = (speed, dt) => {
+obj.position.copy(M.pos); obj.rotation.y = M.yaw;
+Av.animate(obj, dt, speed, M.pos.y > 0.05);
+bubble.visible = chatUntil > BR.now();
+};
+M.update = dt => {
+if (!M.on || !obj) return;
+const I = BR.Input;
+const fx = -Math.sin(M.camYaw), fz = -Math.cos(M.camYaw), rx = Math.cos(M.camYaw), rz = -Math.sin(M.camYaw);
+let vx = fx * I.mz + rx * I.mx, vz = fz * I.mz + rz * I.mx; const l = Math.hypot(vx, vz);
+if (l > 1) { vx /= l; vz /= l; }
+const moving = l > 0.05, sp = moving ? C.WALK * Math.min(1, l) : 0;
+M.pos.x += vx * C.WALK * dt; M.pos.z += vz * C.WALK * dt;
+if (moving) M.yaw += BR.angWrap(Math.atan2(-vx, -vz) - M.yaw) * (1 - Math.exp(-12 * dt));
+if (I.jump && M.pos.y <= 0.001) { M.vy = C.JUMP; BR.Audio.jump(); }
+I.jump = false;
+M.vy -= C.GRAVITY * dt; M.pos.y += M.vy * dt; if (M.pos.y <= 0) { M.pos.y = 0; M.vy = 0; }
+M.pos.x = BR.clamp(M.pos.x, -B.x, B.x); M.pos.z = BR.clamp(M.pos.z, B.zMin, B.zMax);
+place(sp, dt);
+if (moving && M.pos.y === 0) { stepT -= dt; if (stepT <= 0) { stepT = 0.29; BR.Audio.step(); } } else stepT = 0;
+sendT -= dt; beatT += dt;
+if (created && !busy && sendT <= 0) {
+sendT = 1 / C.SEND_HZ;
+const s = snap();
+if (changed(s, sent) || beatT >= C.HEARTBEAT) {
+busy = true; beatT = 0;
+fly = BR.Net.patch(path(), rec()).then(() => { busy = false; sent = s; fly = null; }, () => { busy = false; fly = null; });
+}
+}
+};
+M.state = () => ({ on: M.on, name: M.name, color: M.color, x: M.pos.x, y: M.pos.y, z: M.pos.z, r: M.yaw, msg: chatUntil > BR.now() ? M.msg : '', created });
+}
+// ===== cam.js =====
+{
+const Cm = BR.Cam = { tx: 0, ty: 38, td: 128, snap: true };
+const R = BR.R, H2 = CONFIG.H * CONFIG.CELL, W2 = CONFIG.W * CONFIG.CELL;
+const want = new THREE.Vector3(), look = new THREE.Vector3(), curLook = new THREE.Vector3();
+Cm.portrait = () => innerWidth < innerHeight;
+Cm.init = () => { Cm.td = Cm.portrait() ? 150 : 150; Cm.ty = Cm.portrait() ? 30 : 47; Cm.snap = true; };
+Cm.maxD = () => Cm.portrait() ? 300 : 200;
+Cm.drag = (dx, dy) => {
+const M = BR.Me;
+if (M.on) { M.camYaw -= dx * 0.0065; M.camPitch = BR.clamp(M.camPitch + dy * 0.004, -0.05, 1.25); return; }
+const k = 2 * Cm.td * Math.tan(R.cam.fov * Math.PI / 360) / R.h; // world units per pixel at the wall
+Cm.tx = BR.clamp(Cm.tx - dx * k, -W2 / 2 - 10, W2 / 2 + 10); Cm.ty = BR.clamp(Cm.ty + dy * k, 2, H2 + 14);
+};
+Cm.zoom = f => {
+const M = BR.Me;
+if (M.on) M.camDist = BR.clamp(M.camDist * f, 8, 70);
+else Cm.td = BR.clamp(Cm.td * f, 20, Cm.maxD());
+};
+Cm.update = dt => {
+const M = BR.Me, c = R.cam;
+if (M.on) {
+const p = M.camPitch, d = M.camDist, ty = M.pos.y + 3.2;
+want.set(M.pos.x + Math.sin(M.camYaw) * Math.cos(p) * d, ty + Math.sin(p) * d, M.pos.z + Math.cos(M.camYaw) * Math.cos(p) * d);
+if (want.z < 4) want.z = 4; // never behind the wall
+if (want.y < 1.5) want.y = 1.5;
+look.set(M.pos.x, ty + 1, M.pos.z);
+Cm.tx = BR.clamp(M.pos.x, -W2 / 2, W2 / 2); Cm.ty = BR.clamp(18 + M.camPitch * 20, 8, H2); Cm.td = BR.clamp(M.pos.z + 50, 40, Cm.maxD());
+} else {
+want.set(Cm.tx, Cm.ty + Cm.td * 0.16, Cm.td);
+look.set(Cm.tx, Cm.ty, 0);
+}
+if (Cm.snap) { c.position.copy(want); curLook.copy(look); Cm.snap = false; }
+else { const k = 1 - Math.exp(-(M.on ? 12 : 14) * dt); c.position.lerp(want, k); curLook.lerp(look, k); }
+c.lookAt(curLook);
+};
+}
+// ===== input.js =====
+{
+const I = BR.Input = { mx: 0, mz: 0, jump: false, keys: new Set(), stick: { x: 0, y: 0 }, last: null };
+const ptrs = new Map(); let pinch = 0;
+const MAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
+I.typing = () => { const a = document.activeElement; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
+I.init = () => {
+const cv = BR.$('gl');
+cv.addEventListener('pointerdown', e => {
+if (I.typing()) document.activeElement.blur();
+ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false });
+try { cv.setPointerCapture(e.pointerId); } catch (err) { }
+if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); for (const p of ptrs.values()) p.moved = true; BR.Wall.ghost(null); }
+});
+cv.addEventListener('pointermove', e => {
+I.last = { x: e.clientX, y: e.clientY };
+const p = ptrs.get(e.pointerId);
+if (!p) { if (e.pointerType === 'mouse') BR.Build.hover(e.clientX, e.clientY); return; }
+const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+if (ptrs.size >= 2) {
+const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+if (pinch > 0 && d > 0) BR.Cam.zoom(pinch / d); pinch = d; return;
+}
+if (!p.moved && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8) { p.moved = true; BR.Wall.ghost(null); }
+if (p.moved) BR.Cam.drag(dx, dy);
+else if (e.pointerType === 'mouse') BR.Build.hover(e.clientX, e.clientY);
+});
+const up = e => {
+const p = ptrs.get(e.pointerId); if (!p) return;
+ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
+if (!p.moved && e.type === 'pointerup' && (e.pointerType !== 'mouse' || e.button === 0)) BR.Build.tapAt(e.clientX, e.clientY, e.pointerType);
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !ptrs.size) BR.Wall.ghost(null); });
+cv.addEventListener('wheel', e => { e.preventDefault(); BR.Cam.zoom(Math.exp(BR.clamp(e.deltaY, -200, 200) * 0.0012)); }, { passive: false });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('keydown', key(true)); addEventListener('keyup', key(false));
+addEventListener('blur', () => I.keys.clear());
+initStick();
+const jb = BR.$('bJump');
+jb.addEventListener('pointerdown', e => { e.preventDefault(); I.jump = true; });
+};
+const key = down => e => {
+if (I.typing()) { if (down && e.key === 'Escape') document.activeElement.blur(); return; }
+if (BR.UI && BR.UI.dialogOpen()) { if (down && e.key === 'Escape') BR.UI.closeDialogs(); return; }
+if (down && BR.Me.on && (e.key === 'Enter' || e.code === 'KeyT' || e.key === '/')) { e.preventDefault(); BR.$('chatIn').focus(); return; }
+if (down && e.code === 'KeyM' && !e.repeat) { BR.Audio.setMuted(!BR.Audio.muted); return; }
+if (e.code === 'Space') { e.preventDefault(); if (down && !e.repeat) I.jump = true; return; }
+const k = MAP[e.code]; if (!k) return;
+e.preventDefault(); if (down) I.keys.add(k); else I.keys.delete(k);
+};
+const initStick = () => {
+const el = BR.$('stick'), nub = el.firstElementChild; let id = null, cx = 0, cy = 0;
+const move = e => {
+if (e.pointerId !== id) return;
+let dx = e.clientX - cx, dy = e.clientY - cy; const RAD = 50, l = Math.hypot(dx, dy);
+if (l > RAD) { dx *= RAD / l; dy *= RAD / l; }
+nub.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+I.stick.x = l < 6 ? 0 : dx / RAD; I.stick.y = l < 6 ? 0 : dy / RAD;
+};
+el.addEventListener('pointerdown', e => {
+e.preventDefault(); id = e.pointerId; const r = el.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+try { el.setPointerCapture(id); } catch (err) { } move(e);
+});
+el.addEventListener('pointermove', move);
+const end = e => { if (e.pointerId !== id) return; id = null; nub.style.transform = ''; I.stick.x = I.stick.y = 0; };
+el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+};
+I.update = dt => {
+const k = I.keys;
+let mx = (k.has('r') ? 1 : 0) - (k.has('l') ? 1 : 0), mz = (k.has('f') ? 1 : 0) - (k.has('b') ? 1 : 0);
+if (I.stick.x || I.stick.y) { mx = I.stick.x; mz = -I.stick.y; }
+I.mx = mx; I.mz = mz;
+if (!BR.Me.on && (mx || mz)) BR.Cam.drag(-mx * 700 * dt, mz * 700 * dt); // building: keys pan the view
+};
+}
+// ===== build.js =====
+{
+const Bd = BR.Build = { color: '#e8453c', recent: [], cd: 0, placed: 0, aim: null };
+const DEFAULTS = ['#e8453c', '#ff8a1a', '#f7c600', '#2fb24c', '#1e88e5', '#8e44ad', '#ff4f9a', '#ffffff', '#1b1b1f'];
+Bd.init = () => {
+Bd.color = BR.hex(BR.load('color', null)) || DEFAULTS[0];
+const r = BR.load('recent', null);
+Bd.recent = Array.isArray(r) ? r.map(BR.hex).filter(Boolean).slice(0, 9) : [];
+for (const c of DEFAULTS) if (Bd.recent.length < 9 && !Bd.recent.includes(c)) Bd.recent.push(c);
+BR.UI.drawColors();
+};
+Bd.setColor = (hex, remember) => {
+const h = BR.hex(hex); if (!h) return;
+Bd.color = h; BR.save('color', h);
+if (remember) Bd.remember(h);
+BR.UI.drawColors();
+if (Bd.aim && BR.Wall.ghostObj.visible) BR.Wall.ghost(Bd.aim, h);
+};
+Bd.remember = h => { Bd.recent = [h, ...Bd.recent.filter(c => c !== h)].slice(0, 9); BR.save('recent', Bd.recent); };
+Bd.hover = (sx, sy) => { Bd.aim = BR.Wall.pick(sx, sy); BR.Wall.ghost(Bd.aim, Bd.color); };
+Bd.tapAt = (sx, sy, type) => {
+const cell = BR.Wall.pick(sx, sy); if (!cell) return false;
+Bd.aim = cell; BR.Wall.ghost(cell, Bd.color);
+if (type && type !== 'mouse') setTimeout(() => { if (Bd.aim === cell) BR.Wall.ghost(null); }, 700);
+return Bd.place(cell.x, cell.y);
+};
+Bd.place = (x, y) => {
+if (!BR.S.ready) { BR.toast('Still loading the wall...'); return false; }
+if (Bd.cd > 0) { BR.Audio.nope(); BR.UI.ringPulse(); return false; }
+const k = BR.key(x, y), c = Bd.color;
+if (BR.S.colorOf(k) === c) { BR.toast('That block is already this colour'); return false; }
+Bd.cd = CONFIG.COOLDOWN; Bd.placed++;
+BR.S.optimistic(k, c); BR.Audio.clack(); Bd.remember(c); BR.UI.drawColors();
+const rec = { c, t: BR.SV, s: 'web' };
+if (BR.Me.on && BR.Me.name) rec.n = BR.Me.name;
+BR.Net.put('wall/' + k, rec).catch(() => { BR.S.rollback(k); BR.Audio.thud(); BR.toast('That block did not stick (connection problem). Try again.'); });
+return true;
+};
+Bd.update = dt => {
+if (Bd.cd > 0) Bd.cd = Math.max(0, Bd.cd - dt);
+BR.UI.ring(Bd.cd / CONFIG.COOLDOWN);
+BR.S.tick();
+};
+}
+// ===== ui.js =====
+{
+const U = BR.UI = {};
+const F = BR.Filter;
+const pad = n => String(n).padStart(2, '0');
+const setPill = (cls, long, short, tip) => {
+const p = BR.$('pill'); p.className = 'pill ' + cls; p.title = tip || long;
+p.querySelector('span').innerHTML = '<span class="pl">' + BR.esc(long) + '</span><span class="ps">' + BR.esc(short || long) + '</span>';
+};
+U.init = pick => {
+U.pick = pick;
+if (pick.mode === 'demo') {
+BR.$('demoTag').classList.remove('hide');
+setPill('demo', 'Not configured · local demo', 'Demo', pick.bad ? 'CONFIG.DB is not a Firebase URL, so this is a local demo.' : 'CONFIG.DB is not set yet, so this is a local demo: other tabs in this browser are the other players.');
+} else setPill('wait', 'Connecting…', '…');
+BR.on('status', s => {
+if (U.pick.mode === 'demo') return;
+if (s === 'ok') setPill('ok', 'Connected', 'Live', 'Live: everyone on the web and in Roblox shares this wall');
+else if (s === 'off') setPill('off', 'Offline', 'Off', 'Lost the connection - retrying');
+else if (s === 'locked') setPill('off', 'Database locked', 'Locked', 'The Firebase database said Permission denied: its rules are not published yet (see FIREBASE_SETUP.md).');
+else setPill('wait', 'Connecting…', '…');
+});
+BR.on('placed', feedPlace);
+BR.on('chat', feedChat);
+BR.on('mode', m => U.mode(m));
+U.wire();
+U.launch(); setInterval(U.launch, 1000);
+U.mode('build');
+};
+U.launch = () => {
+const ms = CONFIG.LAUNCH - Date.now(), url = /^https:\/\/(www\.)?roblox\.com\//.test(CONFIG.ROBLOX_URL || '') ? CONFIG.ROBLOX_URL : '';
+const lt = BR.$('lTxt'), lc = BR.$('lCount'), bp = BR.$('bPlay');
+let txt, count = '', info;
+if (url) { txt = 'Now open on Roblox!'; bp.href = url; bp.classList.remove('hide'); info = 'The Roblox game is open: press Play on Roblox to jump in.'; }
+else if (ms > 0) {
+const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60;
+txt = 'Opens on Roblox: <b>' + CONFIG.LAUNCH_TEXT + '</b>'; count = (d ? d + 'd ' : '') + pad(h) + 'h ' + pad(m) + 'm ' + pad(s % 60) + 's';
+info = 'The Roblox game opens on <b>' + CONFIG.LAUNCH_TEXT + '</b>. Everything built here before then will already be on the wall.';
+} else { txt = '<b>Opening on Roblox any moment now</b>'; info = 'The Roblox game is opening any moment now.'; }
+if (lt.innerHTML !== txt) lt.innerHTML = txt;
+lc.textContent = count;
+const il = BR.$('infoLaunch'); if (il.innerHTML !== info) il.innerHTML = info;
+};
+let statT = 0;
+U.tick = dt => {
+statT -= dt; if (statT > 0) return; statT = 0.25;
+BR.$('nBlocks').textContent = BR.fmt(BR.Wall.count);
+const w = BR.Players.web + (BR.Me.on ? 1 : 0), r = BR.Players.rbx;
+const html = '<span class="w">' + w + ' on the web</span> · <span class="r">' + r + ' in Roblox</span>';
+const on = BR.$('online'); if (on.innerHTML !== html) on.innerHTML = html;
+};
+const feedAdd = html => {
+const f = BR.$('feed'), li = BR.el('li', '', html);
+f.insertBefore(li, f.firstChild);
+while (f.children.length > 6) f.removeChild(f.lastChild);
+};
+const who = (n, s) => { const name = F.show(n, 16); return name ? BR.esc(name) : s === 'rbx' ? 'A Roblox player' : 'Someone'; };
+const badge = s => s === 'rbx' ? '<em>ROBLOX</em>' : '<em class="w">WEB</em>';
+let feedN = 0, feedSec = 0;
+function feedPlace(k, rec) {
+const sec = Math.floor(Date.now() / 1000); if (sec !== feedSec) { feedSec = sec; feedN = 0; }
+if (++feedN > 4) return; // a burst (someone painting fast, or a reconnect) shouldn't flood the feed
+const c = BR.hex(rec.c), s = rec.s === 'rbx' ? 'rbx' : 'web';
+feedAdd('<i style="background:' + c + '"></i>' + badge(s) + '<span>' + who(rec.n, s) + ' placed a block</span>');
+}
+function feedChat(p) {
+const s = p.coll === 'rbx' ? 'rbx' : 'web';
+feedAdd(badge(s) + '<span><b>' + BR.esc(p.me ? BR.Me.name : p.name || 'Someone') + ':</b> ' + BR.esc(p.msg || '') + '</span>');
+}
+let hintT = 0;
+U.hint = (text, secs) => { const h = BR.$('hint'); h.textContent = text; h.style.opacity = 1; clearTimeout(hintT); hintT = setTimeout(() => { h.style.opacity = 0; }, (secs || 12) * 1000); };
+U.mode = m => {
+const touch = BR.isTouch(), player = m === 'player';
+for (const id of ['stick', 'bJump']) BR.$(id).classList.toggle('hide', !(player && touch));
+BR.$('chatBar').classList.toggle('hide', !player);
+const hb = BR.$('bHop'); hb.textContent = player ? 'LEAVE' : 'HOP IN'; hb.classList.toggle('leave', player);
+U.hint(player
+? (touch ? 'Stick to walk · drag to look · JUMP · tap the wall to build' : 'WASD to walk · drag to look · Space to jump · Enter to chat · click the wall to build')
+: (touch ? 'Tap the wall to place a block · drag to move · pinch to zoom' : 'Click the wall to place a block · drag to move · scroll to zoom'));
+};
+U.ring = frac => {
+const on = frac > 0.001;
+BR.$('cdSw').querySelector('.fg').style.strokeDashoffset = on ? 113.1 * (1 - frac) : 113.1;
+const r = BR.$('ring'); r.classList.toggle('on', on);
+if (on) { const p = BR.Input.last; if (p) { r.style.left = p.x + 'px'; r.style.top = p.y + 'px'; } r.querySelector('.fg').style.strokeDashoffset = 100.5 * (1 - frac); }
+};
+U.ringPulse = () => { const p = BR.$('pick'); p.classList.remove('pulse'); void p.offsetWidth; p.classList.add('pulse'); };
+}
+// ===== ui2.js =====
+{
+const U = BR.UI, Bd = BR.Build;
+const HOP_COLS = ['#e8453c', '#ff8a1a', '#f7c600', '#2fb24c', '#00b8c8', '#1e88e5', '#3d4fd6', '#8e44ad', '#ff4f9a', '#8a5a32', '#ffffff', '#5b6474'];
+let hopColor = null;
+U.drawColors = () => {
+const pick = BR.$('cPick'); if (pick.value.toLowerCase() !== Bd.color) pick.value = Bd.color;
+const box = BR.$('recent'), want = Bd.recent.join(',') + '|' + Bd.color;
+if (box.dataset.k === want) return; box.dataset.k = want; box.innerHTML = '';
+for (const c of Bd.recent) {
+const b = BR.el('button', c === Bd.color ? 'on' : ''); b.type = 'button'; b.style.background = c; b.title = c; b.dataset.c = c; b.setAttribute('aria-label', 'Colour ' + c);
+b.onclick = () => { Bd.setColor(c, false); BR.Audio.tick(); };
+box.appendChild(b);
+}
+};
+U.dialogOpen = () => !BR.$('hopDlg').classList.contains('hide') || !BR.$('infoDlg').classList.contains('hide');
+U.closeDialogs = () => { BR.$('hopDlg').classList.add('hide'); BR.$('infoDlg').classList.add('hide'); };
+const drawHopCols = () => {
+const box = BR.$('hopCols'); box.innerHTML = '';
+const list = HOP_COLS.includes(hopColor) ? HOP_COLS : [hopColor, ...HOP_COLS.slice(0, 11)];
+for (const c of list) {
+const b = BR.el('button', c === hopColor ? 'on' : ''); b.type = 'button'; b.style.background = c; b.dataset.c = c; b.setAttribute('aria-label', 'Colour ' + c);
+b.onclick = () => { hopColor = c; drawHopCols(); BR.Audio.tick(); };
+box.appendChild(b);
+}
+};
+U.openHop = () => {
+hopColor = BR.hex(BR.Me.color) || Bd.color;
+BR.$('hopName').value = BR.Me.name || '';
+BR.$('hopErr').textContent = '';
+drawHopCols(); BR.$('hopDlg').classList.remove('hide');
+if (!BR.isTouch()) setTimeout(() => BR.$('hopName').focus(), 30);
+};
+U.wire = () => {
+const pick = BR.$('cPick');
+pick.addEventListener('input', () => Bd.setColor(pick.value, false));
+pick.addEventListener('change', () => Bd.setColor(pick.value, true));
+BR.$('bHop').onclick = () => { BR.Audio.unlock(); if (BR.Me.on) BR.Me.leave(); else U.openHop(); };
+BR.$('bHopNo').onclick = () => BR.$('hopDlg').classList.add('hide');
+BR.$('hopForm').addEventListener('submit', e => {
+e.preventDefault();
+const r = BR.Filter.name(BR.$('hopName').value);
+if (!r.ok) { BR.$('hopErr').textContent = r.why; BR.Audio.nope(); return; }
+BR.$('hopDlg').classList.add('hide'); BR.$('hopName').blur();
+BR.Me.join(r.value, hopColor || Bd.color);
+});
+BR.$('chatBar').addEventListener('submit', e => {
+e.preventDefault();
+const inp = BR.$('chatIn');
+if (BR.Me.say(inp.value)) inp.value = '';
+if (!BR.isTouch()) inp.blur(); // back to walking with WASD
+});
+BR.$('chatIn').addEventListener('keydown', e => { if (e.key === 'Escape') e.target.blur(); });
+BR.$('bInfo').onclick = () => BR.$('infoDlg').classList.remove('hide');
+BR.$('bInfoOk').onclick = () => { BR.$('infoDlg').classList.add('hide'); BR.save('seen', 1); };
+for (const id of ['hopDlg', 'infoDlg']) BR.$(id).addEventListener('pointerdown', e => { if (e.target.id === id) BR.$(id).classList.add('hide'); });
+const snd = BR.$('bSnd'), paint = m => { snd.classList.toggle('muted', m); snd.setAttribute('aria-pressed', m ? 'true' : 'false'); };
+snd.onclick = () => { BR.Audio.unlock(); BR.Audio.setMuted(!BR.Audio.muted); };
+BR.on('muted', paint); paint(BR.Audio.muted);
+if (!BR.load('seen', 0) && !BR.Q.has('test')) BR.$('infoDlg').classList.remove('hide');
+};
+}
+// ===== tile.js =====
+{
+const R = BR.R;
+const Tl = BR.Tile = {};
+const FONT = {
+B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'], U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+I: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '#####'], L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'], A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'], O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+X: ['#...#', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '#...#'], G: ['.####', '#....', '#....', '#.###', '#...#', '#...#', '.###.'],
+M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'], E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+' ': ['...', '...', '...', '...', '...', '...', '...']
+};
+const LETTER_COLS = ['#e8453c', '#ff8a1a', '#f7c600', '#2fb24c', '#1e88e5', '#8e44ad', '#ff4f9a', '#00b8c8'];
+Tl.cells = () => {
+const out = [], lines = ['BUILD A', 'ROBLOX GAME'], GW = 75;
+let li = 0;
+lines.forEach((txt, row) => {
+const widths = [...txt].map(ch => FONT[ch][0].length), total = widths.reduce((a, b) => a + b + 1, -1);
+let x0 = Math.floor((GW - total) / 2);
+[...txt].forEach((ch, i) => {
+const F = FONT[ch], col = LETTER_COLS[li % LETTER_COLS.length];
+if (ch !== ' ') { li++; for (let y = 0; y < 7; y++) for (let x = 0; x < F[y].length; x++) if (F[y][x] === '#') out.push({ x: x0 + x, y: 17 - row * 9 - y, c: col, L: li }); }
+x0 += widths[i] + 1;
+});
+});
+return out;
+};
+Tl.render = (camPos, look) => {
+const Wd = 1640, Ht = 820, r = R.renderer; r.setPixelRatio(1); r.setSize(Wd, Ht, false);
+const s = new THREE.Scene(), rr = BR.rng(77);
+const sky = BR.canvas(4, 256), g = sky.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+gr.addColorStop(0, '#1f7cff'); gr.addColorStop(0.6, '#79c2ff'); gr.addColorStop(1, '#dff3ff'); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+s.background = R.tex(sky);
+const GW = 104, GH = 34, ox = -(GW - 1), oy = 1, sh = 14, sv = 5;
+const geo = new THREE.BoxGeometry(1.94, 1.94, 1.94), mat = new THREE.MeshLambertMaterial({ map: R.tex(R.studCanvas('#ffffff', 64)) });
+const lit = Tl.cells(), litSet = new Set(lit.map(c => (c.x + sh) + '_' + (c.y + sv)));
+const im = new THREE.InstancedMesh(geo, mat, GW * GH + lit.length), M = new THREE.Matrix4(), C = new THREE.Color();
+let n = 0;
+const pal = ['#d4d9e1', '#dde1e8', '#cfd5de'], speck = ['#9fd3ff', '#ffd6a0', '#c8f0c0', '#f6c8e0'];
+for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+if (litSet.has(x + '_' + y)) continue;
+const c = rr() < 0.05 ? speck[Math.floor(rr() * 4)] : pal[Math.floor(rr() * 3)];
+im.setMatrixAt(n, M.makeTranslation(ox + x * 2, oy + y * 2, -0.1 + rr() * 0.1)); im.setColorAt(n++, C.set(c).convertSRGBToLinear());
+}
+for (const c of lit) {
+im.setMatrixAt(n, M.makeTranslation(ox + (c.x + sh) * 2, oy + (c.y + sv) * 2, 2.2 + rr() * 0.5)); im.setColorAt(n++, C.set(c.c).convertSRGBToLinear());
+}
+im.count = n; im.castShadow = im.receiveShadow = true; s.add(im);
+const fly = [[-70, 50, 16, '#ff8a1a'], [60, 58, 18, '#1e88e5'], [-76, 14, 18, '#2fb24c'], [74, 18, 14, '#ff4f9a']];
+for (const [x, y, z, c] of fly) { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: new THREE.Color(c).convertSRGBToLinear(), map: mat.map })); m.position.set(x, y, z); m.rotation.set(rr(), rr(), rr()); m.scale.setScalar(1.6); m.castShadow = true; s.add(m); }
+const base = new THREE.Mesh(new THREE.BoxGeometry(700, 2, 500), new THREE.MeshLambertMaterial({ color: new THREE.Color('#56b847').convertSRGBToLinear(), map: R.tex(R.studCanvas('#ffffff', 64), 350, 250) }));
+base.position.set(0, -1, 240); base.receiveShadow = true; s.add(base);
+s.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.62));
+const sun = new THREE.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-80, 120, 110); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -140, right: 140, top: 110, bottom: -60, near: 1, far: 500 }); sun.shadow.bias = -0.0006; s.add(sun);
+r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+const cam = new THREE.PerspectiveCamera(40, Wd / Ht, 1, 2000), cp = camPos || [-30, 8, 122], lk = look || [-4, 34, 0];
+cam.position.set(cp[0], cp[1], cp[2]); cam.lookAt(lk[0], lk[1], lk[2]);
+r.render(s, cam);
+return r.domElement.toDataURL('image/png');
+};
+}
+// ===== debug.js =====
+{
+const T = BR.T = {};
+T.state = () => ({
+mode: BR.Net && BR.Net.mode, status: BR.Net && BR.Net.status, ready: BR.S.ready, blocks: BR.Wall.count,
+web: BR.Players.web, rbx: BR.Players.rbx, color: BR.Build.color, cd: BR.Build.cd, me: BR.Me.state(), pill: BR.$('pill').className
+});
+T.cell = (x, y) => { const k = BR.key(x, y), r = BR.S.tree.wall[k]; return { shown: BR.Wall.cols.get(k) || null, stored: r ? r.c : null, n: r ? r.n || null : null, s: r ? r.s || null : null }; };
+T.aimCell = (x, y, dist) => {
+if (BR.Me.on) return BR.Wall.screenOf(x, y);
+BR.Cam.tx = BR.cellX(x); BR.Cam.ty = BR.cellY(y); BR.Cam.td = dist || 60; BR.Cam.snap = true; BR.Cam.update(0.016);
+BR.R.cam.updateMatrixWorld(); return BR.Wall.screenOf(x, y);
+};
+T.players = () => BR.Players.list();
+T.feed = () => [...document.querySelectorAll('#feed li')].map(li => li.textContent);
+T.instColor = (x, y) => { const a = BR.Wall.mesh.instanceColor.array, i = (y * CONFIG.W + x) * 3; return '#' + new THREE.Color(a[i], a[i + 1], a[i + 2]).convertLinearToSRGB().getHexString(); };
+T.finite = () => [...BR.Players.map.values()].filter(p => p.obj).every(p => { let ok = true; p.obj.traverse(o => { if (!isFinite(o.position.x + o.position.y + o.position.z)) ok = false; }); return ok; });
+}
+// ===== main.js =====
+{
+let last = 0, errs = 0;
+const frame = t => {
+requestAnimationFrame(frame);
+const dt = Math.min(0.05, Math.max(0.001, (t - last) / 1000 || 0.016)); last = t;
+try {
+BR.Input.update(dt); BR.Me.update(dt); BR.Build.update(dt); BR.Players.update(dt);
+BR.Wall.update(dt); BR.R.update(dt); BR.Cam.update(dt); BR.UI.tick(dt);
+BR.R.renderer.render(BR.R.scene, BR.R.cam);
+} catch (e) { console.error(e); if (++errs > 5) throw e; }
+};
+const fatal = msg => { const b = BR.$('boot'); b.classList.remove('gone'); b.innerHTML = '<div>' + msg + '<a href="index.html">← Kai.fun</a></div>'; };
+function boot() {
+if (!window.THREE) return fatal('Build a Roblox Game needs Three.js from cdnjs, which did not load.<br>Check your connection and refresh.');
+if (!BR.R.init()) return fatal('Your browser could not start WebGL, which this 3D game needs.');
+if (BR.Q.has('tile')) {
+for (const id of ['top', 'launch', 'side', 'dock', 'hint', 'boot']) BR.$(id).classList.add('hide');
+window.BUILDAROBLOX = true; return;
+}
+BR.Wall.build(BR.R.scene);
+const pick = BR.pickDB();
+BR.Net = pick.mode === 'demo' ? BR.demoNet(pick) : BR.liveNet(pick.base);
+BR.UI.init(pick); BR.Build.init(); BR.Players.init(); BR.Me.init(); BR.Input.init(); BR.Cam.init();
+BR.Net.start((kind, path, data) => BR.S.apply(kind, path, data));
+document.body.classList.toggle('touch', BR.isTouch());
+const unlock = () => BR.Audio.unlock();
+addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+addEventListener('pagehide', () => BR.Me.leave(true));
+requestAnimationFrame(frame);
+setTimeout(() => BR.$('boot').classList.add('gone'), 150);
+window.BUILDAROBLOX = true;
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+}
+</script>
+</body>
+</html>
