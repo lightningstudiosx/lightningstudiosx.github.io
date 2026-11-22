@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One Million Checkboxes · Kai.fun</title>
+<meta name="description" content="One million checkboxes. Check them all. That's it. That's the game.">
+<script src="bdp.js"></script>
+<style>
+body { margin: 8px; background: #fff; }
+#top { background: #fff; }
+h1 { margin: 8px 0; }
+#grid { position: relative; overflow: hidden; }
+#grid input { position: absolute; margin: 0; width: 15px; height: 15px; }
+.hide { display: none !important; }
+#meh { position: fixed; inset: 0; background: #fff; padding: 8px; z-index: 10; transform-origin: 30% 0; }
+#real { position: fixed; inset: 0; z-index: 5; overflow: auto; color: #fff; text-align: center;
+background: radial-gradient(circle at 50% 35%, #5b2bd6 0%, #2a0f6b 45%, #0b0420 100%); font-family: Impact, 'Arial Black', system-ui, sans-serif; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.realIn { position: relative; padding: 9vh 16px 60px; }
+.kicker { font: 700 clamp(12px, 2.4vw, 18px) system-ui, sans-serif; letter-spacing: .25em; color: #ffd84a; }
+.big { font-size: clamp(64px, 17vw, 200px); line-height: .95; margin: 14px 0; letter-spacing: .02em;
+background: linear-gradient(#fff7c2, #ffd23a 45%, #ff8a1f); -webkit-background-clip: text; background-clip: text; color: transparent;
+filter: drop-shadow(0 6px 0 #7a2b00) drop-shadow(0 0 40px rgba(255,200,60,.6)); animation: pop 1.2s cubic-bezier(.2,1.6,.4,1) both, glow 2s ease-in-out 1.2s infinite alternate; }
+@keyframes pop { from { transform: scale(.2) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes glow { to { filter: drop-shadow(0 6px 0 #7a2b00) drop-shadow(0 0 80px rgba(255,220,90,.95)); } }
+.mil { font-size: clamp(26px, 6vw, 56px); color: #7dffb0; text-shadow: 0 4px 0 #0b5a2c; animation: pop 1s .5s both; }
+.sub { font: 500 clamp(15px, 2.6vw, 20px)/1.5 system-ui, sans-serif; max-width: 640px; margin: 18px auto; opacity: .92; animation: pop 1s .8s both; }
+.stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 26px auto; max-width: 760px; animation: pop 1s 1.1s both; }
+.stat { background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.25); border-radius: 16px; padding: 14px 18px; min-width: 150px; }
+.stat b { display: block; font-size: 30px; color: #ffd84a; }
+.stat span { font: 600 12px system-ui, sans-serif; letter-spacing: .12em; opacity: .8; }
+.btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; animation: pop 1s 1.4s both; }
+.rb { font: 700 16px system-ui, sans-serif; padding: 14px 22px; border-radius: 99px; border: 0; cursor: pointer; text-decoration: none;
+background: #ffd84a; color: #2a0f6b; box-shadow: 0 5px 0 #b8860b; }
+.rb.ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.6); }
+body.tiling { margin: 0; overflow: hidden; }
+body.tiling > :not(#tile) { display: none !important; }
+#tile { position: fixed; inset: 0; background: #fff; overflow: hidden; }
+#tile .tg { position: absolute; inset: -4px; display: grid; grid-template-columns: repeat(auto-fill, 34px); grid-auto-rows: 34px; place-items: center; }
+#tile .tg input { width: 24px; height: 24px; margin: 0; }
+#tile .tt { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; border: 6px solid #000; padding: 26px 50px;
+font: bold 132px/1 'Times New Roman', Times, serif; text-align: center; white-space: nowrap; box-shadow: 16px 16px 0 #000; }
+#tile .tt small { display: block; font-size: 104px; }
+</style>
+</head>
+<body>
+<div id="top">
+<a href="index.html">← Kai.fun</a>
+<h1>One Million Checkboxes</h1>
+<p>Check all of the checkboxes. (You can click and drag.)</p>
+<p><b>Checked: <span id="n">0</span> / 1,000,000</b> (<span id="pct">0</span>%)</p>
+<hr>
+</div>
+<div id="grid"></div>
+<div id="meh" class="hide">
+<h1>Congratulations.</h1>
+<p>You have checked all 1,000,000 checkboxes.</p>
+<p><button id="ok">OK</button></p>
+</div>
+<div id="real" class="hide">
+<canvas id="fx"></canvas>
+<div class="realIn">
+<div class="kicker">JUST KIDDING. HERE'S YOUR REAL PRIZE:</div>
+<div class="big">YOU DID IT</div>
+<div class="mil">1,000,000 / 1,000,000</div>
+<div class="sub">You checked <b>one million</b> checkboxes. Nobody asked you to. You did it anyway.</div>
+<div class="stats" id="stats"></div>
+<div class="btns"><button id="again" class="rb">Uncheck everything &amp; start over</button><a class="rb ghost" href="index.html">Back to Kai.fun</a></div>
+</div>
+</div>
+<script>
+"use strict";
+// ===== grid.js =====
+{
+const OMC = window.OMC = { N: 1000000, count: 0, clicks: 0, start: 0, spent: 0 };
+const N = OMC.N, CELL = 20, KEY = 'omc_v1';
+const bits = new Uint8Array(N / 8);
+const grid = document.getElementById('grid'), nEl = document.getElementById('n'), pctEl = document.getElementById('pct');
+let cols = 1, pool = new Map(), paint = null, saveT = 0;
+const bit = i => (bits[i >> 3] >> (i & 7)) & 1;
+function setBit(i, v) {
+  if (i < 0 || i >= N || bit(i) === v) return;
+  if (v) { bits[i >> 3] |= 1 << (i & 7); OMC.count++; } else { bits[i >> 3] &= ~(1 << (i & 7)); OMC.count--; }
+  const el = pool.get(i); if (el) el.checked = !!v;
+  if (!OMC.start) OMC.start = Date.now();
+  OMC.clicks++;
+  changed();
+}
+function changed() {
+  nEl.textContent = OMC.count.toLocaleString('en-US');
+  pctEl.textContent = (OMC.count / N * 100).toFixed(OMC.count === N ? 0 : 4);
+  clearTimeout(saveT); saveT = setTimeout(save, 800);
+  if (OMC.count === N) { save(); OMC.onWin && OMC.onWin(); }
+}
+function save() {
+  try {
+    let s = ''; for (let i = 0; i < bits.length; i += 8192) s += String.fromCharCode.apply(null, bits.subarray(i, i + 8192));
+    localStorage.setItem(KEY, JSON.stringify({ b: btoa(s), clicks: OMC.clicks, start: OMC.start }));
+  } catch (e) { /* no storage: progress lasts until the tab closes */ }
+}
+function load() {
+  try {
+    const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!j || !j.b) return;
+    const s = atob(j.b); for (let i = 0; i < s.length && i < bits.length; i++) bits[i] = s.charCodeAt(i);
+    OMC.clicks = j.clicks || 0; OMC.start = j.start || 0;
+    let c = 0; for (let i = 0; i < bits.length; i++) { let x = bits[i]; while (x) { c += x & 1; x >>= 1; } }
+    OMC.count = c;
+  } catch (e) { /* corrupt or blocked: start fresh */ }
+}
+OMC.reset = () => { bits.fill(0); OMC.count = 0; OMC.clicks = 0; OMC.start = 0; pool.forEach(el => { el.checked = false; }); changed(); save(); };
+function layout() {
+  cols = Math.max(1, Math.floor(grid.clientWidth / CELL));
+  grid.style.height = Math.ceil(N / cols) * CELL + 'px';
+  pool.forEach(el => el.remove()); pool.clear();
+  render();
+}
+function render() {
+  const top = grid.getBoundingClientRect().top, r0 = Math.max(0, Math.floor(-top / CELL) - 4);
+  const r1 = Math.min(Math.ceil(N / cols), Math.ceil((innerHeight - top) / CELL) + 4);
+  const a = r0 * cols, b = Math.min(N, r1 * cols), spare = [];
+  pool.forEach((el, i) => { if (i < a || i >= b) { spare.push(el); pool.delete(i); } });
+  for (let i = a; i < b; i++) {
+    if (pool.has(i)) continue;
+    let el = spare.pop();
+    if (!el) { el = document.createElement('input'); el.type = 'checkbox'; grid.appendChild(el); }
+    el.dataset.i = i; el.title = '#' + (i + 1).toLocaleString('en-US'); el.checked = !!bit(i);
+    el.style.left = (i % cols) * CELL + 'px'; el.style.top = Math.floor(i / cols) * CELL + 'px';
+    pool.set(i, el);
+  }
+  spare.forEach(el => el.remove());
+}
+const idxAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.dataset && el.dataset.i !== undefined ? +el.dataset.i : -1; };
+grid.addEventListener('pointerdown', e => {
+  const i = e.target.dataset ? +e.target.dataset.i : NaN; if (isNaN(i)) return;
+  paint = bit(i) ? 0 : 1; setBit(i, paint);
+  if (e.pointerType !== 'mouse') paint = null;   // touch: tap only, so the page can still scroll
+});
+addEventListener('pointermove', e => { if (paint !== null && e.buttons & 1) { const i = idxAt(e.clientX, e.clientY); if (i >= 0) setBit(i, paint); } });
+addEventListener('pointerup', () => { paint = null; });
+grid.addEventListener('click', e => {
+  const el = e.target; if (!el.dataset || el.dataset.i === undefined) return;
+  const i = +el.dataset.i;
+  if (e.detail === 0) setBit(i, bit(i) ? 0 : 1);   // keyboard (space bar)
+  e.preventDefault(); requestAnimationFrame(() => { el.checked = !!bit(i); });
+});
+addEventListener('scroll', render, { passive: true });
+addEventListener('resize', layout);
+OMC.init = () => { load(); layout(); addEventListener('beforeunload', save); nEl.textContent = OMC.count.toLocaleString('en-US'); pctEl.textContent = (OMC.count / N * 100).toFixed(4); };
+}
+// ===== confetti.js =====
+{
+const OMC = window.OMC;
+OMC.confetti = cv => {
+  const g = cv.getContext('2d'), P = [], COL = ['#ffd84a', '#ff5fa2', '#7dffb0', '#5cc8ff', '#ffffff', '#ff8a1f', '#b48cff'];
+  let W, H, run = true, t = 0, last = performance.now();
+  const size = () => { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); };
+  size(); addEventListener('resize', size);
+  const flake = (x, y, vx, vy) => P.push({ x, y, vx, vy, r: Math.random() * 6.28, vr: (Math.random() - .5) * 12, w: 6 + Math.random() * 8, h: 4 + Math.random() * 6,
+    c: COL[Math.random() * COL.length | 0], life: 6 + Math.random() * 3, spark: false });
+  const burst = (x, y) => {
+    const c = COL[Math.random() * COL.length | 0];
+    for (let i = 0; i < 70; i++) { const a = Math.random() * 6.28, s = 120 + Math.random() * 340;
+      P.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1 + Math.random() * .8, c, spark: true }); }
+  };
+  for (let i = 0; i < 260; i++) flake(W / 2, H * .45, (Math.random() - .5) * 1400, -300 - Math.random() * 900);
+  const frame = now => {
+    if (!run) { g.clearRect(0, 0, W, H); return; }
+    const dt = Math.min(.04, (now - last) / 1000); last = now; t += dt;
+    if (t < 9 && Math.random() < dt * 9) flake(Math.random() * W, -20, (Math.random() - .5) * 80, 60 + Math.random() * 120);
+    if (t < 8 && Math.random() < dt * 1.6) burst(W * (.15 + Math.random() * .7), H * (.1 + Math.random() * .4));
+    g.clearRect(0, 0, W, H);
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i]; p.life -= dt;
+      if (p.life <= 0 || p.y > H + 40) { P.splice(i, 1); continue; }
+      if (p.spark) {
+        p.vx *= 1 - 1.8 * dt; p.vy = p.vy * (1 - 1.8 * dt) + 220 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        g.globalAlpha = Math.min(1, p.life); g.fillStyle = p.c; g.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      } else {
+        p.vx *= 1 - 1.2 * dt; p.vy = Math.min(p.vy + 900 * dt, 160 + Math.sin(t * 3 + p.r) * 40); p.x += (p.vx + Math.sin(t * 2 + p.r) * 30) * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+        g.globalAlpha = Math.min(1, p.life); g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.scale(1, Math.abs(Math.cos(p.r * 1.3)) + .15);
+        g.fillStyle = p.c; g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); g.restore();
+      }
+    }
+    g.globalAlpha = 1;
+    if (P.length || t < 9) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+  OMC.stopConfetti = () => { run = false; };
+};
+}
+// ===== win.js =====
+{
+const OMC = window.OMC, $ = id => document.getElementById(id);
+let won = false;
+function fanfare() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), t0 = ac.currentTime + 0.05;
+    const note = (f, t, d, type, v) => {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0 + t); g.gain.linearRampToValueAtTime(v, t0 + t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t0 + t + d);
+      o.connect(g); g.connect(ac.destination); o.start(t0 + t); o.stop(t0 + t + d + 0.05);
+    };
+    [[523, 0], [659, .12], [784, .24], [1047, .36], [784, .52], [1047, .64]].forEach(([f, t]) => { note(f, t, .3, 'square', .07); note(f / 2, t, .3, 'triangle', .1); });
+    [1047, 1319, 1568, 2093].forEach(f => note(f, .9, 1.6, 'sawtooth', .035));
+    note(130.8, .9, 1.8, 'triangle', .2);
+  } catch (e) { /* no audio: fine */ }
+}
+function thud() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.setValueAtTime(120, ac.currentTime); o.frequency.exponentialRampToValueAtTime(35, ac.currentTime + .4);
+    g.gain.setValueAtTime(.5, ac.currentTime); g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .5);
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + .55);
+  } catch (e) { /* no audio */ }
+}
+function fmtTime(ms) {
+  const s = Math.max(1, Math.round(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + m + 'm' : m ? m + 'm ' + (s % 60) + 's' : s + 's';
+}
+function showReal() {
+  const r = $('real'), took = OMC.start ? Date.now() - OMC.start : 0;
+  const st = [[fmtTime(took), 'TIME SPENT'], [OMC.clicks.toLocaleString('en-US'), 'BOXES TOGGLED'], [Math.max(0, (OMC.clicks - OMC.N) / 2).toLocaleString('en-US'), 'BOXES UNCHECKED BY MISTAKE'],
+    [(took ? (OMC.N / (took / 1000)).toFixed(1) : '∞'), 'BOXES PER SECOND']];
+  $('stats').innerHTML = st.map(([b, s]) => '<div class="stat"><b>' + b + '</b><span>' + s + '</span></div>').join('');
+  r.classList.remove('hide');
+  fanfare(); OMC.confetti($('fx'));
+}
+function fall() {
+  const m = $('meh'); let y = 0, v = 0, rot = 0, t = 0, last = performance.now();
+  $('real').classList.remove('hide');
+  thud();
+  const step = now => {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+    if (t < 0.45) { m.style.transform = 'rotate(' + Math.sin(t * 40) * 2 + 'deg)'; requestAnimationFrame(step); return; }
+    v += 2600 * dt; y += v * dt; rot += 45 * dt;
+    m.style.transform = 'translateY(' + y + 'px) rotate(' + rot + 'deg)';
+    if (y < innerHeight * 1.6) requestAnimationFrame(step);
+    else { m.classList.add('hide'); m.style.transform = ''; showReal(); }
+  };
+  requestAnimationFrame(step);
+}
+OMC.onWin = () => {
+  if (won) return; won = true;
+  $('meh').classList.remove('hide');
+  let fell = false; const go = () => { if (!fell) { fell = true; fall(); } };
+  $('ok').onclick = go; setTimeout(go, 3500);
+};
+$('again').addEventListener('click', () => {
+  if (!confirm('Uncheck all 1,000,000 checkboxes and start over?')) return;
+  OMC.reset(); won = false; OMC.stopConfetti && OMC.stopConfetti();
+  $('real').classList.add('hide'); scrollTo(0, 0);
+});
+function tileView() {
+  document.body.classList.add('tiling');
+  const t = document.createElement('div'); t.id = 'tile'; document.body.appendChild(t);
+  let h = '<div class="tg">'; for (let i = 0; i < 1300; i++) h += '<input type="checkbox"' + ((i * 7919) % 11 < 4 ? ' checked' : '') + '>';
+  t.innerHTML = h + '</div><div class="tt">ONE MILLION<small>CHECKBOXES</small></div>';
+  window.TILE_READY = true;
+}
+if (/[?&]tile\b/.test(location.search)) tileView(); else OMC.init();
+}
+</script>
+</body>
+</html>
