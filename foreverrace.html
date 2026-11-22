@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The Forever Race · Kai.fun</title>
+<meta name="description" content="A pixel-art race between 100 real things at their real speeds, from a houseplant creeping nanometres toward the window to a snail, a cheetah, a jet, the Parker Solar Probe and light itself. It started the first time you opened it and never stops.">
+<meta name="theme-color" content="#120f2a">
+<script src="bdp.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg: #120f2a; --panel: #221c4a; --panel2: #2f2766; --edge: #07060f; --ink: #1a1220; --hi: #fff6c0; --txt: #e9e4ff; --dim: #b9b2d6;
+--gold: #f5c842; --mint: #8fe0b0; --cyan: #7ad8f4; --red: #e05050; --pink: #ffa6c8;
+--hfont: 'Press Start 2P', 'Pixelify Sans', ui-monospace, monospace;
+--bfont: 'Pixelify Sans', 'Press Start 2P', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+background: var(--bg); color: var(--txt); font: 16px/1.3 var(--bfont); display: flex; flex-direction: column;
+height: 100vh; height: 100dvh; -webkit-tap-highlight-color: transparent; font-variant-ligatures: none;
+}
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+button, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; }
+.hide { display: none !important; }
+.pbtn, #kai, #clock, #modalIn, .toast, .badge {
+box-shadow: 0 -3px 0 0 var(--edge), 0 3px 0 0 var(--edge), -3px 0 0 0 var(--edge), 3px 0 0 0 var(--edge), inset 0 -3px 0 0 rgba(0, 0, 0, .28), inset 0 3px 0 0 rgba(255, 255, 255, .14);
+border-radius: 0;
+}
+#top { flex: 0 0 auto; display: flex; align-items: center; gap: 12px 14px; padding: 10px 14px 10px; background: var(--panel); border-bottom: 3px solid var(--edge); position: relative; z-index: 20; flex-wrap: wrap; }
+#kai { font: 10px/1 var(--hfont); color: var(--hi); background: var(--panel2); padding: 9px 9px 8px; text-decoration: none; white-space: nowrap; }
+#kai:hover { background: #3d3480; }
+#ttl { margin: 0; font: 17px/1 var(--hfont); color: var(--gold); text-shadow: 3px 3px 0 #9a4210; white-space: nowrap; letter-spacing: 1px; }
+#clock { display: flex; flex-direction: column; align-items: center; background: #0b0a14; padding: 6px 12px 6px; margin: 0 auto; min-width: 230px; }
+#clockLbl { font: 8px/1 var(--hfont); color: var(--mint); letter-spacing: 1px; }
+#clockT { font: 18px/1.2 var(--hfont); color: var(--hi); font-weight: 400; margin-top: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+body.warping #clock { background: #3a1060; }
+body.warping #clockLbl { color: var(--pink); }
+body.warping #clockT { color: var(--cyan); }
+#btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.pbtn { font: 10px/1 var(--hfont); background: var(--gold); color: var(--ink); padding: 9px 10px 8px; white-space: nowrap; }
+.pbtn:hover { filter: brightness(1.08); }
+.pbtn:active { transform: translateY(2px); }
+.pbtn.alt { background: #e9e0ff; }
+.pbtn.warp { background: var(--cyan); }
+.pbtn.warp.on { background: var(--pink); }
+.pbtn.red { background: var(--red); color: #fff; }
+.pbtn:disabled { opacity: .45; cursor: default; }
+.pbtn:focus-visible, #kai:focus-visible, #lanes:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+#logN { font-style: normal; color: #9a4210; }
+#warpBar { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 8px 14px; background: #3a1060; color: #fff; border-bottom: 3px solid var(--edge);
+background-image: repeating-linear-gradient(135deg, rgba(255, 166, 200, .14) 0 12px, transparent 12px 24px); z-index: 19; }
+#warpBar b { font: 11px/1.3 var(--hfont); color: var(--pink); }
+#warpTxt { font: 15px/1.2 var(--bfont); color: var(--cyan); }
+#warpBar .wnote { font: 14px/1.2 var(--bfont); color: #f1e6ff; }
+#warpOff { margin-left: auto; background: var(--pink); }
+#stage { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+#cv { position: absolute; left: 0; top: 0; }
+#lanes { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; cursor: pointer; overscroll-behavior: contain; scrollbar-color: #3a3172 #07060f; }
+#spacer { width: 1px; }
+#bFast { position: absolute; right: 14px; bottom: 12px; z-index: 5; font-size: 9px; opacity: .92; }
+#hint { flex: 0 0 auto; margin: 0; padding: 6px 12px 7px; text-align: center; font: 14px/1.2 var(--bfont); color: var(--dim); background: #0b0a14; border-top: 3px solid var(--edge); }
+@media (max-width: 860px) {
+#top { gap: 8px 8px; padding: 8px 10px; }
+#ttl { font-size: 13px; }
+#clock { order: 3; flex: 1 1 100%; flex-direction: row; justify-content: center; gap: 10px; padding: 6px 8px; min-width: 0; }
+#clockLbl { font-size: 7px; }
+#clockT { font-size: 15px; margin-top: 0; }
+#btns { order: 4; width: 100%; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+#btns .pbtn { padding: 9px 2px 8px; font-size: 8px; text-align: center; }
+#kai { font-size: 9px; padding: 8px 7px 7px; }
+#hint { font-size: 12px; padding: 5px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 560px) {
+#btns { grid-template-columns: repeat(3, 1fr); gap: 9px 8px; }
+#btns .pbtn { font-size: 9px; }
+#warpBar { padding: 6px 10px; gap: 4px 10px; }
+#warpBar .wnote { font-size: 12px; }
+#warpOff { margin-left: 0; font-size: 9px; }
+#bFast { right: 8px; bottom: 8px; font-size: 8px; padding: 8px 7px 7px; }
+}
+@media (max-width: 370px) { #ttl { font-size: 11px; } #clockT { font-size: 13px; } }
+#focus { flex: 0 0 auto; background: #1a1540; border-bottom: 3px solid var(--edge); z-index: 10; }
+#fview { width: 100%; background: #07060f; border-bottom: 3px solid var(--edge); }
+#finfo { display: grid; grid-template-columns: 1.1fr 1fr; gap: 6px 22px; padding: 10px 14px 10px; }
+.fh { display: flex; align-items: center; gap: 10px; }
+.badge { font: 9px/1 var(--hfont); background: var(--gold); color: var(--ink); padding: 6px 7px 5px; }
+#fName { margin: 0; font: 600 21px/1.1 var(--bfont); color: #fff; }
+#fSpeed { font: 14px/1.2 var(--bfont); color: var(--dim); margin-top: 3px; }
+.fodo { margin-top: 4px; white-space: nowrap; overflow: hidden; }
+#fDist { font: 20px/1.2 var(--hfont); color: var(--gold); font-weight: 400; font-variant-numeric: tabular-nums; }
+#fUnit { font: 16px/1 var(--bfont); color: var(--hi); }
+#fSci { font: 13px/1.2 var(--bfont); color: var(--cyan); }
+#fNextT { margin: 6px 0 0; font: 15px/1.25 var(--bfont); color: var(--mint); }
+#fGap { margin: 3px 0 0; font: 13px/1.25 var(--bfont); color: var(--dim); }
+#fFact { margin: 0; font: 16px/1.3 var(--bfont); color: var(--txt); }
+.fsrc { margin: 6px 0 0; font: 12px/1.35 var(--bfont); color: #8f88b2; }
+.fbtns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.fbtns .pbtn { font-size: 8px; padding: 8px 8px 7px; }
+@media (max-width: 760px) {
+#finfo { grid-template-columns: 1fr; padding: 7px 10px 8px; gap: 2px; }
+#fName { font-size: 17px; }
+#fDist { font-size: 15px; }
+#fFact { font-size: 13px; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fsrc { display: none; }
+#fNextT { font-size: 13px; margin-top: 2px; }
+#fGap { display: none; }
+#fSci, #fSpeed { font-size: 12px; }
+.fbtns { margin-top: 6px; gap: 8px; }
+.fbtns .pbtn { font-size: 7px; padding: 7px 6px 6px; }
+}
+#modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(7, 6, 15, .76); padding: 12px; }
+#modalIn { background: var(--panel); width: 100%; max-width: 620px; max-height: calc(100dvh - 30px); display: flex; flex-direction: column; }
+#modalIn.wide { max-width: 980px; }
+#modalIn.mid { max-width: 720px; }
+#modalIn.small { max-width: 480px; }
+.mhead { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 3px solid var(--edge); }
+.mhead b { font: 12px/1.3 var(--hfont); color: var(--gold); margin-right: auto; }
+.mx { font-size: 10px; }
+.mbody { overflow-y: auto; overflow-x: hidden; padding: 12px 14px 14px; }
+.mbody p { margin: 0 0 10px; font: 15px/1.35 var(--bfont); }
+.mbody p.big { font: 600 18px/1.3 var(--bfont); color: var(--hi); }
+.mrow { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+.trackC { width: 100%; height: 150px; margin-bottom: 10px; background: #120f2a; }
+.stand { display: flex; flex-direction: column; gap: 3px; }
+.srow { display: grid; grid-template-columns: 44px 30px 1fr auto auto; align-items: center; gap: 10px; text-align: left; background: #1a1540; padding: 4px 8px; }
+.srow:hover { background: #2f2766; }
+.srow .pos { font: 9px/1 var(--hfont); color: var(--gold); }
+.srow .ico { max-height: 24px; max-width: 30px; justify-self: center; }
+.srow .nm { font: 600 15px/1.1 var(--bfont); color: #fff; }
+.srow .dd { font: 15px/1.1 var(--bfont); color: var(--gold); text-align: right; font-variant-numeric: tabular-nums; }
+.srow .gp { font: 12px/1.1 var(--bfont); color: var(--dim); text-align: right; min-width: 150px; }
+@media (max-width: 600px) { .srow { grid-template-columns: 36px 26px 1fr auto; gap: 6px; } .srow .gp { display: none; } .srow .nm, .srow .dd { font-size: 13px; } }
+.crow { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.crow select { flex: 1 1 0; min-width: 0; background: #0b0a14; color: var(--hi); border: 3px solid var(--edge); padding: 7px 6px; font: 15px/1.2 var(--bfont); }
+.cpics { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; }
+.cpic { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; text-align: center; font: 13px/1.2 var(--bfont); color: var(--dim); }
+.cpic canvas { max-width: 100%; height: auto; }
+.vs { font: 12px/1 var(--hfont); color: var(--pink); }
+.cout { background: #0b0a14; padding: 12px 14px 4px; margin-bottom: 12px; }
+.tabs { display: flex; gap: 10px; margin-bottom: 10px; }
+.note { color: var(--dim); font-size: 14px !important; }
+ol.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+ol.log li { display: grid; grid-template-columns: 112px 30px 1fr; gap: 10px; align-items: center; background: #1a1540; padding: 5px 8px; cursor: pointer; font: 14px/1.25 var(--bfont); }
+ol.log li:hover { background: #2f2766; }
+ol.log li.more { display: block; cursor: default; color: var(--dim); }
+ol.log .when { font: 13px/1.1 var(--bfont); color: var(--mint); font-variant-numeric: tabular-nums; }
+ol.log .ico { max-height: 22px; max-width: 30px; justify-self: center; }
+@media (max-width: 600px) { ol.log li { grid-template-columns: 80px 24px 1fr; gap: 6px; font-size: 13px; } }
+#toasts { position: fixed; right: 14px; bottom: 44px; z-index: 60; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; max-width: calc(100vw - 28px); }
+.toast { display: flex; align-items: center; gap: 10px; background: #233a2c; color: #e8ffd8; padding: 9px 12px; max-width: 380px; pointer-events: auto; cursor: pointer;
+transform: translateX(40px); opacity: 0; transition: transform .3s, opacity .3s; }
+.toast.on { transform: none; opacity: 1; }
+.toast.off { opacity: 0; transform: translateY(8px); }
+.toast.pre { background: #3a1060; color: #ffe8f4; }
+.toast.away, .toast.more { background: #2f2766; color: var(--hi); }
+.toast .ico { flex: 0 0 auto; max-width: 52px; max-height: 40px; }
+.toast .tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.toast b { font: 8px/1.4 var(--hfont); color: var(--gold); }
+.toast.pre b { color: var(--pink); }
+.toast span { font: 15px/1.25 var(--bfont); }
+@media (max-width: 560px) { #toasts { left: 10px; right: 10px; bottom: 36px; align-items: stretch; } .toast { max-width: none; } .toast span { font-size: 13px; } }
+body.sheetMode { overflow: auto; height: auto; display: block; }
+body.sheetMode > *:not(#sheet):not(script) { display: none !important; }
+#sheet { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; background: #2f2766; }
+#sheet .sc { background: #120f2a; padding: 6px; display: flex; flex-direction: column; align-items: center; }
+#sheet .sc p { margin: 4px 0 0; font: 12px/1 var(--bfont); color: #fff; }
+body.tileMode { overflow: hidden; background: #000; }
+body.tileMode > *:not(#tile):not(script) { display: none !important; }
+#tile { position: fixed; left: 0; top: 0; width: 1640px; height: 820px; }
+</style>
+</head>
+<body>
+<header id="top">
+  <a id="kai" href="index.html">← Kai.fun</a>
+  <h1 id="ttl">THE FOREVER RACE</h1>
+  <div id="clock" title="How long this race has been running. It started the first time you opened this page.">
+    <span id="clockLbl">RACE TIME</span><b id="clockT" aria-live="off">00:00:00.0</b>
+  </div>
+  <nav id="btns">
+    <button id="bStand" class="pbtn" title="Everyone's position and the gaps between them">STANDINGS</button>
+    <button id="bCmp" class="pbtn alt" title="Compare any two racers">COMPARE</button>
+    <button id="bLog" class="pbtn alt" title="Every milestone so far">LOG <i id="logN"></i></button>
+    <button id="bW60" class="pbtn warp" title="Preview the future at 60x speed (does not change the real race)">⏩×60</button>
+    <button id="bW3600" class="pbtn warp" title="Preview the future at 3600x speed (does not change the real race)">⏩×3600</button>
+    <button id="bRestart" class="pbtn red" title="Start a brand new race (asks first)">RESTART</button>
+  </nav>
+</header>
+<div id="warpBar" class="hide" role="status">
+  <b>TIME-WARP PREVIEW <span id="warpK"></span></b><span id="warpTxt"></span><span class="wnote">Only a preview of the future: the real race is not changed.</span>
+  <button id="warpOff" class="pbtn">BACK TO REAL TIME</button>
+</div>
+<section id="focus" class="hide" aria-label="Following one racer">
+  <div id="fview"><canvas id="fcv" aria-hidden="true"></canvas></div>
+  <div id="finfo">
+    <div class="fcol">
+      <div class="fh"><span id="fRank" class="badge"></span><h2 id="fName"></h2></div>
+      <div id="fSpeed"></div>
+      <div class="fodo"><b id="fDist">0</b> <span id="fUnit"></span></div>
+      <div id="fSci"></div>
+      <p id="fNextT"></p>
+      <p id="fGap"></p>
+    </div>
+    <div class="fcol">
+      <p id="fFact"></p>
+      <p class="fsrc"><span id="fSrc"></span><br><span id="fScale"></span></p>
+      <div class="fbtns">
+        <button id="fPrev" class="pbtn alt" title="Follow the next slower racer (←)" aria-label="Slower racer">&lt; SLOWER</button>
+        <button id="fNext" class="pbtn alt" title="Follow the next faster racer (→)" aria-label="Faster racer">FASTER &gt;</button>
+        <button id="fCmp" class="pbtn alt">COMPARE</button>
+        <button id="fGo" class="pbtn alt" title="Scroll the list to this lane">LANE</button>
+        <button id="fClose" class="pbtn alt" aria-label="Stop following" title="Stop following (Esc)">✕</button>
+      </div>
+    </div>
+  </div>
+</section>
+<main id="stage">
+  <canvas id="cv" aria-hidden="true"></canvas>
+  <div id="lanes" tabindex="0" aria-label="100 racing lanes, slowest at the top, light at the bottom. Tap a lane to follow that racer."><div id="spacer"></div></div>
+  <button id="bFast" class="pbtn alt">JUMP TO LIGHT</button>
+</main>
+<p id="hint">100 racers at their real speeds · tap a lane to follow it · slowest at the top, light at the bottom</p>
+<div id="modal" class="hide" role="dialog" aria-modal="true"><div id="modalIn"></div></div>
+<div id="toasts" aria-live="polite"></div>
+<div id="sheet" class="hide" aria-hidden="true"></div>
+<div id="tile" class="hide" aria-hidden="true"></div>
+<script>
+"use strict";
+// ===== core.js =====
+{
+const FR = window.FR = window.FR || {};
+FR.Q = new URLSearchParams(location.search);
+FR.$ = s => document.querySelector(s);
+FR.clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+FR.hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + (c || 0) * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+FR.rng = seed => { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+FR.el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const PRE = 'kaifun.foreverrace.';
+FR.store = {
+  ok: true,
+  get(k, d) { try { const v = localStorage.getItem(PRE + k); return v == null ? d : JSON.parse(v); } catch (e) { this.ok = false; return d; } },
+  set(k, v) { try { localStorage.setItem(PRE + k, JSON.stringify(v)); } catch (e) { this.ok = false; } },
+  del(k) { try { localStorage.removeItem(PRE + k); } catch (e) { } }
+};
+FR.R = [];
+FR.add = (id, name, v, th, vb, fact, src, who) => FR.R.push({ id, name, v, th, vb: vb || 'travelled', fact, src, who: who || 'The ' + name.toLowerCase() });
+FR.T = {
+  start: 0, warp: 0, wRace: 0, wPerf: 0, fresh: false, base: 0, perf0: 0,
+  init() {
+    let s = FR.store.get('start', null);
+    const now = Date.now();
+    if (typeof s !== 'number' || !isFinite(s) || s > now + 60000 || s < 946684800000) { s = now; FR.store.set('start', s); this.fresh = true; }
+    this.start = s; this.sync();
+  },
+  sync() { this.base = Date.now(); this.perf0 = performance.now(); },
+  wall() { return this.base + (performance.now() - this.perf0); },
+  real() { return Math.max(0, (this.wall() - this.start) / 1000); },
+  now() { return this.warp ? this.wRace + (performance.now() - this.wPerf) / 1000 * this.warp : this.real(); },
+  setWarp(k) { if (k) { this.wRace = this.now(); this.wPerf = performance.now(); } this.warp = k || 0; },
+  restart() { this.warp = 0; this.start = Date.now(); this.sync(); FR.store.set('start', this.start); FR.store.set('seen', 0); }
+};
+FR.dist = (i, t) => FR.R[i].v * (t == null ? FR.T.now() : t);
+FR.pxps = v => 150 * Math.pow(v / 29, 0.33);
+FR.mPerPx = v => v / FR.pxps(v);
+FR.compare = (a, b) => {
+  const A = FR.R[a], B = FR.R[b], fast = A.v >= B.v ? a : b, slow = fast === a ? b : a;
+  const vf = FR.R[fast].v, vs = FR.R[slow].v;
+  return { fast, slow, metres: vf, secs: vf / vs, ratio: vf / vs };
+};
+FR.idx = id => FR.R.findIndex(r => r.id === id);
+}
+// ===== fmt.js =====
+{
+const FR = window.FR;
+const LY = 9.4607304725808e15, AU = 1.495978707e11, EARTH = 4.0075e7;
+FR.K = { LY, AU, EARTH, C: 299792458, YEAR: 31557600, MOON: 3.844e8, UNIVERSE: 13.8e9 * 31557600 };
+const grp = s => { const [a, b] = s.split('.'); return a.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (b != null ? '.' + b : ''); };
+FR.num = (v, sig) => {
+  sig = sig || 3; if (!isFinite(v)) return '∞'; if (v === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(v))), dec = FR.clamp(sig - 1 - e, 0, 12);
+  let s = v.toFixed(dec); if (Math.abs(+s) >= Math.pow(10, e + 1) && dec > 0) s = v.toFixed(dec - 1);
+  return grp(s);
+};
+const DU = [
+  [1e-6, 'nm', 1e-9], [1e-3, 'µm', 1e-6], [1e-2, 'mm', 1e-3], [1, 'cm', 1e-2], [1e3, 'm', 1], [EARTH, 'km', 1e3],
+  [1e10, '× round Earth', EARTH], [1e13, 'AU', AU], [2.59020684e13, 'light-hours', 1.0792528488e12],
+  [LY, 'light-days', 2.59020684e13], [Infinity, 'light-years', LY]
+];
+FR.distParts = (m, sig) => {
+  m = Math.max(0, m); let u = DU[0];
+  for (const d of DU) { u = d; if (m < d[0]) break; }
+  return [FR.num(m / u[2], sig || 4), u[1]];
+};
+FR.fmtDist = (m, sig) => { const p = FR.distParts(m, sig); return p[0] + ' ' + p[1]; };
+FR.lightTime = m => {
+  const s = m / FR.K.C;
+  if (s < 60) return FR.num(s, 3) + ' light-seconds'; if (s < 3600) return FR.num(s / 60, 3) + ' light-minutes';
+  if (s < 86400) return FR.num(s / 3600, 3) + ' light-hours'; if (s < FR.K.YEAR) return FR.num(s / 86400, 3) + ' light-days';
+  return FR.num(s / FR.K.YEAR, 3) + ' light-years';
+};
+const big = y => y >= 1e9 ? FR.num(y / 1e9, 3) + ' billion years' : y >= 1e6 ? FR.num(y / 1e6, 3) + ' million years' : y >= 1e4 ? FR.num(y / 1e3, 3) + ' thousand years' : FR.num(y, 3) + (y < 1.995 ? ' year' : ' years');
+FR.fmtDur = (s, sig) => {
+  sig = sig || 3;
+  if (s < 1e-6) return FR.num(s * 1e9, sig) + ' nanoseconds'; if (s < 1e-3) return FR.num(s * 1e6, sig) + ' microseconds';
+  if (s < 1) return FR.num(s * 1e3, sig) + ' milliseconds'; if (s < 60) return FR.num(s, sig) + (s < 1.995 ? ' second' : ' seconds');
+  if (s < 3600) return FR.num(s / 60, sig) + ' minutes'; if (s < 86400) return FR.num(s / 3600, sig) + ' hours';
+  if (s < FR.K.YEAR) return FR.num(s / 86400, sig) + ' days'; return big(s / FR.K.YEAR);
+};
+FR.fmtShort = s => {
+  if (!isFinite(s)) return '∞'; if (s < 1) return '<1s'; if (s < 60) return Math.floor(s) + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.floor(s % 60) + 's'; if (s < 86400) return Math.floor(s / 3600) + 'h ' + Math.floor(s / 60 % 60) + 'm';
+  if (s < FR.K.YEAR) return Math.floor(s / 86400) + 'd ' + Math.floor(s / 3600 % 24) + 'h'; return big(s / FR.K.YEAR).replace(' years', 'y').replace(' year', 'y');
+};
+const p2 = n => (n < 10 ? '0' : '') + n;
+FR.fmtClock = s => {
+  const y = Math.floor(s / FR.K.YEAR); let r = s - y * FR.K.YEAR; const d = Math.floor(r / 86400); r -= d * 86400;
+  const h = Math.floor(r / 3600), m = Math.floor(r / 60 % 60), sec = Math.floor(r % 60), ds = Math.floor(r * 10 % 10);
+  return (y ? y + 'y ' : '') + (y || d ? d + 'd ' : '') + p2(h) + ':' + p2(m) + ':' + p2(sec) + '.' + ds;
+};
+FR.fmtSpeed = v => {
+  if (v >= 1e5) return FR.num(v / 1000, 4) + ' km/s';
+  if (v >= 1) return FR.num(v, 3) + ' m/s · ' + FR.num(v * 3.6, 3) + ' km/h';
+  const per = v < 1e-7 ? [FR.K.YEAR, 'year'] : v < 1e-4 ? [86400, 'day'] : v < 1e-2 ? [3600, 'hour'] : [60, 'minute'];
+  const sp = v < 1e-6 ? FR.num(v * 1e9, 3) + ' nm/s' : v < 1e-3 ? FR.num(v * 1e6, 3) + ' µm/s' : v < 0.1 ? FR.num(v * 1e3, 3) + ' mm/s' : FR.num(v, 3) + ' m/s';
+  return sp + ' · ' + FR.fmtDist(v * per[0], 3) + (per[1] === 'hour' ? ' an ' : ' a ') + per[1];
+};
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+FR.sci = (v, sig) => {
+  if (v === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(v))), m = v / Math.pow(10, e);
+  return m.toFixed((sig || 6) - 1) + '×10' + String(e).split('').map(c => SUP[c]).join('');
+};
+}
+// ===== pix.js =====
+{
+const FR = window.FR;
+const PAL = FR.PAL = {
+  k: '#1a1220', 1: '#2e2838', 2: '#4d4659', 3: '#756e82', 4: '#a39dae', 5: '#cfcad6', 6: '#f1eef4', w: '#ffffff',
+  N: '#3d2216', n: '#643820', h: '#8f5530', H: '#b87a45', j: '#dba66a', J: '#f3cf98',
+  R: '#7d1828', r: '#c8323a', i: '#f0625a', I: '#ffa898', O: '#9a4210', o: '#e07a22', u: '#ffb04a',
+  Y: '#a87412', y: '#eeba30', z: '#ffe270', Z: '#fff6c0', E: '#1a5a34', e: '#2f9a48', l: '#7cd05a', L: '#c4f09a',
+  C: '#155a78', c: '#2aa0d0', x: '#7ad8f4', X: '#d0f6ff', B: '#1e2a6a', b: '#3458c8', v: '#6e94f4',
+  P: '#3e2270', p: '#7444c0', m: '#ac80ec', F: '#8c2a5a', f: '#e05e96', g: '#ffa6c8',
+  S: '#a8683e', s: '#e8b07c', t: '#ffdcb0', A: '#b8a070', a: '#e6d6a8', d: '#fff8dc',
+  q: '#07060f', Q: '#120f2a', D: '#221c4a', V: '#3a3172', M: '#3d6b2c', T: '#5b8f3a', K: '#0d2a3e', G: '#123e58'
+};
+const RAMPS = ['123456w', 'NnhHjJ', 'RriI', 'Oou', 'YyzZ', 'EelL', 'CcxX', 'Bbv', 'Ppm', 'Ffg', 'Sst', 'Aad', 'qQDV', 'MT', 'KG'];
+const UP = FR.UP = {}, DN = FR.DN = {};
+RAMPS.forEach(r => { for (let i = 0; i < r.length; i++) { DN[r[i]] = r[Math.max(0, i - 1)]; UP[r[i]] = r[Math.min(r.length - 1, i + 1)]; } });
+const RGB = FR.RGB = {};
+Object.keys(PAL).forEach(k => { const h = PAL[k]; RGB[k] = [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; });
+const F3 = { 0: [7, 5, 5, 5, 7], 1: [2, 6, 2, 2, 7], 2: [7, 1, 7, 4, 7], 3: [7, 1, 3, 1, 7], 4: [5, 5, 7, 1, 1], 5: [7, 4, 7, 1, 7], 6: [7, 4, 7, 5, 7], 7: [7, 1, 1, 2, 2], 8: [7, 5, 7, 5, 7], 9: [7, 5, 7, 1, 7], '+': [0, 2, 7, 2, 0], '-': [0, 0, 7, 0, 0] };
+class G {
+  constructor(w, h, t, m, wrap) { this.w = w; this.h = h; this.m = m == null ? 1 : m; this.W = w + 2 * this.m; this.H = h + 2 * this.m; this.a = new Array(this.W * this.H).fill('.'); this.t = t || 0; this.wrap = !!wrap; this.shaded = false; }
+  ix(x, y) { x = Math.round(x); y = Math.round(y); if (this.wrap) x = ((x % this.w) + this.w) % this.w; const m = this.m; if (x < -m || y < -m || x >= this.w + m || y >= this.h + m) return -1; return (y + m) * this.W + x + m; }
+  p(x, y, c) { const i = this.ix(x, y); if (i >= 0) this.a[i] = c; }
+  at(x, y) { const i = this.ix(x, y); return i < 0 ? '.' : this.a[i]; }
+  r(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, c); }
+  rr(x, y, w, h, c) { this.r(x + 1, y, w - 2, h, c); this.r(x, y + 1, 1, h - 2, c); this.r(x + w - 1, y + 1, 1, h - 2, c); }
+  o(cx, cy, rx, ry, c) {
+    if (ry == null) ry = rx; const X = rx + 0.5, Y = ry + 0.5;
+    for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++) for (let x = Math.floor(cx - rx - 1); x <= Math.ceil(cx + rx + 1); x++) { const u = (x - cx) / X, v = (y - cy) / Y; if (u * u + v * v <= 1) this.p(x, y, c); }
+  }
+  ring(cx, cy, rx, ry, c, a0, a1) { a0 = a0 || 0; a1 = a1 == null ? 6.2832 : a1; const n = Math.ceil(Math.max(rx, ry) * 8 + 8); for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; this.p(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, c); } }
+  l(x0, y0, x1, y1, c) {
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+    for (let i = 0; i < 600; i++) { this.p(x0, y0, c); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+  }
+  l2(x0, y0, x1, y1, c) { this.l(x0, y0, x1, y1, c); this.l(x0 + 1, y0, x1 + 1, y1, c); }
+  poly(pts, c) {
+    let y0 = 1e9, y1 = -1e9, x0 = 1e9, x1 = -1e9; for (let i = 0; i < pts.length; i += 2) { x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]); y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]); }
+    for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
+      let ins = false; for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) { const xi = pts[i], yi = pts[i + 1], xj = pts[j], yj = pts[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) ins = !ins; }
+      if (ins) this.p(x, y, c);
+    }
+  }
+  d(str, x, y, map) { str.split('/').forEach((row, j) => { for (let i = 0; i < row.length; i++) { let ch = row[i]; if (ch === '.' || ch === ' ') continue; if (map && map[ch]) ch = map[ch]; this.p(x + i, y + j, ch); } }); }
+  dith(x, y, w, h, c, par) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (((x + i + y + j) & 1) === (par || 0) && this.at(x + i, y + j) !== '.') this.p(x + i, y + j, c); }
+  txt(s, x, y, c) { let cx = x; for (const ch of String(s)) { const f = F3[ch]; if (f) f.forEach((bits, j) => { for (let i = 0; i < 3; i++) if (bits & (4 >> i)) this.p(cx + i, y + j, c); }); cx += 4; } }
+  cyc(n) { return this.t % n; }
+  wave(per, amp, ph) { return Math.round(Math.sin((this.t / per + (ph || 0)) * 6.2832) * amp); }
+  shade() {
+    this.shaded = true; const W = this.W, H = this.H, a = this.a, b = a.slice(), E = (x, y) => x < 0 || y < 0 || x >= W || y >= H || a[y * W + x] === '.';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = a[y * W + x]; if (c === '.' || !UP[c]) continue;
+      const tl = E(x, y - 1) || E(x - 1, y), br = E(x, y + 1) || E(x + 1, y);
+      if (tl && !br) b[y * W + x] = UP[c]; else if (br && !tl) b[y * W + x] = DN[c];
+    }
+    this.a = b;
+  }
+  outline(c) {
+    c = c || 'k'; const W = this.W, H = this.H, a = this.a, b = a.slice(), F = (x, y) => x >= 0 && y >= 0 && x < W && y < H && a[y * W + x] !== '.';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] === '.' && (F(x - 1, y) || F(x + 1, y) || F(x, y - 1) || F(x, y + 1))) b[y * W + x] = c;
+    this.a = b;
+  }
+}
+FR.G = G;
+FR.toCanvas = (g, sil) => {
+  const c = document.createElement('canvas'); c.width = g.W; c.height = g.H; const x = c.getContext('2d'), im = x.createImageData(g.W, g.H), d = im.data;
+  for (let i = 0; i < g.a.length; i++) { const ch = g.a[i]; if (ch === '.') continue; const q = sil ? sil : RGB[ch] || [255, 0, 255]; d[i * 4] = q[0]; d[i * 4 + 1] = q[1]; d[i * 4 + 2] = q[2]; d[i * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0); return c;
+};
+FR.scaled = (cv, P) => {
+  const key = '_x' + P; if (cv[key]) return cv[key];
+  const c = document.createElement('canvas'); c.width = cv.width * P; c.height = cv.height * P;
+  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(cv, 0, 0, c.width, c.height); cv[key] = c; return c;
+};
+FR.S = {};
+FR.spr = (id, o, draw) => { o.draw = draw; o.f = o.f || 4; o.fps = o.fps || 6; o.a = o.a || 'g'; o.dy = o.dy || 0; FR.S[id] = o; };
+FR.bakeSprite = s => {
+  if (s.cv) return; s.cv = [];
+  for (let t = 0; t < s.f; t++) { const g = new G(s.w, s.h, t); s.draw(g); if (!g.shaded && !s.flat) g.shade(); g.outline(); s.cv.push(FR.toCanvas(g)); }
+};
+}
+// ===== kit.js =====
+{
+const FR = window.FR, DN = FR.DN, UP = FR.UP;
+const K = FR.K2 = {};
+const GAL = [4, 1, -3, -1], WLK = [2, 1, -2, -1];
+K.sw = (t, ph, kind) => (kind === 'walk' ? WLK : GAL)[(t + ph) % 4];
+K.leg = (g, x, y, len, s, c, w, foot) => {
+  const kx = x + s / 2, ky = y + Math.ceil(len / 2), fy = y + len - (s < 0 ? 1 : 0);
+  w = w || 2;
+  for (let i = 0; i < w; i++) { g.l(x + i, y, kx + i, ky, c); g.l(kx + i, ky, x + s + i, fy, c); }
+  if (foot) g.r(x + s, fy, w + 1, 1, foot);
+};
+K.quad = (g, o) => {
+  const t = g.t, k = o.kind || 'gallop', bob = k === 'gallop' ? [0, -1, 0, 1][t] : [0, 0, -1, 0][t], y = o.y + bob, far = DN[o.c] || o.c;
+  const hipY = y + o.B - 2, bx = o.x + 2, fx = o.x + o.L - 4, lw = o.lw || 2, len = o.leg - bob;
+  K.leg(g, bx + 1, hipY, len, -K.sw(t, 3, k), far, lw, o.foot); K.leg(g, fx + 1, hipY, len, K.sw(t, 1, k), far, lw, o.foot);
+  g.o(o.x + o.L / 2 - 0.5, y + o.B / 2 - 0.5, o.L / 2 - 0.5, o.B / 2 - 0.5, o.c);
+  if (o.c2) g.r(o.x + 3, y + o.B - 2, o.L - 6, 1, o.c2);
+  K.leg(g, bx, hipY, len, -K.sw(t, 2, k), o.c, lw, o.foot); K.leg(g, fx, hipY, len, K.sw(t, 0, k), o.c, lw, o.foot);
+  return { y, hx: o.x + o.L, by: y + o.B };
+};
+K.person = (g, x, fy, o) => {
+  o = o || {}; const t = g.t, run = o.run || 0, S = o.skin || 's', sh = o.shirt || 'b', pa = o.pants || 'B', bob = run ? [0, -1, 0, -1][t] : 0, y = fy - 18 + bob;
+  const amp = run ? [4, 1, -4, -1] : [2, 1, -2, -1], a = amp[t], b = amp[(t + 2) % 4];
+  K.leg(g, x + 3, y + 11, 7 - bob, b, DN[pa] || pa, 1, o.shoes || 'k'); // far leg
+  g.l(x + 3, y + 7, x + 3 - a, y + 10 - (run ? 1 : 0), DN[sh] || sh);  // far arm
+  g.r(x + 2, y + 6, 4, 6, sh); g.r(x + 2, y + 11, 4, 1, pa);
+  g.o(x + 4, y + 3, 2.2, 2.4, S); g.r(x + 2, y + 0, 4, 2, o.hair || 'n'); g.p(x + 2, y + 2, o.hair || 'n'); g.p(x + 6, y + 3, S);
+  if (o.cap) { g.r(x + 2, y, 5, 2, o.cap); g.r(x + 6, y + 1, 2, 1, o.cap); }
+  g.p(x + 5, y + 3, 'k');
+  K.leg(g, x + 3, y + 11, 7 - bob, a, pa, 1, o.shoes || 'k');           // near leg
+  g.l(x + 4, y + 7, x + 4 + a, y + 10 - (run ? 2 : 0), sh); g.p(x + 4 + a, y + 11 - (run ? 2 : 0), S); // near arm and hand
+};
+K.wheel = (g, cx, cy, r, c) => {
+  g.o(cx, cy, r, r, 'k'); g.o(cx, cy, r - 1.2, r - 1.2, c || '4'); g.p(cx, cy, '2');
+  const a = g.t * 1.5708 + 0.6; g.l(cx, cy, cx + Math.cos(a) * (r - 1), cy + Math.sin(a) * (r - 1), '2'); g.l(cx, cy, cx - Math.cos(a) * (r - 1), cy - Math.sin(a) * (r - 1), '2');
+};
+K.eye = (g, x, y, big) => { if (big) { g.r(x - 1, y - 1, 2, 2, 'w'); g.p(x, y, 'k'); } else g.p(x, y, 'k'); };
+K.ball = (g, cx, cy, r, c, hi) => { g.o(cx, cy, r, r, c); g.o(cx + r * 0.3, cy + r * 0.3, r * 0.6, r * 0.6, DN[c] || c); g.o(cx - r * 0.15, cy - r * 0.15, r * 0.72, r * 0.72, c); g.p(cx - r * 0.45, cy - r * 0.45, hi || UP[c] || 'w'); };
+K.glow = (g, cx, cy, r, cols) => { cols.forEach((c, i) => { const rr = r * (1 - i / cols.length); g.o(cx, cy, rr, rr, c); }); };
+K.streak = (g, x, y, len, cols, th) => {
+  th = th || 2;
+  for (let i = 0; i < len; i++) { const k = i / len, c = cols[Math.min(cols.length - 1, Math.floor(k * cols.length))], h = Math.max(1, Math.round(th * (1 - k))); g.r(x - i, y - Math.floor(h / 2), 1, h, c); }
+};
+K.tri = (g, x0, y0, x1, y1, x2, y2, c) => g.poly([x0, y0, x1, y1, x2, y2], c);
+K.arcs = (g, cx, cy, n, c, t) => { for (let i = 0; i < n; i++) { const r = 3 + ((i * 3 + t) % (n * 3)); g.ring(cx, cy, r, r, i % 2 ? c : (UP[c] || c), -0.9, 0.9); } };
+}
+// ===== data1.js =====
+{
+const A = window.FR.add, Y = 31557600, D = 86400, MO = Y / 12;
+A('plant', 'Houseplant', 0.01 / Y, 'sill', 'grew', 'A slow potted cactus creeps toward the window about 1 cm a year: a third of a nanometre every second.', 'Slow cactus growth ≈1 cm/yr (gardening guides give 1–3 cm/yr)');
+A('toenail', 'Toenail', 1.6e-3 / MO, 'bath', 'grew', 'Toenails grow about 1.6 mm a month, roughly half as fast as fingernails.', '≈1.6 mm/month (Yaemsiri et al. 2010, J. Eur. Acad. Dermatol.)');
+A('drift', 'Continental drift', 0.025 / Y, 'mantle', 'crept', 'The Atlantic Ocean gets about 2.5 cm wider every year as the Americas and Europe drift apart.', 'Mid-Atlantic Ridge spreading ≈2.5 cm/yr (USGS)', 'Continental drift');
+A('nail', 'Fingernail', 3.47e-3 / MO, 'bath', 'grew', 'Fingernails grow about 3.5 mm a month. The nails on your writing hand grow a tiny bit faster.', '≈3.47 mm/month (Yaemsiri et al. 2010)');
+A('kid', 'Growing kid', 0.06 / Y, 'room', 'grew', 'From about age 4 until their teens, kids grow roughly 6 cm taller every year.', 'Typical childhood growth 5–6 cm/yr (paediatric growth charts)');
+A('australia', 'Australia', 0.07 / Y, 'ocean', 'drifted', 'Australia slides north about 7 cm a year, so fast that its maps had to be shifted 1.8 m in 2020.', '≈7 cm/yr; GDA2020 datum shift ≈1.8 m (Geoscience Australia)', 'Australia');
+A('hair', 'Hair', 0.15 / Y, 'bath', 'grew', 'Hair on your head grows about 1.25 cm a month, around 15 cm a year.', '≈1.25 cm/month (American Academy of Dermatology)', 'Hair');
+A('grass', 'Lawn grass', 0.035 / (7 * D), 'garden', 'grew', 'In spring a lawn can grow 3 to 5 cm a week, which is why it always needs mowing again.', '≈3.5 cm/week in the growing season (lawn-care extension guides)');
+A('sunflower', 'Sunflower', 0.025 / D, 'garden', 'grew', 'Young sunflowers can shoot up about 2.5 cm a day in summer, and some end up taller than a house.', '≈2–3 cm/day peak growth (horticulture guides)');
+A('dune', 'Sand dune', 20 / Y, 'desert', 'crept', 'Crescent-shaped desert dunes creep downwind about 20 m a year as the wind rolls sand over their tops.', 'Barchan dunes ≈5–50 m/yr (USGS desert studies)');
+A('glacier', 'Mountain glacier', 0.5 / D, 'ice', 'slid', 'A typical valley glacier flows about half a metre a day, like super-slow frozen honey.', '≈0.1–1 m/day for valley glaciers (US National Snow and Ice Data Center)');
+A('kelp', 'Giant kelp', 0.6 / D, 'reef', 'grew', 'Giant kelp is a seaweed that can grow 60 cm in a single day, building tall underwater forests.', 'Up to ≈60 cm/day (NOAA)');
+A('bamboo', 'Bamboo', 0.91 / D, 'jungle', 'grew', 'Some bamboo shoots grow 91 cm in one day. You could almost watch it happen!', 'Up to 91 cm/day for the fastest species (botanical records)');
+A('electron', 'Electron in a wire', 3.7e-5, 'wire', 'shuffled', 'A light switch works almost instantly, but each electron in the lamp cable only drifts about 13 cm an hour.', 'Drift speed for 1 A in 2 mm² copper ≈3.7×10⁻⁵ m/s (physics textbooks)', 'The electron');
+A('minute', 'Minute-hand tip', 2 * Math.PI * 0.1 / 3600, 'room', 'swept', 'The tip of a 10 cm clock minute hand travels 63 cm every hour, round and round forever.', '2π × 0.10 m per 3,600 s');
+A('seahorse', 'Dwarf seahorse', 1.5 / 3600, 'reef', 'swam', 'The slowest fish in the world: about 1.5 m an hour, fluttering a tiny back fin dozens of times a second.', '≈1.5 m/h (Guinness World Records)');
+A('fastglacier', 'Fastest glacier', 40 / D, 'ice', 'slid', "Greenland's Sermeq Kujalleq glacier has raced at up to 40 m a day, dropping icebergs into the sea.", '≈40 m/day summer peak, 2012 (NASA / Joughin et al.)');
+A('snail', 'Garden snail', 1e-3, 'garden', 'slid', 'A garden snail glides on a ribbon of slime at about 1 mm a second, or 3.6 m an hour.', '≈1 mm/s typical cruising (top speed ≈1.3 cm/s)');
+A('starfish', 'Starfish', 0.15 / 60, 'reef', 'crept', 'A starfish walks on hundreds of tiny tube feet, about 15 cm a minute.', '≈15 cm/min for common sea stars (marine biology texts)');
+A('worm', 'Earthworm', 0.02, 'soil', 'wriggled', 'Earthworms push through soil at about 2 cm a second by squeezing their ring-shaped muscles.', '≈2 cm/s crawling (biomechanics studies, e.g. Quillin 1999)');
+A('ant', 'Garden ant', 0.045, 'garden', 'scurried', 'A busy garden ant scurries about 4.5 cm a second: about nine of its own body lengths.', '≈3–6 cm/s for worker ants (field measurements)');
+A('sloth', 'Sloth', 0.24 / 3.6, 'jungle', 'climbed', 'Three-toed sloths move about 0.24 km an hour. They are so slow that tiny green algae grow in their fur!', "≈0.24 km/h when moving (Smithsonian's National Zoo)");
+A('tortoise', 'Giant tortoise', 0.3 / 3.6, 'island', 'plodded', 'Giant tortoises plod about 0.3 km an hour and can live for well over 100 years.', '≈0.3 km/h (Galápagos Conservancy)');
+A('baby', 'Crawling baby', 0.3, 'room', 'crawled', 'Crawling babies cover about 30 cm a second, then one day they suddenly stand up and walk.', '≈0.2–0.4 m/s (infant crawling studies, Adolph et al.)');
+A('escalator', 'Escalator', 0.5, 'mall', 'rode', 'Most escalators move at half a metre a second: slow enough to step on safely.', '0.5 m/s standard rated speed (EN 115 escalator standard)');
+}
+// ===== data2.js =====
+{
+const A = window.FR.add, H = 1 / 3.6;
+A('mosquito', 'Mosquito', 0.55, 'pond', 'buzzed', 'Mosquitoes fly only about 2 km an hour, but beat their wings around 500 times a second: that is the whine.', '≈1.5–2.4 km/h; wingbeat ≈500–600 Hz (entomology studies)');
+A('penguin', 'Emperor penguin', 2.5 * H, 'snow', 'waddled', 'Penguins waddle about 2.5 km an hour. In a hurry they flop down and toboggan on their bellies!', '≈2.5 km/h walking (penguin locomotion studies)');
+A('snowflake', 'Snowflake', 1.0, 'snow', 'drifted', 'Snowflakes fall at about 1 m a second, so one from a cloud 1 km up takes over 15 minutes to land.', '≈0.5–1.5 m/s fall speed (Locatelli & Hobbs 1974)');
+A('walker', 'Walking person', 1.4, 'park', 'walked', 'People usually walk about 1.4 m a second, roughly 5 km an hour.', 'Comfortable walking speed ≈1.4 m/s (Bohannon 1997)', 'The walker');
+A('fly', 'Housefly', 2.0, 'room', 'buzzed', 'A housefly zips along at about 7 km an hour, and it tastes things with its feet!', '≈2 m/s cruising flight (insect flight studies)');
+A('swimmer', 'Champion swimmer', 100 / 46.4, 'pool', 'swam', 'The fastest swimmers cover 100 m of freestyle in about 46 seconds.', '100 m freestyle world record ≈46.4 s (World Aquatics)');
+A('whale', 'Blue whale', 2.24, 'deep', 'swam', 'The biggest animal that ever lived cruises at about 8 km an hour; its heart is as big as a bumper car.', 'Cruising ≈2 m/s, bursts to ≈9 m/s (NOAA Fisheries)');
+A('jogger', 'Jogger', 10 * H, 'park', 'jogged', 'An easy jog is about 10 km an hour: a 5 km fun run in half an hour.', '≈10 km/h typical recreational pace');
+A('sailboat', 'Sailboat', 6 * 0.5144, 'sea', 'sailed', 'A small sailing yacht cruises at about 6 knots, pushed along by nothing but the wind.', '≈6 knots typical cruising yacht');
+A('chicken', 'Chicken', 4.0, 'farm', 'ran', 'A chicken can sprint about 14 km an hour, flapping its wings for a little extra speed.', '≈9 mph (4 m/s) top running speed (poultry science)');
+A('skater', 'Skateboarder', 16 * H, 'park', 'rolled', 'Cruising on a skateboard is about 16 km an hour: three times faster than walking.', '≈10–20 km/h cruising');
+A('sneeze', 'Sneeze', 4.5, 'room', 'flew', 'A sneeze blasts out at about 4.5 m a second, and its tiny droplets can spray up to 8 metres!', '≈4.5 m/s (Tang et al. 2013, PLoS ONE); spray up to 8 m (Bourouiba 2020)', 'The sneeze');
+A('bike', 'Bicycle', 20 * H, 'park', 'pedalled', 'A bike ride at about 20 km an hour is the most energy-efficient way humans can travel.', '≈20 km/h typical commuting speed', 'The cyclist');
+A('elephant', 'Elephant', 25 * H, 'savanna', 'stomped', 'Elephants can hurry at about 25 km an hour, yet they always keep at least one foot on the ground.', '≈25 km/h top (Hutchinson et al. 2003, Nature)');
+A('dolphin', 'Dolphin', 30 * H, 'sea', 'swam', 'Bottlenose dolphins can burst along at about 30 km an hour, and love surfing the waves of boats.', '≈30 km/h bursts (NOAA)');
+A('raindrop', 'Raindrop', 9.0, 'storm', 'fell', 'A big raindrop falls at about 9 m a second. Real raindrops are shaped more like burger buns than teardrops!', 'Terminal speed ≈9 m/s for 5 mm drops (Gunn & Kinzer 1949)');
+A('sprinter', 'Fastest sprinter', 100 / 9.58, 'track', 'ran', 'The 100 m world record is 9.58 seconds: an average of 10.4 metres every second.', '100 m world record 9.58 s, 2009 (World Athletics)', 'The sprinter');
+A('cruise', 'Cruise ship', 21 * 0.5144, 'sea', 'sailed', 'A big cruise ship sails at about 21 knots, carrying a whole floating town of people.', '≈21 knots typical service speed');
+A('kangaroo', 'Kangaroo', 40 * H, 'outback', 'hopped', 'Red kangaroos bound at about 40 km an hour, and hopping gets more efficient the faster they go.', '≈40 km/h cruising, top ≈70 km/h (Dawson & Taylor 1973, Nature)');
+A('hummingbird', 'Hummingbird', 45 * H, 'garden', 'zipped', 'Hummingbirds zip at about 45 km an hour, beating their wings 50 times a second. They can even fly backwards.', '≈12 m/s forward flight; ≈50 Hz wingbeat (ornithology studies)');
+A('cat', 'House cat', 48 * H, 'garden', 'dashed', 'A house cat can sprint about 48 km an hour, usually straight toward its food bowl.', '≈30 mph sprint (veterinary references)');
+A('towncar', 'Car in town', 50 * H, 'town', 'drove', '50 km an hour is a typical speed limit on town streets.', '50 km/h urban speed limit (many countries)', 'The town car');
+A('grizzly', 'Grizzly bear', 56 * H, 'forest', 'ran', 'Grizzly bears can charge at about 56 km an hour, much faster than the fastest human.', '≈35 mph (US National Park Service)', 'The grizzly bear');
+A('horse', 'Racehorse', 17.0, 'turf', 'galloped', 'Racehorses gallop at about 60 km an hour, with all four hooves off the ground for part of every stride.', '≈60–70 km/h race pace (equine science)');
+A('greyhound', 'Greyhound', 68 * H, 'turf', 'ran', 'The fastest dog breed reaches about 68 km an hour, and spends most of each stride flying.', '≈68 km/h (greyhound racing records)');
+}
+// ===== data3.js =====
+{
+const A = window.FR.add, H = 1 / 3.6;
+A('ostrich', 'Ostrich', 70 * H, 'savanna', 'ran', 'The fastest bird on land runs about 70 km an hour on just two toes per foot.', '≈70 km/h (Encyclopaedia Britannica)');
+A('lion', 'Lion', 80 * H, 'savanna', 'charged', 'Lions can sprint about 80 km an hour, but only in short bursts: they prefer to sneak up close first.', '≈80 km/h bursts (National Geographic)');
+A('pronghorn', 'Pronghorn', 88.5 * H, 'savanna', 'raced', "North America's fastest animal runs 88 km an hour, and can keep going far longer than a cheetah.", '≈88 km/h (Byers 1997, American Pronghorn)');
+A('cheetah', 'Cheetah', 29.0, 'savanna', 'ran', 'The fastest land animal hits about 104 km an hour, from standing still to 100 in about 3 seconds.', 'Top speed ≈29 m/s (Sharp 1997; Wilson et al. 2013, Nature)');
+A('swift', 'Common swift', 111.6 * H, 'sky', 'flew', 'Swifts are the fastest birds in level flight, about 112 km an hour, and they even sleep while flying!', '111.6 km/h level flight (Henningsson et al. 2010)', 'The swift');
+A('motorway', 'Car on a motorway', 70 * 0.44704, 'highway', 'drove', 'About 113 km an hour (70 mph) is the top speed limit on UK motorways.', '70 mph UK motorway limit', 'The motorway car');
+A('fastball', 'Fastball', 100 * 0.44704, 'stadium', 'flew', 'Top pitchers throw a baseball at about 160 km an hour: it reaches the batter in under half a second.', '100 mph pitches (pro baseball pitch tracking)', 'The fastball');
+A('skydiver', 'Skydiver', 55, 'sky', 'fell', 'A skydiver falling belly-down reaches about 200 km an hour before opening the parachute.', '≈55 m/s belly-to-earth terminal speed (USPA)');
+A('prop', 'Propeller plane', 122 * 0.5144, 'sky', 'flew', 'A small four-seat propeller plane cruises at about 225 km an hour.', '≈122 knots cruise, typical light aircraft', 'The little plane');
+A('coaster', 'Fastest roller coaster', 240 * H, 'fair', 'zoomed', 'The fastest roller coaster launches to 240 km an hour in under 5 seconds. Hold on to your hat!', '240 km/h coaster record (Guinness World Records)', 'The roller coaster');
+A('hurricane', 'Hurricane wind', 70, 'storm', 'blew', 'Category 5 hurricane winds blow at 252 km an hour or more, strong enough to flatten houses.', 'Category 5 ≥70 m/s sustained (NOAA Saffir–Simpson scale)', 'The hurricane wind');
+A('tennis', 'Tennis serve', 263 * H, 'stadium', 'flew', 'The fastest tennis serves fly at about 263 km an hour, faster than a racing car can corner.', '263 km/h serve record, 2012', 'The tennis ball');
+A('hstrain', 'High-speed train', 300 * H, 'rail', 'sped', 'High-speed trains glide along at about 300 km an hour on extra-smooth, extra-straight tracks.', '≈300 km/h typical service speed', 'The high-speed train');
+A('falcon', 'Peregrine falcon dive', 320 * H, 'sky', 'dived', 'A diving peregrine falcon reaches about 320 km an hour: the fastest animal on Earth.', '≈320 km/h stoop (Tucker 1998, J. Exp. Biol.)', 'The peregrine falcon');
+A('racecar', 'Racing car', 350 * H, 'circuit', 'raced', 'Top single-seater racing cars hit about 350 km an hour on long straights.', '≈350 km/h top speed, open-wheel racing');
+A('nerve', 'Nerve signal', 110, 'body', 'zapped', 'Your fastest nerve signals zip at around 110 m a second: that is how you snatch your hand off something hot.', 'Myelinated fibres ≈80–120 m/s (physiology textbooks)', 'A nerve signal');
+A('maglev', 'Maglev train', 431 * H, 'rail', 'floated', 'A maglev train floats on magnets with nothing touching the track, cruising at 431 km an hour.', '431 km/h maglev operating speed (Shanghai line)');
+A('shuttle', 'Badminton smash', 565 * H, 'stadium', 'flew', 'The record badminton smash shot the shuttlecock off at 565 km an hour (its feathers slow it down fast).', '565 km/h smash record, 2023 (Guinness World Records)', 'The shuttlecock');
+A('tsunami', 'Tsunami', 200, 'sea', 'swept', 'In the deep ocean a tsunami travels as fast as a jet, about 720 km an hour, while being barely a metre tall.', '≈200 m/s over 4 km deep ocean, speed = √(g·depth) (NOAA)');
+A('jet', 'Passenger jet', 250, 'sky', 'flew', 'Airliners cruise at about 900 km an hour, around 11 km above the ground.', '≈Mach 0.85 cruise ≈250 m/s');
+A('sound', 'Sound', 343, 'sky', 'travelled', 'Sound covers 343 m every second: count from lightning to thunder and divide by 3 to get the km.', '343 m/s in air at 20 °C (physics textbooks)', 'Sound');
+A('pistol', 'Pistol bullet', 370, 'highsky', 'flew', 'A pistol bullet travels a little faster than sound, about 370 m a second.', '≈350–400 m/s typical muzzle speed', 'The pistol bullet');
+A('spin', "Earth's spin", 4.0075e7 / 86164, 'space', 'spun', "Stand on the equator and the spinning Earth carries you about 1,670 km an hour, without you feeling a thing!", '40,075 km per 23.93 h ≈465 m/s at the equator', "Earth's equator");
+A('concorde', 'Concorde', 605, 'highsky', 'flew', 'The supersonic Concorde crossed the Atlantic in about 3.5 hours at twice the speed of sound.', 'Mach 2.04 cruise ≈2,180 km/h', 'Concorde');
+A('rifle', 'Rifle round', 940, 'highsky', 'flew', 'A rifle round leaves the barrel almost three times faster than sound.', '≈900–1,000 m/s typical muzzle speed');
+}
+// ===== data4.js =====
+{
+const A = window.FR.add, H = 1 / 3.6, C = 299792458;
+A('spyjet', 'Fastest jet plane', 3529.6 * H, 'highsky', 'flew', 'The fastest jet plane ever flew 3,530 km an hour in 1976, so fast its skin got hot enough to bake cookies.', '3,529.6 km/h air speed record, 1976 (FAI)', 'The fastest jet');
+A('moon', 'The Moon', 1022, 'space', 'travelled', 'The Moon circles Earth at about 3,700 km an hour, always keeping the same face toward us.', '≈1.022 km/s mean orbital speed (NASA)', 'The Moon');
+A('soundwater', 'Sound in water', 1480, 'deep', 'travelled', 'Sound moves over 4 times faster in water than in air, which is how whale songs cross whole oceans.', '≈1,480 m/s in water (physics textbooks)', 'Sound in water');
+A('steel', 'Sound in steel', 5120, 'rail', 'travelled', 'Tap a long steel rail and the sound races through the metal 15 times faster than through the air.', '≈5,100 m/s along a steel rod (physics textbooks)', 'Sound in steel');
+A('quake', 'Earthquake wave', 6000, 'mantle', 'raced', 'The first jolt of an earthquake (the P-wave) speeds through rock at about 6 km a second.', 'P-waves ≈5–7 km/s in the crust (USGS)', 'The earthquake wave');
+A('iss', 'Space station', 7660, 'orbit', 'flew', 'The space station circles Earth every 90 minutes, so astronauts see 16 sunrises a day.', '≈7.66 km/s (NASA)');
+A('rocket', 'Escaping rocket', 11186, 'orbit', 'blasted', "To break free of Earth's gravity completely, a rocket must reach about 40,000 km an hour.", 'Escape velocity 11.19 km/s (NASA)', 'The rocket');
+A('voyager', 'Voyager 1', 17000, 'space', 'flew', "Launched in 1977, this space probe is the farthest human-made object, now beyond the Sun's bubble.", '≈17 km/s relative to the Sun (NASA JPL)', 'Voyager 1');
+A('meteor', 'Shooting star', 20000, 'night', 'blazed', 'Most shooting stars are dust grains smaller than sand, burning up as they hit the air at about 20 km a second.', 'Meteoroids enter at 11–72 km/s, ≈20 km/s typical (NASA)');
+A('earth', 'Earth around the Sun', 29780, 'space', 'travelled', 'Right now you are flying around the Sun at about 107,000 km an hour, along with the whole Earth.', '≈29.78 km/s mean orbital speed (NASA)', 'The Earth');
+A('mercury', 'Mercury', 47360, 'sunside', 'travelled', 'Mercury is the fastest planet, racing all the way around the Sun in just 88 days.', '47.36 km/s mean orbital speed (NASA)', 'Mercury');
+A('halley', "Halley's Comet", 54550, 'space', 'swooped', "Near the Sun, Halley's Comet whooshes along at about 54 km a second. It returns every 76 years: next in 2061.", '≈54.6 km/s at closest to the Sun (NASA)', "Halley's Comet");
+A('parker', 'Parker Solar Probe', 191700, 'sunside', 'flew', 'The fastest human-made object: it dives past the Sun at about 690,000 km an hour behind a giant heat shield.', '191.7 km/s record, Dec 2024 (NASA / Johns Hopkins APL)', 'The Parker Solar Probe');
+A('sungal', 'Sun around the galaxy', 230000, 'galaxy', 'travelled', 'The Sun, taking us with it, circles the Milky Way at about 230 km a second. One lap takes about 230 million years.', '≈230 km/s around the galactic centre (galactic astronomy)', 'The Sun');
+A('solarwind', 'Solar wind', 400000, 'sunside', 'blew', 'The Sun blows out a constant wind of particles at about 400 km a second. It makes the northern lights glow.', '≈400 km/s slow solar wind (NASA)');
+A('milkyway', 'The Milky Way', 552000, 'cosmos', 'travelled', 'Our whole galaxy, with its 100 billion stars, is moving through the universe at about 550 km a second.', '≈552 km/s relative to the cosmic microwave background (Planck)', 'The Milky Way');
+A('runaway', 'Runaway star', 1.755e6, 'galaxy', 'shot', "A star called S5-HVS1 was flung out by our galaxy's central black hole at about 1,700 km a second.", '≈1,755 km/s (Koposov et al. 2020)');
+A('cme', 'Solar storm', 3e6, 'sunside', 'blasted', 'The fastest solar storms hurl billion-tonne clouds of glowing gas at up to 3,000 km a second.', 'Fast coronal mass ejections ≈2,000–3,000 km/s (NASA)');
+A('bhstar', 'Star near a black hole', 8e6, 'galaxy', 'whirled', "The star S4716 swings around our galaxy's giant black hole at up to 8,000 km a second.", '≈8,000 km/s at closest approach (Peißker et al. 2022)', 'The black-hole star');
+A('lightning', 'Lightning', 1e8, 'storm', 'flashed', 'The bright return stroke of a lightning bolt zooms along its channel at about a third of the speed of light.', 'Return stroke ≈1×10⁸ m/s (Rakov & Uman, Lightning)', 'Lightning');
+A('diamond', 'Light in diamond', C / 2.417, 'lab', 'travelled', 'Light slows to 41% of its top speed inside a diamond, and all that bending makes the sparkle.', 'c ÷ 2.417 (refractive index of diamond)', 'Light in diamond');
+A('fibre', 'Light in glass fibre', C / 1.468, 'lab', 'travelled', 'Internet data races through glass fibres under the sea at about two-thirds of light speed.', 'c ÷ 1.468 (silica optical fibre)', 'Light in glass');
+A('waterlight', 'Light in water', C / 1.333, 'deep', 'travelled', 'Light goes 25% slower in water, which is why a straw in a glass looks bent.', 'c ÷ 1.333 (refractive index of water)', 'Light in water');
+A('proton', 'Collider proton', C - 2.85, 'collider', 'zoomed', "Protons in the world's biggest particle collider go 99.999999% of light speed: only about 3 m a second slower than light!", '6.8 TeV protons: v ≈ c − 2.85 m/s (CERN)', 'The collider proton');
+A('light', 'Light', C, 'void', 'travelled', 'Nothing in the universe is faster. Light could zip around the Earth 7.5 times in one second.', '299,792,458 m/s exactly (SI definition of the metre)', 'Light');
+}
+// ===== spr1.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('plant', { w: 16, h: 20, fps: 0.7 }, g => {
+  const lean = [0.28, 0.33, 0.36, 0.31][g.t];
+  for (let y = 2; y < 13; y++) { const o = Math.round((12 - y) * lean), w = y < 3 ? 3 : y < 4 ? 5 : 6, x = 5 + o + (w < 6 ? (6 - w) / 2 : 0); g.r(x, y, w, 1, 'e'); g.p(x + 2, y, 'E'); if (w > 5) g.p(x + 4, y, 'l'); }
+  g.r(2, 7, 2, 4, 'e'); g.r(2, 10, 4, 2, 'e'); g.p(2, 7, 'l');
+  for (let y = 4; y < 12; y += 2) { const o = Math.round((12 - y) * lean); g.p(4 + o, y, 'w'); g.p(11 + o, y + 1, 'w'); }
+  const o2 = Math.round(10 * lean); g.d('.g./gfg/.g.', 6 + o2, 0); g.p(7 + o2, 1, 'z');
+  g.poly([2, 13, 13, 13, 12, 19, 3, 19], 'o'); g.r(1, 12, 14, 2, 'u'); g.r(3, 16, 9, 1, 'O'); g.r(2, 12, 12, 1, 'n');
+});
+S('toenail', { w: 20, h: 12, fps: 1.5 }, g => {
+  const up = g.t === 2 ? 1 : 0;
+  g.o(6, 8, 7, 3.5, 's'); g.r(0, 6, 4, 6, 's');
+  g.o(15, 7 - up, 4.2, 3.6, 's'); g.r(14, 3 - up, 5, 2, 'g'); g.r(18, 3 - up, 2, 2, 'w'); g.p(14, 4 - up, 'I');
+  g.l(11, 6 - up, 11, 9, 'S'); g.p(4, 6, 'S'); g.p(7, 6, 'S');
+});
+S('drift', { w: 30, h: 14, fps: 1 }, g => {
+  g.r(0, 6, 30, 3, 'h'); g.r(0, 9, 30, 2, 'n'); g.r(2, 11, 26, 2, 'N'); g.r(0, 4, 30, 2, 'e'); g.r(0, 4, 30, 1, 'l');
+  g.poly([7, 4, 12, 0, 17, 4], '4'); g.d('.w./www', 11, 0);
+  [21, 24, 27, 3].forEach((x, i) => { g.r(x, 2, 1, 2, 'n'); g.o(x, 1.5, 1.2, 1.2, i % 2 ? 'E' : 'e'); });
+  for (let x = 1; x < 30; x += 4) g.p(x + (g.t % 2), 7, 'H');
+  if (g.t === 3) g.p(15, 12, 'o');
+});
+S('nail', { w: 22, h: 10, fps: 1.5 }, g => {
+  const tap = g.t === 1 ? 1 : 0;
+  g.rr(0, 3, 19, 6, 's'); g.o(19, 5.5 + tap * 0.3, 2.4, 2.6, 's');
+  g.r(13, 2, 7, 2, 'g'); g.r(19, 2, 2, 2, 'w'); g.p(13, 3, 'I');
+  g.l(6, 4, 6, 7, 'S'); g.l(8, 4, 8, 7, 'S'); g.r(0, 8, 18, 1, 'S');
+});
+S('kid', { w: 12, h: 20, fps: 1.2 }, g => {
+  const t = g.t, up = t >= 2 ? 1 : 0; g.t = 0;
+  K.person(g, 2, 19 - up, { shirt: 'r', pants: 'b', hair: 'N', shoes: 'w' }); g.t = t;
+  if (up) { g.l(7, 6, 9, 1, 'r'); g.p(9, 0, 's'); g.l(5, 6, 3, 1, 'R'); g.p(3, 0, 's'); g.p(7, 3, 'k'); }
+  else g.r(6, 4, 1, 1, 'k');
+});
+S('australia', { w: 26, h: 18, fps: 0.8 }, g => {
+  const P = [2, 8, 6, 4, 9, 5, 11, 2, 13, 4, 15, 3, 17, 0, 19, 4, 23, 8, 24, 12, 21, 15, 17, 16, 14, 14, 11, 15, 8, 13, 4, 14, 1, 12];
+  g.poly(P, 'e'); g.poly(P.map((v, i) => i % 2 ? 9 + (v - 9) * 0.8 : 13 + (v - 13) * 0.82), 'u'); g.poly(P.map((v, i) => i % 2 ? 9 + (v - 9) * 0.5 : 12 + (v - 13) * 0.5), 'o');
+  g.r(11, 9, 2, 1, 'R'); g.r(19, 17, 2, 1, 'e'); g.p(17, 2, 'l');
+  if (g.t % 2) g.p(6, 13, 'x'); else g.p(22, 6, 'x');
+});
+S('hair', { w: 30, h: 12, fps: 2 }, g => {
+  for (let x = 10; x < 30; x++) { const k = (x - 10) / 19, y = 6 + Math.round(Math.sin((x + g.t * 2) / 3) * 1.6 * k), w = x > 26 ? 1 : 2; g.r(x, y - 1, 1, w + 1, 'n'); g.p(x, y - 1, 'h'); }
+  g.o(5, 6, 4.6, 5, 'n'); g.r(1, 5, 3, 5, 's'); g.p(0, 7, 's'); g.p(2, 6, 'k'); g.r(1, 2, 6, 2, 'h'); g.r(9, 4, 2, 4, 'f');
+});
+S('grass', { w: 16, h: 14, fps: 2 }, g => {
+  for (let i = 0; i < 10; i++) { const bx = 1 + i * 1.5, h = 6 + Math.floor(FR.hash(i, 3) * 7), lean = 1 + g.wave(4, 1, i * 0.13); g.l(bx, 13, bx + lean, 13 - h, i % 3 ? 'e' : i % 2 ? 'l' : 'T'); }
+  g.r(0, 13, 16, 1, 'n');
+});
+S('sunflower', { w: 14, h: 22, fps: 1.2 }, g => {
+  const sw = [0, 1, 1, 0][g.t];
+  g.r(6, 9, 2, 13, 'e'); g.o(3, 15, 3, 1.4, 'e'); g.o(10, 18, 3, 1.4, 'e'); g.p(4, 14, 'l');
+  for (let i = 0; i < 12; i++) { const a = i / 12 * 6.2832; g.o(7 + sw + Math.cos(a) * 4.4, 5 + Math.sin(a) * 4.4, 1.2, 1.2, i % 2 ? 'y' : 'z'); }
+  g.o(7 + sw, 5, 2.6, 2.6, 'n'); g.dith(5 + sw, 3, 5, 5, 'N'); g.p(6 + sw, 4, 'h');
+});
+S('dune', { w: 32, h: 14, fps: 4 }, g => {
+  g.poly([0, 13, 21, 2, 24, 2, 31, 13], 'y'); g.poly([23, 2, 24, 2, 31, 13, 26, 13], 'Y');
+  for (let i = 0; i < 4; i++) g.l(4 + i * 4, 12 - i * 2, 9 + i * 4, 12 - i * 2 - 1, 'z');
+  g.shade();
+  for (let i = 0; i < 4; i++) { const k = (g.t + i) % 4; g.p(24 + k * 2, 1 + (i % 2) + k, 'Z'); }
+});
+S('glacier', { w: 32, h: 16, fps: 1.5 }, g => {
+  g.poly([0, 4, 22, 5, 28, 7, 31, 10, 31, 15, 0, 15], 'X'); g.r(26, 8, 6, 7, 'x');
+  for (let x = 4; x < 26; x += 5) g.l(x, 6, x + 2, 11, 'x'); for (let x = 27; x < 32; x += 2) g.l(x, 9, x, 14, 'c');
+  g.r(0, 14, 32, 1, 'c'); [3, 9, 15, 20].forEach(x => g.p(x, 5, '3'));
+  g.p(31, 11 + g.t, 'x'); g.p(30, 15 - (g.t % 2), 'X');
+});
+S('kelp', { w: 16, h: 22, fps: 2 }, g => {
+  const X = y => 7 + Math.round(Math.sin(y / 4 + g.t * 1.57) * 1.5 * (21 - y) / 20);
+  for (let y = 21; y >= 1; y--) g.p(X(y), y, 'Y');
+  for (let y = 18; y >= 2; y -= 4) { const x = X(y), R = (y / 4) % 2 < 1; const dx = R ? 1 : -1;
+    g.poly(R ? [x, y, x + 6, y - 3, x + 7, y - 1, x + 2, y + 1] : [x, y, x - 6, y - 3, x - 7, y - 1, x - 2, y + 1], 'y'); g.l(x + dx, y, x + dx * 5, y - 2, 'Y'); g.o(x + dx, y + 1, 0.8, 0.8, 'z'); }
+  g.r(5, 21, 5, 1, 'A');
+});
+S('bamboo', { w: 12, h: 22, fps: 1.5 }, g => {
+  const s = [0, 0, 1, 1][g.t];
+  for (let y = 4; y < 22; y++) { const x = 4 + (y < 10 ? s : 0); g.r(x, y, 3, 1, 'l'); g.p(x, y, 'e'); if (y % 5 === 0) g.r(x - 1, y, 5, 1, 'E'); }
+  g.r(5 + s, 0, 1, 4, 'l');
+  K.tri(g, 7, 7, 11, 4, 11, 6, 'e'); K.tri(g, 3, 11, 0, 8, 0, 10, 'e'); K.tri(g, 7 + s, 2, 10 + s, 0, 11 + s, 1, 'l');
+});
+}
+// ===== spr2.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('electron', { w: 11, h: 11, a: 'air', fps: 8 }, g => {
+  const j = [[0, 0], [1, -1], [0, 1], [-1, 0]][g.t];
+  K.ball(g, 5 + j[0], 5 + j[1], 4.5, 'c'); g.r(3 + j[0], 6 + j[1], 5, 1, 'w'); g.p(4 + j[0], 4 + j[1], 'k'); g.p(7 + j[0], 4 + j[1], 'k');
+});
+S('minute', { w: 18, h: 18, a: 'air', fps: 1 }, g => {
+  g.o(8.5, 8.5, 8.4, 8.4, 'r'); g.o(8.5, 8.5, 6.8, 6.8, 'd'); g.shade();
+  [[8, 2], [15, 8], [8, 15], [2, 8]].forEach(([x, y]) => g.r(x, y, 2, 1, '2'));
+  const a = -1.5708 + g.t * 0.1; g.l(8, 8, 8 + Math.cos(a) * 6, 8 + Math.sin(a) * 6, 'k'); g.l(9, 9, 12, 11, '2');
+  g.p(8 + Math.round(Math.cos(a) * 6), 8 + Math.round(Math.sin(a) * 6), 'r'); g.r(8, 8, 2, 2, 'k');
+});
+S('seahorse', { w: 13, h: 20, a: 'air', fps: 6 }, g => {
+  const b = [0, 0, 1, 1][g.t];
+  g.o(5, 3 + b, 2.6, 2.4, 'y'); g.r(6, 3 + b, 6, 2, 'y'); g.p(12, 3 + b, 'Y'); g.d('y.y/yyy', 3, 0 + b);
+  g.o(6, 10 + b, 3, 4, 'y'); g.r(5, 6 + b, 3, 3, 'y');
+  for (let y = 8; y < 14; y += 2) g.r(6, y + b, 3, 1, 'Y');
+  g.l(6, 14 + b, 7, 16 + b, 'y'); g.l(7, 14 + b, 8, 16 + b, 'y'); g.ring(6, 17 + b, 2, 1.6, 'y'); g.p(5, 4 + b, 'k'); g.p(4, 3 + b, 'k');
+  g.d(g.t % 2 ? 'z./zz/z.' : '.z/zz/.z', 1, 9 + b);
+});
+S('fastglacier', { w: 30, h: 20, fps: 2 }, g => {
+  g.poly([0, 8, 18, 6, 25, 3, 25, 19, 0, 19], 'x'); g.r(19, 4, 7, 15, 'X');
+  for (let x = 20; x < 26; x += 2) g.l(x, 5, x, 18, 'x'); for (let x = 3; x < 18; x += 5) g.l(x, 8, x + 3, 13, 'c');
+  const f = [0, 2, 6, 9][g.t]; g.r(26, 3 + f, 3, 5, 'X'); g.p(26, 3 + f, 'w');
+  if (g.t === 3) { g.p(25, 18, 'w'); g.p(29, 17, 'w'); g.p(28, 18, 'X'); }
+});
+S('snail', { w: 22, h: 14, fps: 2.5, fx: 'slime' }, g => {
+  const s = [0, 1, 1, 0][g.t];
+  g.r(1, 10, 17 + s, 3, 'a'); g.r(1, 12, 17 + s, 1, 'A'); g.o(17 + s, 9, 2.4, 3, 'a');
+  g.l(17 + s, 7, 18 + s, 2 + (g.t % 2), 'a'); g.l(19 + s, 7, 21, 3, 'a'); g.p(18 + s, 2 + (g.t % 2), 'k'); g.p(21, 3, 'k');
+  g.o(9, 6, 6, 6, 'H'); g.ring(9, 6, 4.2, 4.2, 'h'); g.ring(9.5, 6.5, 2, 2, 'h'); g.p(9, 6, 'N'); g.r(5, 1, 3, 1, 'J');
+});
+S('starfish', { w: 16, h: 15, fps: 2 }, g => {
+  const P = [], a0 = -1.5708 + g.wave(4, 1) * 0.06;
+  for (let i = 0; i < 10; i++) { const a = a0 + i * 0.6283, r = i % 2 ? 2.8 : 7.2; P.push(8 + Math.cos(a) * r, 7.5 + Math.sin(a) * r); }
+  g.poly(P, 'o'); for (let i = 0; i < 5; i++) { const a = a0 + i * 1.2566; g.p(8 + Math.cos(a) * 4, 7.5 + Math.sin(a) * 4, 'u'); g.p(8 + Math.cos(a) * 2, 7.5 + Math.sin(a) * 2, 'u'); }
+  g.p(8, 7, 'O');
+});
+S('worm', { w: 22, h: 7, fps: 3 }, g => {
+  const L = [21, 18, 15, 18][g.t], arch = [0, 1.5, 3, 1.5][g.t];
+  for (let x = 0; x <= L; x++) { const y = 4 - Math.round(arch * Math.sin(Math.PI * x / L)); g.r(21 - L + x, y, 1, 2, x % 3 ? 'g' : 'f'); }
+  g.r(21 - L + Math.round(L * 0.62), 4 - Math.round(arch * 0.9), 2, 2, 'i'); g.p(21, 4, 'f');
+});
+S('ant', { w: 15, h: 8, fps: 10 }, g => {
+  const t = g.t;
+  for (let i = 0; i < 3; i++) { const s = (t + i) % 2 ? 1 : -1; g.l(6 + i, 5, 5 + i * 2 + s, 7, '1'); }
+  g.o(3, 4, 3, 2.4, '2'); g.o(7.5, 4, 1.6, 1.4, '2'); g.o(11, 3, 2, 2, '2'); g.l(12, 1, 14, 0 + (t % 2), '1'); g.p(12, 2, 'w');
+});
+S('sloth', { w: 18, h: 15, a: 'top', fps: 1.5 }, g => {
+  const r = g.t % 2;
+  g.l(4, 8, 3 + r, 0, 'h'); g.l(5, 8, 4 + r, 0, 'h'); g.l(13, 8, 14 - r, 0 + r, 'h'); g.l(14, 8, 15 - r, 0 + r, 'h');
+  g.o(9, 10, 7, 4, 'h'); g.dith(3, 7, 12, 6, 'H'); g.p(6, 12, 'T'); g.p(9, 13, 'T');
+  g.o(15, 9, 2.5, 2.4, 'J'); g.r(14, 9, 3, 1, 'N'); g.p(15, 9, 'k'); g.p(16, 11, 'N');
+  g.r(2 + r, 0, 2, 1, 'J'); g.r(14 - r, r, 2, 1, 'J');
+});
+S('tortoise', { w: 22, h: 13, fps: 2 }, g => {
+  const t = g.t, s = [1, 0, -1, 0];
+  [[4, 2], [14, 0]].forEach(([x, p]) => { g.r(x + s[(t + p) % 4], 9, 3, 4, 'A'); g.r(x + 2 + s[(t + p + 2) % 4], 9, 3, 4, 'a'); });
+  g.o(10, 6, 8.5, 5.6, 'E'); g.r(1, 9, 19, 2, 'e'); g.r(2, 10, 17, 1, 'A');
+  [[6, 4], [11, 3], [15, 5], [8, 7], [13, 7]].forEach(([x, y]) => { g.ring(x, y, 1.6, 1.3, 'M'); g.p(x, y, 'T'); });
+  g.o(19.5, 7 - (t % 2), 2.4, 2, 'a'); g.p(20, 6 - (t % 2), 'k'); g.p(0, 9, 'A');
+});
+S('baby', { w: 18, h: 12, fps: 4 }, g => {
+  const t = g.t, s = t % 2 ? 1 : -1;
+  g.l(5, 8, 4 - s, 11, 's'); g.l(12, 8, 13 + s, 11, 's'); g.r(1, 5, 6, 5, 'w'); g.r(5, 4, 8, 5, 'v'); g.r(2, 9, 4, 2, 's');
+  g.l(6, 8, 6 + s, 11, 'S'); g.l(11, 8, 11 - s, 11, 'S');
+  g.o(14, 4.5, 3.6, 3.6, 's'); g.r(12, 0, 4, 2, 'j'); g.p(16, 4, 'k'); g.p(16, 6, 'R'); g.p(14, 5, 'I');
+});
+S('escalator', { w: 24, h: 20, fps: 4 }, g => {
+  g.poly([0, 19, 15, 6, 23, 6, 23, 9, 17, 9, 3, 19], '4'); g.l(0, 12, 14, 1, 'k'); g.l(14, 1, 23, 1, 'k');
+  for (let i = 0; i < 6; i++) { const k = (i + g.t / 4) / 6, x = Math.round(1 + k * 16), y = Math.round(18 - k * 11); g.r(x, y, 4, 1, '2'); g.p(x, y + 1, '5'); }
+  g.poly([1, 13, 14, 2, 15, 6, 2, 17], 'X'); g.dith(2, 3, 13, 14, 'x');
+  g.r(11, 2, 3, 3, 's'); g.r(11, 1, 3, 1, 'N'); g.r(10, 5, 5, 4, 'f'); g.r(11, 9, 3, 1, 'B'); g.p(13, 3, 'k');
+});
+}
+// ===== spr3.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('mosquito', { w: 15, h: 11, a: 'air', fps: 14 }, g => {
+  const up = g.t % 2;
+  g.l(2, 6, 9, 6, '2'); g.r(3, 5, 5, 2, '3'); g.o(10, 5, 1.6, 1.6, '2'); g.l(11, 5, 14, 7, '1');
+  for (let i = 0; i < 3; i++) { g.l(5 + i, 7, 3 + i * 3, 10, '1'); }
+  if (up) { g.o(6, 2, 2.2, 1.2, 'X'); g.o(8, 1, 1.6, 1, 'x'); } else { g.o(5, 3, 2.4, 1, 'X'); }
+  g.p(10, 4, 'r');
+});
+S('penguin', { w: 12, h: 18, fps: 3 }, g => {
+  const tilt = [0, 1, 0, -1][g.t];
+  g.o(5 + tilt * 0.5, 9, 4.4, 7.5, '1'); g.o(6.5 + tilt * 0.5, 10, 2.8, 6, 'w'); g.o(6 + tilt * 0.3, 3, 3, 3, '1');
+  g.r(7, 2, 2, 2, 'w'); g.p(8, 2, 'k'); g.r(9, 3, 2, 1, 'o'); g.r(6, 5, 3, 1, 'z');
+  g.l(1 + tilt, 8, 0 + tilt, 13, '2'); g.r(3 + (g.t === 1 ? -1 : 0), 17, 3, 1, 'o'); g.r(7 + (g.t === 3 ? 1 : 0), 17, 3, 1, 'o');
+});
+S('snowflake', { w: 13, h: 13, a: 'air', fps: 3, flat: 1 }, g => {
+  const a0 = g.t * 0.26;
+  for (let i = 0; i < 6; i++) { const a = a0 + i * 1.0472, ca = Math.cos(a), sa = Math.sin(a); g.l(6, 6, 6 + ca * 6, 6 + sa * 6, 'w');
+    [3, 4.5].forEach(d => { const b1 = a + 0.7, b2 = a - 0.7; g.l(6 + ca * d, 6 + sa * d, 6 + ca * d + Math.cos(b1) * 1.6, 6 + sa * d + Math.sin(b1) * 1.6, 'X'); g.l(6 + ca * d, 6 + sa * d, 6 + ca * d + Math.cos(b2) * 1.6, 6 + sa * d + Math.sin(b2) * 1.6, 'X'); }); }
+  g.p(6, 6, 'x');
+});
+S('walker', { w: 9, h: 18, fps: 4 }, g => K.person(g, 1, 17, { shirt: 'e', pants: 'B', hair: 'N', shoes: 'n' }));
+S('fly', { w: 13, h: 10, a: 'air', fps: 14 }, g => {
+  g.o(5, 6, 4, 2.6, '2'); for (let x = 3; x < 8; x += 2) g.p(x, 6, '1'); g.o(10, 5, 2.4, 2.4, '2'); g.r(10, 4, 2, 2, 'r'); g.p(11, 4, 'i');
+  g.l(4, 8, 3, 9, '1'); g.l(7, 8, 8, 9, '1');
+  if (g.t % 2) { g.o(5, 2, 3, 1.4, 'X'); } else { g.o(4, 3, 3.4, 1, 'X'); g.p(7, 3, 'x'); }
+});
+S('swimmer', { w: 26, h: 10, fps: 4 }, g => {
+  const t = g.t;
+  g.r(4, 5, 15, 3, 'f'); g.r(1, 6, 4, 2, 's'); g.o(20, 5, 2.4, 2.2, 's'); g.r(19, 3, 4, 2, 'r'); g.p(21, 5, 'k'); g.r(20, 4, 2, 1, 'X');
+  const arm = [[17, 1], [21, 0], [25, 5], [19, 8]][t]; g.l(17, 5, arm[0], arm[1], 's'); g.p(arm[0], arm[1], 's');
+  g.l(1, 6, 0, 4 + (t % 2) * 4, 's'); [3, 8, 13].forEach((x, i) => g.p(x + (t + i) % 2, 4, 'X'));
+  if (t === 2) g.p(24, 3, 'w');
+});
+S('whale', { w: 46, h: 15, fps: 2 }, g => {
+  const f = [0, 1, 2, 1][g.t];
+  g.poly([4, 7, 12, 3, 30, 2, 40, 4, 45, 8, 41, 12, 28, 13, 10, 11], 'b'); g.r(14, 10, 26, 2, 'v'); for (let x = 18; x < 40; x += 3) g.p(x, 11, 'x');
+  g.poly([4, 7, 0, 3 + f * 2, 2, 7, 0, 11 - f, 5, 9], 'B'); g.p(41, 7, 'k'); g.l(38, 9, 44, 9, 'B');
+  g.poly([22, 12, 25, 14, 27, 12], 'B'); g.p(32, 1, 'X'); g.p(33, 0, 'X');
+});
+S('jogger', { w: 10, h: 18, fps: 6 }, g => K.person(g, 1, 17, { run: 1, shirt: 'y', pants: 'r', hair: 'n', shoes: 'w', cap: 'b' }));
+S('sailboat', { w: 24, h: 22, fps: 2 }, g => {
+  const b = g.t === 1 || g.t === 2 ? 1 : 0;
+  g.poly([0, 16 + b, 23, 16 + b, 20, 20 + b, 3, 20 + b], 'r'); g.r(1, 18 + b, 21, 1, 'w');
+  g.r(11, 1 + b, 1, 15, 'n'); g.poly([12, 1 + b, 21, 14 + b, 12, 14 + b], 'w'); g.poly([10, 3 + b, 10, 14 + b, 2, 14 + b], '6');
+  g.d(g.t % 2 ? 'rr/r.' : 'r./rr', 12, 0 + b);
+});
+S('chicken', { w: 15, h: 15, fps: 8 }, g => {
+  const t = g.t, s = [2, 0, -2, 0];
+  g.l(6, 10, 6 + s[t], 14, 'o'); g.l(8, 10, 8 + s[(t + 2) % 4], 14, 'o');
+  g.o(6, 7, 5.4, 4, 'w'); g.poly([0, 3, 3, 6, 1, 7], '6'); g.o(11, 4, 2.6, 2.8, 'w');
+  g.d('.r.r/rrrr', 10, 0); g.r(14, 4, 1, 1, 'o'); g.r(13, 5, 2, 1, 'y'); g.r(12, 6, 1, 2, 'r'); g.p(12, 3, 'k');
+  g.o(5, 7, 2.6, 1.6, t % 2 ? '5' : '6');
+});
+S('skater', { w: 14, h: 21, fps: 4 }, g => {
+  const t = g.t; g.t = 0; K.person(g, 3, 17, { shirt: 'p', pants: 'C', hair: 'k', shoes: 'r', cap: 'r' }); g.t = t;
+  g.r(1, 17, 12, 1, 'n'); g.p(0, 16, 'n'); g.p(13, 16, 'n'); K.wheel(g, 3, 19, 1.2, '5'); K.wheel(g, 11, 19, 1.2, '5');
+});
+S('sneeze', { w: 20, h: 13, a: 'air', fps: 8, flat: 1 }, g => {
+  for (let i = 0; i < 26; i++) { const k = FR.hash(i, 9), x = Math.floor(k * 18 + (g.t + i) % 3 * 0.6), y = Math.floor(6 + Math.sin(i * 1.7 + g.t) * (2 + k * 4)); g.p(x, y, i % 4 ? 'x' : i % 3 ? 'L' : 'X'); if (i % 5 === 0) g.p(x + 1, y, 'X'); }
+  g.o(16, 6, 3, 3, 'X'); g.o(16.5, 5.5, 1.6, 1.6, 'w');
+});
+S('bike', { w: 22, h: 20, fps: 6 }, g => {
+  const t = g.t, ped = [[0, 2], [2, 0], [0, -2], [-2, 0]][t];
+  K.wheel(g, 4, 16, 3.6); K.wheel(g, 17, 16, 3.6);
+  g.l(4, 16, 9, 10, 'r'); g.l(9, 10, 16, 10, 'r'); g.l(10, 16, 16, 10, 'r'); g.l(4, 16, 10, 16, 'r'); g.l(10, 16, 8, 9, 'r'); g.l(17, 16, 16, 8, '2'); g.r(15, 7, 3, 1, '2'); g.r(7, 8, 3, 1, 'k');
+  g.r(7, 2, 4, 6, 'v'); g.o(12, 1.5, 2, 2, 's'); g.r(11, -1, 4, 2, 'y'); g.p(13, 1, 'k'); g.l(10, 3, 15, 7, 's');
+  g.l(9, 8, 10 + ped[0], 16 + ped[1], 'B'); g.l(9, 8, 10 - ped[0], 16 - ped[1], '1');
+});
+}
+// ===== spr4.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('elephant', { w: 30, h: 20, fps: 4, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 1, y: 3, L: 21, B: 11, leg: 7, c: '4', kind: 'walk', lw: 3, foot: '5' });
+  g.o(23, b.y + 3, 4.5, 4, '4'); g.o(19, b.y + 4, 3.5, 5, '3'); g.dith(17, b.y + 1, 5, 8, '4');
+  const sw = g.wave(4, 1); g.l(27, b.y + 4, 28 + sw, b.y + 12, '4'); g.l(26, b.y + 5, 27 + sw, b.y + 13, '4'); g.p(28 + sw, b.y + 13, '3');
+  g.l(25, b.y + 7, 28, b.y + 8, 'd'); g.p(24, b.y + 2, 'k'); g.l(1, b.y + 3, 0, b.y + 8, '3');
+});
+S('dolphin', { w: 26, h: 13, a: 'air', fps: 3 }, g => {
+  const b = [0, -1, -2, -1][g.t];
+  g.poly([1, 8 + b, 6, 5 + b, 16, 4 + b, 22, 6 + b, 25, 7 + b, 21, 8 + b, 15, 10 + b, 6, 10 + b], '3'); g.r(9, 8 + b, 11, 2, '5');
+  g.poly([1, 8 + b, 0, 4 + b, 3, 7 + b, 0, 11 + b], '2'); g.poly([12, 4 + b, 10, 0 + b, 15, 4 + b], '2'); g.poly([14, 9 + b, 12, 12 + b, 17, 10 + b], '2');
+  g.p(20, 6 + b, 'k'); g.p(23, 7 + b, '2');
+});
+S('raindrop', { w: 10, h: 12, a: 'air', fps: 6 }, g => {
+  g.o(5, 7, 4, 3.6, 'c'); g.r(1, 9, 9, 2, 'c'); g.r(2, 10, 7, 1, 'C'); g.o(5, 7, 2.6, 2.2, 'x'); g.p(3, 5, 'w'); g.p(4, 4, 'X');
+  for (let i = 0; i < 3; i++) g.p(5 + i * 2 - 2, (g.t + i * 2) % 4, 'X');
+});
+S('sprinter', { w: 11, h: 18, fps: 10 }, g => { K.person(g, 1, 17, { run: 1, shirt: 'r', pants: 'k', skin: 'S', hair: 'N', shoes: 'y' }); g.r(3, 7, 2, 2, 'w'); });
+S('cruise', { w: 46, h: 20, fps: 2 }, g => {
+  g.poly([0, 11, 45, 11, 41, 19, 3, 19], 'w'); g.r(2, 17, 41, 2, 'B'); g.r(1, 12, 44, 1, 'r');
+  g.r(6, 6, 34, 5, 'w'); g.r(10, 2, 24, 4, '6'); for (let x = 7; x < 40; x += 3) { g.p(x, 8, 'c'); if (x > 11 && x < 33) g.p(x, 4, 'c'); } for (let x = 4; x < 43; x += 2) g.p(x, 14, 'C');
+  g.r(30, -1 + 1, 4, 4, 'r'); g.r(30, 0, 4, 1, 'k'); g.p(27 + g.t, 0, '5'); g.p(26 + g.t * 2, 0, '6');
+});
+S('kangaroo', { w: 22, h: 20, fps: 4 }, g => {
+  const t = g.t, up = [0, 3, 4, 1][t];
+  g.poly([1, 16 - up, 8, 12 - up, 9, 14 - up], 'h');
+  g.o(10, 10 - up, 4.4, 5.6, 'h'); g.o(11, 12 - up, 2.4, 3, 'j');
+  const ext = t === 1 || t === 2; g.l(8, 14 - up, ext ? 4 : 9, 19 - up + (ext ? 1 : 0), 'h'); g.l(9, 15 - up, ext ? 5 : 13, 19 - up, 'H'); g.r(ext ? 2 : 11, 19 - up, 4, 1, 'n');
+  g.o(15, 4 - up, 2.6, 2.2, 'h'); g.r(16, 4 - up, 4, 2, 'h'); g.p(20, 5 - up, 'k'); g.l(14, 2 - up, 13, 0 - up, 'h'); g.l(15, 2 - up, 15, 0 - up, 'H');
+  g.p(16, 4 - up, 'k'); g.l(13, 8 - up, 15, 10 - up, 'H');
+});
+S('hummingbird', { w: 16, h: 11, a: 'air', fps: 16 }, g => {
+  g.o(6, 6, 4, 2.4, 'e'); g.o(10, 5, 2.2, 2, 'e'); g.r(5, 7, 5, 1, 'w'); g.p(9, 6, 'r'); g.p(10, 6, 'f');
+  g.l(12, 5, 15, 6, '2'); g.p(10, 4, 'k'); g.poly([2, 6, 0, 4, 0, 8], 'E');
+  if (g.t % 2) g.o(6, 2, 3.4, 1.4, 'X'); else g.o(6, 9, 3.4, 1, 'X');
+});
+S('cat', { w: 22, h: 13, fps: 10, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 2, y: 4, L: 14, B: 5, leg: 5, c: 'o', c2: 'u' });
+  g.o(17, b.y + 1, 2.8, 2.6, 'o'); g.d('o..o/oo.oo', 15, b.y - 3); g.p(18, b.y + 1, 'k'); g.p(20, b.y + 2, 'g');
+  for (let x = 5; x < 14; x += 3) g.l(x, b.y, x + 1, b.y + 2, 'O');
+  g.l(2, b.y + 1, 0, b.y - 3 + (g.t % 2), 'o'); g.p(0, b.y - 4 + (g.t % 2), 'O');
+});
+S('towncar', { w: 26, h: 13, fps: 8 }, g => {
+  g.rr(0, 4, 26, 6, 'r'); g.poly([5, 4, 8, 0, 18, 0, 22, 4], 'r'); g.poly([7, 4, 9, 1, 13, 1, 13, 4], 'X'); g.poly([14, 4, 14, 1, 17, 1, 20, 4], 'X');
+  g.r(24, 5, 2, 2, 'z'); g.r(0, 5, 1, 2, 'R'); g.r(1, 8, 24, 1, 'R'); g.p(14, 6, '5');
+  K.wheel(g, 6, 10, 2.6); K.wheel(g, 20, 10, 2.6);
+});
+S('grizzly', { w: 27, h: 16, fps: 7, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 1, y: 2, L: 19, B: 9, leg: 5, c: 'n', c2: 'h', lw: 3 });
+  g.o(9, b.y + 1, 5, 2.4, 'h'); g.o(21, b.y + 4, 3.5, 3.2, 'n'); g.r(23, b.y + 4, 3, 2, 'h'); g.p(26, b.y + 4, 'k');
+  g.p(19, b.y + 1, 'n'); g.p(20, b.y + 0, 'n'); g.p(22, b.y + 3, 'k');
+});
+S('horse', { w: 30, h: 21, fps: 9, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 2, y: 7, L: 18, B: 7, leg: 8, c: 'h', foot: 'k', lw: 2 });
+  g.poly([17, b.y + 1, 21, b.y - 5, 24, b.y - 4, 21, b.y + 3], 'h'); g.poly([21, b.y - 5, 28, b.y - 2, 27, b.y, 22, b.y - 2], 'h'); g.p(23, b.y - 4, 'k'); g.p(22, b.y - 7, 'h');
+  g.l(18, b.y - 2, 21, b.y - 6, 'N'); g.l(3, b.y + 1, 0, b.y + 6 + (g.t % 2), 'N'); g.l(2, b.y + 1, 0, b.y + 5, 'N');
+  g.r(9, b.y - 5, 5, 4, 'p'); g.r(10, b.y - 7, 3, 2, 's'); g.r(10, b.y - 8, 4, 2, 'y'); g.l(13, b.y - 3, 18, b.y - 1, 's'); g.r(11, b.y - 1, 2, 3, 'w');
+});
+S('greyhound', { w: 26, h: 12, fps: 11, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 2, y: 3, L: 16, B: 4, leg: 6, c: '4', lw: 1 });
+  g.poly([3, b.y + 2, 9, b.y + 4, 16, b.y + 3, 15, b.y], '4'); g.l(16, b.y, 20, b.y - 2, '4'); g.l(16, b.y + 1, 20, b.y - 1, '4');
+  g.poly([19, b.y - 3, 25, b.y - 1, 24, b.y, 19, b.y], '4'); g.p(20, b.y - 4, '3'); g.p(21, b.y - 2, 'k');
+  g.l(2, b.y + 1, 0, b.y - 1 + (g.t % 2) * 2, '4'); g.r(5, b.y, 6, 1, 'r');
+});
+}
+// ===== spr5.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('ostrich', { w: 18, h: 22, fps: 9, fx: 'dust' }, g => {
+  const t = g.t, s = [4, 1, -3, -1];
+  K.leg(g, 8, 12, 9, s[(t + 2) % 4], 'I', 1, 'i'); K.leg(g, 9, 12, 9, s[t], 'g', 1, 'i');
+  g.o(8, 9, 6, 3.6, '1'); g.poly([2, 7, 0, 4, 5, 7], 'w'); g.o(3, 7, 2.2, 2, '6'); g.r(6, 11, 6, 1, '2');
+  const n = t % 2; g.l(13, 8, 14 + n, 1, 'g'); g.l(14, 8, 15 + n, 1, 'g'); g.o(15 + n, 1, 1.8, 1.4, 'g'); g.r(16 + n, 1, 2, 1, 'u'); g.p(15 + n, 0, 'k');
+});
+S('lion', { w: 27, h: 16, fps: 8, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 1, y: 4, L: 18, B: 6, leg: 6, c: 'y', c2: 'z' });
+  g.o(20, b.y + 1, 4.4, 4.6, 'O'); g.dith(16, b.y - 3, 9, 9, 'o'); g.o(22, b.y + 1.5, 2.6, 2.4, 'y'); g.r(24, b.y + 2, 2, 2, 'y'); g.p(25, b.y + 2, 'k'); g.p(22, b.y, 'k');
+  g.l(1, b.y + 1, 0, b.y - 3, 'y'); g.r(0, b.y - 5 + (g.t % 2), 2, 2, 'O');
+});
+S('pronghorn', { w: 25, h: 18, fps: 10, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 1, y: 6, L: 16, B: 6, leg: 6, c: 'H', c2: 'w', lw: 1, foot: 'k' });
+  g.r(5, b.y + 3, 9, 2, 'w'); g.poly([14, b.y + 1, 18, b.y - 4, 20, b.y - 3, 17, b.y + 3], 'H'); g.r(16, b.y - 1, 2, 3, 'w');
+  g.poly([18, b.y - 5, 23, b.y - 3, 22, b.y - 2, 18, b.y - 2], 'H'); g.p(23, b.y - 3, 'k'); g.p(20, b.y - 4, 'k');
+  g.l(19, b.y - 5, 19, b.y - 9, 'k'); g.p(20, b.y - 8, 'k'); g.p(0, b.y + 1, 'w');
+});
+S('cheetah', { w: 30, h: 14, fps: 12, fx: 'dust' }, g => {
+  const b = K.quad(g, { x: 3, y: 3, L: 19, B: 5, leg: 6, c: 'y', c2: 'Z', lw: 1 });
+  for (let i = 0; i < 9; i++) g.p(5 + i * 2 + (i % 2), b.y + 1 + (i * 7 % 3), 'k');
+  g.o(23.5, b.y + 1, 2.6, 2.2, 'y'); g.r(25, b.y + 1, 3, 2, 'y'); g.p(24, b.y, 'k'); g.l(24, b.y + 1, 25, b.y + 3, 'k'); g.p(22, b.y - 2, 'y'); g.p(27, b.y + 1, 'k');
+  const tw = [0, 1, 2, 1][g.t]; g.l(3, b.y + 1, 0, b.y - 1 + tw, 'y'); g.p(0, b.y - 1 + tw, 'k'); g.p(1, b.y + tw - 1, 'w');
+});
+S('swift', { w: 20, h: 9, a: 'air', fps: 10 }, g => {
+  const u = g.t % 2;
+  g.o(9, 4, 4.5, 1.6, '2'); g.o(13.5, 4, 1.6, 1.4, '2'); g.p(14, 3, 'k'); g.p(15, 4, '3'); g.p(13, 5, '5');
+  g.poly([1, 3, 4, 4, 1, 6], '1');
+  g.poly(u ? [8, 3, 13, 0, 18, 0, 10, 4] : [8, 4, 13, 7, 18, 8, 10, 5], '1'); g.poly(u ? [7, 3, 4, 0, 1, 0, 6, 4] : [7, 4, 4, 7, 1, 8, 6, 5], '2');
+});
+S('motorway', { w: 30, h: 12, fps: 10 }, g => {
+  g.rr(0, 4, 30, 5, 'b'); g.poly([6, 4, 10, 0, 21, 0, 26, 4], 'b'); g.poly([9, 4, 11, 1, 15, 1, 15, 4], 'X'); g.poly([16, 4, 16, 1, 20, 1, 23, 4], 'X');
+  g.r(28, 5, 2, 1, 'z'); g.r(0, 5, 1, 2, 'r'); g.r(1, 8, 28, 1, 'B'); g.r(3, 6, 25, 1, 'v'); g.p(16, 6, '5');
+  K.wheel(g, 6, 9, 2.6, '5'); K.wheel(g, 23, 9, 2.6, '5');
+});
+S('fastball', { w: 9, h: 9, a: 'air', fps: 12 }, g => {
+  K.ball(g, 4, 4, 4, '6'); const k = g.t % 2;
+  g.ring(4 - 2 + k, 4, 2.2, 3.5, 'r', -1, 1); g.ring(4 + 2 - k, 4, 2.2, 3.5, 'r', 2.14, 4.14);
+});
+S('skydiver', { w: 22, h: 12, a: 'air', fps: 3 }, g => {
+  const f = g.wave(4, 1);
+  g.r(6, 4, 10, 4, 'o'); g.l(6, 5, 1, 2 + f, 'o'); g.l(6, 6, 1, 9 - f, 'o'); g.l(15, 5, 20, 2 - f, 'o'); g.l(15, 6, 20, 9 + f, 'o');
+  g.o(17.5, 5.5, 2.2, 2.2, 's'); g.r(17, 3, 3, 2, 'r'); g.r(18, 5, 2, 1, 'x'); g.r(8, 3, 6, 2, 'B'); g.p(2, 2 + f, 'k'); g.p(2, 9 - f, 'k');
+});
+S('prop', { w: 30, h: 15, a: 'air', fps: 10 }, g => {
+  g.poly([2, 7, 6, 6, 24, 6, 27, 8, 24, 10, 6, 10, 2, 9], 'w'); g.r(5, 9, 19, 1, '5'); g.poly([1, 2, 4, 2, 7, 7, 2, 7], 'r'); g.r(0, 8, 6, 1, 'r');
+  g.r(10, 4, 11, 2, 'r'); g.r(14, 6, 6, 2, 'X'); g.r(15, 6, 2, 2, 'x'); g.l(15, 10, 13, 13, '2'); g.l(19, 10, 21, 13, '2'); K.wheel(g, 13, 13, 1.4); K.wheel(g, 21, 13, 1.4);
+  g.r(27, 7, 2, 2, '2'); const p = g.t % 2; g.r(29, p ? 3 : 8, 1, p ? 5 : 5, '4'); g.p(29, 8, '2');
+});
+S('coaster', { w: 28, h: 15, fps: 6 }, g => {
+  const t = g.t;
+  g.r(0, 13, 28, 2, '3'); for (let x = 1; x < 28; x += 4) g.p(x, 14, '1');
+  g.poly([1, 6, 26, 6, 27, 11, 2, 11], 'r'); g.r(2, 9, 25, 1, 'z'); g.poly([22, 6, 27, 3, 27, 6], 'r');
+  [5, 13].forEach((x, i) => { const up = (t + i) % 2; g.o(x + 2, 3, 1.8, 1.8, 's'); g.r(x + 1, 1, 3, 1, i ? 'y' : 'N'); g.l(x + 1, 4, x - 1, up ? 0 : 3, 's'); g.l(x + 3, 4, x + 5, up ? 0 : 3, 's'); g.p(x + 3, 3, 'k'); });
+  K.wheel(g, 6, 12, 1.4); K.wheel(g, 22, 12, 1.4);
+});
+S('hurricane', { w: 22, h: 22, a: 'air', fps: 6, flat: 1 }, g => {
+  const a0 = -g.t * 0.39;
+  for (let arm = 0; arm < 3; arm++) for (let i = 0; i < 40; i++) { const a = a0 + arm * 2.094 + i * 0.12, r = 2.2 + i * 0.22; g.o(11 + Math.cos(a) * r, 11 + Math.sin(a) * r, 1.2, 1.2, i > 30 ? '5' : i > 15 ? '6' : 'w'); }
+  g.o(11, 11, 1.2, 1.2, 'c');
+});
+S('tennis', { w: 9, h: 9, a: 'air', fps: 12 }, g => {
+  K.ball(g, 4, 4, 4, 'l'); const k = g.t % 2;
+  g.ring(-1 + k, 4, 3.4, 3.4, 'w', -0.9, 0.9); g.ring(9 - k, 4, 3.4, 3.4, 'w', 2.24, 4.04);
+});
+}
+// ===== spr6.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('hstrain', { w: 48, h: 13, fps: 8 }, g => {
+  g.poly([0, 2, 34, 2, 44, 6, 47, 10, 47, 11, 0, 11], 'w'); g.r(0, 8, 46, 1, 'r'); g.r(0, 9, 47, 1, 'R');
+  for (let x = 2; x < 31; x += 4) g.r(x, 4, 3, 2, 'C'); g.poly([35, 3, 40, 4, 43, 6, 36, 6], 'B'); g.r(17, 2, 1, 7, '5');
+  for (let x = 4; x < 46; x += 10) { K.wheel(g, x, 11.5, 1.4, '3'); K.wheel(g, x + 4, 11.5, 1.4, '3'); }
+  g.p(46, 9, 'z');
+});
+S('falcon', { w: 22, h: 12, a: 'air', fps: 6 }, g => {
+  const sh = g.t % 2;
+  g.d([
+    '..22..................',
+    '.2332.................',
+    '..23332...............',
+    '...233332.............',
+    '....2333332...........',
+    '.....23333333.........',
+    '......5a5a5a3322......',
+    '.......a5a5a5a3333k...',
+    '.........aa5aa5ak1wky.',
+    '...........aaaaa.kwwy.',
+    '.................kky..',
+    '......................'].join('/'), 0, 0);
+  g.l(2 + sh, 2, 11, 6, '1'); g.p(19, 8, 'k'); g.p(0, 0 + sh, '3');
+});
+S('racecar', { w: 32, h: 11, fps: 12 }, g => {
+  g.poly([3, 5, 12, 3, 22, 3, 31, 6, 31, 8, 3, 8], 'r'); g.r(0, 1, 3, 4, 'r'); g.r(0, 1, 5, 1, 'k'); g.r(28, 7, 4, 2, 'k');
+  g.o(15, 3, 2.4, 2, 'y'); g.r(14, 1, 3, 1, '1'); g.r(18, 2, 3, 2, '2'); g.r(6, 5, 20, 1, 'w'); g.p(22, 6, 'w');
+  K.wheel(g, 6, 8, 2.8, '2'); K.wheel(g, 25, 8, 2.8, '2');
+});
+S('nerve', { w: 30, h: 14, a: 'air', fps: 10 }, g => {
+  g.o(5, 7, 3.6, 3.4, 'f'); g.p(5, 7, 'F'); [[0, 2], [1, 12], [3, 1], [7, 1], [0, 8]].forEach(([x, y]) => g.l(5, 7, x, y, 'f'));
+  g.r(8, 6, 20, 2, 'g'); for (let x = 11; x < 27; x += 5) g.r(x, 5, 3, 4, 'm');
+  g.l(27, 7, 29, 4, 'f'); g.l(27, 7, 29, 10, 'f');
+  const x = 8 + g.t * 5; g.r(x, 5, 3, 4, 'z'); g.p(x + 1, 6, 'w'); g.p(x - 1, 6, 'y');
+});
+S('maglev', { w: 48, h: 12, fps: 8 }, g => {
+  g.poly([0, 1, 30, 1, 42, 4, 47, 8, 0, 8], 'w'); g.r(0, 6, 46, 1, 'b'); g.r(0, 7, 47, 1, 'B');
+  for (let x = 2; x < 28; x += 4) g.r(x, 3, 3, 2, 'C'); g.poly([31, 2, 37, 3, 41, 5, 32, 5], 'B');
+  g.r(2, 9, 43, 1, '3'); for (let x = 2; x < 45; x += 6) g.p(x + (g.t % 2) * 3, 10, g.t % 2 ? 'x' : 'X'); g.r(0, 11, 47, 1, '2');
+});
+S('shuttle', { w: 14, h: 9, a: 'air', fps: 12 }, g => {
+  g.poly([0, 0, 9, 3, 9, 6, 0, 9], 'w'); for (let i = 0; i < 4; i++) g.l(1, 1 + i * 2.3, 9, 4.5, '5'); g.r(0, 0, 1, 9, '6');
+  g.o(11, 4.5, 2.4, 2.4, 'J'); g.r(9, 3, 1, 3, 'r'); if (g.t % 2) g.p(11, 3, 'w');
+});
+S('tsunami', { w: 28, h: 21, fps: 4, flat: 1 }, g => {
+  const t = g.t;
+  g.poly([0, 20, 6, 12, 14, 4, 21, 1, 26, 3, 27, 7, 22, 6, 19, 9, 21, 13, 27, 20], 'c'); g.poly([0, 20, 8, 13, 15, 8, 17, 14, 22, 20], 'C');
+  g.ring(22, 6, 4, 3.6, 'w', 3.3, 6.3); g.ring(22, 6, 3, 2.6, 'X', 3.6, 6.0);
+  for (let i = 0; i < 5; i++) g.p(19 + i * 2, 1 + ((t + i) % 3), 'w'); g.l(4, 16, 12, 9, 'x'); g.l(10, 15, 16, 10, 'x');
+});
+S('jet', { w: 42, h: 15, a: 'air', fps: 6, fx: 'contrail' }, g => {
+  g.poly([0, 6, 6, 6, 36, 6, 41, 8, 36, 10, 6, 10, 2, 9], 'w'); g.poly([1, 0, 5, 0, 10, 6, 2, 6], 'b'); g.poly([4, 9, 0, 12, 5, 12, 9, 9], '5');
+  g.poly([16, 9, 26, 9, 18, 14, 14, 14], '5'); g.r(17, 11, 3, 2, '3'); for (let x = 9; x < 34; x += 2) g.p(x, 7, 'c'); g.r(36, 7, 2, 1, 'C'); g.r(6, 9, 30, 1, '5');
+  if (g.t % 2) g.p(41, 8, 'r');
+});
+S('sound', { w: 18, h: 17, a: 'air', fps: 6, flat: 1 }, g => {
+  for (let i = 0; i < 4; i++) { const r = 2 + ((i * 3.5 + g.t * 0.9) % 14); g.ring(2, 8, r, r * 1.05, i % 2 ? 'z' : 'y', -0.95, 0.95); }
+  g.d('.yy/.yz/.y./yy./yy.', 6, 5);
+});
+S('pistol', { w: 13, h: 6, a: 'air', fps: 12 }, g => {
+  g.r(0, 1, 8, 4, 'y'); g.r(0, 2, 8, 1, 'z'); g.poly([8, 1, 12, 3, 8, 5], 'o'); g.r(0, 4, 8, 1, 'Y');
+  if (g.t % 2) g.p(12, 0, 'w');
+});
+S('spin', { w: 20, h: 22, a: 'air', fps: 3 }, g => {
+  K.ball(g, 10, 13, 8, 'c'); const s = g.t * 3;
+  for (let i = 0; i < 3; i++) { const x = 4 + ((i * 5 + s) % 13); g.o(x, 10 + (i % 2) * 5, 1.6, 1.2, 'e'); g.p(x, 9 + (i % 2) * 5, 'l'); }
+  g.ring(10, 13, 8, 8, 'C', 0.3, 2.6); g.p(5, 8, 'X');
+  g.r(9, 2, 3, 3, 's'); g.r(9, 1, 3, 1, 'N'); g.r(9, 5, 3, 2, 'r'); g.p(9, 6, 'B'); g.p(11, 6, 'B'); g.p(11, 3, 'k');
+});
+S('concorde', { w: 46, h: 12, a: 'air', fps: 6, fx: 'contrail' }, g => {
+  g.poly([0, 5, 6, 5, 38, 5, 43, 6, 45, 8, 40, 8, 6, 8, 1, 7], 'w'); g.poly([0, 0, 3, 0, 9, 5, 2, 5], '6');
+  g.poly([10, 8, 28, 8, 34, 7, 16, 11, 8, 11], '5'); g.r(14, 10, 8, 1, '3'); for (let x = 12; x < 36; x += 2) g.p(x, 6, 'C'); g.r(8, 7, 30, 1, '5');
+});
+S('rifle', { w: 17, h: 6, a: 'air', fps: 12 }, g => {
+  g.r(0, 1, 9, 4, 'o'); g.r(0, 2, 9, 1, 'u'); g.poly([9, 1, 16, 3, 9, 5], 'O'); g.r(0, 4, 9, 1, 'O'); g.r(2, 1, 1, 4, 'O');
+  if (g.t % 2) { g.p(16, 1, 'w'); g.p(16, 5, 'w'); }
+});
+}
+// ===== spr7.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('spyjet', { w: 46, h: 12, a: 'air', fps: 8, fx: 'contrail' }, g => {
+  g.poly([0, 5, 30, 4, 40, 5, 45, 6, 40, 7, 30, 8, 0, 7], '1'); g.poly([4, 4, 6, 0, 9, 0, 10, 4], '1'); g.poly([8, 8, 26, 8, 30, 7, 14, 11, 6, 11], '2');
+  g.r(12, 4, 3, 1, '2'); g.r(16, 3, 4, 2, '2'); g.r(34, 5, 3, 1, 'C'); g.r(0, 5, 2, 2, 'o'); if (g.t % 2) g.p(0, 6, 'z');
+});
+S('moon', { w: 18, h: 18, a: 'air', fps: 1 }, g => {
+  K.ball(g, 9, 9, 8.4, '5');
+  [[5, 6, 2], [11, 4, 1.4], [12, 11, 2.4], [6, 13, 1.2], [8, 9, 1]].forEach(([x, y, r]) => { g.o(x, y, r, r, '4'); g.p(x - 1, y - 1, '3'); });
+  g.p(3 + g.t, 9, '6');
+});
+S('soundwater', { w: 18, h: 16, a: 'air', fps: 6, flat: 1 }, g => {
+  for (let i = 0; i < 4; i++) { const r = 2 + ((i * 3.5 + g.t * 0.9) % 14); g.ring(1, 8, r, r * 1.05, i % 2 ? 'x' : 'X', -0.95, 0.95); }
+  [[4, 2], [7, 13], [12, 3]].forEach(([x, y], i) => g.ring(x, y - ((g.t + i) % 4), 1, 1, 'X'));
+});
+S('steel', { w: 30, h: 12, a: 'air', fps: 10 }, g => {
+  g.r(0, 3, 24, 3, '5'); g.r(0, 3, 24, 1, '6'); g.r(1, 6, 22, 2, '4'); g.r(0, 8, 24, 2, '4'); g.r(0, 9, 24, 1, '3');
+  const px = 4 + g.t * 4; for (let k = -3; k <= 3; k++) g.p(px + k, 6 + (k % 2 ? 1 : 0), Math.abs(k) < 2 ? 'z' : 'y');
+  for (let i = 0; i < 3; i++) { const r = 2 + i * 2 + (g.t % 2); g.ring(24, 6, r, r * 1.2, i % 2 ? 'y' : 'z', -0.8, 0.8); }
+});
+S('quake', { w: 30, h: 14, a: 'air', fps: 10, flat: 1 }, g => {
+  for (let x = 0; x < 30; x++) { const k = x / 29, y = 7 + Math.round(Math.sin(x * 1.3 + g.t * 1.6) * 5 * k * (1 - k) * 4 * (0.6 + 0.4 * ((x + g.t) % 3 === 0))); g.l(x, 7, x, y, x % 2 ? 'r' : 'i'); }
+  g.r(0, 7, 30, 1, 'R'); g.o(28, 7, 1.6, 1.6, 'z');
+});
+S('iss', { w: 38, h: 18, a: 'air', fps: 2 }, g => {
+  g.r(2, 8, 34, 2, '4');
+  [3, 9, 25, 31].forEach(x => { g.r(x, 1, 4, 6, 'B'); g.r(x, 11, 4, 6, 'B'); g.r(x, 3, 4, 1, 'b'); g.r(x, 13, 4, 1, 'b'); g.r(x + 1, 1, 1, 16, 'b'); });
+  g.r(14, 6, 10, 6, '6'); g.r(16, 4, 6, 2, '5'); g.r(17, 12, 4, 3, '5'); g.r(23, 7, 3, 4, 'w'); g.p(15, 8, 'c'); g.p(19, 8, 'c');
+  if (g.t % 2) g.p(36, 9, 'r');
+});
+S('rocket', { w: 32, h: 12, a: 'air', fps: 12, fx: 'fire' }, g => {
+  g.poly([4, 3, 24, 3, 31, 6, 24, 9, 4, 9], 'w'); g.r(4, 8, 20, 1, '5'); g.r(8, 3, 2, 7, 'r'); g.o(20, 6, 1.6, 1.6, 'C'); g.p(20, 5, 'x');
+  g.poly([4, 3, 0, 0, 2, 3], 'r'); g.poly([4, 9, 0, 12, 2, 9], 'r'); g.r(1, 5, 3, 2, '2');
+});
+S('voyager', { w: 30, h: 18, a: 'air', fps: 2 }, g => {
+  g.o(19, 8, 6.4, 7.4, '6'); g.o(18, 8, 4.6, 5.6, '5'); g.ring(18, 8, 3, 4, '4'); g.l(24, 8, 28, 8, '4'); g.p(29, 8, 'z');
+  g.r(13, 7, 4, 4, 'y'); g.r(14, 8, 2, 2, 'Y'); g.l(13, 9, 1, 15, '4'); g.l(13, 8, 2, 2, '4'); g.r(0, 14, 3, 3, '3'); g.r(1, 1, 2, 2, '5');
+  if (g.t) g.p(29, 7, 'w');
+});
+S('meteor', { w: 30, h: 12, a: 'air', fps: 12, fx: 'fire' }, g => {
+  K.streak(g, 23, 6, 23, ['z', 'u', 'o', 'O', 'R'], 5 + (g.t % 2));
+  g.o(25, 6, 3.4, 3.4, 'Z'); g.o(25.5, 6, 2.4, 2.4, 'u'); g.p(26, 5, 'h'); g.p(24, 7, 'n');
+});
+S('earth', { w: 20, h: 20, a: 'air', fps: 2 }, g => {
+  K.ball(g, 10, 10, 9, 'c'); const s = g.t * 2;
+  [[4, 7, 3, 2.4], [12, 12, 3.4, 2.6], [15, 5, 2, 1.6], [7, 14, 1.6, 1.2]].forEach(([x, y, a, b]) => g.o(3 + ((x + s) % 15), y, a, b, 'e'));
+  g.r(6, 1, 8, 1, 'w'); g.r(7, 18, 6, 1, 'w'); [[3, 9], [13, 8], [9, 15]].forEach(([x, y]) => g.r(x + (s % 4), y, 3, 1, '6'));
+});
+S('mercury', { w: 15, h: 15, a: 'air', fps: 1 }, g => {
+  K.ball(g, 7, 7, 6.6, 'A'); [[4, 5, 1.4], [9, 9, 1.8], [8, 3, 1], [4, 10, 1]].forEach(([x, y, r]) => g.o(x, y, r, r, 'S')); g.ring(7, 7, 6, 6, 'u', -1.2, 1.2);
+});
+S('halley', { w: 36, h: 13, a: 'air', fps: 6 }, g => {
+  K.streak(g, 29, 6, 29, ['w', 'X', 'x', 'c', 'C'], 6 + (g.t % 2)); K.streak(g, 29, 8, 20, ['X', 'm', 'p'], 2);
+  g.o(31, 6, 3, 3, 'X'); g.o(31.5, 6, 1.8, 1.8, 'w'); g.p(33, 4, 'w');
+});
+S('parker', { w: 24, h: 19, a: 'air', fps: 4 }, g => {
+  g.r(19, 0, 4, 19, 'w'); g.r(22, 1, 2, 17, 'u'); g.r(23, 3, 1, 13, 'o'); if (g.t % 2) g.p(23, 9, 'z');
+  g.r(8, 6, 11, 7, '4'); g.r(9, 7, 9, 5, 'y'); g.r(10, 8, 7, 1, 'Y'); g.l(8, 9, 0, 9, '5');
+  g.r(10, 1, 6, 4, 'B'); g.r(10, 14, 6, 4, 'B'); g.l(13, 5, 13, 6, '4'); g.l(13, 13, 13, 14, '4'); g.r(3, 8, 2, 3, '3');
+});
+}
+// ===== spr8.js =====
+{
+const FR = window.FR, K = FR.K2, S = FR.spr;
+S('sungal', { w: 22, h: 22, a: 'air', fps: 4, flat: 1 }, g => {
+  for (let i = 0; i < 12; i++) { const a = i * 0.5236 + (g.t % 2) * 0.26, r = 10; g.l(11 + Math.cos(a) * 8, 11 + Math.sin(a) * 8, 11 + Math.cos(a) * r, 11 + Math.sin(a) * r, i % 2 ? 'u' : 'y'); }
+  K.glow(g, 11, 11, 7.4, ['o', 'u', 'y', 'z', 'Z']); g.p(8, 9, 'w'); g.p(13, 13, 'u'); g.p(9, 13, 'y');
+});
+S('solarwind', { w: 32, h: 14, a: 'air', fps: 10, flat: 1 }, g => {
+  for (let j = 0; j < 4; j++) for (let x = 0; x < 32; x++) { const y = 2 + j * 3 + Math.sin((x + g.t * 4) * 0.3 + j) * 1.2; if ((x + j * 5 + g.t * 3) % 9 < 6) g.p(x, y, x > 22 ? 'w' : x > 12 ? 'Z' : 'z'); }
+  for (let j = 0; j < 4; j++) { const y = 2 + j * 3 + Math.round(Math.sin((31 + g.t * 4) * 0.3 + j) * 1.2); g.r(29, y, 3, 1, 'w'); g.p(30, y - 1, 'Z'); g.p(30, y + 1, 'Z'); }
+});
+S('milkyway', { w: 28, h: 18, a: 'air', fps: 4, flat: 1 }, g => {
+  const a0 = g.t * 0.2;
+  for (let arm = 0; arm < 2; arm++) for (let i = 0; i < 60; i++) { const a = a0 + arm * 3.1416 + i * 0.09, r = 1 + i * 0.2; g.p(14 + Math.cos(a) * r, 9 + Math.sin(a) * r * 0.55, i > 40 ? 'p' : i > 18 ? 'm' : 'X'); if (i % 7 === 3) g.p(14 + Math.cos(a) * r, 8 + Math.sin(a) * r * 0.55, 'w'); }
+  g.o(14, 9, 2.6, 1.6, 'Z'); g.o(14, 9, 1.4, 0.8, 'w');
+});
+S('runaway', { w: 24, h: 17, a: 'air', fps: 6, flat: 1 }, g => {
+  g.ring(14, 8, 8, 7.6, 'x', -1.4, 1.4); g.ring(13, 8, 9, 8.4, 'c', -1.2, 1.2);
+  K.streak(g, 14, 8, 13, ['X', 'x', 'c', 'C'], 3); K.glow(g, 15, 8, 3.4, ['x', 'X', 'w']);
+  if (g.t % 2) { g.p(15, 3, 'w'); g.p(15, 13, 'w'); g.p(20, 8, 'w'); }
+});
+S('cme', { w: 30, h: 19, a: 'air', fps: 6, flat: 1 }, g => {
+  for (let i = 0; i < 40; i++) { const k = FR.hash(i, 31), a = (k - 0.5) * 2.4, r = 6 + ((i * 3 + g.t * 2) % 12); g.o(10 + Math.cos(a) * r, 9 + Math.sin(a) * r * 0.9, 1.1, 1.1, r > 15 ? 'O' : r > 10 ? 'o' : 'u'); }
+  g.ring(10, 9, 8, 8, 'z', -1.3, 1.3); g.o(4, 9, 3.6, 5, 'y'); g.o(3, 9, 2, 3.6, 'z');
+});
+S('bhstar', { w: 28, h: 18, a: 'air', fps: 8, flat: 1 }, g => {
+  g.o(14, 9, 12, 3.6, 'O'); g.o(14, 9, 10, 2.6, 'o'); g.o(14, 9, 8, 1.6, 'u'); g.o(14, 9, 5, 5, 'q'); g.ring(14, 9, 5, 5, 'z', 3.4, 6.0);
+  g.r(3, 9, 22, 1, 'z');
+  const a = g.t * 1.5708 + 0.4, sx = 14 + Math.cos(a) * 11, sy = 9 + Math.sin(a) * 4; g.o(sx, sy, 1.6, 1.6, 'X'); g.p(sx, sy, 'w');
+});
+S('lightning', { w: 32, h: 18, a: 'air', fps: 12, flat: 1 }, g => {
+  const r = FR.rng(7 + g.t * 13), pts = [[0, 9]]; let y = 9;
+  for (let x = 4; x <= 31; x += 4) { y = FR.clamp(y + Math.round((r() - 0.5) * 9), 2, 15); pts.push([x, y]); }
+  for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; g.l(x0, y0 - 1, x1, y1 - 1, 'Z'); g.l(x0, y0, x1, y1, 'w'); g.l(x0, y0 + 1, x1, y1 + 1, 'z'); }
+  const b = pts[3]; g.l(b[0], b[1], b[0] + 5, b[1] + 5 - g.t, 'z'); g.o(31, pts[pts.length - 1][1], 1.4, 1.4, 'w');
+});
+S('diamond', { w: 20, h: 16, a: 'air', fps: 6 }, g => {
+  g.poly([4, 4, 7, 1, 13, 1, 16, 4, 10, 15], 'x'); g.poly([4, 4, 16, 4, 10, 15], 'c'); g.r(7, 1, 6, 3, 'X'); g.l(7, 4, 10, 15, 'X'); g.l(13, 4, 10, 15, 'C'); g.l(10, 1, 10, 4, 'w');
+  const k = g.t; g.l(0, 8, 8, 8, 'z'); [['r', 0], ['y', 1], ['l', 2], ['v', 3]].forEach(([c, i]) => g.l(12, 7 + i, 19, 6 + i * 2, c)); g.p(5 + k, 2, 'w');
+});
+S('fibre', { w: 30, h: 10, a: 'air', fps: 10 }, g => {
+  g.r(0, 3, 24, 4, 'y'); g.r(0, 4, 24, 2, 'z'); g.r(24, 2, 4, 6, '4'); g.r(25, 3, 3, 4, '6');
+  for (let x = 0; x < 24; x += 4) g.p(x + (g.t % 4), 4, 'w'); g.r(28, 4, 2, 2, 'w'); g.p(29, 3, 'Z'); g.p(29, 6, 'Z');
+});
+S('waterlight', { w: 18, h: 17, a: 'air', fps: 6 }, g => {
+  g.o(9, 10, 7, 6.2, 'c'); g.poly([4, 6, 9, 0, 14, 6], 'c'); g.o(9, 10, 5, 4.4, 'x'); g.p(6, 7, 'X'); g.p(5, 8, 'X');
+  K.streak(g, 12, 10, 12, ['w', 'z', 'Z'], 2); g.o(13, 10, 1.6, 1.6, 'w'); if (g.t % 2) g.p(14, 8, 'w');
+});
+S('proton', { w: 22, h: 13, a: 'air', fps: 10, fx: 'streak2' }, g => {
+  g.ring(8, 6, 8, 5.6, 'b', -2.2, -0.6); g.ring(8, 6, 8, 5.6, 'b', 0.6, 2.2);
+  K.glow(g, 15, 6, 5, ['i', 'r', 'i', 'I']); g.r(13, 6, 5, 1, 'w'); g.r(15, 4, 1, 5, 'w');
+  if (g.t % 2) { g.p(21, 2, 'v'); g.p(21, 10, 'v'); }
+});
+S('light', { w: 22, h: 11, a: 'air', fps: 14, fx: 'streak', flat: 1 }, g => {
+  K.streak(g, 15, 5, 15, ['Z', 'z', 'y', 'u'], 5); K.glow(g, 17, 5, 4.4, ['z', 'Z', 'w', 'w']);
+  const k = g.t % 2; g.p(17, 0 + k, 'w'); g.p(17, 10 - k, 'w'); g.p(21, 5, 'w'); g.p(13 - k, 2, 'Z'); g.p(13 - k, 8, 'Z');
+});
+}
+// ===== scen1.js =====
+{
+const FR = window.FR, TW = FR.TW = 160, UP = FR.UP;
+const L = FR.SC = {};
+FR.TH = {};
+FR.theme = (id, gy, far, near) => { FR.TH[id] = { id, gy, far, near }; };
+L.bands = (g, cols, y0, y1) => { y0 = y0 || 0; y1 = y1 == null ? 24 : y1; const h = (y1 - y0) / cols.length; cols.forEach((c, i) => g.r(0, y0 + Math.floor(i * h), TW, Math.ceil(h), c)); };
+L.wave = (x, k, ph) => Math.sin((x / TW * k + (ph || 0)) * 6.2832); // periodic across the strip when k is a whole number
+L.hills = (g, base, amp, k, c, ph, y1) => { for (let x = 0; x < TW; x++) { const y = Math.round(base - amp * (0.5 + 0.5 * L.wave(x, k, ph) * (0.7 + 0.3 * L.wave(x, k * 3, ph)))); g.r(x, y, 1, (y1 || 24) - y, c); } };
+L.stars = (g, n, seed, cols, y0, y1) => { y0 = y0 || 0; y1 = y1 || 24; for (let i = 0; i < n; i++) g.p(Math.floor(FR.hash(i, seed, 1) * TW), y0 + Math.floor(FR.hash(i, seed, 2) * (y1 - y0)), cols[i % cols.length]); };
+L.every = (step, fn, off) => { for (let x = off || 0, i = 0; x < TW; x += step, i++) fn(x, i); };
+L.ground = (g, y, c, c2, seed) => { g.r(0, y, TW, 24 - y, c); if (c2) L.stars(g, TW / 3, seed || 1, [c2], y + 1, 24); };
+L.cloud = (g, x, y, w, c, c2) => { c = c || 'w'; g.o(x, y, w / 2, 1.4, c); g.o(x - w / 5, y - 1, w / 4, 1.4, c); g.o(x + w / 6, y - 1.5, w / 5, 1.6, c); g.r(x - w / 2 + 1, y + 1, w - 2, 1, c2 || '6'); };
+L.tree = (g, x, y, h, c, t) => { g.r(x, y - h, 1, h, t || 'n'); g.o(x, y - h - 2, 3, 2.6, c || 'e'); g.p(x - 1, y - h - 3, UP[c || 'e']); };
+L.pine = (g, x, y, h, c) => { for (let j = 0; j < h; j++) { const w = Math.floor(j / 2.2); g.r(x - w, y - h + j, 2 * w + 1, 1, c); } g.r(x, y, 1, 1, 'N'); };
+L.tuft = (g, x, y, c) => { g.p(x, y - 1, c); g.p(x - 1, y - 2, c); g.p(x + 1, y - 2, c); };
+FR.theme('sill', 20, g => {
+  L.bands(g, ['J', 'J', 'j']); L.every(80, x => { g.r(x + 10, 2, 34, 16, 'w'); g.r(x + 12, 4, 14, 6, 'x'); g.r(x + 28, 4, 14, 6, 'x'); g.r(x + 12, 11, 14, 6, 'X'); g.r(x + 28, 11, 14, 6, 'X'); g.r(x + 13, 4, 3, 2, 'Z'); g.r(x + 46, 3, 3, 15, 'f'); g.dith(x + 46, 3, 3, 15, 'g'); });
+}, g => { g.r(0, 20, TW, 2, 'H'); g.r(0, 20, TW, 1, 'j'); g.r(0, 22, TW, 2, 'h'); L.every(13, x => g.r(x, 22, 5, 1, 'n')); L.every(80, x => { g.r(x + 60, 16, 5, 4, 'c'); g.r(x + 61, 14, 3, 2, '6'); }, 0); });
+FR.theme('bath', 21, g => {
+  g.r(0, 0, TW, 24, '6'); for (let y = 0; y < 24; y += 6) g.r(0, y, TW, 1, '5'); for (let x = 0; x < TW; x += 6) g.r(x, 0, 1, 24, '5');
+  L.every(80, x => { g.r(x + 20, 2, 18, 12, '4'); g.r(x + 21, 3, 16, 10, 'X'); g.l(x + 24, 4, x + 28, 8, 'w'); }); g.r(0, 15, TW, 2, 'c');
+}, g => { g.r(0, 21, TW, 3, 'x'); L.every(4, x => g.p(x, 21, 'X')); L.every(80, x => { g.r(x + 50, 15, 5, 6, 'v'); g.r(x + 51, 11, 1, 4, 'g'); g.r(x + 53, 12, 1, 3, 'l'); }); });
+FR.theme('mantle', 21, g => {
+  L.bands(g, ['R', 'r', 'O', 'o', 'o', 'u']); for (let i = 0; i < 8; i++) g.ring((i * 20 + 6) % TW, 12 + (i % 2) * 4, 7, 4, i % 2 ? 'u' : 'O', 0, 3.6);
+}, g => { g.r(0, 21, TW, 3, 'O'); L.stars(g, 30, 5, ['u', 'z'], 21, 24); L.every(32, x => g.o(x + 5, 22, 1.4, 1, 'z')); });
+FR.theme('room', 21, g => {
+  g.r(0, 0, TW, 24, 'g'); L.every(8, x => g.r(x, 0, 3, 24, 'I')); g.r(0, 17, TW, 2, 'w');
+  L.every(80, x => { g.r(x + 8, 4, 14, 10, 'H'); g.r(x + 9, 5, 12, 8, 'x'); g.o(x + 15, 11, 4, 2, 'e'); g.o(x + 18, 7, 1.4, 1.4, 'z'); g.r(x + 50, 3, 10, 9, 'n'); g.r(x + 51, 4, 8, 7, 'z'); g.o(x + 55, 7, 2, 2, 'r'); });
+}, g => { g.r(0, 19, TW, 2, 'w'); g.r(0, 21, TW, 3, 'H'); L.every(16, x => g.r(x, 21, 1, 3, 'h')); g.r(0, 23, TW, 1, 'h'); });
+FR.theme('ocean', 21, g => {
+  g.r(0, 0, TW, 24, 'b'); L.every(20, x => { for (let y = 0; y < 24; y += 2) g.p(x, y, 'v'); }); for (let x = 0; x < TW; x += 2) g.p(x, 12, 'v');
+  L.stars(g, 40, 11, ['B', 'v']);
+}, g => { L.every(40, (x, i) => { g.r(x + 7, 4 + (i % 3) * 6, 3, 1, 'x'); g.r(x + 25, 18 - (i % 2) * 10, 2, 1, 'X'); }); });
+FR.theme('garden', 21, g => {
+  L.bands(g, ['x', 'x', 'X']); L.cloud(g, 30, 4, 14); L.cloud(g, 110, 6, 10);
+  L.hills(g, 15, 5, 8, 'E', 0, 21); L.every(9, x => g.p(x, 12 + (x % 3), 'e')); L.every(24, x => { g.r(x, 12, 1, 9, 'j'); g.r(x - 4, 14, 24, 1, 'j'); });
+}, g => { L.ground(g, 21, 'e', 'E', 7); g.r(0, 21, TW, 1, 'l'); L.every(7, x => L.tuft(g, x, 21, 'l')); L.every(53, (x, i) => { g.r(x + 3, 17, 1, 4, 'e'); g.d('.f./fzf/.f.', x + 2, 15, i % 2 ? { f: 'p' } : null); }); });
+FR.theme('desert', 21, g => { L.bands(g, ['u', 'z', 'z', 'Z']); g.o(120, 5, 3, 3, 'w'); L.hills(g, 16, 6, 3, 'j', 0.2); L.hills(g, 19, 4, 5, 'y', 0.6); },
+  g => { L.ground(g, 21, 'y', 'Y', 9); L.every(11, x => g.r(x, 22 + (x % 2), 4, 1, 'z')); });
+FR.theme('ice', 21, g => {
+  L.bands(g, ['x', 'X', 'X']); for (let x = 0; x < TW; x++) { const y = Math.round(9 + 6 * Math.abs(L.wave(x, 4)) - 3 * Math.abs(L.wave(x, 7, 0.3))); g.r(x, y, 1, 24 - y, '4'); if (y < 10) g.r(x, y, 1, 2, 'w'); }
+  L.hills(g, 18, 3, 6, '5');
+}, g => { L.ground(g, 21, 'X', 'x', 13); L.every(37, x => { g.l(x, 21, x + 4, 23, 'c'); g.r(x + 15, 19, 3, 2, '3'); g.p(x + 15, 19, '4'); }); });
+FR.theme('reef', 21, g => {
+  L.bands(g, ['x', 'c', 'c', 'C']); L.every(31, x => { g.l(x, 0, x + 8, 18, 'x'); g.l(x + 1, 0, x + 9, 18, 'x'); });
+  L.hills(g, 19, 4, 5, 'G', 0.4);
+}, g => {
+  L.ground(g, 21, 'a', 'A', 17);
+  L.every(40, (x, i) => { const c = ['f', 'o', 'p', 'g'][i % 4]; g.r(x + 4, 16, 2, 5, c); g.r(x + 2, 15, 2, 3, c); g.r(x + 6, 17, 2, 2, c); g.o(x + 22, 20, 2.6, 1.6, 'm'); g.p(x + 30, 3 + (i % 3) * 4, 'X'); });
+});
+FR.theme('deep', 21, g => { L.bands(g, ['G', 'G', 'K', 'K', 'q']); L.stars(g, 50, 21, ['C', 'G', 'c']); },
+  g => { L.every(27, (x, i) => { g.ring(x + 4, 4 + (i * 5) % 16, 1, 1, 'x'); g.p(x + 15, 10 + (i * 3) % 12, 'C'); }); });
+FR.theme('jungle', 21, g => {
+  L.bands(g, ['M', 'E', 'E', 'M']); L.every(26, x => g.r(x + 3, 0, 3, 24, 'N')); L.hills(g, 12, 8, 7, 'E', 0, 24); L.stars(g, 50, 4, ['T', 'M'], 0, 20);
+}, g => {
+  g.r(0, 1, TW, 2, 'n'); g.r(0, 1, TW, 1, 'h'); L.every(14, (x, i) => { g.o(x + 4, 3 + (i % 2), 2.4, 1.2, 'e'); g.p(x + 9, 3, 'l'); });
+  L.ground(g, 21, 'M', 'E', 3); L.every(19, x => { g.l(x, 21, x - 3, 17, 'e'); g.l(x, 21, x + 3, 17, 'e'); g.l(x, 21, x, 16, 'T'); });
+});
+FR.theme('wire', 21, g => {
+  L.bands(g, ['O', 'o', 'o', 'u', 'o', 'O']); for (let y = 2; y < 24; y += 5) for (let x = (y % 2) * 4; x < TW; x += 8) { g.o(x, y, 1.2, 1.2, 'u'); g.p(x - 1, y - 1, 'z'); }
+}, g => { g.r(0, 0, TW, 1, 'Y'); g.r(0, 23, TW, 1, 'Y'); L.every(23, x => g.p(x, 12 + (x % 5), 'Z')); });
+FR.theme('soil', 21, g => {
+  g.r(0, 0, TW, 3, 'e'); g.r(0, 0, TW, 1, 'l'); g.r(0, 3, TW, 21, 'n'); L.stars(g, 90, 8, ['h', 'N', 'H']);
+  L.every(29, x => { g.o(x + 6, 10 + (x % 7), 2.4, 1.6, '3'); g.l(x + 18, 3, x + 21, 12, 'H'); g.l(x + 21, 12, x + 19, 16, 'H'); });
+}, g => { g.r(0, 21, TW, 3, 'N'); L.every(17, x => g.p(x, 22, 'h')); });
+}
+// ===== scen2.js =====
+{
+const FR = window.FR, L = FR.SC, TW = FR.TW, T = FR.theme;
+T('island', 21, g => {
+  L.bands(g, ['x', 'x', 'X']); g.poly([40, 14, 52, 5, 56, 5, 70, 14], '3'); g.r(52, 5, 4, 1, '2'); g.r(0, 14, TW, 4, 'c'); L.every(9, x => g.p(x, 15 + (x % 2) * 2, 'x'));
+  L.every(80, x => { g.l(x + 10, 18, x + 12, 8, 'n'); g.o(x + 12, 7, 4, 1.4, 'e'); g.o(x + 9, 8, 2.4, 1, 'E'); });
+}, g => { L.ground(g, 18, 'j', 'J', 4); g.r(0, 18, TW, 1, 'J'); L.every(41, x => { g.o(x + 9, 20, 2.6, 1.6, '3'); g.p(x + 8, 19, '4'); g.r(x + 25, 17, 2, 4, 'T'); g.p(x + 24, 18, 'T'); }); });
+T('mall', 21, g => {
+  g.r(0, 0, TW, 24, '5'); g.r(0, 0, TW, 2, '4'); L.every(40, (x, i) => { const c = ['r', 'b', 'e', 'p'][i]; g.r(x + 3, 4, 34, 3, c); g.r(x + 3, 7, 34, 12, 'X'); g.r(x + 18, 9, 6, 10, '4'); g.dith(x + 4, 8, 12, 10, 'x'); g.r(x + 5, 11, 8, 6, UP(c)); });
+  L.every(20, x => g.r(x + 9, 2, 3, 1, 'Z'));
+}, g => { g.r(0, 20, TW, 4, '6'); L.every(8, x => { g.r(x, 21, 4, 1, '5'); g.r(x + 4, 22, 4, 2, '5'); }); g.r(0, 20, TW, 1, 'w'); });
+function UP(c) { return FR.UP[c] || c; }
+T('pond', 21, g => {
+  L.bands(g, ['P', 'p', 'm', 'g', 'I']); g.o(100, 13, 4, 4, 'z'); L.hills(g, 17, 3, 5, 'P', 0.5); L.stars(g, 12, 6, ['Z'], 0, 8);
+  L.every(14, x => { g.r(x, 10 + (x % 4), 1, 10, 'E'); g.r(x, 9 + (x % 4), 1, 2, 'n'); });
+}, g => { g.r(0, 20, TW, 4, 'C'); L.every(6, x => g.p(x, 21 + (x % 3 === 0 ? 1 : 0), 'c')); L.every(47, x => { g.o(x + 6, 20, 3, 1, 'e'); g.p(x + 5, 20, 'E'); g.d('.g./gzg', x + 10, 18); }); });
+T('snow', 21, g => {
+  L.bands(g, ['X', 'X', 'x']); L.hills(g, 15, 7, 3, '6', 0.1); L.hills(g, 18, 4, 5, '5', 0.7);
+  L.every(53, x => { g.poly([x, 18, x + 8, 9, x + 13, 18], 'w'); g.l(x + 8, 9, x + 11, 18, 'X'); });
+}, g => { L.ground(g, 21, 'w', 'X', 19); g.r(0, 21, TW, 1, '6'); L.stars(g, 18, 23, ['w', '6'], 0, 20); });
+T('park', 21, g => {
+  L.bands(g, ['x', 'x', 'X']); L.cloud(g, 60, 3, 16); L.cloud(g, 140, 5, 10);
+  L.hills(g, 17, 3, 4, 'T', 0); L.every(40, (x, i) => { L.tree(g, x + 6, 18, 4 + (i % 3), i % 2 ? 'e' : 'E'); L.tree(g, x + 24, 18, 3, 'T'); });
+}, g => {
+  g.r(0, 18, TW, 3, 'e'); g.r(0, 18, TW, 1, 'l'); g.r(0, 21, TW, 3, 'a'); L.stars(g, 40, 3, ['A', 'd'], 21, 24);
+  L.every(80, x => { g.r(x + 30, 8, 1, 10, '2'); g.r(x + 28, 7, 5, 2, '1'); g.p(x + 30, 9, 'z'); g.r(x + 60, 15, 8, 1, 'h'); g.r(x + 60, 13, 8, 1, 'h'); g.r(x + 61, 16, 1, 2, '2'); g.r(x + 66, 16, 1, 2, '2'); });
+});
+T('pool', 21, g => {
+  g.r(0, 0, TW, 24, 'X'); for (let x = 0; x < TW; x += 5) g.r(x, 0, 1, 14, 'x'); for (let y = 0; y < 14; y += 5) g.r(0, y, TW, 1, 'x');
+  L.every(40, x => { g.r(x + 10, 3, 12, 3, 'b'); g.r(x + 11, 4, 10, 1, 'w'); });
+}, g => { g.r(0, 14, TW, 10, 'c'); g.r(0, 14, TW, 1, 'x'); L.every(4, (x, i) => g.r(x, 13, 2, 1, i % 4 < 2 ? 'r' : 'w')); L.every(9, x => g.p(x, 17 + (x % 4), 'x')); g.r(0, 23, TW, 1, 'b'); });
+T('sea', 20, g => {
+  L.bands(g, ['c', 'x', 'x', 'X']); L.cloud(g, 40, 5, 18); L.cloud(g, 120, 3, 12); g.r(0, 16, TW, 1, 'C');
+  L.every(80, x => { g.r(x + 50, 13, 6, 3, '4'); g.r(x + 52, 11, 2, 2, '3'); });
+}, g => { g.r(0, 17, TW, 7, 'c'); g.r(0, 20, TW, 4, 'C'); L.every(10, (x, i) => { g.r(x, 17 + (i % 3), 4, 1, 'x'); g.p(x + 2, 16 + (i % 3), 'w'); }); });
+T('farm', 21, g => {
+  L.bands(g, ['x', 'X', 'X']); L.hills(g, 15, 5, 3, 'T', 0.3);
+  L.every(80, x => { g.r(x + 15, 7, 16, 11, 'r'); g.poly([x + 13, 7, x + 23, 2, x + 33, 7], 'R'); g.r(x + 20, 11, 6, 7, 'w'); g.l(x + 20, 11, x + 25, 17, 'r'); g.l(x + 25, 11, x + 20, 17, 'r'); g.r(x + 55, 8, 4, 10, '5'); g.o(x + 57, 8, 2, 1.4, '4'); });
+}, g => { L.ground(g, 21, 'h', 'n', 29); L.every(12, x => { g.r(x, 15, 1, 6, 'H'); }); g.r(0, 16, TW, 1, 'H'); g.r(0, 19, TW, 1, 'H'); L.every(9, x => L.tuft(g, x, 21, 'e')); });
+T('savanna', 21, g => {
+  L.bands(g, ['o', 'u', 'z', 'z', 'Z']); g.o(30, 9, 4, 4, 'Z');
+  L.hills(g, 18, 3, 3, 'A', 0); L.every(53, x => { g.l(x + 10, 18, x + 11, 10, 'N'); g.o(x + 11, 9, 7, 1.6, 'M'); g.o(x + 9, 8, 4, 1, 'M'); });
+}, g => { L.ground(g, 21, 'y', 'Y', 31); L.every(5, x => { g.l(x, 21, x + 1, 17 + (x % 3), 'A'); g.p(x + 2, 19 + (x % 2), 'j'); }); });
+T('outback', 21, g => {
+  L.bands(g, ['x', 'x', 'X', 'u']); g.poly([90, 18, 96, 12, 120, 11, 128, 18], 'O'); g.r(97, 12, 22, 1, 'o');
+  L.hills(g, 19, 2, 4, 'S', 0.2);
+}, g => { L.ground(g, 21, 'o', 'O', 37); L.every(23, x => { g.o(x + 4, 20, 2.6, 1.6, 'T'); g.p(x + 3, 19, 'M'); }); });
+T('storm', 21, g => {
+  L.bands(g, ['1', '2', '2', '3', '3', '2']); L.every(26, (x, i) => g.o(x + 8, 3 + (i % 3) * 2, 8, 2, i % 2 ? '3' : '4'));
+}, g => { L.every(6, (x, i) => { const y = (i * 7) % 20; g.l(x, y, x - 2, y + 4, 'x'); }); });
+T('track', 21, g => {
+  g.r(0, 0, TW, 12, '3'); for (let y = 2; y < 12; y += 2) L.stars(g, 70, y, ['r', 'y', 'w', 'b', 'e', 'g'], y, y + 1); g.r(0, 12, TW, 2, 'w'); g.r(0, 14, TW, 4, 'e');
+}, g => { g.r(0, 18, TW, 6, 'r'); g.r(0, 18, TW, 1, 'w'); g.r(0, 23, TW, 1, 'w'); L.stars(g, 40, 41, ['i', 'R'], 19, 23); L.every(80, x => g.r(x + 40, 19, 1, 4, 'w')); });
+T('turf', 21, g => {
+  L.bands(g, ['x', 'X']); g.r(0, 6, TW, 8, '4'); for (let x = 0; x < TW; x += 2) g.p(x, 8 + (x % 3), ['r', 'y', 'w', 'b'][x % 4]); g.r(0, 5, TW, 1, 'w');
+  g.r(0, 14, TW, 6, 'e'); g.r(0, 15, TW, 1, 'w'); L.every(10, x => g.r(x, 15, 1, 3, 'w'));
+}, g => { L.ground(g, 20, 'e', 'E', 43); L.every(16, x => g.r(x, 20, 8, 4, 'l')); g.r(0, 20, TW, 1, 'T'); });
+}
+// ===== scen3.js =====
+{
+const FR = window.FR, L = FR.SC, TW = FR.TW, T = FR.theme;
+T('town', 21, g => {
+  L.bands(g, ['x', 'X']); L.every(20, (x, i) => { const h = 6 + Math.floor(FR.hash(i, 5) * 9), c = ['S', 'h', '4', 'o', 'v', 'A', 'F', '3'][i]; g.r(x, 18 - h, 18, h, c); for (let y = 20 - h; y < 16; y += 3) for (let k = x + 2; k < x + 16; k += 4) g.r(k, y, 2, 2, (i + y + k) % 5 ? 'X' : 'z'); });
+}, g => { g.r(0, 18, TW, 2, '4'); g.r(0, 18, TW, 1, '5'); g.r(0, 20, TW, 4, '2'); L.every(16, x => g.r(x, 22, 8, 1, 'z')); L.every(53, x => { g.r(x, 9, 1, 9, '1'); g.r(x - 1, 8, 3, 1, '1'); g.p(x + 1, 9, 'z'); }); });
+T('forest', 21, g => {
+  L.bands(g, ['X', 'x', 'x']); L.every(9, (x, i) => L.pine(g, x + 3, 18, 8 + (i * 5) % 7, 'M')); L.every(13, (x, i) => L.pine(g, x + 6, 21, 10 + (i * 3) % 6, 'E'));
+}, g => { L.ground(g, 21, 'n', 'h', 47); L.every(7, x => L.tuft(g, x, 21, 'M')); L.every(61, x => { g.r(x, 19, 6, 2, 'N'); g.r(x, 19, 6, 1, 'h'); }); });
+T('highway', 21, g => {
+  L.bands(g, ['x', 'x', 'X']); L.hills(g, 14, 5, 2, 'T', 0.4); L.hills(g, 17, 3, 5, 'M', 0);
+  L.every(80, x => { g.r(x + 20, 6, 1, 11, '3'); g.r(x + 40, 6, 1, 11, '3'); g.r(x + 18, 5, 25, 6, 'E'); g.r(x + 19, 6, 23, 4, 'e'); g.r(x + 21, 7, 10, 1, 'w'); g.r(x + 21, 9, 6, 1, 'w'); });
+}, g => { g.r(0, 17, TW, 1, '4'); L.every(8, x => g.r(x, 17, 1, 2, '3')); g.r(0, 18, TW, 6, '2'); g.r(0, 18, TW, 1, '3'); L.every(20, x => g.r(x, 21, 10, 1, 'w')); });
+T('circuit', 21, g => {
+  L.bands(g, ['x', 'X']); g.r(0, 5, TW, 9, '3'); for (let y = 6; y < 13; y += 2) L.stars(g, 60, y + 9, ['r', 'y', 'w', 'b', 'f'], y, y + 1);
+  g.r(0, 4, TW, 1, '1'); g.r(0, 14, TW, 4, 'e'); L.every(32, x => g.r(x, 14, 16, 1, '5'));
+}, g => { g.r(0, 18, TW, 6, '1'); L.every(4, (x, i) => g.r(x, 18, 4, 1, i % 2 ? 'r' : 'w')); L.stars(g, 30, 51, ['2'], 19, 24); });
+T('stadium', 21, g => {
+  g.r(0, 0, TW, 14, 'D'); for (let y = 3; y < 13; y += 2) L.stars(g, 80, y + 3, ['r', 'y', 'w', 'b', 'g', 'u'], y, y + 1);
+  L.every(80, x => { g.r(x + 30, 0, 1, 4, '4'); g.r(x + 26, 0, 9, 2, 'Z'); }); g.r(0, 13, TW, 1, 'k');
+}, g => { g.r(0, 14, TW, 10, 'e'); L.every(16, x => g.r(x, 14, 8, 10, 'l')); g.r(0, 20, TW, 1, 'w'); L.every(80, x => g.r(x + 20, 14, 1, 6, 'w')); });
+T('fair', 21, g => {
+  L.bands(g, ['P', 'p', 'm', 'g']); L.every(80, x => { g.ring(x + 24, 10, 8, 8, '6'); for (let a = 0; a < 6.28; a += 0.785) { g.l(x + 24, 10, x + 24 + Math.cos(a) * 8, 10 + Math.sin(a) * 8, '4'); g.r(x + 23 + Math.round(Math.cos(a) * 8), 10 + Math.round(Math.sin(a) * 8), 2, 2, ['r', 'y', 'c', 'l'][Math.round(a) % 4]); } g.l(x + 24, 10, x + 20, 20, '3'); g.l(x + 24, 10, x + 28, 20, '3'); });
+  L.every(80, x => { g.poly([x + 50, 20, x + 58, 9, x + 66, 20], 'r'); for (let k = 0; k < 16; k += 4) g.l(x + 58, 9, x + 51 + k, 20, 'w'); }); L.stars(g, 15, 9, ['Z'], 0, 6);
+}, g => { g.r(0, 21, TW, 3, 'a'); L.every(10, x => g.r(x, 15, 1, 6, '3')); g.r(0, 14, TW, 1, '3'); });
+T('sky', 21, g => { L.bands(g, ['c', 'c', 'x', 'x', 'X', 'X']); L.cloud(g, 20, 17, 22, '6', '5'); L.cloud(g, 100, 19, 30, '6', '5'); L.cloud(g, 70, 6, 10); },
+  g => { L.cloud(g, 40, 10, 18); L.cloud(g, 130, 15, 14); L.cloud(g, 90, 3, 8); });
+T('highsky', 21, g => {
+  L.bands(g, ['Q', 'D', 'B', 'B', 'b', 'v']); L.stars(g, 20, 13, ['5', 'w'], 0, 8);
+  for (let x = 0; x < TW; x++) { const y = 19 + Math.round(1.5 * L.wave(x, 1, 0.25)); g.r(x, y - 1, 1, 1, 'X'); g.r(x, y, 1, 24 - y, 'c'); g.p(x, y + 2 + (x % 5 === 0), 'e'); }
+}, g => { L.every(53, x => { g.r(x, 14, 12, 1, 'X'); g.r(x + 4, 15, 9, 1, 'x'); }); });
+T('rail', 21, g => {
+  L.bands(g, ['x', 'X', 'X']); L.hills(g, 16, 4, 3, 'T', 0.2); g.r(0, 5, TW, 1, '2');
+  L.every(40, x => { g.r(x + 10, 3, 1, 15, '3'); g.r(x + 8, 4, 5, 1, '3'); });
+}, g => { g.r(0, 19, TW, 5, '3'); L.stars(g, 50, 59, ['4', '2'], 19, 24); L.every(5, x => g.r(x, 21, 3, 2, 'n')); g.r(0, 20, TW, 1, '5'); g.r(0, 22, TW, 1, '5'); });
+T('body', 21, g => {
+  L.bands(g, ['F', 'f', 'g', 'f', 'F']); L.every(19, (x, i) => { g.o(x + 6, 4 + (i * 7) % 16, 4, 3, 'I'); g.o(x + 6, 4 + (i * 7) % 16, 1.4, 1.2, 'f'); });
+}, g => { L.every(23, (x, i) => { const y = 3 + (i * 9) % 18; g.o(x + 4, y, 2.4, 1.6, 'r'); g.r(x + 3, y, 3, 1, 'R'); }); });
+T('orbit', 21, g => {
+  g.r(0, 0, TW, 24, 'q'); L.stars(g, 40, 61, ['5', 'w', '4'], 0, 16);
+}, g => {
+  for (let x = 0; x < TW; x++) { const y = 17 + Math.round(L.wave(x, 1) * 1.2); g.r(x, y - 1, 1, 1, 'v'); g.r(x, y, 1, 24 - y, 'c'); }
+  L.every(23, (x, i) => { g.o(x + 6, 20 + (i % 3), 4, 1, 'w'); g.o(x + 15, 22, 3, 1.4, 'e'); }); g.r(0, 15, TW, 1, 'b');
+});
+T('space', 21, g => { g.r(0, 0, TW, 24, 'q'); L.stars(g, 50, 67, ['4', '5', 'w', 'x']); }, g => { L.stars(g, 10, 71, ['w', 'Z', 'X']); });
+T('night', 21, g => {
+  L.bands(g, ['q', 'Q', 'Q', 'D', 'V']); L.stars(g, 60, 73, ['5', 'w', 'z'], 0, 16); g.o(130, 5, 2.4, 2.4, 'Z');
+  for (let x = 0; x < TW; x++) { const y = 20 + Math.round(1.5 * L.wave(x, 9) * L.wave(x, 4)); g.r(x, y, 1, 24 - y, 'q'); }
+}, g => { L.every(80, x => L.pine(g, x + 30, 23, 6, 'q')); });
+T('sunside', 21, g => { L.bands(g, ['q', 'q', 'Q', 'R', 'R', 'r', 'O']); L.stars(g, 18, 79, ['u', 'o'], 10, 24); L.every(40, x => g.ring(x + 10, 26, 10, 7, 'u', 3.6, 5.8)); },
+  g => { L.every(31, (x, i) => g.r(x, 6 + (i * 5) % 14, 6, 1, i % 2 ? 'u' : 'z')); });
+T('galaxy', 21, g => {
+  L.bands(g, ['q', 'Q', 'P', 'Q', 'q']); for (let x = 0; x < TW; x++) { const y = 12 + Math.round(3 * L.wave(x, 2)); g.r(x, y - 1, 1, 3, 'P'); g.p(x, y, x % 3 ? 'p' : 'm'); }
+  L.stars(g, 120, 83, ['5', 'w', 'm', 'X', 'z']);
+}, g => { L.stars(g, 16, 89, ['w', 'Z']); });
+T('cosmos', 21, g => {
+  g.r(0, 0, TW, 24, 'q'); L.stars(g, 30, 97, ['3', '4']);
+  L.every(27, (x, i) => { g.o(x + 6, 4 + (i * 7) % 16, 2.4, 1, i % 2 ? 'p' : 'c'); g.p(x + 6, 4 + (i * 7) % 16, 'w'); });
+}, g => { L.stars(g, 6, 101, ['w']); });
+T('lab', 21, g => {
+  L.bands(g, ['K', 'G', 'G', 'K']); L.every(40, x => { g.r(x + 4, 4, 10, 12, '2'); g.r(x + 5, 5, 8, 4, 'e'); L.stars(g, 3, x, ['r', 'z', 'l'], 10, 14); g.r(x + 24, 10, 6, 8, '1'); g.r(x + 26, 7, 2, 3, '3'); });
+}, g => { g.r(0, 19, TW, 5, '3'); g.r(0, 19, TW, 1, '5'); L.every(16, x => g.r(x, 21, 1, 3, '2')); });
+T('collider', 21, g => {
+  L.bands(g, ['1', '2', '3', '3', '2', '1']); L.every(20, x => { g.r(x, 0, 2, 24, '2'); g.p(x, 2, 'z'); });
+  g.r(0, 9, TW, 6, 'B'); g.r(0, 10, TW, 1, 'v'); g.r(0, 13, TW, 1, 'b'); L.every(40, x => g.r(x + 8, 8, 6, 8, 'b'));
+}, g => { L.every(40, x => g.r(x + 30, 20, 4, 2, 'y')); g.r(0, 22, TW, 2, '4'); });
+T('void', 21, g => { g.r(0, 0, TW, 24, 'q'); L.stars(g, 30, 103, ['3', '4', 'V']); },
+  g => { L.every(9, (x, i) => g.r(x, (i * 11) % 24, 5 + (i % 3) * 3, 1, i % 4 ? '5' : 'm')); });
+}
+// ===== land.js =====
+{
+const FR = window.FR, K = FR.K;
+const GEN = [
+  [1e-9, '1 nm', 'its first nanometre'], [1e-7, '0.1 µm', 'the width of a virus (0.1 µm)'], [1e-6, '1 µm', 'the width of a bacterium (1 µm)'],
+  [1e-4, '0.1 mm', 'the width of a hair (0.1 mm)'], [1e-3, '1 mm', 'its first millimetre'], [1e-2, '1 cm', 'its first centimetre'],
+  [0.1, '10 cm', '10 centimetres'], [1, '1 m', '@ finished its first metre'], [100, '100 m', '100 metres'], [1000, '1 km', 'its first kilometre'],
+  [42195, 'MARATHON', 'a whole marathon'], [1e5, '100 km', '100 km'], [1e6, '1,000 km', '1,000 km'], [K.EARTH, 'EARTH LAP', 'once around the Earth'],
+  [K.MOON, 'MOON', '@ has gone as far as the Moon'], [K.AU, 'SUN', '@ has gone as far as the Sun'], [4.5e12, 'NEPTUNE', '@ has gone as far as Neptune'],
+  [K.LY, 'LIGHT-YEAR', 'a whole light-year']
+];
+const LIGHT = [
+  [K.MOON, 'MOON', 'Light just reached the Moon!'], [3.82e10, 'VENUS', 'Light just passed Venus (at its closest to us)'],
+  [5.46e10, 'MARS', 'Light just passed Mars (at its closest to us)'], [K.AU, 'SUN', 'Light reached the Sun!'],
+  [5.88e11, 'JUPITER', 'Light passed Jupiter (at its closest)'], [1.2e12, 'SATURN', 'Light passed Saturn'], [2.58e12, 'URANUS', 'Light passed Uranus'],
+  [4.3e12, 'NEPTUNE', 'Light passed Neptune'], [5.9e12, 'PLUTO', 'Light passed Pluto (on average)'],
+  [2.54e13, 'VOYAGER 1', 'Light reached Voyager 1, the farthest space probe'], [2.59020684e13, 'LIGHT-DAY', 'Light has gone one light-day'],
+  [1.8131e14, 'LIGHT-WEEK', 'Light has gone one light-week'], [K.LY, 'LIGHT-YEAR', 'Light has gone a whole light-year!'],
+  [4.011e16, 'PROXIMA', 'Light reached Proxima Centauri, the nearest star']
+];
+const HI = ['1 m', '1 km', 'MARATHON', 'EARTH LAP', 'MOON', 'SUN', 'LIGHT-YEAR'];
+const say = (r, s) => s[0] === '@' ? s.replace('@', r.who) : r.who + ' ' + r.vb + ' ' + s;
+FR.MIN_T = 1; FR.MAX_T = 100 * K.YEAR;
+FR.buildLandmarks = () => {
+  FR.EV = [];
+  FR.R.forEach((r, i) => {
+    let lm = GEN.filter(L => !(r.id === 'moon' && L[1] === 'MOON')).map(L => ({ d: L[0], flag: L[1], text: say(r, L[2]) }));
+    if (r.id === 'light') { const sp = LIGHT.map(L => ({ d: L[0], flag: L[1], text: L[2] })); lm = lm.filter(a => !sp.some(b => Math.abs(b.d / a.d - 1) < 0.01)).concat(sp); }
+    lm.sort((a, b) => a.d - b.d); lm.forEach(L => { L.t = L.d / r.v; L.i = i; L.hi = r.id === 'light' || r.id === 'plant' || HI.includes(L.flag); });
+    r.lm = lm; r.lmi = 0;
+    lm.forEach(L => { if (L.t >= FR.MIN_T && L.t <= FR.MAX_T) FR.EV.push(L); });
+  });
+  FR.EV.sort((a, b) => a.t - b.t);
+};
+FR.nextLm = (r, d) => { let k = r.lmi; while (k > 0 && r.lm[k - 1].d > d) k--; while (k < r.lm.length && r.lm[k].d <= d) k++; r.lmi = k; return k; };
+FR.evAfter = t => { let lo = 0, hi = FR.EV.length; while (lo < hi) { const m = (lo + hi) >> 1; if (FR.EV[m].t <= t) lo = m + 1; else hi = m; } return lo; };
+FR.Miles = {
+  ptr: 0, last: 0, fired: 0,
+  init(t) {
+    this.ptr = FR.evAfter(t); this.last = t;
+    const seen = FR.store.get('seen', 0);
+    if (typeof seen === 'number' && seen < t && t - seen < 30) { this.ptr = FR.evAfter(seen); this.last = seen; return; }
+    if (!FR.T.fresh && typeof seen === 'number' && seen < t) {
+      const n = this.ptr - FR.evAfter(seen);
+      if (n > 1) FR.toast('WHILE YOU WERE AWAY', n.toLocaleString() + ' milestones happened in ' + FR.fmtDur(t - seen, 2) + '. Latest: ' + FR.EV[this.ptr - 1].text + '. See the LOG.', 'away');
+      else if (n === 1) FR.toast('WHILE YOU WERE AWAY', FR.EV[this.ptr - 1].text, 'away');
+    }
+  },
+  tick(t) {
+    if (t < this.last) { this.ptr = FR.evAfter(t); this.last = t; return; }
+    const pre = !!FR.T.warp;
+    while (this.ptr < FR.EV.length && FR.EV[this.ptr].t <= t) { const e = FR.EV[this.ptr++]; this.fired++; FR.toast(pre ? 'PREVIEW · ' + FR.fmtClock(e.t).replace(/\.\d$/, '') : 'MILESTONE · ' + FR.fmtDur(e.t, 3), e.text, pre ? 'pre' : '', e.i, e.hi); }
+    this.last = t;
+  },
+  happened() { const n = FR.evAfter(FR.T.real()); return FR.EV.slice(0, n).reverse(); },
+  upcoming(k) { const n = FR.evAfter(FR.T.real()); return FR.EV.slice(n, n + (k || 20)); }
+};
+}
+// ===== toast.js =====
+{
+const FR = window.FR;
+const Q = [], LIVE = [];
+let box = null, timer = 0;
+FR.toastLog = [];
+FR.toast = (title, text, cls, ri, hi) => {
+  if (ri == null) hi = true;
+  const o = { title, text, cls, ri, hi }; FR.toastLog.push(o); if (FR.toastLog.length > 300) FR.toastLog.shift();
+  if (hi) { let k = 0; while (k < Q.length && Q[k].hi) k++; Q.splice(k, 0, o); } else Q.push(o);
+  if (!timer) pump();
+};
+function pump() {
+  timer = 0; box = box || FR.$('#toasts'); if (!box || !Q.length) return;
+  const minor = Q.filter(o => !o.hi);
+  if (minor.length > 4) { const pre = minor[0].cls === 'pre', keep = Q.filter(o => o.hi); Q.length = 0; Q.push(...keep, { title: pre ? 'PREVIEW' : 'MILESTONES', text: '+' + minor.length + ' more milestones just happened. Open the LOG to see them all.', cls: pre ? 'pre' : 'more', hi: true }); }
+  if (Q.length > 8) { const n = Q.length - 6; Q.splice(6, n); }
+  const o = Q.shift(), el = FR.el('div', 'toast ' + (o.cls || ''));
+  if (o.ri != null && FR.S[FR.R[o.ri].id]) { const c = FR.icon(o.ri, 2); el.appendChild(c); }
+  const tx = FR.el('div', 'tx'); tx.appendChild(FR.el('b', '', o.title)); tx.appendChild(FR.el('span', '', o.text)); el.appendChild(tx);
+  if (o.ri != null) { el.title = 'Follow this racer'; el.addEventListener('click', () => FR.follow(o.ri, true)); }
+  box.appendChild(el); LIVE.push(el); requestAnimationFrame(() => el.classList.add('on'));
+  while (LIVE.length > 3) drop(LIVE.shift(), 0);
+  drop(el, o.cls === 'away' ? 9000 : 5200);
+  if (Q.length) timer = setTimeout(pump, Q.length > 4 ? 450 : 900);
+}
+function drop(el, ms) {
+  setTimeout(() => { el.classList.remove('on'); el.classList.add('off'); const k = LIVE.indexOf(el); if (k >= 0) LIVE.splice(k, 1); setTimeout(() => el.remove(), 350); }, ms);
+}
+FR.icon = (i, sc) => {
+  const s = FR.S[FR.R[i].id]; FR.bakeSprite(s); const src = s.cv[0], c = document.createElement('canvas');
+  c.width = src.width * sc; c.height = src.height * sc; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(src, 0, 0, c.width, c.height);
+  c.className = 'ico'; return c;
+};
+}
+// ===== lane.js =====
+{
+const FR = window.FR, AH = FR.ART_H = 24, TW = FR.TW;
+const mod = (a, n) => ((a % n) + n) % n;
+function strip(X, img, off, y0, W, P) {
+  const tw = img.width; let x = -mod(Math.floor(off), TW) * P;
+  for (; x < W; x += tw) X.drawImage(img, x, y0);
+}
+function blurred(cv, lvl) {
+  const key = '_b' + lvl; if (cv[key]) return cv[key];
+  const w = cv.width, h = cv.height, n = [0, 4, 12, 40][lvl], src = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'), im = x.createImageData(w, h), d = im.data;
+  for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) {
+    let r = 0, g = 0, b = 0, a = 0;
+    for (let k = 0; k < n; k++) { const j = (y * w + mod(i + k, w)) * 4, al = src[j + 3]; r += src[j] * al; g += src[j + 1] * al; b += src[j + 2] * al; a += al; }
+    const o = (y * w + i) * 4; if (a) { d[o] = r / a; d[o + 1] = g / a; d[o + 2] = b / a; d[o + 3] = Math.round(a / n / 32) * 32 > 255 ? 255 : Math.round(a / n / 32) * 32; }
+  }
+  x.putImageData(im, 0, 0); cv[key] = c; return c;
+}
+function layer(X, cv, off, y0, W, P, perArt) {
+  const lvl = perArt < 2.5 ? 0 : perArt < 8 ? 1 : perArt < 24 ? 2 : 3;
+  strip(X, FR.scaled(lvl ? blurred(cv, lvl) : cv, P), off, y0, W, P);
+}
+function flag(X, x, y0, gy, P, L, dpr, passed) {
+  const top = y0 + (gy - 13) * P;
+  X.fillStyle = '#1a1220'; X.fillRect(x, top, P, 13 * P);
+  for (let j = 0; j < 4; j++) for (let k = 0; k < 6; k++) { X.fillStyle = (j + k) % 2 ? '#1a1220' : (passed ? '#cfcad6' : '#ffffff'); X.fillRect(x + P + k * P, top + j * P, P, P); }
+  X.font = '600 ' + Math.round(10 * dpr) + 'px "Pixelify Sans", monospace'; X.textBaseline = 'top';
+  const tx = x + 8 * P, ty = top - dpr; X.fillStyle = 'rgba(0,0,0,.6)'; X.fillText(L.flag, tx + dpr, ty + dpr); X.fillStyle = passed ? '#cfcad6' : '#fff6c0'; X.fillText(L.flag, tx, ty);
+}
+function fx(X, kind, sx, sy, s, P, o, y0, at, perArt, gy) {
+  const h = s.h * P, mid = sy + Math.round(h / 2), left = o.plate || 0;
+  if (kind === 'slime') { X.fillStyle = 'rgba(208,246,255,.55)'; X.fillRect(left, y0 + gy * P - P, sx + 4 * P - left, P); X.fillStyle = 'rgba(255,255,255,.8)'; for (let x = sx - 9 * P; x > left; x -= 23 * P) X.fillRect(x, y0 + gy * P - P, P, P); }
+  else if (kind === 'dust') { for (let k = 0; k < 4; k++) { const ph = (at * 2.6 + k / 4) % 1, x = sx + 2 * P - ph * 16 * P, y = y0 + (gy - 1 - ph * 3) * P, r = Math.round((1 + ph * 2)) * P; X.fillStyle = 'rgba(230,214,168,' + (0.75 * (1 - ph)).toFixed(2) + ')'; X.fillRect(x - r / 2, y - r / 2, r, r); } }
+  else if (kind === 'contrail') { const len = sx - left; for (let x = sx; x > left; x -= 3 * P) { const k = (sx - x) / len, w = (2 + Math.round(FR.hash(Math.floor((x / P + at * perArt * 60) / 3), 7) * 1.4)) * P; X.fillStyle = 'rgba(255,255,255,' + (0.75 * (1 - k)).toFixed(2) + ')'; X.fillRect(x - 3 * P, mid - w / 2, 3 * P, w); } }
+  else if (kind === 'fire') { for (let k = 0; k < 7; k++) { const L = (3 + FR.hash(k, Math.floor(at * 20)) * 8) * P, yy = mid + (k - 3) * P * 0.6; X.fillStyle = k % 3 ? '#ffb04a' : '#ffe270'; X.fillRect(sx - L, Math.round(yy), L, P); } }
+  else if (kind === 'streak' || kind === 'streak2') {
+    const cols = kind === 'streak' ? ['#ff6060', '#ffb04a', '#ffe270', '#ffffff', '#7ad8f4', '#6e94f4', '#ac80ec'] : ['#3458c8', '#6e94f4', '#d0f6ff', '#6e94f4'];
+    const n = cols.length, y = mid - Math.floor(n / 2) * P;
+    for (let k = 0; k < n; k++) { const fl = FR.hash(k, Math.floor(at * 30)); X.globalAlpha = 0.55 + fl * 0.35; X.fillStyle = cols[k]; X.fillRect(left, y + k * P, sx + 6 * P - left, P); }
+    X.globalAlpha = 1;
+  }
+}
+FR.drawLane = (X, i, y0, W, P, t, at, o) => {
+  const r = FR.R[i], s = FR.S[r.id], th = FR.TH[r.th], dpr = o.dpr;
+  const pxDev = FR.pxps(r.v) * dpr, artps = pxDev / P, off = artps * t + r.seed, perArt = artps / 60;
+  layer(X, th.farCv, off * 0.35, y0, W, P, perArt * 0.35);
+  layer(X, th.nearCv, off, y0, W, P, perArt);
+  if (perArt > 5) { // speed lines
+    const n = Math.min(10, Math.floor(perArt / 4)), len = Math.min(W / 2, perArt * P * 3);
+    X.fillStyle = 'rgba(255,255,255,.5)'; for (let k = 0; k < n; k++) { const y = y0 + Math.floor(FR.hash(k, i, 3) * AH) * P, x = mod(FR.hash(k, i, 5) * W * 3 - at * pxDev * 0.9, W + len) - len; X.fillRect(Math.round(x), y, Math.round(len), P); }
+  }
+  const sx = Math.round(o.sprX / P) * P, gy = th.gy, ay = s.a === 'g' ? gy - s.h : s.a === 'top' ? 2 : Math.floor((AH - s.h) / 2), sy = y0 + (ay + s.dy) * P;
+  const d = r.v * t, k = FR.nextLm(r, d), nose = sx + s.w * P;
+  const nx = r.lm[k], pv = r.lm[k - 1];
+  if (pv && !o.noFlags) { const x = nose - Math.round((d - pv.d) / r.v * artps) * P; if (x > (o.plate || 0) - 40 * dpr && x < W) flag(X, x, y0, gy, P, pv, dpr, true); }
+  if (nx && !o.noFlags) { const x = nose + Math.round((nx.d - d) / r.v * artps) * P; if (x < W) flag(X, x, y0, gy, P, nx, dpr, false); }
+  if (s.fx) fx(X, s.fx, sx, sy, s, P, o, y0, at, perArt, gy);
+  else if (perArt > 3) fx(X, 'contrail', sx, sy, s, P, o, y0, at, perArt, gy);
+  const fi = Math.floor(at * s.fps + i * 0.37) % s.f;
+  X.drawImage(FR.scaled(s.cv[fi], P), sx - P, sy - P);
+  if (o.plate) FR.drawPlate(X, i, y0, o.plate, P, t, o);
+  X.fillStyle = 'rgba(0,0,0,.55)'; X.fillRect(0, y0 + AH * P - Math.max(1, Math.round(dpr)), W, Math.max(1, Math.round(dpr)));
+  if (o.sel) { X.strokeStyle = '#f5c842'; X.lineWidth = 3 * dpr; X.strokeRect(1.5 * dpr, y0 + 1.5 * dpr, W - 3 * dpr, AH * P - 3 * dpr); }
+};
+}
+// ===== render.js =====
+{
+const FR = window.FR, AH = FR.ART_H;
+let cv, X, sc, sp;
+const R = FR.Rend = {
+  P: 3, dpr: 1, laneDev: 72, laneCss: 72, W: 0, H: 0, plate: 236, compact: false, drawMs: 0,
+  init() {
+    cv = FR.$('#cv'); X = cv.getContext('2d'); sc = FR.$('#lanes'); sp = FR.$('#spacer');
+    R.layout(); addEventListener('resize', () => R.layout());
+    if (window.ResizeObserver) new ResizeObserver(() => { if (Math.round(sc.clientWidth * R.dpr) !== R.W || Math.round(sc.clientHeight * R.dpr) !== R.H) R.layout(); }).observe(sc);
+    sc.addEventListener('click', e => { const i = R.laneAt(e.clientY); if (i >= 0) FR.follow(i, false); });
+    sc.addEventListener('mousemove', e => { R.hover = R.laneAt(e.clientY); });
+    sc.addEventListener('mouseleave', () => { R.hover = -1; });
+  },
+  layout() {
+    const dpr = R.dpr = Math.min(3, window.devicePixelRatio || 1), w = sc.clientWidth, h = sc.clientHeight;
+    R.compact = w < 640; const css = R.compact ? 2 : 3; R.P = Math.max(1, Math.round(css * dpr));
+    R.laneDev = AH * R.P; R.laneCss = R.laneDev / dpr; R.plate = Math.round((R.compact ? 132 : 240) * dpr);
+    R.W = Math.round(w * dpr); R.H = Math.round(h * dpr); cv.width = R.W; cv.height = R.H; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    sp.style.height = (FR.R.length * R.laneCss) + 'px'; X.imageSmoothingEnabled = false;
+    if (FR.Focus) FR.Focus.layout();
+  },
+  laneAt(cy) { const b = sc.getBoundingClientRect(), y = cy - b.top + sc.scrollTop, i = Math.floor(y / R.laneCss); return i >= 0 && i < FR.R.length ? i : -1; },
+  scrollTo(i, smooth) { const y = i * R.laneCss - (sc.clientHeight - R.laneCss) / 2; sc.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' }); },
+  visible() { const top = sc.scrollTop; return [Math.floor(top / R.laneCss), Math.min(FR.R.length - 1, Math.floor((top + sc.clientHeight) / R.laneCss))]; },
+  frame(t, at) {
+    const t0 = performance.now();
+    X.imageSmoothingEnabled = false; X.fillStyle = '#07060f'; X.fillRect(0, 0, R.W, R.H);
+    const top = sc.scrollTop * R.dpr, a = Math.max(0, Math.floor(top / R.laneDev)), b = Math.min(FR.R.length - 1, Math.floor((top + R.H) / R.laneDev));
+    const sprX = R.plate + Math.round((R.W - R.plate) * (R.compact ? 0.22 : 0.26));
+    for (let i = a; i <= b; i++) FR.drawLane(X, i, Math.round(i * R.laneDev - top), R.W, R.P, t, at, { plate: R.plate, sprX, dpr: R.dpr, sel: i === FR.sel, hov: i === R.hover });
+    R.drawMs = R.drawMs * 0.9 + (performance.now() - t0) * 0.1;
+  }
+};
+const fit = (s, w) => { if (X.measureText(s).width <= w) return s; while (s.length > 2 && X.measureText(s + '…').width > w) s = s.slice(0, -1); return s + '…'; };
+FR.drawPlate = (X, i, y0, pw, P, t, o) => {
+  const r = FR.R[i], d = o.dpr, rank = FR.R.length - i, H = AH * P, c = R.compact, d1 = r.v * t;
+  X.fillStyle = o.hov ? 'rgba(40,30,70,.92)' : 'rgba(18,14,34,.88)'; X.fillRect(0, y0, pw, H);
+  X.fillStyle = '#0b0a14'; X.fillRect(pw - 3 * d, y0, 3 * d, H); X.fillStyle = 'rgba(255,255,255,.08)'; X.fillRect(0, y0, pw - 3 * d, d);
+  X.textBaseline = 'top';
+  const bx = 6 * d, by = y0 + (c ? 4 : 7) * d, bh = (c ? 13 : 16) * d;
+  X.font = Math.round((c ? 7 : 8) * d) + 'px "Press Start 2P", monospace';
+  const lab = 'P' + rank, bw = X.measureText(lab).width + 8 * d;
+  X.fillStyle = rank === 1 ? '#f5c842' : rank <= 3 ? '#e9d8a6' : rank > 97 ? '#8fe0b0' : '#3a3172'; X.fillRect(bx, by, bw, bh);
+  X.fillStyle = rank <= 3 || rank > 97 ? '#1a1220' : '#fff6c0'; X.fillText(lab, bx + 4 * d, by + (c ? 3 : 4) * d);
+  X.font = '600 ' + Math.round((c ? 12 : 15) * d) + 'px "Pixelify Sans", monospace'; X.fillStyle = '#ffffff';
+  X.fillText(fit(r.name, pw - bw - 18 * d), bx + bw + 6 * d, by + (c ? 0 : 0));
+  X.font = Math.round((c ? 13 : 17) * d) + 'px "Pixelify Sans", monospace'; X.fillStyle = '#f5c842';
+  X.fillText(fit(FR.fmtDist(d1, c ? 5 : 6), pw - 14 * d), bx, y0 + (c ? 19 : 25) * d);
+  const nx = r.lm[r.lmi], pv = r.lm[r.lmi - 1], k = nx ? FR.clamp((d1 - (pv ? pv.d : 0)) / (nx.d - (pv ? pv.d : 0)), 0, 1) : 1;
+  X.font = Math.round((c ? 10 : 12) * d) + 'px "Pixelify Sans", monospace'; X.fillStyle = '#b9b2d6';
+  const nxt = nx ? (c ? '→ ' : 'next: ') + nx.flag.toLowerCase() + ' in ' + FR.fmtShort((nx.d - d1) / r.v) : 'beyond every landmark';
+  X.fillText(fit(c ? nxt : FR.fmtSpeed(r.v), pw - 14 * d), bx, y0 + (c ? 33 : 45) * d);
+  if (!c) { X.fillStyle = '#8fe0b0'; X.fillText(fit(nxt, pw - 14 * d), bx, y0 + 58 * d); }
+  const barY = y0 + H - (c ? 4 : 6) * d, bw2 = pw - 15 * d;
+  if (c) { X.fillStyle = '#0b0a14'; X.fillRect(bx, barY, bw2, 2 * d); X.fillStyle = '#8fe0b0'; X.fillRect(bx, barY, Math.round(bw2 * k), 2 * d); }
+};
+}
+// ===== focus.js =====
+{
+const FR = window.FR, AH = FR.ART_H;
+let cv, X, box, last = 0;
+const $ = id => document.getElementById(id);
+FR.sel = -1;
+const F = FR.Focus = {
+  P: 4, W: 0,
+  init() {
+    box = $('focus'); cv = $('fcv'); X = cv.getContext('2d');
+    $('fClose').onclick = () => F.close();
+    $('fPrev').onclick = () => FR.follow(Math.max(0, FR.sel - 1), true);
+    $('fNext').onclick = () => FR.follow(Math.min(FR.R.length - 1, FR.sel + 1), true);
+    $('fCmp').onclick = () => FR.UI.compare(FR.sel, FR.sel === FR.idx('cheetah') ? FR.idx('snail') : FR.idx('cheetah'));
+    $('fGo').onclick = () => FR.Rend.scrollTo(FR.sel, true);
+  },
+  layout() {
+    if (!box || box.classList.contains('hide')) return;
+    const dpr = FR.Rend.dpr, w = $('fview').clientWidth, sc = w < 500 ? 3 : 4;
+    F.P = Math.max(1, Math.round(sc * dpr)); F.W = Math.round(w * dpr);
+    cv.width = F.W; cv.height = AH * F.P; cv.style.width = w + 'px'; cv.style.height = (AH * F.P / dpr) + 'px';
+  },
+  open(i) {
+    const was = box.classList.contains('hide'); box.classList.remove('hide'); document.body.classList.add('following');
+    FR.sel = i; const r = FR.R[i];
+    $('fName').textContent = r.name; $('fFact').textContent = r.fact; $('fSrc').textContent = 'Source: ' + r.src;
+    $('fSpeed').textContent = FR.fmtSpeed(r.v); $('fRank').textContent = 'P' + (FR.R.length - i) + ' of ' + FR.R.length;
+    $('fScale').textContent = 'Scenery scale: 1 screen pixel ≈ ' + FR.fmtDist(FR.mPerPx(r.v), 2) + ' (scrolls at ' + FR.num(FR.pxps(r.v), 2) + ' px/s)';
+    $('fPrev').disabled = i === 0; $('fNext').disabled = i === FR.R.length - 1;
+    if (was) { F.layout(); FR.Rend.layout(); }
+    last = 0; F.frame(FR.T.now(), performance.now() / 1000);
+  },
+  close() { box.classList.add('hide'); document.body.classList.remove('following'); FR.sel = -1; FR.Rend.layout(); },
+  frame(t, at) {
+    if (FR.sel < 0 || box.classList.contains('hide')) return;
+    const i = FR.sel, r = FR.R[i];
+    X.imageSmoothingEnabled = false;
+    FR.drawLane(X, i, 0, F.W, F.P, t, at, { plate: 0, sprX: Math.round(F.W * 0.34), dpr: FR.Rend.dpr });
+    const now = performance.now(); if (now - last < 90) return; last = now;
+    const d = r.v * t, p = FR.distParts(d, 7);
+    $('fDist').textContent = p[0]; $('fUnit').textContent = p[1];
+    $('fSci').textContent = FR.sci(d, 7) + ' m' + (d > 1e8 ? ' · ' + FR.lightTime(d) : '');
+    const nx = r.lm[r.lmi];
+    $('fNextT').textContent = nx ? 'Next landmark: ' + nx.flag.toLowerCase() + (/\d/.test(nx.flag) ? '' : ' (' + (nx.d < 1e10 ? FR.num(nx.d / 1000, 6) + ' km' : FR.fmtDist(nx.d, 4)) + ')') + ' in ' + FR.fmtShort((nx.d - d) / r.v) : 'It has passed every landmark we know!';
+    const ah = FR.R[i + 1], bh = FR.R[i - 1];
+    $('fGap').textContent = (ah ? FR.fmtDist(ah.v * t - d, 3) + ' behind ' + ah.name.toLowerCase().replace(/^the /, 'the ') : 'Leading the whole race!') +
+      (bh ? ' · ' + FR.fmtDist(d - bh.v * t, 3) + ' ahead of ' + bh.name.toLowerCase() : ' · last place, and proud of it');
+  }
+};
+FR.follow = (i, scroll) => { F.open(i); if (scroll) FR.Rend.scrollTo(i, true); };
+}
+// ===== ui.js =====
+{
+const FR = window.FR;
+const $ = id => document.getElementById(id);
+let lastClock = '', modalFn = null;
+const U = FR.UI = {
+  init() {
+    $('bStand').onclick = () => U.standings();
+    $('bCmp').onclick = () => U.compare();
+    $('bLog').onclick = () => U.log();
+    $('bW60').onclick = () => U.warp(FR.T.warp === 60 ? 0 : 60);
+    $('bW3600').onclick = () => U.warp(FR.T.warp === 3600 ? 0 : 3600);
+    $('warpOff').onclick = () => U.warp(0);
+    $('bRestart').onclick = () => U.restart();
+    $('bFast').onclick = () => { const [a] = FR.Rend.visible(); FR.Rend.scrollTo(a > 40 ? 0 : FR.R.length - 1, true); };
+    $('modal').addEventListener('click', e => { if (e.target.id === 'modal') U.close(); });
+    addEventListener('keydown', e => {
+      if (e.key === 'Escape') { if (!$('modal').classList.contains('hide')) U.close(); else if (FR.sel >= 0) FR.Focus.close(); }
+      if (!$('modal').classList.contains('hide') || e.target.tagName === 'SELECT') return;
+      if (FR.sel >= 0 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) FR.follow(FR.clamp(FR.sel + (e.key === 'ArrowRight' ? 1 : -1), 0, FR.R.length - 1), true);
+    });
+  },
+  warp(k) {
+    FR.T.setWarp(k); document.body.classList.toggle('warping', !!k);
+    $('warpBar').classList.toggle('hide', !k); $('warpK').textContent = k ? '×' + k.toLocaleString() : '';
+    $('warpTxt').textContent = k === 60 ? '1 real second = 1 race minute' : k === 3600 ? '1 real second = 1 race hour' : '';
+    $('bW60').classList.toggle('on', k === 60); $('bW3600').classList.toggle('on', k === 3600);
+    $('clockLbl').textContent = k ? 'PREVIEW · NOT REAL' : 'RACE TIME';
+    if (!k) { FR.Miles.ptr = FR.evAfter(FR.T.real()); FR.Miles.last = FR.T.real(); }
+  },
+  clock(t) {
+    const s = FR.fmtClock(t); if (s !== lastClock) { $('clockT').textContent = s; lastClock = s; }
+    const n = FR.evAfter(FR.T.real()); if (n !== U.logN) { U.logN = n; $('logN').textContent = n ? n.toLocaleString() : ''; }
+    const [a] = FR.Rend.visible(), fast = a <= 40; if (fast !== U.fastDir) { U.fastDir = fast; $('bFast').textContent = fast ? 'JUMP TO LIGHT' : 'BACK TO THE PLANT'; }
+  },
+  restart() {
+    U.modal('RESTART THE RACE?', m => {
+      m.appendChild(FR.el('p', 'big', 'The race has been running for ' + FR.fmtDur(FR.T.real(), 3) + '. Light has gone ' + FR.fmtDist(FR.R[FR.R.length - 1].v * FR.T.real(), 3) + ' and the houseplant ' + FR.fmtDist(FR.R[0].v * FR.T.real(), 3) + '.'));
+      m.appendChild(FR.el('p', '', 'Restarting puts all 100 racers back on the start line. This cannot be undone.'));
+      const row = FR.el('div', 'mrow'), yes = FR.el('button', 'pbtn red', 'YES, RESTART'), no = FR.el('button', 'pbtn', 'KEEP RACING');
+      yes.id = 'restartYes'; no.id = 'restartNo';
+      yes.onclick = () => { U.warp(0); FR.T.restart(); FR.Miles.init(0); FR.Miles.ptr = 0; FR.Miles.last = 0; U.close(); FR.toast('AND THEY\'RE OFF!', 'A brand new race has started. Come back tomorrow to see how far everyone got.', 'away'); };
+      no.onclick = () => U.close(); row.appendChild(no); row.appendChild(yes); m.appendChild(row);
+    }, 'small');
+  },
+  modal(title, build, cls, tick) {
+    const M = $('modal'), I = $('modalIn'); I.innerHTML = ''; I.className = cls || '';
+    const hd = FR.el('div', 'mhead'); hd.appendChild(FR.el('b', '', title)); const x = FR.el('button', 'pbtn alt mx', '✕'); x.setAttribute('aria-label', 'Close'); x.onclick = () => U.close(); hd.appendChild(x);
+    I.appendChild(hd); const body = FR.el('div', 'mbody'); I.appendChild(body); build(body); modalFn = tick || null; M.classList.remove('hide');
+  },
+  close() { $('modal').classList.add('hide'); modalFn = null; $('modalIn').innerHTML = ''; },
+  tick(t) { if (modalFn) modalFn(t); }
+};
+}
+// ===== stand.js =====
+{
+const FR = window.FR, U = FR.UI;
+const TICKS = [[1e-9, '1 nm'], [1e-6, '1 µm'], [1e-3, '1 mm'], [1, '1 m'], [1e3, '1 km'], [4.0075e7, 'Earth lap'], [3.844e8, 'Moon'], [1.496e11, 'Sun'], [5.9e12, 'Pluto'], [9.4607e15, '1 light-year'], [4.011e16, 'nearest star']];
+const STARS = ['plant', 'snail', 'walker', 'cheetah', 'jet', 'iss', 'parker', 'light'];
+function track(cv, t) {
+  const dpr = Math.min(3, devicePixelRatio || 1), w = cv.clientWidth, h = 150; cv.width = Math.round(w * dpr); cv.height = h * dpr; cv.style.height = h + 'px';
+  const X = cv.getContext('2d'), W = cv.width; X.imageSmoothingEnabled = false; X.scale(dpr, dpr);
+  const t1 = Math.max(t, 1e-3), lo = Math.log10(FR.R[0].v * t1) - 0.6, hi = Math.log10(FR.R[FR.R.length - 1].v * t1) + 0.6, px = m => 10 + (Math.log10(m) - lo) / (hi - lo) * (w - 20);
+  X.fillStyle = '#120f2a'; X.fillRect(0, 0, w, h); X.fillStyle = '#221c4a'; X.fillRect(0, 104, w, 3);
+  X.font = '11px "Pixelify Sans", monospace'; X.textBaseline = 'top'; X.textAlign = 'center';
+  TICKS.forEach(([m, s]) => { const x = px(m); if (x < 4 || x > w - 4) return; X.fillStyle = '#3a3172'; X.fillRect(Math.round(x), 8, 1, 96); X.fillStyle = '#b9b2d6'; X.fillText(s, x, 112); });
+  const rows = new Array(Math.ceil(w / 6)).fill(0);
+  FR.R.forEach((r, i) => { const x = px(r.v * t1), b = Math.max(0, Math.min(rows.length - 1, Math.floor(x / 6))), k = rows[b]++; X.fillStyle = ['#8fe0b0', '#7ad8f4', '#f5c842', '#ffa6c8'][i % 4]; X.fillRect(Math.round(x) - 2, 98 - (k % 16) * 6, 4, 4); });
+  STARS.forEach(id => { const i = FR.idx(id), s = FR.S[id], x = px(FR.R[i].v * t1); if (!s.cv) return; const c = s.cv[0]; X.drawImage(c, Math.round(x - c.width / 2), 128 - 2 - (FR.hash(i, 2) < 0.5 ? 0 : 0), c.width, c.height); });
+  X.textAlign = 'left'; X.fillStyle = '#fff6c0'; X.fillText('← slower   (each gridline is a giant jump in distance)   faster →', 10, 2);
+}
+U.standings = () => {
+  let rows = [], cv = null, last = 0;
+  U.modal('STANDINGS', m => {
+    m.appendChild(FR.el('p', '', 'Where everyone is right now, on a squashed (logarithmic) track: each gridline is much farther than the last. Tap a racer to follow it.'));
+    cv = FR.el('canvas', 'trackC'); m.appendChild(cv);
+    const list = FR.el('div', 'stand'); m.appendChild(list);
+    for (let i = FR.R.length - 1; i >= 0; i--) {
+      const r = FR.R[i], row = FR.el('button', 'srow'); row.dataset.i = i;
+      row.appendChild(FR.el('span', 'pos', 'P' + (FR.R.length - i))); row.appendChild(FR.icon(i, 1)); row.appendChild(FR.el('span', 'nm', r.name));
+      const dd = FR.el('span', 'dd'), gp = FR.el('span', 'gp'); row.appendChild(dd); row.appendChild(gp);
+      row.onclick = () => { U.close(); FR.follow(i, true); }; list.appendChild(row); rows.push([i, dd, gp]);
+    }
+  }, 'wide', t => {
+    const now = performance.now(); if (now - last < 250) return; last = now;
+    rows.forEach(([i, dd, gp]) => { const d = FR.R[i].v * t; dd.textContent = FR.fmtDist(d, 5); gp.textContent = i > 0 ? '+' + FR.fmtDist(d - FR.R[i - 1].v * t, 2) + ' on P' + (FR.R.length - i + 1) : 'last'; });
+    track(cv, t);
+  });
+};
+}
+// ===== cmp.js =====
+{
+const FR = window.FR, U = FR.UI;
+const AGE = FR.K.UNIVERSE;
+function pick(sel, i) { FR.R.forEach((r, k) => { const o = FR.el('option', '', 'P' + (FR.R.length - k) + ' · ' + r.name); o.value = k; sel.appendChild(o); }); sel.value = i; }
+U.compareText = (a, b) => {
+  const c = FR.compare(a, b), F = FR.R[c.fast], S = FR.R[c.slow];
+  if (a === b) return { head: 'Pick two different racers!', lines: ['A racer is always exactly as fast as itself.'], c };
+  const fw = F.who.replace(/^The /, 'the '), sw = S.who.replace(/^The /, 'the ');
+  const head = cap(sw) + ' needs ' + FR.fmtDur(c.secs, 3) + ' to match one second of ' + fw + '.';
+  const lines = ['In 1 second, ' + fw + ' covers ' + FR.fmtDist(c.metres, 4) + '.', cap(fw) + ' is ' + FR.num(c.ratio, 4) + '× faster.'];
+  if (c.secs > AGE) lines.push('That is ' + FR.num(c.secs / AGE, 3) + '× longer than the universe has existed (13.8 billion years)!');
+  else if (c.secs > 80 * FR.K.YEAR) lines.push('That is longer than a whole human lifetime.');
+  const t = FR.T.real(); if (t > 1) lines.push('So far in this race, ' + fw + ' has gone ' + FR.fmtDist(F.v * t, 3) + ' and ' + sw + ' ' + FR.fmtDist(S.v * t, 3) + '.');
+  return { head, lines, c };
+};
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+U.compare = (a, b) => {
+  a = a == null || a < 0 ? FR.idx('snail') : a; b = b == null || b < 0 ? FR.idx('cheetah') : b;
+  U.modal('COMPARE TWO RACERS', m => {
+    const row = FR.el('div', 'crow'), s1 = FR.el('select'), s2 = FR.el('select'), sw = FR.el('button', 'pbtn alt', 'SWAP');
+    s1.id = 'cmpA'; s2.id = 'cmpB'; s1.setAttribute('aria-label', 'First racer'); s2.setAttribute('aria-label', 'Second racer'); sw.title = 'Swap';
+    pick(s1, a); pick(s2, b); row.appendChild(s1); row.appendChild(sw); row.appendChild(s2); m.appendChild(row);
+    const pics = FR.el('div', 'cpics'), out = FR.el('div', 'cout'); out.id = 'cmpOut'; m.appendChild(pics); m.appendChild(out);
+    const rnd = FR.el('button', 'pbtn alt', 'RANDOM PAIR'); m.appendChild(rnd);
+    const show = () => {
+      const A = +s1.value, B = +s2.value, T = U.compareText(A, B); pics.innerHTML = ''; out.innerHTML = '';
+      [A, B].forEach((i, k) => { const d = FR.el('div', 'cpic'); d.appendChild(FR.icon(i, 3)); d.appendChild(FR.el('span', '', FR.R[i].name + ' · ' + FR.fmtSpeed(FR.R[i].v))); pics.appendChild(d); if (!k) pics.appendChild(FR.el('b', 'vs', 'VS')); });
+      out.appendChild(FR.el('p', 'big', T.head)); T.lines.forEach(l => out.appendChild(FR.el('p', '', l)));
+      out.dataset.secs = T.c.secs; out.dataset.fast = T.c.fast; out.dataset.slow = T.c.slow;
+    };
+    s1.onchange = show; s2.onchange = show; sw.onclick = () => { const v = s1.value; s1.value = s2.value; s2.value = v; show(); };
+    rnd.onclick = () => { const r = FR.rng(Date.now()); s1.value = Math.floor(r() * 100); do s2.value = Math.floor(r() * 100); while (s2.value === s1.value); show(); };
+    show();
+  }, 'mid');
+};
+}
+// ===== log.js =====
+{
+const FR = window.FR, U = FR.UI;
+const SHOW = 400;
+U.log = () => {
+  let tab = 'done', list = null, last = 0, ups = [];
+  U.modal('MILESTONE LOG', m => {
+    const tabs = FR.el('div', 'tabs'), a = FR.el('button', 'pbtn', 'HAPPENED'), b = FR.el('button', 'pbtn alt', 'COMING UP');
+    a.id = 'logDone'; b.id = 'logNext'; tabs.appendChild(a); tabs.appendChild(b); m.appendChild(tabs);
+    const note = FR.el('p', 'note'); m.appendChild(note); list = FR.el('ol', 'log'); list.id = 'logList'; m.appendChild(list);
+    const fill = () => {
+      list.innerHTML = ''; ups = [];
+      a.className = 'pbtn' + (tab === 'done' ? '' : ' alt'); b.className = 'pbtn' + (tab === 'next' ? '' : ' alt');
+      if (tab === 'done') {
+        const ev = FR.Miles.happened();
+        note.textContent = ev.length ? ev.length.toLocaleString() + ' milestones so far in this race (counted on the real clock, never the time-warp preview).' : 'No milestones yet: the first one (light reaching the Moon) happens 1.28 seconds in.';
+        ev.slice(0, SHOW).forEach(e => list.appendChild(item(e, FR.fmtClock(e.t).replace(/\.\d$/, ''))));
+        if (ev.length > SHOW) list.appendChild(FR.el('li', 'more', '…and ' + (ev.length - SHOW).toLocaleString() + ' earlier milestones.'));
+      } else {
+        note.textContent = 'The next milestones on the real race clock.';
+        FR.Miles.upcoming(30).forEach(e => { const li = item(e, ''); ups.push([li.firstChild, e]); list.appendChild(li); });
+      }
+    };
+    a.onclick = () => { tab = 'done'; fill(); }; b.onclick = () => { tab = 'next'; fill(); }; fill();
+  }, 'mid', () => {
+    const now = performance.now(); if (now - last < 200) return; last = now;
+    const t = FR.T.real(); ups.forEach(([s, e]) => { s.textContent = 'in ' + FR.fmtShort(e.t - t); });
+  });
+};
+function item(e, when) {
+  const li = FR.el('li'); li.appendChild(FR.el('span', 'when', when)); li.appendChild(FR.icon(e.i, 1)); li.appendChild(FR.el('span', 'what', e.text));
+  li.onclick = () => { U.close(); FR.follow(e.i, true); }; return li;
+}
+}
+// ===== sheet.js =====
+{
+const FR = window.FR;
+FR.Sheet = {
+  show() {
+    document.body.classList.add('sheetMode'); const S = FR.$('#sheet'); S.classList.remove('hide');
+    const sc = +(FR.Q.get('sheet') || 4) || 4;
+    FR.R.forEach((r, i) => {
+      const s = FR.S[r.id], th = FR.TH[r.th], d = FR.el('div', 'sc'), c = document.createElement('canvas');
+      const fw = (s.w + 2) * sc, W = Math.max(fw * s.f + 8 * (s.f - 1), 64 * sc / 2); c.width = W; c.height = FR.ART_H * sc;
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+      x.drawImage(th.farCv, 0, 0, W / sc, FR.ART_H, 0, 0, W, FR.ART_H * sc); x.drawImage(th.nearCv, 0, 0, W / sc, FR.ART_H, 0, 0, W, FR.ART_H * sc);
+      const ay = s.a === 'g' ? th.gy - s.h : s.a === 'top' ? 2 : Math.floor((FR.ART_H - s.h) / 2);
+      s.cv.forEach((f, k) => x.drawImage(f, k * (fw + 8), (ay + s.dy - 1) * sc, f.width * sc, f.height * sc));
+      d.dataset.id = r.id; d.appendChild(c); d.appendChild(FR.el('p', '', (i + 1) + '. ' + r.name)); S.appendChild(d);
+    });
+    Object.keys(FR.TH).forEach(k => {
+      const th = FR.TH[k], d = FR.el('div', 'sc'), c = document.createElement('canvas'); c.width = FR.TW * 2; c.height = FR.ART_H * 2;
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(th.farCv, 0, 0, c.width, c.height); x.drawImage(th.nearCv, 0, 0, c.width, c.height);
+      d.appendChild(c); d.appendChild(FR.el('p', '', 'scenery: ' + k)); S.appendChild(d);
+    });
+    window.SHEET_READY = true;
+  }
+};
+}
+// ===== tile.js =====
+{
+const FR = window.FR;
+const TF = {
+  T: '######/######/..##../..##../..##../..##../..##../..##..', H: '##..##/##..##/##..##/######/######/##..##/##..##/##..##',
+  E: '######/######/##..../#####./#####./##..../######/######', F: '######/######/##..../#####./#####./##..../##..../##....',
+  O: '.####./######/##..##/##..##/##..##/##..##/######/.####.', R: '#####./######/##..##/##..##/######/#####./##.###/##..##',
+  V: '##..##/##..##/##..##/##..##/##..##/.####./.####./..##..', A: '.####./######/##..##/##..##/######/######/##..##/##..##',
+  C: '.#####/######/##..../##..../##..../##..../######/.#####'
+};
+function word(s) {
+  const cols = [...s].reduce((w, ch) => w + (ch === ' ' ? 3 : 7), -1), g = new FR.G(cols, 10, 0, 1);
+  const put = (dy, c) => { let x = 0; for (const ch of s) { if (ch === ' ') { x += 3; continue; } TF[ch].split('/').forEach((row, j) => { for (let i = 0; i < 6; i++) if (row[i] === '#') g.p(x + i, j + dy, c); }); x += 7; } };
+  put(2, 'R'); put(1, 'O'); put(0, 'y'); put(0, 'y'); g.shade();
+  for (let i = 0; i < g.a.length; i++) if (g.a[i] === 'y' && Math.floor(i / g.W) <= 2) g.a[i] = 'z';
+  g.outline('k'); return FR.toCanvas(g);
+}
+FR.Tile = {
+  show() {
+    document.body.classList.add('tileMode'); const T = FR.$('#tile'); T.classList.remove('hide');
+    const c = document.createElement('canvas'); c.width = 1640; c.height = 820; T.appendChild(c); const X = c.getContext('2d'); X.imageSmoothingEnabled = false;
+    const r = FR.rng(2026), px = (x, y, w, h, col) => { X.fillStyle = FR.PAL[col] || col; X.fillRect(x, y, w, h); };
+    ['#07060f', '#0c0a1e', '#120f2a', '#181338', '#1e1846', '#241c52', '#2c205c'].forEach((b, i) => px(0, i * 50, 1640, 50, b));
+    for (let i = 0; i < 260; i++) { const s = r() < 0.15 ? 8 : 4; px(Math.floor(r() * 410) * 4, Math.floor(r() * 84) * 4, s, s, r() < 0.2 ? '#fff6c0' : r() < 0.6 ? '#cfcad6' : '#7ad8f4'); }
+    const put = (id, x, y, sc) => { const cv = FR.S[id].cv[0]; X.drawImage(cv, x, y, cv.width * sc, cv.height * sc); };
+    put('sungal', 1508, 18, 5); put('earth', 34, 196, 4); put('moon', 250, 60, 3);
+    const W1 = word('THE'), W2 = word('FOREVER RACE'), s1 = 10, s2 = 16;
+    X.drawImage(W1, Math.round(820 - W1.width * s1 / 2), 26, W1.width * s1, W1.height * s1);
+    X.drawImage(W2, Math.round(820 - W2.width * s2 / 2), 150, W2.width * s2, W2.height * s2);
+    const P = 4, y0 = 340, startX = 520, ids = ['plant', 'snail', 'cheetah', 'jet', 'light'];
+    ids.forEach((id, k) => {
+      const i = FR.idx(id), s = FR.S[id];
+      FR.drawLane(X, i, y0 + k * 96, 1640, P, 0.4, 0.15 + k * 0.11, { plate: 0, sprX: startX - s.w * P - 4, dpr: 1, noFlags: true });
+    });
+    for (let y = y0; y < 820; y += 12) for (let k = 0; k < 2; k++) px(startX + k * 12, y, 12, 12, ((y - y0) / 12 + k) % 2 ? '#1a1220' : '#ffffff');
+    px(startX - 4, y0, 4, 480, '#1a1220'); px(startX + 24, y0, 4, 480, '#1a1220'); px(0, y0 - 6, 1640, 6, '#07060f');
+    window.TILE_READY = true;
+  }
+};
+}
+// ===== main.js =====
+{
+const FR = window.FR;
+FR.R.sort((a, b) => a.v - b.v);
+FR.R.forEach((r, i) => {
+  r.seed = Math.floor(FR.hash(i, 77) * FR.TW);
+  if (!FR.S[r.id]) console.error('missing sprite: ' + r.id);
+  if (!FR.TH[r.th]) console.error('missing scenery: ' + r.th + ' for ' + r.id);
+});
+Object.keys(FR.S).forEach(k => FR.bakeSprite(FR.S[k]));
+Object.keys(FR.TH).forEach(k => {
+  const th = FR.TH[k], f = new FR.G(FR.TW, FR.ART_H, 0, 0, true), n = new FR.G(FR.TW, FR.ART_H, 0, 0, true);
+  th.far(f); th.near(n); th.farCv = FR.toCanvas(f); th.nearCv = FR.toCanvas(n);
+});
+FR.buildLandmarks();
+FR.fps = 0;
+function boot() {
+  FR.T.init(); FR.Rend.init(); FR.Focus.init(); FR.UI.init();
+  const t0 = FR.T.now(); FR.Miles.init(t0);
+  if (FR.T.fresh) FR.toast("AND THEY'RE OFF!", 'The race just started and it never stops. Light reaches the Moon in 1.28 seconds; the houseplant needs a year for 1 cm.', 'away');
+  if (!FR.store.ok) FR.toast('NO SAVING HERE', 'This browser blocks saving, so the race restarts each visit.', 'away');
+  const save = () => FR.store.set('seen', FR.T.real()); // always the real clock, never a time-warp preview
+  setInterval(save, 2000); addEventListener('pagehide', save);
+  document.addEventListener('visibilitychange', () => { FR.T.sync(); if (document.hidden) save(); });
+  let frames = 0, fpsT = performance.now(), syncT = performance.now();
+  const loop = () => {
+    const now = performance.now(), t = FR.T.now(), at = now / 1000;
+    FR.Rend.frame(t, at); FR.Focus.frame(t, at); FR.UI.clock(t); FR.UI.tick(t); FR.Miles.tick(t);
+    frames++; if (now - fpsT >= 1000) { FR.fps = frames * 1000 / (now - fpsT); frames = 0; fpsT = now; }
+    if (now - syncT > 10000) { FR.T.sync(); syncT = now; }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => FR.Rend.layout());
+  window.FR_READY = true;
+}
+if (FR.Q.has('sheet')) FR.Sheet.show();
+else if (FR.Q.has('tile')) FR.Tile.show();
+else boot();
+}
+</script>
+</body>
+</html>
