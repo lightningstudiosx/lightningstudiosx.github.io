@@ -108,6 +108,18 @@ function load() {
     OMC.count = c;
   } catch (e) { /* corrupt or blocked: start fresh */ }
 }
+OMC.fillButOne = () => {
+  const k = Math.floor(Math.random() * N);
+  bits.fill(255); bits[k >> 3] &= ~(1 << (k & 7)); OMC.count = N - 1;
+  if (!OMC.start) OMC.start = Date.now();
+  OMC.clicks = Math.max(OMC.clicks, N - 1);
+  pool.forEach((el, i) => { el.checked = i !== k; });
+  changed();
+  const y = grid.getBoundingClientRect().top + scrollY + Math.floor(k / cols) * CELL - innerHeight / 2;
+  scrollTo(0, Math.max(0, y)); render();
+  const el = pool.get(k);
+  if (el) { el.style.outline = '3px solid red'; el.style.outlineOffset = '2px'; setTimeout(() => { el.style.outline = ''; }, 4000); }
+};
 OMC.reset = () => { bits.fill(0); OMC.count = 0; OMC.clicks = 0; OMC.start = 0; pool.forEach(el => { el.checked = false; }); changed(); save(); };
 function layout() {
   cols = Math.max(1, Math.floor(grid.clientWidth / CELL));
@@ -188,6 +200,20 @@ OMC.confetti = cv => {
   requestAnimationFrame(frame);
   OMC.stopConfetti = () => { run = false; };
 };
+}
+// ===== secret.js =====
+{
+const OMC = window.OMC;
+const H = '0ca73a33ce766e81d13fb49e6737c4080a4dd137edef04cd3381bb909a51b9af', LEN = 9;
+let typed = '';
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+addEventListener('keydown', async e => {
+  if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+  typed = (typed + e.key.toLowerCase()).slice(-LEN);
+  if (typed.length < LEN || !(window.crypto && crypto.subtle)) return;
+  const h = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(typed)));
+  if (h === H) { typed = ''; OMC.fillButOne(); }
+});
 }
 // ===== win.js =====
 {
