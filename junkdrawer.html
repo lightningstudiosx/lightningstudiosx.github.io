@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Junk Drawer · Kai.fun</title>
+<meta name="description" content="Open a big wooden junk drawer crammed with pixel-art puns: Element Kaianium with 23 electron rings, a Quintuple-Z battery, half-eaten chalk, a Pen-guin and 50 more. Tap to inspect, drag to dig, rummage to shuffle.">
+<meta name="theme-color" content="#1c120b">
+<script src="bdp.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg: #1c120b; --panel: #2c1b10; --panel2: #3b2516; --edge: #0e0805; --paper: #f3e6c4; --ink: #2a1a10;
+--gold: #f5c842; --gold2: #c9952a; --red: #d64545; --mint: #8fe0b0; --hi: #fff3d6;
+--hfont: 'Press Start 2P', 'Pixelify Sans', ui-monospace, monospace;
+--bfont: 'Pixelify Sans', 'Press Start 2P', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+background: var(--bg); color: var(--hi); font: 16px/1.3 var(--bfont); display: flex; flex-direction: column;
+height: 100vh; height: 100dvh; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+background-image: radial-gradient(rgba(255, 220, 160, .05) 1px, transparent 1px); background-size: 6px 6px;
+}
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+.hide { display: none !important; }
+.px, .pbtn, #kai, #cnt, #catIn, #toast, #closedIn {
+box-shadow: 0 -3px 0 0 var(--edge), 0 3px 0 0 var(--edge), -3px 0 0 0 var(--edge), 3px 0 0 0 var(--edge), inset 0 -3px 0 0 rgba(0, 0, 0, .25), inset 0 3px 0 0 rgba(255, 255, 255, .14);
+border-radius: 0;
+}
+#top {
+flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 10px 14px 9px; background: var(--panel);
+border-bottom: 3px solid var(--edge); position: relative; z-index: 20; flex-wrap: wrap;
+}
+#kai { font: 10px/1 var(--hfont); color: var(--hi); background: var(--panel2); padding: 9px 9px 8px; text-decoration: none; white-space: nowrap; }
+#kai:hover, #kai:focus-visible { background: #4d3020; }
+#ttl { margin: 0; font: 18px/1 var(--hfont); color: var(--gold); letter-spacing: 1px; text-shadow: 3px 3px 0 #7a3d12, 0 0 0 #000; white-space: nowrap; }
+#cnt { font: 9px/1 var(--hfont); background: #1f140c; color: var(--paper); padding: 8px 9px 7px; white-space: nowrap; margin-left: auto; }
+#cnt b { color: var(--gold); font-weight: 400; }
+#cnt.bump { animation: bump .45s ease-out; }
+@keyframes bump { 0% { transform: scale(1); } 30% { transform: scale(1.18); background: #4a3315; } 100% { transform: scale(1); } }
+#btns { display: flex; gap: 10px; }
+.pbtn { font: 10px/1 var(--hfont); background: var(--gold); color: var(--ink); padding: 9px 10px 8px; white-space: nowrap; }
+.pbtn:hover { background: #ffd95e; }
+.pbtn:active { transform: translateY(2px); }
+.pbtn.alt { background: #e9d8a6; }
+.pbtn.alt:hover { background: #f6e8bd; }
+.pbtn:focus-visible, #kai:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+#stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px; position: relative; }
+#cv { touch-action: none; cursor: grab; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .45)); }
+#cv.drag { cursor: grabbing; }
+#cv.over { cursor: pointer; }
+#hint { flex: 0 0 auto; margin: 0; padding: 0 12px 9px; text-align: center; font: 14px/1.2 var(--bfont); color: #c9ae86; }
+@media (max-width: 720px) {
+#top { gap: 8px 8px; padding: 8px 10px 8px; }
+#ttl { font-size: 14px; }
+#cnt { margin-left: auto; font-size: 8px; padding: 7px 7px 6px; }
+#btns { width: 100%; gap: 8px; }
+#btns .pbtn { flex: 1 1 auto; padding: 9px 6px 8px; }
+#kai { font-size: 9px; padding: 8px 7px 7px; }
+#hint { font-size: 12px; padding-bottom: 7px; }
+#stage { padding: 6px; }
+}
+@media (max-width: 370px) { #ttl { font-size: 12px; } }
+#tag {
+position: fixed; z-index: 40; left: 0; top: 0; width: 250px; max-width: calc(100vw - 20px); padding: 11px 14px 12px 30px; color: var(--ink);
+filter: drop-shadow(4px 5px 0 rgba(0, 0, 0, .4)); pointer-events: none; transform-origin: 20px 50%; --rot: -2deg;
+transform: rotate(var(--rot)); animation: tagPop .28s cubic-bezier(.2, 1.6, .4, 1);
+}
+#tag::before {
+content: ''; position: absolute; inset: 0; z-index: -1; background-color: var(--paper);
+background-image: repeating-linear-gradient(0deg, transparent 0 17px, rgba(120, 150, 200, .22) 17px 18px), linear-gradient(90deg, rgba(0, 0, 0, .05), transparent 30%);
+clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+}
+#tag .hole { position: absolute; left: 9px; top: 50%; width: 10px; height: 10px; margin-top: -5px; background: #6a4a2a; box-shadow: 0 0 0 3px #d8c08c; border-radius: 50%; }
+#tag .nm { display: block; font: 12px/1.35 var(--hfont); margin: 0 0 7px; padding-right: 8px; }
+.zz { font: 10px/1 var(--hfont); letter-spacing: 1px; }
+#tag .ds { margin: 0; font: 15px/1.28 var(--bfont); color: #4a3220; }
+#tag .new { position: absolute; right: -6px; top: -11px; font: 9px/1 var(--hfont); background: var(--red); color: #fff; padding: 5px 6px 4px; transform: rotate(8deg); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); display: none; }
+#tag.isNew .new { display: block; }
+@keyframes tagPop { from { transform: scale(.5) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(var(--rot)); opacity: 1; } }
+#string { position: fixed; z-index: 39; left: 0; top: 0; height: 2px; background: #efe3c2; transform-origin: 0 50%; pointer-events: none; box-shadow: 1px 1px 0 rgba(0, 0, 0, .35); }
+#closed { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(14, 8, 5, .55); transition: opacity .5s ease .25s; }
+#closedIn { background: var(--panel); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: calc(100vw - 24px); transition: transform .6s cubic-bezier(.5, -0.3, .7, 1); }
+#frontC { max-width: 100%; height: auto; }
+#closed .sub { margin: 0; font: 14px/1 var(--bfont); color: #c9ae86; }
+#closed.opening { opacity: 0; pointer-events: none; }
+#closed.opening #closedIn { transform: translateY(70vh) scale(1.15); }
+#open { font-size: 12px; padding: 12px 14px 11px; }
+#cat { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(10, 6, 3, .72); padding: 12px; }
+#catIn { background: var(--panel); width: 100%; max-width: 820px; max-height: calc(100dvh - 30px); overflow: auto; padding: 14px; }
+.catHead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.catHead b { font: 13px/1 var(--hfont); color: var(--gold); }
+#catSum { font: 15px/1 var(--bfont); color: var(--paper); margin-right: auto; }
+#catDetail { min-height: 54px; background: var(--paper); color: var(--ink); padding: 9px 12px; font: 15px/1.3 var(--bfont); margin-bottom: 12px; }
+#catDetail b { font: 11px/1.6 var(--hfont); }
+#catGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.cc { background: #6b4227; padding: 6px 4px 5px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .3), inset 0 3px 0 rgba(255, 255, 255, .1); }
+.cc canvas { width: 64px; height: 64px; }
+.cc span { font: 7px/1.45 var(--hfont); text-align: center; color: var(--paper); min-height: 26px; }
+.cc.no { background: #3a2416; cursor: default; }
+.cc.no span { color: #8a6c50; }
+.cc.sel { outline: 3px solid var(--gold); }
+#toast { position: fixed; left: 50%; bottom: 46px; z-index: 50; transform: translate(-50%, 30px); opacity: 0; background: #2a3d2a; color: #e8ffd8; font: 15px/1.3 var(--bfont); padding: 10px 14px; max-width: calc(100vw - 30px); text-align: center; transition: opacity .25s, transform .25s; pointer-events: none; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast b { color: var(--gold); font: 10px/1.6 var(--hfont); display: block; }
+body.sheetMode { overflow: auto; height: auto; }
+body.sheetMode > *:not(#sheet):not(script) { display: none !important; }
+#sheet { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; background: #8f5530; }
+#sheet .sc { background: #a8703f; padding: 6px; display: flex; flex-direction: column; align-items: center; }
+#sheet .sc p { margin: 4px 0 0; font: 12px/1 var(--bfont); color: #fff; }
+body.tileMode { overflow: hidden; background: #000; }
+body.tileMode > *:not(#tile):not(script) { display: none !important; }
+#tile { position: fixed; left: 0; top: 0; width: 1640px; height: 820px; }
+</style>
+</head>
+<body>
+<header id="top">
+  <a id="kai" href="index.html">← Kai.fun</a>
+  <h1 id="ttl">JUNK DRAWER</h1>
+  <div id="cnt" title="Pieces of junk you have inspected">INSPECTED <b id="foundN">0</b>/<b id="foundT">0</b></div>
+  <nav id="btns">
+    <button id="rummage" class="pbtn" title="Shake the drawer and shuffle everything (R)">RUMMAGE</button>
+    <button id="catBtn" class="pbtn alt" title="Your junk catalog (L)">LIST</button>
+    <button id="snd" class="pbtn alt" title="Sound on/off (M)" aria-label="Sound on/off">♪ ON</button>
+  </nav>
+</header>
+<main id="stage"><canvas id="cv" aria-label="A junk drawer full of pixel-art objects. Tap one to inspect it, drag to move it."></canvas></main>
+<p id="hint">Tap junk to inspect it · drag to move it · some junk hides under other junk</p>
+<div id="string" class="hide" aria-hidden="true"></div>
+<div id="tag" class="hide" role="status" aria-live="polite"><i class="hole"></i><span class="new">NEW!</span><b class="nm"></b><p class="ds"></p></div>
+<div id="closed">
+  <div id="closedIn">
+    <canvas id="frontC" aria-hidden="true"></canvas>
+    <button id="open" class="pbtn">OPEN THE DRAWER</button>
+    <p class="sub">Warning: contains junk.</p>
+  </div>
+</div>
+<div id="cat" class="hide" role="dialog" aria-modal="true" aria-label="Junk catalog">
+  <div id="catIn">
+    <div class="catHead"><b>JUNK CATALOG</b><span id="catSum"></span><button id="catX" class="pbtn alt" aria-label="Close">✕</button></div>
+    <div id="catDetail">Tap something you have found to read its tag again.</div>
+    <div id="catGrid"></div>
+  </div>
+</div>
+<div id="toast" aria-live="polite"></div>
+<div id="sheet" class="hide" aria-hidden="true"></div>
+<div id="tile" class="hide" aria-hidden="true"></div>
+<script>
+"use strict";
+// ===== core.js =====
+{
+const JD = window.JD = window.JD || {};
+JD.Q = new URLSearchParams(location.search);
+JD.$ = s => document.querySelector(s);
+JD.clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+JD.lerp = (a, b, k) => a + (b - a) * k;
+JD.rng = seed => { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+JD.shuffle = (a, r) => { r = r || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const PRE = 'kaifun.junkdrawer.';
+JD.store = {
+  get(k, d) { try { const v = localStorage.getItem(PRE + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(PRE + k, JSON.stringify(v)); } catch (e) { } },
+  clear() { try { Object.keys(localStorage).filter(k => k.indexOf(PRE) === 0).forEach(k => localStorage.removeItem(k)); } catch (e) { } }
+};
+if (JD.Q.has('reset')) JD.store.clear();
+JD.ITEMS = [];
+JD.def = (o, draw) => { o.draw = draw; o.mat = o.mat || 'plastic'; o.frames = o.frames || 1; JD.ITEMS.push(o); };
+JD.byId = id => JD.ITEMS.find(it => it.id === id);
+}
+// ===== pix.js =====
+{
+const JD = window.JD;
+const PAL = JD.PAL = {
+  k: '#1a1220', 1: '#2e2838', 2: '#4d4659', 3: '#756e82', 4: '#a39dae', 5: '#cfcad6', 6: '#f1eef4', w: '#ffffff',
+  N: '#3d2216', n: '#643820', h: '#8f5530', H: '#b87a45', j: '#dba66a', J: '#f3cf98',
+  R: '#7d1828', r: '#c8323a', i: '#f0625a', I: '#ffa898', O: '#9a4210', o: '#e07a22', u: '#ffb04a',
+  Y: '#a87412', y: '#eeba30', z: '#ffe270', Z: '#fff6c0', E: '#1a5a34', e: '#2f9a48', l: '#7cd05a', L: '#c4f09a',
+  C: '#155a78', c: '#2aa0d0', x: '#7ad8f4', X: '#d0f6ff', B: '#1e2a6a', b: '#3458c8', v: '#6e94f4',
+  P: '#3e2270', p: '#7444c0', m: '#ac80ec', F: '#8c2a5a', f: '#e05e96', g: '#ffa6c8',
+  S: '#a8683e', s: '#e8b07c', t: '#ffdcb0', A: '#b8a070', a: '#e6d6a8', d: '#fff8dc'
+};
+const RAMPS = ['123456w', 'NnhHjJ', 'RriI', 'Oou', 'YyzZ', 'EelL', 'CcxX', 'Bbv', 'Ppm', 'Ffg', 'Sst', 'Aad'];
+const UP = JD.UP = {}, DN = JD.DN = {};
+RAMPS.forEach(r => { for (let i = 0; i < r.length; i++) { DN[r[i]] = r[Math.max(0, i - 1)]; UP[r[i]] = r[Math.min(r.length - 1, i + 1)]; } });
+const RGB = {};
+Object.keys(PAL).forEach(k => { const h = PAL[k]; RGB[k] = [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; });
+JD.RGB = RGB;
+const F3 = {
+  0: [7, 5, 5, 5, 7], 1: [2, 6, 2, 2, 7], 2: [7, 1, 7, 4, 7], 3: [7, 1, 3, 1, 7], 4: [5, 5, 7, 1, 1], 5: [7, 4, 7, 1, 7], 6: [7, 4, 7, 5, 7], 7: [7, 1, 1, 2, 2],
+  8: [7, 5, 7, 5, 7], 9: [7, 5, 7, 1, 7], '.': [0, 0, 0, 0, 2], '-': [0, 0, 7, 0, 0], '%': [5, 1, 2, 4, 5], '?': [7, 1, 3, 0, 2], '!': [2, 2, 2, 0, 2], '+': [0, 2, 7, 2, 0],
+  '$': [3, 6, 2, 3, 6], A: [2, 5, 7, 5, 5], B: [6, 5, 6, 5, 6], C: [7, 4, 4, 4, 7], D: [6, 5, 5, 5, 6], E: [7, 4, 6, 4, 7], F: [7, 4, 6, 4, 4], G: [7, 4, 5, 5, 7],
+  H: [5, 5, 7, 5, 5], I: [7, 2, 2, 2, 7], J: [1, 1, 1, 5, 7], K: [5, 5, 6, 5, 5], L: [4, 4, 4, 4, 7], M: [5, 7, 7, 5, 5], N: [6, 5, 5, 5, 5], O: [7, 5, 5, 5, 7],
+  P: [6, 5, 6, 4, 4], Q: [7, 5, 5, 7, 1], R: [6, 5, 6, 5, 5], S: [7, 4, 7, 1, 7], T: [7, 2, 2, 2, 2], U: [5, 5, 5, 5, 7], V: [5, 5, 5, 5, 2], W: [5, 5, 7, 7, 5],
+  X: [5, 5, 2, 5, 5], Y: [5, 5, 2, 2, 2], Z: [7, 1, 2, 4, 7]
+};
+const F5 = {
+  J: '..###/...#./...#./...#./#..#./#..#./.##..', U: '#...#/#...#/#...#/#...#/#...#/#...#/.###.', N: '#...#/##..#/#.#.#/#.#.#/#..##/#...#/#...#',
+  K: '#...#/#..#./#.#../##.../#.#../#..#./#...#', D: '####./#...#/#...#/#...#/#...#/#...#/####.', R: '####./#...#/#...#/####./#.#../#..#./#...#',
+  A: '.###./#...#/#...#/#####/#...#/#...#/#...#', W: '#...#/#...#/#...#/#.#.#/#.#.#/##.##/#...#', E: '#####/#..../#..../####./#..../#..../#####',
+  a: '...../...../.###./....#/.####/#...#/.####', Z: '#####/....#/...#./..#../.#.../#..../#####'
+};
+JD.F5 = F5;
+class G {
+  constructor(w, h, t) { this.w = w; this.h = h; this.W = w + 2; this.H = h + 2; this.a = new Array(this.W * this.H).fill('.'); this.t = t || 0; this.shaded = false; }
+  p(x, y, c) { x = Math.round(x); y = Math.round(y); if (x < -1 || y < -1 || x > this.w || y > this.h) return; this.a[(y + 1) * this.W + x + 1] = c; }
+  at(x, y) { x = Math.round(x); y = Math.round(y); if (x < -1 || y < -1 || x > this.w || y > this.h) return '.'; return this.a[(y + 1) * this.W + x + 1]; }
+  r(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, c); }
+  rr(x, y, w, h, c) { this.r(x + 1, y, w - 2, h, c); this.r(x, y + 1, 1, h - 2, c); this.r(x + w - 1, y + 1, 1, h - 2, c); }
+  o(cx, cy, rx, ry, c) { if (ry == null) ry = rx; this.oR(cx, cy, rx, ry, 0, c); }
+  oR(cx, cy, rx, ry, ang, c) {
+    const R = Math.max(rx, ry) + 1, ca = Math.cos(ang), sa = Math.sin(ang), X = rx + 0.5, Y = ry + 0.5;
+    for (let y = Math.floor(cy - R); y <= Math.ceil(cy + R); y++) for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
+      const dx = x - cx, dy = y - cy, u = (dx * ca + dy * sa) / X, v = (-dx * sa + dy * ca) / Y; if (u * u + v * v <= 1) this.p(x, y, c);
+    }
+  }
+  ring(cx, cy, rx, ry, c, ang, a0, a1) {
+    ang = ang || 0; a0 = a0 || 0; a1 = a1 == null ? 6.2832 : a1; const n = Math.ceil(Math.max(rx, ry) * 8 + 8), ca = Math.cos(ang), sa = Math.sin(ang);
+    for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n, u = Math.cos(a) * rx, v = Math.sin(a) * ry; this.p(cx + u * ca - v * sa, cy + u * sa + v * ca, c); }
+  }
+  l(x0, y0, x1, y1, c) {
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+    for (let i = 0; i < 400; i++) { this.p(x0, y0, c); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+  }
+  l2(x0, y0, x1, y1, c) { this.l(x0, y0, x1, y1, c); this.l(x0 + 1, y0, x1 + 1, y1, c); }
+  poly(pts, c) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (let i = 0; i < pts.length; i += 2) { x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]); y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]); }
+    for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
+      let ins = false; for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) { const xi = pts[i], yi = pts[i + 1], xj = pts[j], yj = pts[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) ins = !ins; }
+      if (ins) this.p(x, y, c);
+    }
+  }
+  d(str, x, y, map, flip) {
+    str.split('/').forEach((row, j) => { const L = row.length; for (let i = 0; i < L; i++) { let ch = row[flip ? L - 1 - i : i]; if (ch === '.' || ch === ' ') continue; if (map && map[ch]) ch = map[ch]; this.p(x + i, y + j, ch); } });
+  }
+  dith(x, y, w, h, c, par) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (((x + i + y + j) & 1) === (par || 0) && this.at(x + i, y + j) !== '.') this.p(x + i, y + j, c); }
+  swap(x, y, w, h, from, to) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (this.at(x + i, y + j) === from) this.p(x + i, y + j, to); }
+  txt(s, x, y, c) {
+    let cx = Math.round(x);
+    for (const ch of String(s).toUpperCase()) { const f = F3[ch]; if (!f) { cx += 2; continue; } f.forEach((bits, j) => { for (let i = 0; i < 3; i++) if (bits & (4 >> i)) this.p(cx + i, y + j, c); }); cx += ch === '.' || ch === '!' ? 2 : 4; }
+  }
+  big(s, x, y, c, sc) {
+    sc = sc || 1; let cx = x;
+    for (const ch of String(s)) { const f = F5[ch]; if (f) f.split('/').forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === '#') this.r(cx + i * sc, y + j * sc, sc, sc, c); }); cx += 6 * sc; }
+  }
+  shade() {
+    this.shaded = true; const W = this.W, H = this.H, a = this.a, b = a.slice(), E = (x, y) => x < 0 || y < 0 || x >= W || y >= H || a[y * W + x] === '.';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = a[y * W + x]; if (c === '.' || !UP[c]) continue;
+      const tl = E(x, y - 1) || E(x - 1, y), br = E(x, y + 1) || E(x + 1, y);
+      if (tl && !br) b[y * W + x] = UP[c]; else if (br && !tl) b[y * W + x] = DN[c];
+    }
+    this.a = b;
+  }
+  outline(c) {
+    c = c || 'k'; const W = this.W, H = this.H, a = this.a, b = a.slice(), F = (x, y) => x >= 0 && y >= 0 && x < W && y < H && a[y * W + x] !== '.';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] === '.' && (F(x - 1, y) || F(x + 1, y) || F(x, y - 1) || F(x, y + 1))) b[y * W + x] = c;
+    this.a = b;
+  }
+}
+JD.G = G;
+const toCanvas = (g, sil) => {
+  const c = document.createElement('canvas'); c.width = g.W; c.height = g.H; const x = c.getContext('2d'), im = x.createImageData(g.W, g.H), d = im.data;
+  for (let i = 0; i < g.a.length; i++) { const ch = g.a[i]; if (ch === '.') continue; const q = sil ? [40, 18, 8] : RGB[ch] || [255, 0, 255]; d[i * 4] = q[0]; d[i * 4 + 1] = q[1]; d[i * 4 + 2] = q[2]; d[i * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0); return c;
+};
+JD.toCanvas = toCanvas;
+JD.paint = (it, t) => { const g = new G(it.w, it.h, t); it.draw(g); if (!g.shaded && !it.flat) g.shade(); g.outline(); if (it.post) it.post(g); return g; };
+JD.bake = it => {
+  const frames = []; let g0 = null;
+  for (let t = 0; t < it.frames; t++) { const g = JD.paint(it, t); if (!t) g0 = g; frames.push(toCanvas(g)); }
+  it.cv = frames; it.sil = toCanvas(g0, true); it.grid = g0.a; it.GW = g0.W; it.GH = g0.H;
+  it.solid = g0.a.reduce((n, ch) => n + (ch !== '.' ? 1 : 0), 0);
+};
+}
+// ===== kit.js =====
+{
+const JD = window.JD;
+const K = JD.K = {};
+K.eyes = (g, x, y, gap, kind, glint) => {
+  gap = gap || 5; kind = kind || 'open';
+  [x, x + gap].forEach((ex, n) => {
+    if (kind === 'open') { g.r(ex, y, 2, 2, 'k'); if (glint !== false) g.p(ex, y, 'w'); }
+    else if (kind === 'wide') { g.r(ex - 1, y - 1, 3, 3, 'w'); g.r(ex, y, 2, 2, 'k'); g.p(ex, y, 'w'); }
+    else if (kind === 'sleepy') { g.r(ex - 1, y, 4, 1, 'k'); g.p(ex, y + 1, 'k'); g.p(ex + 1, y + 1, 'k'); }
+    else if (kind === 'happy') { g.p(ex - 1, y + 1, 'k'); g.p(ex, y, 'k'); g.p(ex + 1, y, 'k'); g.p(ex + 2, y + 1, 'k'); }
+    else if (kind === 'angry') { g.r(ex, y, 2, 2, 'k'); g.l(ex - 1 + (n ? 3 : 0), y - 2, ex + (n ? 0 : 2), y - 1, 'k'); }
+    else if (kind === 'sad') { g.r(ex, y, 2, 2, 'k'); g.p(ex, y, 'w'); g.l(ex - 1 + (n ? 0 : 3), y - 2, ex + (n ? 2 : 0), y - 1, 'k'); }
+    else if (kind === 'dot') g.p(ex, y, 'k');
+  });
+};
+K.mouth = (g, x, y, kind) => {
+  if (kind === 'o') { g.r(x, y, 2, 2, 'k'); }
+  else if (kind === 'flat') g.r(x, y, 3, 1, 'k');
+  else if (kind === 'grin') { g.r(x, y, 4, 1, 'k'); g.r(x + 1, y + 1, 2, 1, 'r'); g.p(x, y - 1, 'k'); g.p(x + 3, y - 1, 'k'); }
+  else if (kind === 'frown') { g.r(x + 1, y, 2, 1, 'k'); g.p(x, y + 1, 'k'); g.p(x + 3, y + 1, 'k'); }
+  else { g.p(x, y, 'k'); g.r(x + 1, y + 1, 2, 1, 'k'); g.p(x + 3, y, 'k'); }
+};
+K.blush = (g, x, y, gap) => { g.r(x, y, 2, 1, 'g'); g.r(x + gap, y, 2, 1, 'g'); };
+K.glasses = (g, x, y, r, gap) => {
+  [x, x + gap].forEach(cx => { g.ring(cx, y, r, r, 'k'); g.p(cx - 1, y - 1, 'w'); });
+  g.l(x + r, y, x + gap - r, y, 'k');
+};
+K.coin = (g, cx, cy, r, c) => {
+  g.o(cx, cy, r, r, c); g.ring(cx, cy, r - 1.5, r - 1.5, JD.DN[c], 0, 0.3, 3.2); g.ring(cx, cy, r - 1.5, r - 1.5, JD.UP[c], 0, 3.4, 6.0);
+  g.p(cx - r * 0.5, cy - r * 0.5, 'w');
+};
+K.spark = (g, x, y, c) => { c = c || 'w'; g.p(x, y, c); g.p(x - 1, y, c); g.p(x + 1, y, c); g.p(x, y - 1, c); g.p(x, y + 1, c); };
+K.blade = (g, x, y, len, c, teeth) => {
+  g.r(x, y, len, 4, c); g.r(x, y + 1, len - 1, 1, JD.UP[c]); g.p(x + len, y + 1, c); g.p(x + len, y + 2, c);
+  (teeth || [2, 1, 3, 2]).forEach((h, i) => g.r(x + len - 3 - i * 3, y + 4, 2, h, c));
+};
+K.wing = (g, x, y, dir, up, c) => {
+  c = c || '6';
+  for (let i = 0; i < 4; i++) { const len = 7 - i, yy = y - up + i * 2; g.l(x, y + i, x + dir * len, yy, c); g.l(x, y + i + 1, x + dir * (len - 1), yy + 1, c); }
+  g.l(x, y, x + dir * 7, y - up, JD.UP[c] || c);
+};
+K.heart = (g, x, y, c) => g.d('cc.cc/ccccc/.ccc./..c..', x, y, { c: c || 'r' });
+}
+// ===== spr_a.js =====
+{
+const JD = window.JD, K = JD.K;
+JD.def({ id: 'kaianium', name: 'Element Kaianium', desc: 'Atomic number 23. Symbol Ka. Has 23 electron rings, which every scientist agrees is about 20 too many.', w: 80, h: 56, sfx: 'zap', fx: 'spark', mat: 'glass', frames: 8, txt: 1, rings: 23 }, g => {
+  const cx = 52.5, cy = 27.5, N = 23, R0 = 4, COL = ['x', 'p', 'X', 'P', 'c', 'm'];
+  for (let y = 0; y < 56; y++) for (let x = 24; x < 80; x++) {
+    const d = Math.hypot(x - cx, y - cy), k = Math.floor(d - R0 + 0.5);
+    if (d < R0) g.p(x, y, 'B'); else if (k < N) g.p(x, y, k % 2 ? (k % 4 === 1 ? 'P' : 'B') : (k % 4 === 0 ? 'x' : 'm'));
+  }
+  g.shade();
+  for (let i = 0; i < N; i++) { const r = R0 + i, a = i * 2.39 + (g.t / 8) * 6.2832 * (i % 2 ? 1 : -1); const ex = cx + Math.cos(a) * r, ey = cy + Math.sin(a) * r; g.p(ex, ey, i % 2 ? 'z' : 'y'); }
+  g.d('.rbr./rIrbr/brrrb/rbrbr/.rbr.', 50, 25);
+  g.r(0, 10, 34, 42, 'c'); g.r(1, 11, 32, 40, 'X'); g.r(2, 12, 30, 1, 'w'); g.r(33, 11, 1, 41, 'C'); g.r(1, 51, 33, 1, 'C');
+  g.txt('23', 3, 14, 'C');
+  g.big('Ka', 5, 22, 'v', 2); g.big('Ka', 4, 21, 'B', 2);
+  g.txt('KAIANIUM', 2, 42, 'C');
+});
+JD.def({ id: 'zbattery', name: 'Quintuple-Z Battery', desc: 'After AA and AAA comes ZZZZZ. For powering naps. Do not put it in anything that needs to stay awake.', w: 46, h: 20, sfx: 'snore', fx: 'zzz', mat: 'metal', txt: 1 }, g => {
+  g.r(0, 4, 4, 12, '4'); g.r(1, 9, 2, 1, '2');
+  g.r(3, 2, 36, 16, 'b'); g.r(3, 4, 36, 1, 'v'); g.r(3, 15, 36, 2, 'B');
+  g.r(39, 3, 3, 14, 'y'); g.r(39, 5, 3, 1, 'z'); g.r(42, 7, 3, 6, 'y'); g.txt('+', 39, 8, 'Y');
+  g.r(16, 5, 22, 10, 'B'); g.r(16, 5, 22, 1, 'P'); g.txt('ZZZZZ', 17, 8, 'z');
+  g.shade();
+  [6, 11].forEach(ex => { g.r(ex - 1, 8, 4, 1, 'k'); g.p(ex - 2, 9, 'k'); g.r(ex - 1, 9, 3, 1, 'w'); g.p(ex + 1, 9, 'k'); g.p(ex + 2, 9, 'k'); g.r(ex - 1, 10, 4, 1, 'P'); });
+  g.r(8, 12, 2, 2, 'k'); g.o(12.5, 12.5, 1.5, 1.5, 'X'); g.p(12, 12, 'w');
+});
+JD.def({ id: 'chalk', name: 'Half-Eaten Chalk', desc: 'Tastes like math class. Whoever took the bite is still being investigated. (It was the teacher.)', w: 34, h: 14, sfx: 'crunch', fx: 'crumbs', mat: 'soft' }, g => {
+  g.r(0, 3, 32, 9, '6'); g.r(1, 4, 30, 1, 'w'); g.r(0, 10, 32, 1, '5');
+  g.dith(0, 3, 4, 9, '5'); [[9, 6], [15, 8], [20, 5], [12, 9], [6, 7]].forEach(([x, y]) => g.p(x, y, '5'));
+  g.o(31, 3, 3.3, 3.3, '.'); g.o(29.5, 7.5, 2.4, 2.4, '.'); g.o(31, 12, 3.3, 3.3, '.');
+  for (let y = 3; y < 12; y++) for (let x = 32; x > 15; x--) if (g.at(x, y) !== '.') { g.p(x, y, '4'); g.p(x - 1, y, '5'); g.p(x - 2, y, '5'); break; }
+  g.shade();
+  g.l(24, 5, 24, 6, '4'); g.l(23, 8, 23, 9, '4'); g.l(21, 6, 21, 7, '5');
+  g.p(32, 1, '6'); g.p(30, 13, '6'); g.p(33, 7, '5'); g.p(31, 0, '5');
+});
+JD.def({ id: 'penguin', name: 'Pen-guin', desc: 'Writes in black and white only. Refuses to sign anything south of the equator.', w: 16, h: 40, sfx: 'click', mat: 'plastic' }, g => {
+  g.poly([3, 13, 0, 22, 3, 21], '2'); g.poly([12, 13, 15, 22, 12, 21], '2');
+  g.r(3, 11, 10, 20, '2'); g.o(7.5, 20, 3, 7.5, '6');
+  g.o(7.5, 6, 5.5, 5.5, '2'); g.o(7.5, 7, 3.5, 3, '6');
+  g.r(3, 27, 10, 2, 'y'); g.r(2, 30, 3, 2, 'o'); g.r(11, 30, 3, 2, 'o');
+  g.poly([4, 31, 11, 31, 8, 37, 7, 37], '4'); g.r(7, 37, 2, 2, '1');
+  g.shade();
+  g.r(6, 5, 1, 2, 'k'); g.r(9, 5, 1, 2, 'k'); g.r(7, 8, 2, 1, 'o'); g.p(7, 9, 'O'); g.p(8, 9, 'O');
+});
+JD.def({ id: 'battybat', name: 'Bat-tery', desc: 'Hangs upside down to recharge. Only works at night. Keep away from garlic-powered devices.', w: 40, h: 24, sfx: 'flap', mat: 'metal' }, g => {
+  [0, 1].forEach(m => { const X = x => m ? 39 - x : x; g.poly([14, 8, 6, 3, 0, 5, 3, 9, 0, 14, 5, 12, 7, 17, 10, 13, 14, 15].map((v, i) => i % 2 ? v : X(v)), 'p'); g.l(X(13), 10, X(5), 5, 'P'); g.l(X(13), 12, X(4), 11, 'P'); });
+  g.poly([14, 8, 15, 4, 17, 8], '2'); g.poly([21, 8, 23, 4, 24, 8], '2');
+  g.r(13, 8, 12, 10, '2'); g.r(24, 8, 3, 10, 'o'); g.r(27, 11, 1, 4, 'y');
+  g.shade();
+  g.r(15, 11, 2, 2, 'w'); g.p(16, 12, 'k'); g.r(20, 11, 2, 2, 'w'); g.p(20, 12, 'k');
+  g.r(16, 14, 6, 1, 'k'); g.p(17, 15, 'w'); g.p(20, 15, 'w'); g.p(25, 12, 'O'); g.p(25, 13, 'O');
+});
+JD.def({ id: 'keylime', name: 'Key Lime', desc: 'Unlocks pie. Also slightly sour about it.', w: 36, h: 16, sfx: 'jingle', mat: 'soft' }, g => {
+  g.o(7.5, 7.5, 7, 7, 'e'); g.o(7.5, 7.5, 5.5, 5.5, 'L'); g.o(7.5, 7.5, 4.5, 4.5, 'l');
+  for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + 0.39; g.l(7.5 + Math.cos(a) * 1.5, 7.5 + Math.sin(a) * 1.5, 7.5 + Math.cos(a) * 4.5, 7.5 + Math.sin(a) * 4.5, 'L'); }
+  K.blade(g, 15, 6, 18, 'e', [2, 3, 1, 3]); g.dith(16, 6, 16, 4, 'l', 1);
+  g.shade(); g.o(7.5, 7.5, 1, 1, '.');
+});
+JD.def({ id: 'loosechange', name: 'Loose Change', desc: 'These coins are planning an escape. One of them has already found a ladder.', w: 36, h: 26, sfx: 'coins', mat: 'metal' }, g => {
+  g.r(27, 1, 1, 25, 'h'); g.r(33, 1, 1, 25, 'h'); for (let y = 4; y < 26; y += 4) g.r(28, y, 5, 1, 'j');
+  K.coin(g, 7, 18, 6, 'y'); K.coin(g, 18, 16, 5.5, '4'); K.coin(g, 30, 9, 4, 'o');
+  g.l(5, 24, 4, 25, 'k'); g.l(9, 24, 10, 25, 'k'); g.l(16, 22, 15, 24, 'k'); g.l(20, 22, 21, 24, 'k');
+  g.shade();
+  K.eyes(g, 7, 16, 4); K.mouth(g, 8, 20, 'o'); K.eyes(g, 18, 14, 3); K.mouth(g, 19, 18, 'o'); g.p(29, 8, 'k'); g.p(32, 8, 'k');
+  g.p(1, 12, 'x'); g.p(1, 13, 'c');
+});
+JD.def({ id: 'rubberband', name: 'A Rubber Band', desc: 'Three rubber bands with tiny instruments. Their only hit is called "Snap". It is a bit of a stretch.', w: 42, h: 26, sfx: 'twang', fx: 'notes', mat: 'soft' }, g => {
+  [[7, 'r'], [21, 'y'], [35, 'c']].forEach(([cx, c]) => { g.o(cx, 9, 6, 7.5, c); g.o(cx, 9, 3.5, 5, '.'); });
+  g.o(7, 21, 3.5, 3, 'o'); g.o(7, 17.5, 2.5, 2, 'o'); g.l2(6, 17, 6, 8, 'n'); g.r(5, 5, 4, 3, 'h');
+  g.r(16, 19, 10, 6, 'b'); g.o(20.5, 18.5, 5, 1.5, '6'); g.l(15, 13, 18, 17, 'J'); g.l(27, 13, 24, 17, 'J');
+  g.r(34, 21, 3, 4, '2'); g.o(35.5, 18.5, 2.5, 2.5, '4');
+  g.shade();
+  g.p(7, 21, 'N'); g.dith(34, 17, 4, 4, '3');
+  [7, 21, 35].forEach(cx => { g.p(cx - 5, 7, 'k'); g.p(cx + 5, 7, 'k'); });
+});
+JD.def({ id: 'ruler', name: 'Ruler', desc: 'A ruler wearing a crown. Rules the drawer twelve inches at a time and expects to be measured with respect.', w: 46, h: 18, sfx: 'fanfare', txt: 1, mat: 'wood' }, g => {
+  g.r(0, 7, 46, 10, 'J');
+  for (let x = 2; x < 45; x += 2) g.r(x, x % 10 === 2 ? 13 : 15, 1, x % 10 === 2 ? 4 : 2, 'h');
+  g.txt('1', 5, 8, 'n'); g.txt('3', 31, 8, 'n'); g.txt('4', 41, 8, 'n');
+  g.d('y.....y.....y/yy...yzy...yy/yyy.yyyyy.yyy/yyyyyyyyyyyyy/yryyyybyyyyry/yyyyyyyyyyyyy', 14, 1);
+  g.shade();
+  K.eyes(g, 17, 9, 6); K.mouth(g, 18, 11, 'smile');
+});
+JD.def({ id: 'smartcookie', name: 'Smart Cookie', desc: 'Wears glasses. Got straight A\'s in Crumb-istry. Still afraid of milk.', w: 26, h: 26, sfx: 'crunch', fx: 'crumbs', mat: 'soft' }, g => {
+  g.o(12.5, 15, 11.5, 10.5, 'H');
+  [[5, 21], [11, 23], [19, 21], [21, 14], [3, 16], [15, 9]].forEach(([x, y]) => { g.r(x, y, 2, 2, 'n'); g.p(x + 1, y + 1, 'N'); });
+  g.shade(); [[8, 7], [18, 8], [4, 11], [9, 24], [16, 24], [22, 18], [14, 16], [6, 18]].forEach(([x, y]) => g.p(x, y, 'j'));
+  K.glasses(g, 8, 13, 3, 9); g.p(8, 13, 'k'); g.p(17, 13, 'k'); K.mouth(g, 11, 19, 'smile');
+  g.poly([13, 0, 24, 3, 13, 6, 2, 3], '1'); g.r(9, 5, 8, 2, '2'); g.l(13, 3, 22, 4, 'y'); g.l(22, 4, 22, 8, 'y'); g.p(22, 9, 'z');
+});
+JD.def({ id: 'stickynote', name: 'Sticky Note', desc: 'Extra sticky, because it is made of honey. It says BEE BACK SOON.', w: 28, h: 30, sfx: 'squish', mat: 'paper', txt: 1 }, g => {
+  g.r(1, 0, 26, 24, 'z'); g.r(1, 0, 26, 3, 'y'); g.r(1, 21, 26, 2, 'y');
+  g.r(4, 22, 3, 4, 'y'); g.o(5, 27, 1.5, 1.5, 'y'); g.r(11, 22, 2, 3, 'y'); g.r(17, 22, 3, 5, 'y'); g.o(18, 28, 1.5, 1.5, 'y');
+  g.poly([21, 23, 26, 18, 26, 23], 'Y');
+  g.shade();
+  g.txt('BEE', 4, 5, 'n'); g.txt('BACK', 4, 11, 'n'); g.txt('SOON', 4, 17, 'n');
+  g.d('.XX.XX/..XX../kykyk./kykykk/.kyk..', 19, 4);
+  g.p(4, 27, 'Z'); g.p(17, 28, 'Z'); g.p(11, 23, 'z');
+});
+JD.def({ id: 'sparekey', name: 'Spare Key', desc: 'Shaped like a bowling pin. Keep it for when you miss a strike.', w: 16, h: 36, sfx: 'pins', mat: 'metal' }, g => {
+  g.r(6, 25, 4, 10, '4'); g.r(10, 28, 2, 2, '4'); g.r(10, 32, 2, 2, '4');
+  g.o(7.5, 19, 5.5, 7, '6'); g.o(7.5, 13, 3, 3, '6'); g.r(6, 7, 4, 5, '6'); g.o(7.5, 4, 3.5, 4, '6');
+  g.r(6, 8, 4, 1, 'r'); g.r(6, 10, 4, 1, 'r');
+  g.shade(); g.r(7, 26, 1, 8, '3');
+  g.r(4, 14, 1, 8, 'w'); g.o(7.5, 3, 1, 1, '.');
+});
+}
+// ===== spr_b.js =====
+{
+const JD = window.JD, K = JD.K;
+JD.def({ id: 'mintcoin', name: 'Mint-Condition Coin', desc: 'Never been spent, never been scratched. Smells extremely fresh.', w: 22, h: 22, sfx: 'ding', fx: 'spark', mat: 'metal' }, g => {
+  K.coin(g, 10.5, 10.5, 10, 'e');
+  g.oR(10.5, 11, 6.5, 3, -0.8, 'l'); g.shade();
+  g.l(6, 15, 15, 6, 'e'); g.l(9, 11, 8, 9, 'e'); g.l(11, 10, 13, 11, 'e'); g.l(12, 8, 11, 6, 'e'); g.l(5, 16, 3, 18, 'E');
+  K.spark(g, 16, 4); g.p(4, 6, 'L');
+});
+JD.def({ id: 'holepunch', name: 'Hole Punch', desc: 'A hole punch with a boxing glove. Undefeated against paper. Has never fought scissors.', w: 36, h: 26, sfx: 'punch', mat: 'metal' }, g => {
+  g.r(0, 15, 22, 9, '3'); g.poly([0, 14, 2, 8, 20, 8, 22, 14], '4'); g.r(15, 10, 7, 10, '2');
+  g.r(20, 9, 4, 10, '6'); g.o(29, 14, 6.5, 6.5, 'r'); g.o(24, 8, 3, 2.5, 'r');
+  g.shade();
+  g.r(26, 9, 3, 1, 'I'); g.p(25, 10, 'I'); g.l(31, 10, 31, 13, 'R'); g.l(33, 12, 33, 16, 'R'); g.r(20, 12, 4, 1, '5');
+  K.eyes(g, 5, 10, 6, 'angry'); g.r(0, 19, 22, 1, '2'); g.p(4, 25, '6'); g.p(9, 25, '6');
+});
+JD.def({ id: 'dimeosaur', name: 'Dime-osaur', desc: 'Worth ten cents and about 65 million years. Went extinct when piggy banks were invented.', w: 30, h: 22, sfx: 'roar', txt: 1, mat: 'metal' }, g => {
+  g.poly([11, 8, 6, 2, 2, 1, 1, 4, 5, 5, 9, 11], '4'); g.o(3, 3, 3, 2.5, '4');
+  g.poly([22, 10, 29, 14, 29, 16, 21, 16], '4');
+  g.r(11, 17, 3, 5, '4'); g.r(19, 17, 3, 5, '4');
+  K.coin(g, 16, 12, 7, '4');
+  g.shade();
+  g.txt('10', 13, 10, '2'); g.p(2, 2, 'k'); g.p(0, 4, '2'); g.l(11, 21, 13, 21, '3'); g.l(19, 21, 21, 21, '3');
+});
+JD.def({ id: 'record', name: 'Broken Record', desc: 'It set a world record, then it broke. Now it just repeats itself. Repeats itself. Repeats itself.', w: 36, h: 36, sfx: 'scratch', mat: 'plastic' }, g => {
+  g.o(17.5, 17.5, 17, 17, '1');
+  [14, 11.5, 9].forEach(r => g.ring(17.5, 17.5, r, r, '2'));
+  g.ring(17.5, 17.5, 13, 13, '4', 0, 3.6, 4.3); g.ring(17.5, 17.5, 10.5, 10.5, '3', 0, 0.5, 1.2);
+  g.o(17.5, 17.5, 5, 5, 'r'); g.ring(17.5, 17.5, 3.5, 3.5, 'i', 0, 3.4, 5);
+  g.shade();
+  g.l(3, 7, 8, 11, '.'); g.l(8, 11, 7, 14, '.'); g.l(7, 14, 13, 16, '.');
+  g.o(17.5, 17.5, 0.6, 0.6, '.');
+  g.poly([26, 27, 24, 35, 27, 33, 29, 35, 31, 28], 'b'); g.o(28.5, 26.5, 5, 5, 'v'); g.o(28.5, 26.5, 3, 3, 'z'); g.txt('1', 27, 24, 'Y');
+});
+JD.def({ id: 'paperweight', name: 'Paperweight', desc: 'Does 100 reps a day so your papers never blow away. Do not skip paper day.', w: 34, h: 26, sfx: 'thud', mat: 'glass' }, g => {
+  g.r(1, 1, 4, 9, '1'); g.r(29, 1, 4, 9, '1'); g.r(5, 4, 24, 2, '3'); g.r(5, 2, 2, 6, '2'); g.r(27, 2, 2, 6, '2');
+  g.l2(9, 15, 6, 6, 'X'); g.l2(24, 15, 27, 6, 'X'); g.o(7, 5, 1.5, 1.5, 'X'); g.o(27, 5, 1.5, 1.5, 'X');
+  g.o(17, 18, 9, 7.5, 'x'); g.r(8, 23, 19, 3, '.'); g.r(9, 22, 17, 3, '4');
+  g.o(17, 18, 3, 3, 'f'); [[14, 16], [20, 16], [17, 21], [14, 20], [20, 20]].forEach(([x, y]) => g.p(x, y, 'g'));
+  g.shade();
+  g.p(11, 12, 'w'); g.p(10, 13, 'w'); g.p(12, 11, 'X');
+  K.eyes(g, 13, 14, 6, 'angry'); K.mouth(g, 15, 19, 'flat'); g.p(27, 12, 'X'); g.p(28, 13, 'x');
+});
+JD.def({ id: 'ducktape', name: 'Duck Tape', desc: 'Holds everything together. Quacks under pressure.', w: 32, h: 30, sfx: 'quack', mat: 'soft' }, g => {
+  g.poly([24, 22, 31, 26, 29, 29, 21, 27], '4');
+  g.o(15, 16, 13, 13, '3'); g.ring(15, 16, 10, 10, '4'); g.ring(15, 16, 11.5, 11.5, '2', 0, 0.2, 2.4);
+  g.o(15, 16, 6.5, 6.5, 'j');
+  g.o(23, 5, 4.5, 4, 'y'); g.r(27, 5, 4, 2, 'o');
+  g.shade(); g.o(15, 16, 5, 5, '.');
+  g.r(27, 7, 3, 1, 'O'); g.p(24, 4, 'k'); g.p(21, 0, 'y'); g.p(20, 3, 'z');
+});
+JD.def({ id: 'rubberduck', name: 'Rubber Duck', desc: 'A duck-shaped rubber eraser. Erases your mistakes and squeaks about it.', w: 28, h: 22, sfx: 'squeak', mat: 'soft' }, g => {
+  g.poly([1, 13, 0, 8, 5, 11], 'g'); g.o(12, 15, 11, 6, 'g'); g.o(19, 8, 5, 5, 'g');
+  g.r(24, 7, 4, 2, 'o'); g.r(24, 9, 3, 1, 'O');
+  g.shade();
+  for (let y = 8; y < 21; y++) for (let x = 0; x < 6; x++) if (g.at(x, y) !== '.' && (x + y) % 2) g.p(x, y, '5');
+  g.r(20, 6, 2, 2, 'k'); g.p(20, 6, 'w'); g.l(8, 14, 14, 14, 'f'); g.l(9, 15, 13, 15, 'F'); g.p(15, 10, 'f');
+  g.p(26, 20, 'g'); g.p(24, 21, 'f');
+});
+JD.def({ id: 'brightidea', name: 'Bright Idea', desc: 'A light bulb in glasses. Has thought of everything twice, and both times it was brilliant.', w: 22, h: 32, sfx: 'ding', fx: 'shine', mat: 'glass' }, g => {
+  g.o(10.5, 10, 9.5, 9.5, 'z'); g.r(6, 18, 10, 3, 'z');
+  g.r(6, 21, 10, 7, '4'); g.r(8, 28, 6, 3, '2'); g.r(10, 31, 2, 1, '1');
+  g.shade();
+  g.r(6, 22, 10, 1, '3'); g.r(6, 24, 10, 1, '3'); g.r(6, 26, 10, 1, '3');
+  g.l(8, 16, 9, 14, 'O'); g.l(9, 14, 11, 16, 'O'); g.l(11, 16, 13, 14, 'O'); g.l(8, 17, 8, 20, '4'); g.l(13, 15, 13, 20, '4');
+  K.glasses(g, 6, 8, 3, 9); g.p(6, 8, 'k'); g.p(15, 8, 'k'); K.mouth(g, 9, 11, 'smile');
+  g.ring(10.5, 10, 7.5, 7.5, 'Z', 0, 3.6, 4.4);
+});
+JD.def({ id: 'screwdriver', name: 'Screwdriver', desc: 'A screw that passed its driving test. Only ever goes in circles.', w: 40, h: 24, sfx: 'beep', mat: 'metal' }, g => {
+  g.poly([11, 1, 21, 1, 19, 4, 13, 4], '5'); g.r(14, 4, 4, 7, '4');
+  g.rr(2, 11, 28, 8, 'r'); g.poly([28, 11, 36, 13, 36, 18, 28, 18], 'r'); g.r(36, 14, 2, 4, '4');
+  g.l2(23, 6, 25, 10, 'x'); g.r(10, 10, 9, 2, 'n');
+  g.o(9, 19, 3.5, 3.5, '1'); g.o(29, 19, 3.5, 3.5, '1');
+  g.shade();
+  g.r(15, 1, 2, 1, '3'); g.l(14, 6, 17, 7, '3'); g.l(14, 8, 17, 9, '3'); g.p(15, 5, 'k'); g.p(17, 5, 'k');
+  g.l(20, 7, 20, 10, '1'); g.r(34, 13, 2, 2, 'z'); g.r(2, 12, 1, 2, 'i'); g.l(18, 12, 18, 17, 'R');
+  g.r(8, 18, 3, 3, '4'); g.r(28, 18, 3, 3, '4'); g.p(9, 19, '2'); g.p(29, 19, '2');
+});
+JD.def({ id: 'tapemeasure', name: 'Tape Measure', desc: 'It only measures tape. Today\'s reading: exactly one tape.', w: 36, h: 24, sfx: 'zip', mat: 'plastic' }, g => {
+  g.rr(0, 3, 19, 19, 'y'); g.r(4, 0, 6, 3, 'r');
+  g.r(19, 15, 10, 4, 'z'); g.r(29, 13, 2, 7, '4');
+  g.o(32, 9, 3.5, 3.5, 'u');
+  g.shade();
+  g.o(9, 12, 4, 4, '2'); g.o(9, 12, 2, 2, '4'); g.p(9, 12, '1'); g.r(2, 19, 15, 1, 'Y');
+  for (let x = 20; x < 29; x += 2) g.p(x, 15, 'k'); g.p(24, 16, 'k'); g.o(32, 9, 1.5, 1.5, '.');
+});
+JD.def({ id: 'remote', name: 'Remote Control', desc: 'Lives on a remote island. Changes the channel from 3,000 kilometres away.', w: 40, h: 30, sfx: 'beep', mat: 'plastic' }, g => {
+  g.o(20, 19, 19.5, 10, 'c'); g.o(19, 19, 12, 5.5, 'a');
+  g.rr(20, 13, 7, 10, '2');
+  g.shade();
+  [[3, 17], [33, 23], [8, 25], [30, 12], [36, 17]].forEach(([x, y]) => { g.p(x, y, 'x'); g.p(x + 1, y - 1, 'x'); g.p(x + 2, y, 'x'); });
+  g.r(21, 14, 2, 1, 'r'); [16, 18, 20].forEach(y => { g.p(22, y, '5'); g.p(24, y, '5'); }); g.p(24, 14, 'l');
+  g.l2(12, 18, 10, 7, 'h'); [9, 12, 15].forEach(y => g.p(11, y, 'n'));
+  g.oR(5, 6, 5, 1.5, 0.35, 'e'); g.oR(15, 5, 5, 1.5, -0.35, 'e'); g.oR(9, 2, 1.5, 3.5, 0.3, 'e'); g.oR(12, 8, 4, 1, 0.7, 'E'); g.oR(7, 8, 4, 1, -0.6, 'E');
+  g.r(10, 6, 2, 2, 'n');
+});
+JD.def({ id: 'coupon', name: 'Expired Coupon', desc: '10% off. Valid until yesterday. Gone, but never forgotten.', w: 40, h: 24, sfx: 'sad', mat: 'paper', txt: 1 }, g => {
+  g.r(0, 3, 28, 18, 'd'); g.poly([22, 3, 28, 3, 28, 8], '.');
+  g.o(33.5, 10, 5.5, 4, '4'); g.r(28, 10, 11, 10, '4');
+  g.r(27, 20, 13, 3, 'e');
+  g.shade();
+  for (let x = 2; x < 25; x += 2) { g.p(x, 5, 'A'); g.p(x, 18, 'A'); } for (let y = 7; y < 18; y += 2) { g.p(2, y, 'A'); g.p(25, y, 'A'); }
+  g.txt('10%', 5, 7, 'r'); g.txt('OFF', 5, 13, 'r'); g.l(17, 8, 22, 16, 'A'); g.l(22, 8, 17, 16, 'A');
+  g.txt('RIP', 28, 11, '2'); g.p(30, 19, 'f'); g.p(37, 19, 'l'); g.p(29, 19, 'l');
+});
+}
+// ===== spr_c.js =====
+{
+const JD = window.JD, K = JD.K;
+JD.def({ id: 'mysterykey', name: 'Mystery Key', desc: 'Every drawer has one. Its tag says OPENS ???. Nobody has ever found the ???.', w: 34, h: 27, sfx: 'jingle', mat: 'metal', txt: 1 }, g => {
+  g.o(6, 6, 6, 6, 'y'); K.blade(g, 12, 4, 19, 'y', [2, 3, 1, 3, 2]);
+  g.poly([4, 15, 7, 13, 30, 13, 30, 26, 7, 26, 4, 24], 'a');
+  g.shade(); g.o(6, 6, 2.5, 2.5, '.');
+  g.l(5, 12, 6, 18, 'n'); g.o(7, 19, 1, 1, 'A'); g.p(7, 19, 'n');
+  g.txt('OPENS', 10, 15, 'n'); g.txt('???', 13, 21, 'r');
+});
+JD.def({ id: 'thumbwar', name: 'Thumb War', desc: 'One, two, three, four, two thumbtacks declare a war. It has been a tie since 2019.', w: 34, h: 22, sfx: 'clash', fx: 'spark', mat: 'metal' }, g => {
+  [[0, 'r'], [1, 'b']].forEach(([m, c]) => {
+    const X = x => m ? 33 - x : x, R = (x, y, w, h) => g.r(m ? 34 - x - w : x, y, w, h, c);
+    g.o(X(2), 11, 2, 3, c); R(3, 7, 7, 9); R(10, 3, 3, 17); g.l(X(13), 11, X(16), 11, '5');
+  });
+  g.shade();
+  [[0], [1]].forEach(([m]) => { const ex = m ? 24 : 4; K.eyes(g, ex, 9, 4, 'angry'); g.r(ex + 1, 13, 4, 1, 'k'); });
+  K.spark(g, 16, 11, 'z'); K.spark(g, 17, 11, 'Z');
+});
+JD.def({ id: 'toothpick', name: 'Toothpick', desc: 'Has picked zero teeth and three locks. Might be in the wrong career.', w: 36, h: 22, sfx: 'click', mat: 'wood' }, g => {
+  g.ring(10, 8, 5, 6, '4', 0, 3.14, 6.28); g.ring(10, 8, 4, 5, '4', 0, 3.14, 6.28); g.r(5, 8, 2, 3, '4'); g.r(14, 8, 2, 3, '4');
+  g.rr(3, 10, 15, 11, 'y');
+  g.shade();
+  g.o(10.5, 14, 1.5, 1.5, '1'); g.r(10, 15, 2, 3, '1');
+  K.eyes(g, 5, 12, 9, 'wide'); g.r(7, 18, 2, 1, 'k');
+  g.l(11, 15, 34, 3, 'J'); g.l(12, 15, 35, 3, 'j'); g.p(35, 2, 'k');
+});
+JD.def({ id: 'wifry', name: 'Wi-Fry', desc: 'A french fry with full bars. The password is KETCHUP, all capitals.', w: 22, h: 32, sfx: 'blip', mat: 'soft' }, g => {
+  g.r(3, 6, 6, 26, 'z'); g.r(3, 6, 6, 3, 'r'); g.p(4, 9, 'r'); g.p(7, 9, 'r');
+  [[10, 2], [13, 4], [16, 6], [19, 8]].forEach(([x, h]) => g.r(x, 10 - h, 2, h, 'l'));
+  g.shade(); g.r(7, 10, 1, 20, 'y'); g.p(4, 12, 'Z'); g.p(5, 24, 'y'); g.p(5, 28, 'y');
+  K.eyes(g, 4, 14, 3, 'open', false); K.mouth(g, 4, 18, 'smile');
+});
+JD.def({ id: 'springroll', name: 'Spring Roll', desc: 'Crispy on the outside, boingy on the inside. Do not try to eat the springs.', w: 36, h: 18, sfx: 'boing', mat: 'metal' }, g => {
+  for (let i = 0; i < 3; i++) { g.ring(1.5 + i * 2, 9, 1.5, 5, '5'); g.ring(34 - i * 2, 9, 1.5, 5, '5'); }
+  g.rr(6, 3, 24, 12, 'u'); g.r(6, 12, 24, 3, 'o');
+  g.shade();
+  g.l(10, 3, 14, 14, 'o'); g.l(19, 3, 23, 14, 'o'); g.l(27, 3, 29, 9, 'o');
+  [[8, 6], [16, 5], [25, 8], [21, 11], [12, 12]].forEach(([x, y]) => g.p(x, y, 'z'));
+  K.eyes(g, 14, 7, 6, 'happy'); g.r(16, 10, 3, 1, 'k');
+});
+JD.def({ id: 'podcast', name: 'Pod-cast', desc: 'Three peas talking into a microphone. This week\'s episode: Are We Vegetables?', w: 38, h: 20, sfx: 'talk', fx: 'notes', mat: 'soft' }, g => {
+  g.oR(15, 11, 14.5, 6.5, 0, 'e'); g.oR(15, 10, 12, 4, 0, 'E');
+  [7, 14, 21].forEach(cx => g.o(cx, 10, 3, 3, 'l'));
+  g.r(31, 17, 7, 2, '2'); g.r(34, 9, 1, 8, '3'); g.o(34, 6, 3, 3.5, '4');
+  g.shade();
+  [7, 14, 21].forEach((cx, i) => { g.p(cx - 1, 9, 'k'); g.p(cx + 1, 9, 'k'); g.p(cx - 2, 8, 'L'); if (i === 1) g.r(cx, 11, 1, 2, 'k'); else g.r(cx - 1, 11, 3, 1, 'k'); });
+  g.dith(32, 4, 5, 6, '3'); g.r(31, 7, 7, 1, '2'); g.p(0, 11, 'E');
+});
+JD.def({ id: 'mechpencil', name: 'Mechanical Pencil', desc: 'Has gears, robot arms and opinions. Mostly opinions.', w: 40, h: 16, sfx: 'beep', mat: 'plastic' }, g => {
+  g.l(24, 4, 26, 1, '3'); g.l(26, 1, 29, 1, '3'); g.p(30, 0, '3'); g.p(30, 2, '3');
+  g.l(11, 11, 9, 14, '3'); g.l(9, 14, 6, 14, '3'); g.p(5, 13, '3'); g.p(5, 15, '3');
+  g.r(0, 5, 4, 6, 'g'); g.r(4, 4, 3, 8, '4'); g.r(7, 4, 24, 8, 'y');
+  g.poly([31, 4, 31, 11, 37, 8.5, 37, 7], 'J'); g.r(37, 7, 2, 2, '2');
+  g.o(17, 8, 3, 3, '4'); [[17, 4], [13, 8], [21, 8], [17, 12]].forEach(([x, y]) => g.p(x, y, '4'));
+  g.shade();
+  g.r(4, 6, 3, 1, '3'); g.r(4, 9, 3, 1, '3'); g.r(7, 10, 24, 1, 'Y'); g.p(17, 8, '2'); g.p(26, 6, 'r'); g.p(28, 6, 'r');
+});
+JD.def({ id: 'clipart', name: 'Clip Art', desc: 'A paper clip in a beret. Its paintings are very clip art. Critics call it attached to its work.', w: 26, h: 32, sfx: 'click', mat: 'metal' }, g => {
+  g.l(16, 22, 14, 31, 'h'); g.l(22, 22, 24, 31, 'h'); g.l(19, 22, 19, 30, 'h');
+  g.rr(14, 9, 11, 13, 'h'); g.r(15, 10, 9, 11, 'd');
+  const W = (pts) => { for (let i = 0; i < pts.length - 2; i += 2) g.l(pts[i], pts[i + 1], pts[i + 2], pts[i + 3], '5'); };
+  W([7, 13, 7, 27, 6, 28, 5, 28, 4, 27, 4, 10, 5, 9, 8, 9, 9, 10, 9, 29, 8, 30, 3, 30, 2, 29, 2, 12]);
+  g.oR(6, 5, 6, 2.5, -0.15, 'r'); g.p(7, 2, 'r');
+  g.shade();
+  g.r(15, 10, 9, 6, 'x'); g.r(15, 16, 9, 5, 'l'); g.o(18, 17, 3, 1, 'e'); g.r(21, 11, 2, 2, 'z');
+  g.l(10, 16, 14, 12, 'n'); g.p(14, 11, 'p'); g.p(15, 11, 'p');
+});
+JD.def({ id: 'paradice', name: 'Para-dice', desc: 'A die on permanent vacation. Rolls a six every time, then goes back to sleep.', w: 24, h: 26, sfx: 'dice', mat: 'plastic' }, g => {
+  g.l2(17, 7, 19, 2, 'h'); g.oR(16, 2, 3.5, 1, 0.4, 'e'); g.oR(22, 2, 3, 1, -0.4, 'e'); g.oR(19, 4, 1, 2.5, 0.3, 'e');
+  g.rr(1, 7, 22, 18, '6');
+  g.shade();
+  g.r(4, 10, 6, 4, '1'); g.r(13, 10, 6, 4, '1'); g.r(10, 11, 3, 1, '1'); g.p(5, 11, 'v'); g.p(14, 11, 'v'); g.p(6, 11, 'b'); g.p(15, 11, 'b');
+  [[6, 17], [11, 20], [16, 17]].forEach(([x, y]) => g.r(x, y, 2, 2, 'r'));
+  g.p(19, 1, 'n');
+});
+JD.def({ id: 'thumbdrive', name: 'Thumb Drive', desc: 'Stores up to 2 gigabytes of thumbs-ups.', w: 16, h: 32, sfx: 'blip', mat: 'plastic' }, g => {
+  g.o(7.5, 6, 6, 6, 's'); g.r(2, 6, 12, 17, 's');
+  g.r(2, 22, 12, 3, 'b'); g.r(4, 25, 8, 7, '4');
+  g.shade();
+  g.oR(7.5, 5, 3.5, 4, 0, 't'); g.p(6, 3, 'w'); g.ring(7.5, 5, 3.5, 4, 'S', 0, 0.3, 2.8);
+  g.l(4, 15, 11, 15, 'S'); g.l(5, 17, 10, 17, 'S');
+  g.r(5, 27, 2, 2, '2'); g.r(9, 27, 2, 2, '2');
+});
+JD.def({ id: 'bookmark', name: 'Book Mark', desc: 'Hi, my name is Mark. I have been holding page 47 open since last summer.', w: 18, h: 38, sfx: 'flap', mat: 'paper', txt: 1 }, g => {
+  g.l(8, 0, 8, 4, 'y'); g.l(10, 0, 10, 4, 'y');
+  g.r(2, 4, 14, 34, 'p'); g.poly([2, 38, 9, 32, 16, 38], '.');
+  g.r(1, 12, 16, 11, 'w'); g.r(1, 12, 16, 5, 'r');
+  g.shade();
+  g.r(8, 4, 3, 1, 'Y'); g.txt('HI', 6, 12, 'w'); g.txt('MARK', 2, 18, 'k');
+  K.eyes(g, 5, 7, 6); g.l(4, 26, 14, 26, 'm'); g.l(4, 29, 14, 29, 'm');
+});
+JD.def({ id: 'charger', name: 'Charger', desc: 'It charges your phone. It also charges at anything red.', w: 36, h: 24, sfx: 'snort', mat: 'plastic' }, g => {
+  g.l(21, 15, 25, 19, '6'); g.l(25, 19, 29, 16, '6'); g.l(29, 16, 31, 18, '6'); g.r(31, 17, 5, 5, '4');
+  g.l2(4, 7, 1, 1, 'J'); g.l2(20, 7, 23, 1, 'J'); g.r(10, 3, 2, 3, '4'); g.r(14, 3, 2, 3, '4');
+  g.rr(4, 6, 18, 14, '6');
+  g.rr(8, 13, 10, 5, 'g');
+  g.shade();
+  K.eyes(g, 8, 9, 8, 'angry'); g.p(10, 15, 'F'); g.p(15, 15, 'F'); g.ring(12.5, 18.5, 1.5, 1.5, 'y');
+  g.r(33, 19, 1, 2, '2');
+});
+}
+// ===== spr_d.js =====
+{
+const JD = window.JD, K = JD.K;
+JD.def({ id: 'rps', name: 'Rock, Paper, Scissors', desc: 'A complete set. Undefeated, and also defeated, exactly a third of the time each.', w: 38, h: 24, sfx: 'clack3', mat: 'plastic' }, g => {
+  g.oR(6, 16, 6, 5, 0.2, '3');
+  g.r(13, 4, 12, 16, '6'); g.poly([21, 4, 25, 4, 25, 8], '.');
+  g.l2(31, 12, 27, 1, '5'); g.l2(31, 12, 35, 1, '5'); g.l(30, 12, 28, 17, 'r'); g.l(32, 12, 34, 17, 'r');
+  g.o(28, 19, 2.5, 2.5, 'r'); g.o(35, 19, 2.5, 2.5, 'r');
+  g.shade();
+  g.o(28, 19, 1, 1, '.'); g.o(35, 19, 1, 1, '.'); g.p(31, 12, '2');
+  g.poly([21, 4, 21, 8, 25, 8], '5'); g.r(15, 9, 7, 1, '4'); g.r(15, 12, 8, 1, '4'); g.r(15, 15, 6, 1, '4');
+  [[3, 19], [9, 18], [6, 13]].forEach(([x, y]) => g.p(x, y, '2')); K.eyes(g, 3, 14, 4);
+});
+JD.def({ id: 'timeflies', name: 'Time Flies', desc: 'You can never catch it. Nobody ever has. It is always later than you think.', w: 32, h: 24, sfx: 'tick', mat: 'metal', frames: 4 }, g => {
+  const up = [4, 1, -2, 1][g.t];
+  K.wing(g, 7, 12, -1, up, '6'); K.wing(g, 24, 12, 1, up, '6');
+  g.o(9, 4, 3, 2, 'y'); g.o(22, 4, 3, 2, 'y'); g.r(9, 21, 2, 3, '2'); g.r(21, 21, 2, 3, '2');
+  g.o(15.5, 13, 9, 9, 'r');
+  g.shade();
+  g.o(15.5, 13, 6.5, 6.5, '6');
+  [[15, 7], [21, 13], [15, 19], [9, 13]].forEach(([x, y]) => g.p(x, y, '3'));
+  const a = g.t * Math.PI / 2 - Math.PI / 2; g.l(15, 13, 15 + Math.round(Math.cos(a) * 5), 13 + Math.round(Math.sin(a) * 5), 'k'); g.l(15, 13, 18, 15, 'k'); g.p(15, 13, 'r');
+  g.p(15, 3, '4'); g.p(15, 2, '4');
+});
+JD.def({ id: 'butterfly', name: 'Butter-fly', desc: 'Spreads its wings. Also spreads on toast. Please do not mix those up.', w: 32, h: 22, sfx: 'flap', mat: 'soft' }, g => {
+  g.oR(8, 7, 7, 5, -0.4, 'p'); g.oR(23, 7, 7, 5, 0.4, 'p'); g.oR(9, 15, 5, 4, 0.4, 'm'); g.oR(22, 15, 5, 4, -0.4, 'm');
+  g.l(14, 4, 12, 0, 'k'); g.l(17, 4, 19, 0, 'k');
+  g.rr(12, 4, 8, 15, 'z');
+  g.shade();
+  g.o(7, 6, 1.5, 1.5, 'z'); g.o(24, 6, 1.5, 1.5, 'z'); g.p(9, 16, 'Z'); g.p(22, 16, 'Z'); g.p(4, 8, 'P'); g.p(27, 8, 'P');
+  g.r(12, 16, 8, 2, 'y'); g.l(14, 13, 18, 13, 'y');
+  K.eyes(g, 13, 8, 5, 'happy'); g.r(15, 11, 2, 1, 'k');
+});
+JD.def({ id: 'coolcube', name: 'Cool Cube', desc: 'An ice cube in sunglasses. Too cool to melt. Has never once broken a sweat.', w: 22, h: 22, sfx: 'chime', fx: 'spark', mat: 'glass' }, g => {
+  g.rr(1, 2, 20, 19, 'X'); g.r(3, 4, 16, 15, 'x');
+  g.shade();
+  g.r(3, 4, 4, 1, 'w'); g.r(3, 5, 1, 3, 'w'); g.p(6, 17, 'w');
+  g.r(3, 8, 7, 4, '1'); g.r(12, 8, 7, 4, '1'); g.r(10, 9, 2, 1, '1'); g.r(4, 9, 2, 1, 'v'); g.r(13, 9, 2, 1, 'v');
+  g.r(9, 15, 3, 1, 'C'); g.p(12, 14, 'C');
+  K.spark(g, 18, 4);
+});
+JD.def({ id: 'calculgator', name: 'Calcul-gator', desc: 'Does your math homework in a snap. Then it bites your math homework.', w: 40, h: 22, sfx: 'chomp', mat: 'plastic', txt: 1 }, g => {
+  g.poly([5, 9, 0, 13, 5, 17], 'e'); g.r(7, 19, 3, 3, 'e'); g.r(18, 19, 3, 3, 'e');
+  g.rr(4, 5, 21, 15, 'e'); g.poly([24, 7, 39, 10, 39, 15, 24, 17], 'e'); g.o(27, 6, 2.5, 2, 'e');
+  g.shade();
+  g.r(6, 7, 17, 6, 'L'); g.txt('3.14', 8, 8, 'E');
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 2; r++) g.r(7 + c * 4, 14 + r * 3, 2, 2, c === 3 ? 'z' : '6');
+  g.l(26, 13, 39, 13, 'E'); for (let x = 27; x < 38; x += 2) { g.p(x, 12, 'w'); g.p(x + 1, 14, 'w'); }
+  g.p(37, 10, 'E'); g.p(27, 5, 'z'); g.p(28, 5, 'k');
+});
+JD.def({ id: 'snailmail', name: 'Snail Mail', desc: 'Posted in 2011. Should be arriving any day now.', w: 34, h: 22, sfx: 'slurp', mat: 'paper' }, g => {
+  g.r(0, 5, 24, 16, 'd');
+  g.rr(17, 16, 16, 5, 's'); g.o(31, 16, 2.5, 2.5, 's'); g.l(31, 14, 30, 10, 's'); g.l(33, 14, 33, 10, 's');
+  g.o(22, 11, 6.5, 6.5, 'o');
+  g.shade();
+  g.l(0, 5, 12, 13, 'A'); g.l(16, 9, 12, 13, 'A'); g.r(2, 7, 4, 4, 'r'); g.p(3, 8, 'I');
+  g.ring(22, 11, 4, 4, 'O'); g.ring(22.5, 11.5, 2, 2, 'O'); g.p(22, 11, 'O'); g.p(19, 7, 'u');
+  g.p(30, 9, 'k'); g.p(33, 9, 'k'); g.r(18, 18, 13, 1, 't');
+});
+JD.def({ id: 'misfortune', name: 'Misfortune Cookie', desc: 'The paper inside says: YOU WILL FIND THIS COOKIE IN A DRAWER. Spooky accurate.', w: 28, h: 18, sfx: 'crunch', fx: 'crumbs', mat: 'soft', txt: 1 }, g => {
+  g.oR(13, 10, 12, 7, 0, 'j'); g.o(13, 2, 4, 3, '.');
+  g.shade();
+  g.ring(13, 3, 7, 6, 'H', 0, 0.4, 2.7); g.l(13, 6, 13, 9, 'h'); g.p(8, 13, 'H'); g.p(18, 14, 'H');
+  g.r(11, 8, 17, 7, '6'); g.r(11, 14, 17, 1, '5'); g.txt('UH OH', 12, 9, 'r');
+});
+JD.def({ id: 'bolt', name: 'Lightning Bolt', desc: 'A bolt made of actual lightning. Please do not try to screw it into anything.', w: 14, h: 26, sfx: 'zap', fx: 'spark', mat: 'metal', hidden: 1 }, g => {
+  g.r(2, 0, 10, 4, '4'); g.r(1, 4, 12, 2, '3');
+  g.poly([4, 6, 10, 6, 8, 13, 12, 13, 3, 25, 5, 16, 2, 16], 'z');
+  g.shade();
+  g.r(5, 0, 4, 3, '5');
+  for (let y = 8; y < 24; y += 3) for (let x = 0; x < 14; x++) if (g.at(x, y) === 'z') g.p(x, y, 'y');
+});
+JD.def({ id: 'cashew', name: 'Cash-ew', desc: 'Accepted at all squirrel banks. Do not try it at the bakery.', w: 22, h: 18, sfx: 'coins', mat: 'soft', hidden: 1 }, g => {
+  g.o(11, 9, 10, 7.5, 'J'); g.o(14, 1, 6, 4.5, '.');
+  g.shade();
+  g.txt('$', 8, 9, 'E'); g.p(5, 7, 'Z');
+});
+JD.def({ id: 'wingnut', name: 'Wing Nut', desc: 'A peanut that grew wings. Flew into the drawer in 2016 and has refused to leave.', w: 28, h: 18, sfx: 'flap', mat: 'soft', hidden: 1 }, g => {
+  K.wing(g, 7, 7, -1, 3, '6'); K.wing(g, 20, 7, 1, 3, '6');
+  g.o(10, 10, 5.5, 5.5, 'j'); g.o(18, 10, 5, 5, 'j');
+  g.shade();
+  [[8, 7], [11, 13], [6, 11], [16, 13], [20, 7], [21, 12], [13, 9]].forEach(([x, y]) => g.p(x, y, 'H'));
+  K.eyes(g, 15, 8, 4); g.r(17, 12, 2, 1, 'k');
+});
+JD.def({ id: 'lint', name: 'Pocket Lint', desc: 'Rare vintage lint, hand-collected over nine years. Do not sneeze near it.', w: 22, h: 16, sfx: 'puff', mat: 'soft', hidden: 1 }, g => {
+  g.o(11, 8, 9, 6, '4'); g.o(4, 5, 3, 3, '4'); g.o(17, 4, 3, 2.5, '4'); g.o(15, 12, 4, 3, '4');
+  g.p(0, 9, '4'); g.p(21, 10, '4'); g.p(10, 0, '4'); g.p(6, 15, '4');
+  g.shade(); [[3, 4], [6, 11], [10, 3], [15, 10], [18, 6], [11, 12], [4, 8], [16, 3]].forEach(([x, y]) => { g.p(x, y, '5'); g.p(x + 1, y, 'v'); });
+  g.r(7, 6, 3, 3, 'w'); g.p(8, 7, 'k'); g.r(12, 6, 3, 3, 'w'); g.p(13, 8, 'k');
+});
+JD.def({ id: 'magnet', name: 'Attractive Magnet', desc: 'Very attractive. Everything in the drawer is drawn to it. It is a lot of pressure.', w: 24, h: 26, sfx: 'hum', fx: 'hearts', mat: 'metal' }, g => {
+  g.o(12, 11, 11, 10, 'r'); g.r(1, 11, 7, 10, 'r'); g.r(17, 11, 7, 10, 'r');
+  g.o(12, 11, 4.5, 4.5, '.'); g.r(8, 11, 9, 16, '.');
+  g.r(1, 20, 7, 5, '5'); g.r(17, 20, 7, 5, '5');
+  g.shade();
+  K.eyes(g, 8, 3, 7); g.p(7, 2, 'k'); g.p(16, 2, 'k'); g.r(4, 6, 2, 1, 'g'); g.r(18, 6, 2, 1, 'g');
+  g.r(1, 20, 7, 1, '4'); g.r(17, 20, 7, 1, '4');
+});
+}
+// ===== spr_e.js =====
+{
+const JD = window.JD, K = JD.K;
+JD.def({ id: 'shellphone', name: 'Shell Phone', desc: 'Gets amazing reception at the beach. Gets no reception at all in a drawer.', w: 24, h: 30, sfx: 'ring', mat: 'glass' }, g => {
+  g.l(18, 18, 21, 4, '2'); g.o(21.5, 3, 1.5, 1.5, 'r');
+  for (let y = 14; y < 28; y++) for (let x = 0; x < 24; x++) {
+    const dx = x - 11.5, dy = 27 - y, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx), k = a / Math.PI * 9;
+    if (dy >= 0 && d <= 11.6 + Math.cos(k * 6.2832) * 0.7) g.p(x, y, Math.floor(k) % 2 ? 'g' : 'f');
+  }
+  g.r(8, 26, 8, 3, 'f'); g.r(5, 27, 3, 2, 'f'); g.r(16, 27, 3, 2, 'f');
+  g.shade();
+  K.eyes(g, 8, 20, 6); g.r(10, 24, 4, 1, 'F'); g.p(11, 23, 'F');
+});
+JD.def({ id: 'pirate', name: 'Pi-rate', desc: 'Arrr-ound 3.14 pirates in one. Buries its treasure in perfect circles.', w: 26, h: 26, sfx: 'arr', mat: 'plastic' }, g => {
+  g.poly([6, 13, 9, 13, 8, 22, 6, 25, 3, 25, 5, 22], 'b'); g.poly([16, 13, 19, 13, 19, 22, 21, 23, 22, 25, 18, 25, 16, 22], 'b');
+  g.r(2, 9, 22, 4, 'b');
+  g.o(13, 6, 7, 4.5, '1'); g.r(2, 7, 23, 2, '1');
+  g.shade();
+  g.r(3, 8, 21, 1, 'y'); g.d('www/kwk/.w.', 12, 2);
+  g.r(15, 10, 2, 2, 'k'); g.p(15, 10, 'w'); g.r(7, 10, 3, 2, '1'); g.l(4, 9, 6, 10, '1'); g.l(10, 11, 13, 12, '1');
+  g.p(20, 11, 'k'); g.p(21, 11, 'k');
+});
+JD.def({ id: 'staplefood', name: 'Staple Food', desc: 'A big bowl of staples. Part of every balanced office breakfast.', w: 30, h: 22, sfx: 'crunch', mat: 'metal' }, g => {
+  g.l2(20, 10, 27, 2, '4'); g.o(27.5, 2, 1.5, 1.5, '4');
+  g.oR(14, 13, 11, 5, 0, '3');
+  g.o(14, 14, 13, 7, 'f'); g.r(0, 0, 30, 14, '.'); g.r(1, 13, 27, 2, 'g');
+  g.oR(14, 12, 11, 4.5, 0, '3'); g.oR(14, 10, 8, 4, 0, '3');
+  g.shade();
+  [[4, 11], [9, 9], [14, 7], [19, 9], [22, 11], [7, 12], [12, 11], [17, 12], [11, 7], [16, 9]].forEach(([x, y], i) => i % 3 ? g.d('6666/5..5', x, y) : g.d('66/5./5./66', x, y));
+  g.r(4, 17, 20, 1, 'F');
+});
+JD.def({ id: 'bubblerapper', name: 'Bubble Rapper', desc: 'Drops sick beats. Then pops. Then drops more beats.', w: 30, h: 27, sfx: 'pop', fx: 'notes', mat: 'soft' }, g => {
+  g.rr(1, 5, 26, 21, 'X');
+  g.o(14, 4, 7, 3.5, 'r'); g.r(0, 6, 30, 2, '.'); g.r(1, 5, 26, 1, 'X'); g.r(3, 4, 6, 2, 'r');
+  g.r(26, 14, 3, 5, '1'); g.o(27.5, 12, 2, 2, '4');
+  g.shade();
+  [[6, 10], [12, 10], [18, 10], [24, 10], [6, 16], [24, 16], [6, 22], [12, 22], [18, 22], [24, 22]].forEach(([x, y]) => { if (x < 26) { g.o(x, y, 2, 2, 'x'); g.p(x - 1, y - 1, 'w'); } });
+  g.p(12, 11, 'k'); g.p(18, 11, 'k'); g.p(13, 11, 'k'); g.p(19, 11, 'k');
+  K.mouth(g, 13, 15, 'grin'); g.ring(15.5, 17, 6, 4, 'y', 0, 0.3, 2.85); K.spark(g, 15, 21, 'z');
+  g.dith(26, 11, 3, 3, '3');
+});
+JD.def({ id: 'button', name: 'Button', desc: 'Cute as a button. Because it is one. That is the whole joke.', w: 18, h: 18, sfx: 'boop', fx: 'hearts', mat: 'plastic', hidden: 1 }, g => {
+  g.o(8.5, 8.5, 8, 8, 'f');
+  g.shade(); g.ring(8.5, 8.5, 6, 6, 'F');
+  g.r(5, 6, 2, 2, 'k'); g.r(11, 6, 2, 2, 'k'); g.p(5, 6, 'w'); g.p(11, 6, 'w');
+  g.r(3, 10, 2, 1, 'g'); g.r(13, 10, 2, 1, 'g'); K.mouth(g, 7, 11, 'smile');
+});
+JD.def({ id: 'cornerpiece', name: 'Corner Piece', desc: 'A puzzle corner made of corn. Every puzzle needs four. Every barbecue needs twelve.', w: 22, h: 22, sfx: 'click', mat: 'soft', hidden: 1 }, g => {
+  g.r(0, 0, 16, 16, 'z'); g.o(18.5, 8, 3, 3, 'z'); g.o(8, 18.5, 3, 3, 'z');
+  for (let y = 0; y < 22; y++) for (let x = 0; x < 22; x++) if (g.at(x, y) === 'z') { if (x % 3 === 2 || y % 3 === 2) g.p(x, y, 'y'); else if (x % 3 === 0 && y % 3 === 0) g.p(x, y, 'Z'); }
+  g.shade();
+  g.r(0, 0, 16, 2, 'l'); g.r(0, 0, 2, 16, 'l'); g.r(0, 0, 16, 1, 'L'); g.r(0, 0, 1, 16, 'L');
+});
+JD.def({ id: 'mouse', name: 'Computer Mouse', desc: 'Wired, clicky and a little squeaky. Would trade its scroll wheel for cheese.', w: 22, h: 32, sfx: 'squeak', mat: 'plastic' }, g => {
+  g.l(11, 27, 13, 30, 'g'); g.l(13, 30, 17, 31, 'g'); g.p(18, 30, 'g');
+  g.o(4, 7, 3.5, 3.5, 'g'); g.o(17, 7, 3.5, 3.5, 'g');
+  g.oR(10.5, 16, 8, 11.5, 0, '6');
+  g.shade();
+  g.o(4, 7, 2, 2, 'f'); g.o(17, 7, 2, 2, 'f');
+  g.l(10, 4, 10, 12, '4'); g.r(3, 12, 16, 1, '4'); g.r(10, 7, 2, 4, '3'); g.r(10, 8, 2, 1, '2');
+  g.r(10, 4, 2, 1, 'f'); K.eyes(g, 5, 9, 9); g.l(2, 4, 0, 3, '3'); g.l(19, 4, 21, 3, '3');
+});
+JD.def({ id: 'owlarm', name: 'Owl-arm Clock', desc: 'Hoots at seven every morning. Who? You. Yes, you.', w: 26, h: 28, sfx: 'hoot', mat: 'wood' }, g => {
+  g.o(5, 4, 3.5, 3, 'y'); g.o(20, 4, 3.5, 3, 'y'); g.l(12, 0, 13, 4, '4');
+  g.o(12.5, 15, 11, 11.5, 'h'); g.o(12.5, 19, 6, 6, 'H');
+  g.r(8, 26, 3, 2, 'o'); g.r(15, 26, 3, 2, 'o');
+  g.shade();
+  [[10, 17], [15, 17], [12, 20], [9, 22], [16, 22], [12, 24]].forEach(([x, y]) => { g.p(x, y, 'h'); g.p(x + 1, y + 1, 'h'); g.p(x + 2, y, 'h'); });
+  [8, 17].forEach(cx => { g.o(cx, 11, 4, 4, '6'); g.ring(cx, 11, 4, 4, 'y'); g.l(cx, 11, cx, 8, 'k'); g.l(cx, 11, cx - 2, 13, 'k'); });
+  g.poly([11, 14, 14, 14, 12.5, 17], 'o'); g.l(2, 14, 3, 21, 'n'); g.l(23, 14, 22, 21, 'n');
+});
+JD.def({ id: 'microchip', name: 'Microchip', desc: 'A potato chip with tiny circuits. Salty and smart. Runs on vinegar.', w: 26, h: 20, sfx: 'blip', mat: 'soft' }, g => {
+  g.oR(13, 10, 12, 8, 0.15, 'z'); g.o(2, 4, 2, 2, '.'); g.o(24, 16, 2, 2, '.'); g.o(20, 1, 1.5, 1.5, '.');
+  g.shade();
+  g.l(4, 10, 9, 10, 'O'); g.l(9, 10, 9, 6, 'O'); g.l(9, 6, 13, 6, 'O'); g.l(16, 10, 21, 10, 'O'); g.l(21, 10, 21, 13, 'O'); g.l(13, 13, 13, 16, 'O');
+  g.r(11, 9, 5, 4, '2'); for (let i = 0; i < 4; i++) { g.p(10, 9 + i, '4'); g.p(16, 9 + i, '4'); }
+  [[4, 10], [13, 6], [21, 13], [13, 16]].forEach(([x, y]) => g.p(x, y, 'u'));
+  [[6, 13], [18, 5], [8, 4], [19, 15]].forEach(([x, y]) => g.p(x, y, 'w'));
+});
+JD.def({ id: 'worms', name: 'Can of Worms', desc: 'Do not open. Oh. Oh no. Too late.', w: 24, h: 26, sfx: 'pop', mat: 'metal' }, g => {
+  g.oR(4, 5, 5, 2.5, -0.8, '5');
+  g.r(3, 10, 18, 15, '4'); g.o(12, 10, 9, 3, '3');
+  g.shade();
+  g.r(3, 14, 18, 1, '3'); g.r(3, 15, 18, 4, 'c'); g.r(3, 19, 18, 1, '3'); g.l(8, 17, 15, 17, 'g');
+  g.o(12, 10, 7.5, 2, '1');
+  g.l2(8, 10, 7, 4, 'g'); g.l2(12, 10, 13, 1, 'g'); g.l2(17, 10, 20, 5, 'g'); g.p(19, 4, 'g');
+  g.p(7, 4, 'k'); g.p(8, 4, 'k'); g.p(13, 1, 'k'); g.p(14, 1, 'k'); g.p(20, 5, 'k'); g.p(21, 5, 'k'); g.p(13, 3, 'f'); g.p(8, 6, 'f');
+});
+}
+// ===== audio.js =====
+{
+const JD = window.JD;
+let ac = null, master = null, noise = null, muted = !!JD.store.get('muted', false), live = false;
+const init = () => {
+  if (ac) return ac;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    ac = new AC(); master = ac.createGain(); master.gain.value = 0.32; master.connect(ac.destination);
+    noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { ac = null; }
+  return ac;
+};
+const now = () => ac.currentTime;
+const tone = (f, t0, d, type, vol, f2, vib) => {
+  const o = ac.createOscillator(), g = ac.createGain(), t = now() + t0;
+  o.type = type || 'square'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  if (vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = vib; lg.gain.value = f * 0.06; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + 0.05); }
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol || 0.3, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + d + 0.05);
+};
+const hiss = (t0, d, fc, q, vol, fc2, type) => {
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), t = now() + t0;
+  s.buffer = noise; s.playbackRate.value = 0.5 + Math.random(); f.type = type || 'bandpass'; f.frequency.setValueAtTime(fc, t); if (fc2) f.frequency.exponentialRampToValueAtTime(fc2, t + d); f.Q.value = q || 1;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol || 0.4, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + d + 0.05);
+};
+const MAT = { wood: [1400, 520, 'triangle'], metal: [4200, 1700, 'square'], plastic: [2600, 900, 'triangle'], paper: [3000, 0], soft: [700, 0], glass: [5200, 2400, 'sine'] };
+const clack = (mat, t0, v) => { const m = MAT[mat] || MAT.plastic, k = 0.85 + Math.random() * 0.3; hiss(t0, 0.05, m[0] * k, 3, 0.5 * (v || 1)); if (m[1]) tone(m[1] * k, t0, 0.06, m[2], 0.12 * (v || 1)); };
+const S = {
+  clack: (m, v) => clack(m, 0, v),
+  lift: () => tone(520, 0, 0.06, 'triangle', 0.14, 780),
+  rattle: () => { for (let i = 0; i < 18; i++) clack(['wood', 'metal', 'plastic', 'glass'][i % 4], i * 0.045 + Math.random() * 0.03, 0.7); },
+  open: () => { hiss(0, 0.55, 300, 0.7, 0.35, 900, 'lowpass'); for (let i = 0; i < 8; i++) clack(['metal', 'plastic', 'wood'][i % 3], 0.3 + i * 0.05 + Math.random() * 0.04, 0.6); },
+  found: () => { tone(784, 0, 0.08, 'square', 0.12); tone(1175, 0.07, 0.14, 'square', 0.12); },
+  zap: () => { tone(1800, 0, 0.25, 'sawtooth', 0.15, 120); hiss(0, 0.2, 5000, 1, 0.2); tone(2400, 0.1, 0.15, 'square', 0.08, 3600); },
+  snore: () => { tone(90, 0, 0.7, 'sawtooth', 0.22, 70, 20); hiss(0.1, 0.6, 500, 2, 0.25, 300); tone(140, 0.85, 0.5, 'sine', 0.12, 190); },
+  crunch: () => { for (let i = 0; i < 5; i++) hiss(i * 0.05, 0.05, 900 + Math.random() * 1500, 2, 0.5); },
+  click: () => { tone(1500, 0, 0.03, 'square', 0.15); tone(900, 0.05, 0.03, 'square', 0.12); },
+  flap: () => { for (let i = 0; i < 4; i++) hiss(i * 0.09, 0.07, 800, 1, 0.4, 400); },
+  jingle: () => [2093, 2637, 3136, 2637].forEach((f, i) => tone(f, i * 0.06, 0.18, 'sine', 0.12)),
+  coins: () => { for (let i = 0; i < 5; i++) { const f = 2600 + Math.random() * 1400; tone(f, i * 0.07, 0.2, 'sine', 0.12); tone(f * 1.5, i * 0.07, 0.12, 'sine', 0.05); } },
+  twang: () => { tone(196, 0, 0.5, 'sawtooth', 0.18, 180, 7); tone(294, 0.18, 0.4, 'triangle', 0.14); tone(392, 0.34, 0.5, 'triangle', 0.14); },
+  fanfare: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, i === 3 ? 0.35 : 0.1, 'square', 0.12)),
+  squish: () => { tone(300, 0, 0.18, 'sine', 0.25, 120); hiss(0, 0.15, 600, 4, 0.2, 300); },
+  pins: () => { hiss(0, 0.08, 1200, 1, 0.5); for (let i = 0; i < 7; i++) clack('wood', 0.04 + i * 0.05 + Math.random() * 0.05, 0.9); },
+  ding: () => { tone(1568, 0, 0.6, 'sine', 0.2); tone(2352, 0, 0.35, 'sine', 0.08); },
+  punch: () => { tone(160, 0, 0.18, 'sine', 0.5, 45); hiss(0, 0.08, 600, 1, 0.5, 200, 'lowpass'); },
+  roar: () => { tone(180, 0, 0.45, 'sawtooth', 0.2, 110, 28); tone(240, 0, 0.4, 'square', 0.06, 140, 31); },
+  scratch: () => { hiss(0, 0.12, 900, 3, 0.4, 3000); hiss(0.13, 0.12, 3000, 3, 0.4, 900); hiss(0.3, 0.08, 1500, 3, 0.3, 2500); },
+  thud: () => { tone(90, 0, 0.25, 'sine', 0.5, 50); hiss(0, 0.1, 250, 1, 0.4, 0, 'lowpass'); },
+  quack: () => { [0, 0.2].forEach(t => { tone(520, t, 0.13, 'square', 0.16, 330); hiss(t, 0.12, 1200, 6, 0.15); }); },
+  squeak: () => { tone(1200, 0, 0.12, 'square', 0.12, 2000, 30); tone(1500, 0.14, 0.16, 'square', 0.1, 2400, 30); },
+  beep: () => { tone(988, 0, 0.08, 'square', 0.13); tone(988, 0.12, 0.08, 'square', 0.13); },
+  zip: () => { hiss(0, 0.3, 1500, 4, 0.35, 5000); tone(400, 0.28, 0.05, 'square', 0.15); },
+  sad: () => [392, 370, 349, 330].forEach((f, i) => tone(f, i * 0.22, i === 3 ? 0.6 : 0.2, 'triangle', 0.18, i === 3 ? 300 : 0, i === 3 ? 6 : 0)),
+  clash: () => { tone(3100, 0, 0.3, 'square', 0.1, 2900); tone(4200, 0.02, 0.25, 'sine', 0.12); hiss(0, 0.1, 6000, 2, 0.3); },
+  blip: () => [880, 1320, 1760].forEach((f, i) => tone(f, i * 0.07, 0.06, 'square', 0.1)),
+  boing: () => tone(160, 0, 0.5, 'sine', 0.35, 520, 14),
+  talk: () => { for (let i = 0; i < 9; i++) tone(240 + Math.random() * 300, i * 0.06, 0.05, 'square', 0.08); },
+  dice: () => { for (let i = 0; i < 4; i++) clack('plastic', i * 0.08 + Math.random() * 0.03, 1); },
+  snort: () => { hiss(0, 0.2, 400, 2, 0.5, 200); hiss(0.25, 0.25, 500, 2, 0.5, 250); },
+  clack3: () => { clack('wood', 0, 1); clack('paper', 0.15, 1); tone(3000, 0.3, 0.05, 'square', 0.1); tone(2400, 0.36, 0.05, 'square', 0.1); },
+  tick: () => { for (let i = 0; i < 6; i++) tone(i % 2 ? 1800 : 2200, i * 0.1, 0.03, 'square', 0.1); },
+  chime: () => [2637, 3136, 3951].forEach((f, i) => tone(f, i * 0.08, 0.4, 'sine', 0.09)),
+  chomp: () => { tone(220, 0, 0.08, 'square', 0.2, 90); clack('plastic', 0.08, 1); },
+  slurp: () => tone(300, 0, 0.5, 'sine', 0.18, 900, 9),
+  puff: () => hiss(0, 0.4, 2000, 0.5, 0.3, 500, 'lowpass'),
+  hum: () => { tone(110, 0, 0.6, 'sine', 0.25, 0, 5); tone(220, 0, 0.6, 'triangle', 0.05); },
+  ring: () => { for (let i = 0; i < 8; i++) tone(i % 2 ? 1320 : 1660, i * 0.05, 0.05, 'square', 0.08); },
+  arr: () => { tone(130, 0, 0.5, 'sawtooth', 0.2, 100, 22); hiss(0.05, 0.4, 700, 3, 0.15); },
+  pop: () => { tone(900, 0, 0.05, 'sine', 0.3, 300); hiss(0, 0.03, 2500, 1, 0.4); },
+  boop: () => tone(660, 0, 0.12, 'sine', 0.25, 990),
+  hoot: () => { tone(420, 0, 0.18, 'sine', 0.22, 380); tone(380, 0.28, 0.35, 'sine', 0.22, 340); },
+  done: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.09, 0.16, 'square', 0.1))
+};
+JD.sfx = (name, a, b) => {
+  if (muted || !live || !init()) return;
+  if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { } }
+  try { (S[name] || S.click)(a, b); } catch (e) { }
+};
+JD.Snd = {
+  muted: () => muted,
+  toggle() { muted = !muted; JD.store.set('muted', muted); JD.$('#snd').textContent = muted ? '♪ OFF' : '♪ ON'; if (!muted) JD.sfx('click'); }
+};
+const unlock = () => { live = true; if (!muted) init(); window.removeEventListener('pointerdown', unlock, true); window.removeEventListener('keydown', unlock, true); };
+window.addEventListener('pointerdown', unlock, true); window.addEventListener('keydown', unlock, true);
+}
+// ===== drawer.js =====
+{
+const JD = window.JD;
+const grainAt = (x, y, pi, ly) => { const v = Math.sin((x + pi * 37) * 0.045 + Math.sin(x * 0.013 + pi * 1.7) * 2.5 + ly * 0.55); return v > 0.94 ? 'n' : v < -0.965 ? 'H' : 'h'; };
+const planks = (g, x0, y0, w, h, PH, r, horiz) => {
+  const ends = []; for (let i = 0; i < 40; i++) ends.push(Math.floor(r() * w));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const pi = Math.floor(y / PH), ly = y % PH; let c = grainAt(x, y, pi, ly);
+    if (ly === 0) c = 'N'; else if (ly === 1) c = 'n'; else if (ly === PH - 1 && (x + y) % 2) c = 'n';
+    if (x === ends[pi] || x === (ends[pi] + Math.floor(w * 0.55)) % w) c = ly ? 'N' : c;
+    if (x === ends[pi] + 1 && ly) c = 'H';
+    g.p(x0 + x, y0 + y, c);
+  }
+};
+JD.Drawer = {
+  make(W, H, seed) {
+    const r = JD.rng(seed || 7), g = new JD.G(W, H), RIM = 3, FW = 11, SW = 5, NB = 4;
+    const floor = { x: RIM + SW, y: RIM + FW, w: W - 2 * (RIM + SW), h: H - RIM - FW - NB };
+    planks(g, floor.x, floor.y, floor.w, floor.h, 19, r);
+    for (let i = 0; i < 4; i++) { const kx = floor.x + 10 + r() * (floor.w - 20), ky = floor.y + 8 + r() * (floor.h - 16); g.o(kx, ky, 2.5, 1.5, 'n'); g.o(kx, ky, 1, 0.6, 'N'); g.ring(kx, ky, 4.5, 2.6, 'n', 0, 0, 3.3); }
+    for (let y = 0; y < 7; y++) for (let x = 0; x < floor.w; x++) if (y < 3 || (x + y) % (y - 1) === 0) { const c = g.at(floor.x + x, floor.y + y); g.p(floor.x + x, floor.y + y, JD.DN[c] || c); }
+    for (let y = 0; y < floor.h; y++) for (let x = 0; x < 4; x++) if (x < 2 || (x + y) % 2) { const c = g.at(floor.x + x, floor.y + y); g.p(floor.x + x, floor.y + y, JD.DN[c] || c); }
+    const tw = Math.min(78, Math.floor(floor.w * 0.36)), th = Math.min(46, Math.floor(floor.h * 0.3)), tx = floor.x + floor.w - tw - 6, ty = floor.y + 5;
+    g.r(tx + 2, ty + 3, tw, th, 'N');
+    g.r(tx, ty, tw, th, 'J'); const cells = 3, cw = Math.floor((tw - 3) / cells);
+    for (let i = 0; i < cells; i++) { const cx = tx + 2 + i * cw; g.r(cx, ty + 2, cw - 2, th - 4, 'H'); g.r(cx, ty + 2, cw - 2, 2, 'h'); g.r(cx, ty + 2, 1, th - 4, 'h'); g.dith(cx + 1, ty + 4, cw - 4, th - 7, 'j', 0); g.dith(cx + 1, ty + 4, cw - 4, th - 7, 'H', 1); }
+    g.r(tx, ty + th - 1, tw, 1, 'h'); g.r(tx + tw - 1, ty, 1, th, 'h');
+    for (let i = 0; i < 26; i++) { const x = floor.x + 3 + r() * (floor.w - 6), y = floor.y + 3 + r() * (floor.h - 6); g.p(x, y, i % 3 ? 'J' : 'j'); if (i % 4 === 0) g.p(x + 1, y, 'j'); g.p(x, y + 1, 'N'); }
+    for (let i = 0; i < 60; i++) { const x = floor.x + 2 + r() * (floor.w - 4), y = floor.y + 2 + r() * (floor.h - 4); g.p(x, y, i % 5 ? 'A' : 'a'); }
+    const mx = floor.x + floor.w * 0.18, my = floor.y + floor.h * 0.72; g.ring(mx, my, 9, 6, 'n'); g.ring(mx, my, 8, 5, 'n', 0, 0.5, 2.5);
+    const bx = floor.x + floor.w * 0.55, by = floor.y + floor.h * 0.85; g.ring(bx, by, 7, 3, 'N', 0.4); g.ring(bx, by, 6, 2, 'r', 0.4); g.ring(bx - 0.5, by - 0.5, 6, 2, 'i', 0.4, 3.3, 5);
+    const sx = floor.x + floor.w * 0.4, sy = floor.y + floor.h * 0.25; g.d('.oy./oyyo/.yN.', sx, sy); g.d('jj./.Jj', sx + 6, sy + 3);
+    const band = ['N', 'n', 'n', 'h', 'h', 'h', 'H', 'h', 'h', 'n', 'N'];
+    for (let y = 0; y < FW; y++) for (let x = RIM; x < W - RIM; x++) { let c = band[y]; if (y > 2 && y < 9 && Math.sin(x * 0.09 + y * 0.6) > 0.92) c = JD.DN[c]; g.p(x, RIM + y, c); }
+    for (let y = RIM; y < H - RIM; y++) for (let x = 0; x < SW; x++) { const c = ['n', 'h', 'h', 'n', 'N'][x]; g.p(RIM + x, y, c); g.p(W - RIM - 1 - x, y, ['n', 'n', 'h', 'h', 'N'][x]); }
+    for (let y = H - RIM - NB; y < H - RIM; y++) for (let x = RIM; x < W - RIM; x++) g.p(x, y, y === H - RIM - NB ? 'N' : 'n');
+    g.r(0, 0, W, RIM, 'H'); g.r(0, H - RIM, W, RIM, 'H'); g.r(0, 0, RIM, H, 'H'); g.r(W - RIM, 0, RIM, H, 'H');
+    g.r(0, 0, W, 1, 'J'); g.r(0, 0, 1, H, 'j'); g.r(0, H - 1, W, 1, 'n'); g.r(W - 1, 0, 1, H, 'n');
+    g.r(RIM - 1, RIM - 1, W - 2 * RIM + 2, 1, 'N'); g.r(RIM - 1, H - RIM, W - 2 * RIM + 2, 1, 'j');
+    const cv = JD.toCanvas(g);
+    return { cv, floor, tray: { x: tx, y: ty, w: tw, h: th } };
+  },
+  front(W, H) {
+    const g = new JD.G(W, H), r = JD.rng(3);
+    planks(g, 0, 0, W, H, 14, r);
+    g.r(0, 0, W, 2, 'J'); g.r(0, 0, 2, H, 'j'); g.r(0, H - 2, W, 2, 'N'); g.r(W - 2, 0, 2, H, 'n');
+    const kx = W / 2 - 0.5, ky = H * 0.62;
+    g.o(kx + 1, ky + 2, 6, 5, 'N'); g.o(kx, ky, 6, 5, 'Y'); g.o(kx, ky, 4.5, 3.5, 'y'); g.o(kx - 1, ky - 1, 2, 1.5, 'z'); g.p(kx - 2, ky - 2, 'Z');
+    const lw = 34, lx = Math.round(W / 2 - lw / 2), ly = Math.round(H * 0.16);
+    g.r(lx + 1, ly + 1, lw, 11, 'N'); g.r(lx, ly, lw, 11, 'a');
+    for (let x = 0; x < lw; x += 2) { g.p(lx + x, ly - 1, 'a'); g.p(lx + x + 1, ly + 11, 'a'); } g.dith(lx, ly, lw, 11, 'd', 1);
+    g.txt('JUNK', lx + 9, ly + 3, 'k'); g.r(lx + 8, ly + 9, 17, 1, 'r');
+    return JD.toCanvas(g);
+  }
+};
+}
+// ===== fx.js =====
+{
+const JD = window.JD;
+const GLYPH = {
+  z: ['zzzz/...z/..z./.z../zzzz', 'z'], note: ['..22/..2z/..2./.22./222./.2..', '2'], heart: ['rr.rr/rrrrr/.rrr./..r..', 'r'],
+  spark: ['..Z../.ZwZ./ZwwwZ/.ZwZ./..Z..', 'Z'], crumb: ['jH/Hh', 'j'], chalk: ['66/65', '6'], dust: ['.A./AaA/.A.', 'A'], star: ['.y./yZy/.y.', 'y']
+};
+const bake = (str) => { const rows = str.split('/'), g = new JD.G(rows[0].length, rows.length); g.d(str, 0, 0); g.outline(); return JD.toCanvas(g); };
+const CV = {}; Object.keys(GLYPH).forEach(k => { CV[k] = bake(GLYPH[k][0]); });
+CV.noteC = bake('..cc/..cX/..c./.cc./ccc./.c..'); CV.zs = bake('zzz/..z/.z./zzz');
+const P = [];
+const add = (kind, x, y, vx, vy, life, opt) => { if (P.length < 260) P.push(Object.assign({ kind, x, y, vx, vy, life, max: life, g: 0 }, opt || {})); };
+JD.Fx = {
+  list: P,
+  burst(x, y, kind, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283, s = 20 + Math.random() * 50;
+      if (kind === 'dust') add('dust', x + (Math.random() - 0.5) * 60, y + (Math.random() - 0.5) * 40, Math.cos(a) * s * 0.4, Math.sin(a) * s * 0.4, 0.6 + Math.random() * 0.5);
+      else add(kind, x, y, Math.cos(a) * s, Math.sin(a) * s - 20, 0.5 + Math.random() * 0.4);
+    }
+  },
+  inspect(it) {
+    const x = it.x, y = it.y - it.h * 0.35, k = it.fx;
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.55; add('star', it.x + Math.cos(a) * it.w * 0.45, it.y + Math.sin(a) * it.h * 0.55, Math.cos(a) * 26, Math.sin(a) * 26, 0.45); }
+    if (k === 'zzz') for (let i = 0; i < 4; i++) add(i % 2 ? 'zs' : 'z', x + 6 + i * 3, y - i * 2, 9 + i * 3, -16 - i * 4, 1.3 + i * 0.3, { wob: i });
+    if (k === 'notes') for (let i = 0; i < 4; i++) add(i % 2 ? 'noteC' : 'note', x + (i - 1.5) * 9, y, (i - 1.5) * 7, -26, 1.2, { wob: i });
+    if (k === 'hearts') for (let i = 0; i < 4; i++) add('heart', x + (i - 1.5) * 8, y, (i - 1.5) * 6, -24 - i * 3, 1.1, { wob: i });
+    if (k === 'spark') JD.Fx.burst(it.x, it.y, 'spark', 7);
+    if (k === 'crumbs') for (let i = 0; i < 9; i++) add(it.id === 'chalk' ? 'chalk' : 'crumb', it.x + it.w * 0.3, it.y, 10 + Math.random() * 40, -30 - Math.random() * 30, 0.9, { g: 140 });
+    if (k === 'shine') add('shine', it.x, it.y - it.h * 0.12, 0, 0, 0.9);
+  },
+  dust(it) { for (let i = 0; i < 3; i++) add('dust', it.x + (Math.random() - 0.5) * it.w * 0.7, it.y + it.h * 0.3, (Math.random() - 0.5) * 30, 4, 0.45); },
+  step(dt) {
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i]; p.life -= dt; if (p.life <= 0) { P.splice(i, 1); continue; }
+      p.vy += p.g * dt; p.x += p.vx * dt + (p.wob != null ? Math.sin((p.max - p.life) * 6 + p.wob) * 0.25 : 0); p.y += p.vy * dt;
+      p.vx *= Math.exp(-1.5 * dt); if (!p.g) p.vy *= Math.exp(-0.8 * dt);
+    }
+  },
+  draw(X, S, ox, oy) {
+    for (const p of P) {
+      const k = p.life / p.max; X.globalAlpha = Math.min(1, k * 2.5);
+      if (p.kind === 'shine') {
+        const r = (1 - k) * 22 + 6; X.fillStyle = '#fff6c0';
+        for (let i = 0; i < 12; i++) { const a = i * 0.5236; for (let j = 0; j < 3; j++) { const d = r + j * 3; X.fillRect(Math.round(ox + (p.x + Math.cos(a) * d) * S), Math.round(oy + (p.y + Math.sin(a) * d) * S), S, S); } }
+      } else { const c = CV[p.kind]; X.drawImage(c, Math.round(ox + (p.x - c.width / 2) * S), Math.round(oy + (p.y - c.height / 2) * S), c.width * S, c.height * S); }
+    }
+    X.globalAlpha = 1;
+  }
+};
+}
+// ===== world.js =====
+{
+const JD = window.JD;
+const W = JD.World = { S: 4, W: 300, H: 180, dpr: 1, floor: null, bg: null, order: [], shake: 0, rummaging: 0 };
+const COVERS = ['kaianium', 'remote', 'stickynote', 'smartcookie', 'holepunch', 'calculgator', 'snailmail', 'owlarm', 'bubblerapper', 'coupon', 'record'];
+const TARGET_AREA = 76000;
+W.fit = (cssW, cssH, dpr) => {
+  const S = Math.max(2, Math.round(Math.sqrt(cssW * cssH * dpr * dpr / TARGET_AREA)));
+  return { S, W: Math.max(120, Math.floor(cssW * dpr / S)), H: Math.max(120, Math.floor(cssH * dpr / S)) };
+};
+W.setSize = (S, w, h, dpr) => {
+  const old = W.floor;
+  W.S = S; W.W = w; W.H = h; W.dpr = dpr;
+  const d = JD.Drawer.make(w, h); W.bg = d.cv; W.floor = d.floor; W.tray = d.tray;
+  if (old) JD.ITEMS.forEach(it => { it.x = W.floor.x + (it.x - old.x) / old.w * W.floor.w; it.y = W.floor.y + (it.y - old.y) / old.h * W.floor.h; W.clampIn(it); });
+};
+const marg = (it, f) => ({ mx: Math.min(it.w * 0.36, f.w / 2 - 1), my: Math.min(it.h * 0.36, f.h / 2 - 1) });
+W.clampIn = (it, bounce) => {
+  const f = W.floor, m = marg(it, f), x0 = f.x + m.mx, x1 = f.x + f.w - m.mx, y0 = f.y + m.my, y1 = f.y + f.h - m.my; let hit = 0;
+  if (it.x < x0) { it.x = x0; if (bounce && it.vx < 0) { hit = -it.vx; it.vx = -it.vx * 0.45; } }
+  if (it.x > x1) { it.x = x1; if (bounce && it.vx > 0) { hit = it.vx; it.vx = -it.vx * 0.45; } }
+  if (it.y < y0) { it.y = y0; if (bounce && it.vy < 0) { hit = Math.max(hit, -it.vy); it.vy = -it.vy * 0.45; } }
+  if (it.y > y1) { it.y = y1; if (bounce && it.vy > 0) { hit = Math.max(hit, it.vy); it.vy = -it.vy * 0.45; } }
+  return hit;
+};
+W.scaleOf = it => 1 + it.lift * 0.09 + Math.sin(Math.min(1, it.pop) * Math.PI) * 0.14;
+W.onItem = (it, wx, wy) => {
+  const sc = W.scaleOf(it), dx = wx - it.x, dy = wy - it.y, c = Math.cos(-it.ang), s = Math.sin(-it.ang);
+  const lx = Math.floor((dx * c - dy * s) / sc + it.GW / 2), ly = Math.floor((dx * s + dy * c) / sc + it.GH / 2);
+  return lx >= 0 && ly >= 0 && lx < it.GW && ly < it.GH && it.grid[ly * it.GW + lx] !== '.';
+};
+W.hit = (wx, wy, skip) => { for (let i = W.order.length - 1; i >= 0; i--) { const it = W.order[i]; if (it !== skip && W.onItem(it, wx, wy)) return it; } return null; };
+W.toTop = it => { const i = W.order.indexOf(it); if (i >= 0) W.order.splice(i, 1); W.order.push(it); };
+W.pixelPos = (it, gx, gy) => { const sc = W.scaleOf(it), lx = (gx + 0.5 - it.GW / 2) * sc, ly = (gy + 0.5 - it.GH / 2) * sc, c = Math.cos(it.ang), s = Math.sin(it.ang); return { x: it.x + lx * c - ly * s, y: it.y + lx * s + ly * c }; };
+W.visiblePixels = (it, max) => {
+  const out = [];
+  for (let gy = 0; gy < it.GH; gy++) for (let gx = 0; gx < it.GW; gx++) {
+    if (it.grid[gy * it.GW + gx] === '.') continue; const p = W.pixelPos(it, gx, gy);
+    if (W.hit(p.x, p.y) === it) { out.push(p); if (max && out.length >= max) return out; }
+  }
+  return out;
+};
+const overlap = (a, ax, ay, b) => { const w = Math.min(ax + a.w / 2, b.tx + b.w / 2) - Math.max(ax - a.w / 2, b.tx - b.w / 2), h = Math.min(ay + a.h / 2, b.ty + b.h / 2) - Math.max(ay - a.h / 2, b.ty - b.h / 2); return w > 0 && h > 0 ? w * h : 0; };
+W.plan = (found) => {
+  const f = W.floor, all = JD.ITEMS, hide = all.filter(it => it.hidden && !(found && found[it.id]));
+  const rest = JD.shuffle(all.filter(it => hide.indexOf(it) < 0)).sort((a, b) => b.w * b.h - a.w * a.h + (Math.random() - 0.5) * 900);
+  const placed = [];
+  rest.forEach(it => {
+    const m = marg(it, f); let best = null, bs = 1e9;
+    for (let k = 0; k < 16; k++) {
+      const x = f.x + m.mx + Math.random() * (f.w - 2 * m.mx), y = f.y + m.my + Math.random() * (f.h - 2 * m.my);
+      let sc = placed.reduce((s, b) => s + overlap(it, x, y, b), 0); if (W.tray && x > W.tray.x && y < W.tray.y + W.tray.h) sc += 40;
+      const A = W.avoid; if (A && x > A.x && x < A.x + A.w && y > A.y && y < A.y + A.h) sc += 5000;
+      if (sc < bs) { bs = sc; best = [x, y]; }
+    }
+    it.tx = best[0]; it.ty = best[1]; it.trest = (Math.random() - 0.5) * (it.w > 44 ? 0.4 : 0.9); placed.push(it);
+  });
+  const covers = JD.shuffle(rest.filter(it => COVERS.indexOf(it.id) >= 0)), used = {};
+  hide.sort((a, b) => b.w * b.h - a.w * a.h).forEach(h => { const fit = c => Math.min(c.w - h.w, c.h - h.h, c.w - h.h, c.h - h.w); const c = covers.filter(c => !used[c.id]).sort((a, b) => fit(b) - fit(a))[0]; if (!c) return; used[c.id] = 1; h.cover = c; h.tx = c.tx; h.ty = c.ty; h.trest = c.trest; });
+  return hide.concat(rest);
+};
+W.layout = (found) => {
+  const order = W.plan(found);
+  JD.ITEMS.forEach(it => { it.x = it.tx; it.y = it.ty; it.ang = it.rest = it.trest; it.vx = it.vy = it.av = 0; it.lift = it.liftT = it.pop = 0; });
+  W.order = order; W.tuckHidden();
+};
+W.tuckHidden = () => {
+  const hs = W.order.filter(it => it.cover); hs.forEach(h => { h.cover.patch = 1; });
+  hs.forEach(h => {
+    const c = h.cover; let best = null, bv = 1e9;
+    for (let k = 0; k < 24 && bv > 0; k++) {
+      h.x = c.x + (k ? (Math.random() - 0.5) * c.w * 0.4 : 0); h.y = c.y + (k ? (Math.random() - 0.5) * c.h * 0.4 : 0); h.ang = h.rest = c.rest + (k > 12 ? Math.PI / 2 : 0);
+      const v = W.visiblePixels(h).length; if (v < bv) { bv = v; best = [h.x, h.y, h.ang]; }
+    }
+    [h.x, h.y, h.ang] = best; h.rest = h.ang;
+    for (let k = 0; k < 6; k++) {
+      const v = W.visiblePixels(h); if (!v.length) break;
+      const mx = v.reduce((s, p) => s + p.x, 0) / v.length, my = v.reduce((s, p) => s + p.y, 0) / v.length;
+      const pool = W.order.filter(o => !o.hidden && !o.patch && o.w * o.h > 500), o = pool[Math.floor(Math.random() * pool.length)]; if (!o) break;
+      o.patch = 1; o.x = o.tx = mx; o.y = o.ty = my; W.clampIn(o); o.tx = o.x; o.ty = o.y; W.toTop(o);
+    }
+    h.tx = h.x; h.ty = h.y; h.trest = h.ang; h.cover = null;
+  });
+  JD.ITEMS.forEach(o => { o.patch = 0; });
+};
+}
+// ===== physics.js =====
+{
+const JD = window.JD, W = JD.World;
+const rad = it => Math.min(it.w, it.h) * 0.36 + 2;
+let clackAt = 0;
+const clack = (it, v) => { const t = performance.now(); if (t - clackAt < 45) return; clackAt = t; JD.sfx('clack', it.mat, Math.min(1.2, v / 220)); };
+JD.Phys = {
+  step(dt) {
+    const items = JD.ITEMS, drag = JD.drag, rum = W.rummaging > 0; let busy = rum || W.shake > 0 || !!drag;
+    if (rum) { W.rummaging -= dt; if (W.rummaging <= 0) JD.Phys.endRummage(); }
+    W.shake = Math.max(0, W.shake - dt * 2.2);
+    for (const it of items) {
+      if (it.held) {
+        const tilt = JD.clamp(drag.vx * 0.0018, -0.4, 0.4) + JD.clamp(drag.vy * 0.0006, -0.12, 0.12);
+        it.av += ((it.rest + tilt) - it.ang) * 90 * dt; it.av *= Math.exp(-12 * dt); it.ang += it.av * dt;
+      } else {
+        const k = rum ? 2.6 : 5.5, sp = Math.hypot(it.vx, it.vy);
+        if (sp > 0.5) {
+          it.x += it.vx * dt; it.y += it.vy * dt; it.vx *= Math.exp(-k * dt); it.vy *= Math.exp(-k * dt);
+          if (!rum) { const h = W.clampIn(it, true); if (h > 40) clack(it, h); } else W.clampIn(it);
+          if (!rum && sp > 60) JD.Phys.collide(it);
+          busy = true;
+        } else { it.vx = it.vy = 0; }
+        if (Math.abs(it.av) > 0.002 || Math.abs(it.rest - it.ang) > 0.001) { it.av += (it.rest - it.ang) * 70 * dt; it.av *= Math.exp(-8 * dt); it.ang += it.av * dt; busy = true; } else { it.ang = it.rest; it.av = 0; }
+      }
+      const was = it.lift; if (Math.abs(it.liftT - it.lift) > 0.002) { it.lift += (it.liftT - it.lift) * Math.min(1, dt * 14); busy = true; } else it.lift = it.liftT;
+      if (was > 0.2 && it.lift <= 0.2 && it.liftT === 0 && it.landing) { it.landing = 0; JD.sfx('clack', it.mat, 1); JD.Fx.dust(it); }
+      if (it.pop > 0) { it.pop = Math.max(0, it.pop - dt * 2.6); busy = true; }
+    }
+    if (drag && drag.moved && drag.it) {
+      const h = drag.it, sp = Math.hypot(drag.vx, drag.vy);
+      if (sp > 140) for (const o of items) {
+        if (o === h || o.held) continue; const dx = o.x - h.x, dy = o.y - h.y, d = Math.hypot(dx, dy), R = rad(h) + rad(o);
+        if (d < R * 0.75) { busy = true; const f = (1 - d / R) * 0.05; o.vx += drag.vx * f; o.vy += drag.vy * f; if (Math.random() < 0.08) clack(o, sp * 0.5); }
+      }
+    }
+    return busy;
+  },
+  collide(a) {
+    for (const b of JD.ITEMS) {
+      if (b === a || b.held) continue; const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, R = rad(a) + rad(b);
+      if (d > R * 0.8) continue; const nx = dx / d, ny = dy / d, rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny; if (rel <= 30) continue;
+      const j = rel * 0.55; a.vx -= nx * j; a.vy -= ny * j; b.vx += nx * j; b.vy += ny * j; b.av += (Math.random() - 0.5) * rel * 0.02;
+      clack(b, rel);
+    }
+  },
+  release(it, vx, vy) {
+    const sp = Math.hypot(vx, vy), m = sp > 900 ? 900 / sp : 1;
+    it.vx = vx * m; it.vy = vy * m; it.rest = JD.clamp(it.rest + JD.clamp(vx * 0.0006, -0.35, 0.35), -1.2, 1.2); it.landing = 1;
+  },
+  rummage() {
+    if (W.rummaging > 0) return;
+    const order = W.plan(JD.UI.foundMap()); W.rummaging = 1.25; W.shake = 1;
+    JD.ITEMS.forEach(it => { it.held = false; it.liftT = 0; it.vx = (it.tx - it.x) * 2.6; it.vy = (it.ty - it.y) * 2.6; it.rest = it.trest; it.av += (Math.random() - 0.5) * 9; it.pop = 0.35; });
+    W.order = order; JD.drag = null; JD.sfx('rattle'); setTimeout(() => JD.sfx('rattle'), 380);
+    JD.Fx.burst(W.floor.x + W.floor.w / 2, W.floor.y + W.floor.h / 2, 'dust', 14);
+  },
+  endRummage() {
+    W.rummaging = 0;
+    JD.ITEMS.forEach(it => { if (it.tx != null) { it.x = it.tx; it.y = it.ty; } it.vx = it.vy = 0; W.clampIn(it); });
+    W.tuckHidden(); JD.rummages = (JD.rummages || 0) + 1; window.JD_RUMMAGED = JD.rummages;
+  }
+};
+}
+// ===== render.js =====
+{
+const JD = window.JD, W = JD.World;
+let cv, X, last = 0, frames = 0, draws = 0, bgS = null, lastFr = -1;
+JD.dirty = true;
+JD.Render = {
+  init() { cv = JD.$('#cv'); X = cv.getContext('2d'); JD.Render.resize(); },
+  resize() {
+    const st = JD.$('#stage'), cs = getComputedStyle(st), pw = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight), ph = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const cw = Math.max(200, st.clientWidth - pw), ch = Math.max(200, st.clientHeight - ph), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const f = W.fit(cw, ch, dpr);
+    if (f.S === W.S && f.W === W.W && f.H === W.H && W.bg) return;
+    W.setSize(f.S, f.W, f.H, dpr);
+    cv.width = f.W * f.S; cv.height = f.H * f.S; cv.style.width = (cv.width / dpr) + 'px'; cv.style.height = (cv.height / dpr) + 'px';
+    bgS = document.createElement('canvas'); bgS.width = cv.width; bgS.height = cv.height; const b = bgS.getContext('2d'); b.imageSmoothingEnabled = false;
+    b.drawImage(W.bg, 1, 1, W.W, W.H, 0, 0, cv.width, cv.height); JD.dirty = true;
+  },
+  toClient(x, y) { const r = cv.getBoundingClientRect(); return { x: r.left + x / W.W * r.width, y: r.top + y / W.H * r.height }; },
+  toWorld(cx, cy) { const r = cv.getBoundingClientRect(); return { x: (cx - r.left) / r.width * W.W, y: (cy - r.top) / r.height * W.H }; },
+  pxCss: () => W.S / W.dpr,
+  draw(t) {
+    const S = W.S; X.setTransform(1, 0, 0, 1, 0, 0); X.imageSmoothingEnabled = false;
+    X.clearRect(0, 0, cv.width, cv.height);
+    const sh = W.shake, ox = Math.round(Math.sin(t * 0.047) * sh * 3) * S, oy = Math.round(Math.cos(t * 0.061) * sh * 2) * S;
+    X.drawImage(bgS, ox, oy);
+    const fr = Math.floor(t / 125);
+    for (const it of W.order) {
+      const sc = W.scaleOf(it), L = it.lift, px = Math.round(ox + it.x * S), py = Math.round(oy + it.y * S), cvs = it.cv[fr % it.frames];
+      X.save(); X.translate(px + Math.round((1.2 + L * 4) * S), py + Math.round((1.8 + L * 5) * S)); X.rotate(it.ang); X.scale(S * sc, S * sc);
+      X.globalAlpha = 0.34 - L * 0.1; X.drawImage(it.sil, -it.GW / 2, -it.GH / 2); X.restore();
+      X.save(); X.translate(px, py); X.rotate(it.ang); X.scale(S * sc, S * sc); X.globalAlpha = 1; X.drawImage(cvs, -it.GW / 2, -it.GH / 2); X.restore();
+    }
+    JD.Fx.draw(X, S, ox, oy);
+  },
+  loop(now) {
+    const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now; frames++;
+    const busy = JD.Phys.step(dt); JD.Fx.step(dt);
+    const fr = Math.floor(now / 125); if (busy || JD.Fx.list.length || fr !== lastFr || JD.dirty) { JD.Render.draw(now); draws++; lastFr = fr; JD.dirty = false; JD.UI.follow(); }
+    requestAnimationFrame(JD.Render.loop);
+  },
+  frames: () => frames,
+  draws: () => draws
+};
+}
+// ===== input.js =====
+{
+const JD = window.JD, W = JD.World;
+JD.drag = null;
+const TAP = 7;
+JD.Input = {
+  init() {
+    const cv = JD.$('#cv');
+    cv.addEventListener('pointerdown', e => {
+      if (e.button > 0 || W.rummaging > 0) return;
+      const p = JD.Render.toWorld(e.clientX, e.clientY), it = W.hit(p.x, p.y);
+      if (!it) { JD.UI.close(); return; }
+      e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (er) { }
+      W.toTop(it);
+      JD.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: p.x - it.x, oy: p.y - it.y, moved: false, vx: 0, vy: 0, lx: p.x, ly: p.y, lt: performance.now() };
+      it.vx = it.vy = 0; if (it !== JD.UI.current()) it.liftT = 0.35; JD.sfx('lift');
+    });
+    cv.addEventListener('pointermove', e => {
+      const d = JD.drag, p = JD.Render.toWorld(e.clientX, e.clientY);
+      if (!d) { if (e.pointerType === 'mouse') cv.classList.toggle('over', !!W.hit(p.x, p.y)); return; }
+      if (e.pointerId !== d.id) return;
+      const it = d.it;
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > TAP) { d.moved = true; it.held = true; it.liftT = 1; JD.UI.close(); cv.classList.add('drag'); }
+      if (!d.moved) return;
+      it.x = p.x - d.ox; it.y = p.y - d.oy; W.clampIn(it);
+      const now = performance.now(), dt = Math.max(1, now - d.lt) / 1000, k = Math.min(1, dt * 18);
+      d.vx += ((p.x - d.lx) / dt - d.vx) * k; d.vy += ((p.y - d.ly) / dt - d.vy) * k; d.lx = p.x; d.ly = p.y; d.lt = now;
+    });
+    const up = (e, cancel) => {
+      const d = JD.drag; if (!d || e.pointerId !== d.id) return; JD.drag = null; cv.classList.remove('drag');
+      const it = d.it;
+      if (d.moved) {
+        it.held = false; it.liftT = 0;
+        const still = performance.now() - d.lt > 90; JD.Phys.release(it, still ? 0 : d.vx, still ? 0 : d.vy);
+        JD.moves = (JD.moves || 0) + 1;
+      } else if (!cancel) JD.UI.inspect(it);
+      else it.liftT = 0;
+    };
+    cv.addEventListener('pointerup', e => up(e, false));
+    cv.addEventListener('pointercancel', e => up(e, true));
+    cv.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; const k = e.key.toLowerCase();
+      if (k === 'escape') { JD.UI.close(); JD.Cat.close(); }
+      else if (!JD.UI.opened()) { if (k === 'enter' || k === ' ') { e.preventDefault(); JD.UI.open(); } }
+      else if (k === 'r') JD.Phys.rummage();
+      else if (k === 'l') JD.Cat.toggle();
+      else if (k === 'm') JD.Snd.toggle();
+    });
+  }
+};
+}
+// ===== ui.js =====
+{
+const JD = window.JD, W = JD.World, $ = JD.$;
+let cur = null, opened = false, tagW = 0, tagH = 0, toastT = 0;
+const found = {}; (JD.store.get('found', []) || []).forEach(id => { if (JD.byId(id)) found[id] = 1; });
+const nFound = () => Object.keys(found).length;
+const MILES = {
+  5: ['JUNK INTERN', 'Five pieces of junk inspected. Your family would be so proud.'],
+  15: ['JUNK ENTHUSIAST', 'Fifteen down. You now officially have a junk drawer problem.'],
+  30: ['PROFESSIONAL RUMMAGER', 'Thirty! Remember: the best junk is always underneath the other junk.'],
+  45: ['DRAWER DETECTIVE', 'Forty-five. Somewhere in here, something is still hiding.']
+};
+const setCount = bump => { $('#foundN').textContent = nFound(); $('#foundT').textContent = JD.ITEMS.length; if (bump) { const c = $('#cnt'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); } };
+JD.zText = (el, txt) => { el.textContent = ''; String(txt).split(/(Z{2,})/).forEach((part, i) => { if (i % 2) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = part; el.appendChild(z); } else el.appendChild(document.createTextNode(part)); }); };
+JD.toast = (title, text, ms) => { const t = $('#toast'); t.innerHTML = ''; const b = document.createElement('b'); b.textContent = title; t.appendChild(b); t.appendChild(document.createTextNode(text)); t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms || 3600); };
+JD.UI = {
+  current: () => cur,
+  opened: () => opened,
+  foundMap: () => found,
+  inspect(it) {
+    if (cur === it) { JD.UI.close(); return; }
+    JD.UI.close(); cur = it; it.liftT = 1; it.pop = 1;
+    JD.sfx(it.sfx || 'click'); JD.Fx.inspect(it);
+    const isNew = !found[it.id];
+    const tag = $('#tag'); tag.querySelector('.nm').textContent = it.name; JD.zText(tag.querySelector('.ds'), it.desc);
+    tag.dataset.id = it.id; tag.classList.toggle('isNew', isNew); tag.style.setProperty('--rot', ((Math.random() - 0.5) * 6).toFixed(1) + 'deg');
+    tag.classList.remove('hide'); $('#string').classList.remove('hide'); tag.style.animation = 'none'; void tag.offsetWidth; tag.style.animation = '';
+    tagW = tag.offsetWidth; tagH = tag.offsetHeight; JD.UI.follow();
+    if (isNew) {
+      found[it.id] = 1; JD.store.set('found', Object.keys(found)); setCount(true); setTimeout(() => JD.sfx('found'), 260);
+      const n = nFound();
+      if (n === JD.ITEMS.length) { setTimeout(() => JD.sfx('done'), 500); JD.toast('DRAWER MASTER', 'Every single piece of junk inspected. The drawer respects you now.', 6000); }
+      else if (it.hidden) JD.toast('UNDER-JUNK FOUND!', it.name + ' was hiding under the other junk.');
+      else if (MILES[n]) JD.toast(MILES[n][0], MILES[n][1]);
+    }
+  },
+  close() { if (cur) { cur.liftT = 0; cur.landing = 1; } cur = null; $('#tag').classList.add('hide'); $('#string').classList.add('hide'); },
+  follow() {
+    if (!cur) return;
+    const c = JD.Render.toClient(cur.x, cur.y), k = JD.Render.pxCss(), rx = cur.GW * k * 0.5, ry = cur.GH * k * 0.5, vw = innerWidth, vh = innerHeight;
+    let top = c.y - ry - tagH - 22; if (top < 6) top = c.y + ry + 22; if (top + tagH > vh - 6) top = Math.max(6, vh - tagH - 6);
+    const left = JD.clamp(c.x - 40, 8, vw - tagW - 8), tag = $('#tag');
+    tag.style.transform = ''; tag.style.left = left + 'px'; tag.style.top = top + 'px';
+    const hx = left + 14, hy = top + tagH / 2, ax = c.x, ay = c.y + (top < c.y ? -ry * 0.4 : ry * 0.4), len = Math.hypot(ax - hx, ay - hy), s = $('#string');
+    s.style.left = hx + 'px'; s.style.top = hy + 'px'; s.style.width = len + 'px'; s.style.transform = 'rotate(' + Math.atan2(ay - hy, ax - hx) + 'rad)';
+  },
+  open() {
+    if (opened) return; opened = true; JD.sfx('open');
+    $('#closed').classList.add('opening'); setTimeout(() => $('#closed').classList.add('hide'), 1000);
+    JD.ITEMS.forEach(it => { it.av += (Math.random() - 0.5) * 4; it.pop = Math.random() * 0.4; });
+    W.shake = 0.5; window.JD_OPEN = true;
+  }
+};
+JD.boot = () => {
+  setCount(false);
+  JD.Render.init(); W.layout(found); JD.Input.init(); JD.Cat.init();
+  const fc = $('#frontC'), FW = 110, FH = 44, fs = Math.max(2, Math.min(4, Math.floor((innerWidth - 90) / FW)));
+  fc.width = (FW + 2) * fs; fc.height = (FH + 2) * fs; const fx = fc.getContext('2d'); fx.imageSmoothingEnabled = false; fx.drawImage(JD.Drawer.front(FW, FH), 0, 0, fc.width, fc.height);
+  $('#open').addEventListener('click', () => JD.UI.open());
+  $('#closed').addEventListener('click', e => { if (e.target.id !== 'open') JD.UI.open(); });
+  $('#rummage').addEventListener('click', () => { if (!opened) JD.UI.open(); JD.UI.close(); JD.Phys.rummage(); });
+  $('#catBtn').addEventListener('click', () => JD.Cat.toggle());
+  $('#snd').addEventListener('click', () => JD.Snd.toggle()); $('#snd').textContent = JD.Snd.muted() ? '♪ OFF' : '♪ ON';
+  let rt = 0; const refit = () => { clearTimeout(rt); rt = setTimeout(() => { JD.Render.resize(); JD.UI.follow(); }, 60); };
+  window.addEventListener('resize', refit); if (window.ResizeObserver) new ResizeObserver(refit).observe($('#stage'));
+  try { document.fonts.ready.then(refit); } catch (e) { }
+  if (JD.Q.has('open')) { opened = true; $('#closed').classList.add('hide'); }
+  requestAnimationFrame(JD.Render.loop);
+  window.JD_READY = true;
+};
+JD.clickPoint = id => {
+  const it = JD.byId(id), v = W.visiblePixels(it); if (!v.length) return null;
+  v.sort((a, b) => Math.hypot(a.x - it.x, a.y - it.y) - Math.hypot(b.x - it.x, b.y - it.y));
+  return JD.Render.toClient(v[0].x, v[0].y);
+};
+}
+// ===== catalog.js =====
+{
+const JD = window.JD, $ = JD.$;
+const thumb = (it, on) => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+  const s = Math.max(1, Math.floor(62 / Math.max(it.GW, it.GH))), w = it.GW * s, h = it.GH * s, ox = (64 - w) >> 1, oy = (64 - h) >> 1;
+  if (on) x.drawImage(it.cv[0], ox, oy, w, h);
+  else { x.drawImage(it.sil, ox, oy, w, h); x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#5c3b25'; x.fillRect(0, 0, 64, 64); }
+  return c;
+};
+let built = false;
+JD.Cat = {
+  init() {
+    $('#catX').addEventListener('click', () => JD.Cat.close());
+    $('#cat').addEventListener('click', e => { if (e.target.id === 'cat') JD.Cat.close(); });
+  },
+  build() {
+    const grid = $('#catGrid'), f = JD.UI.foundMap(); grid.innerHTML = '';
+    JD.ITEMS.forEach(it => {
+      const on = !!f[it.id], d = document.createElement('button'); d.className = 'cc' + (on ? '' : ' no'); d.dataset.id = it.id;
+      d.appendChild(thumb(it, on)); const s = document.createElement('span'); s.textContent = on ? it.name : (it.hidden ? '??? (hiding)' : '???'); d.appendChild(s);
+      d.setAttribute('aria-label', on ? it.name : 'Not found yet');
+      if (on) d.addEventListener('click', () => {
+        grid.querySelectorAll('.sel').forEach(n => n.classList.remove('sel')); d.classList.add('sel');
+        const det = $('#catDetail'); det.innerHTML = ''; const b = document.createElement('b'); b.textContent = it.name; det.appendChild(b); det.appendChild(document.createElement('br')); const ds = document.createElement('span'); JD.zText(ds, it.desc); det.appendChild(ds);
+        JD.sfx(it.sfx);
+      });
+      grid.appendChild(d);
+    });
+    const n = Object.keys(f).length, hid = JD.ITEMS.filter(it => it.hidden), hf = hid.filter(it => f[it.id]).length;
+    $('#catSum').textContent = n + '/' + JD.ITEMS.length + ' found · under-junk ' + hf + '/' + hid.length;
+    built = true;
+  },
+  open() { JD.Cat.build(); $('#cat').classList.remove('hide'); JD.UI.close(); JD.sfx('click'); },
+  close() { $('#cat').classList.add('hide'); },
+  toggle() { if ($('#cat').classList.contains('hide')) JD.Cat.open(); else JD.Cat.close(); },
+  built: () => built
+};
+}
+// ===== sheet.js =====
+{
+const JD = window.JD;
+JD.Sheet = {
+  show() {
+    document.body.classList.add('sheetMode'); const S = JD.$('#sheet'); S.classList.remove('hide');
+    const sc = +(JD.Q.get('sheet') || 4) || 4;
+    JD.ITEMS.forEach(it => {
+      const d = document.createElement('div'); d.className = 'sc'; d.dataset.id = it.id;
+      const c = document.createElement('canvas'); c.width = it.GW * sc; c.height = it.GH * sc;
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(it.cv[0], 0, 0, c.width, c.height);
+      const p = document.createElement('p'); p.textContent = it.name;
+      d.appendChild(c); d.appendChild(p); S.appendChild(d);
+    });
+    window.SHEET_READY = true;
+  }
+};
+}
+// ===== tile.js =====
+{
+const JD = window.JD, W = JD.World;
+JD.Tile = {
+  show() {
+    document.body.classList.add('tileMode'); const T = JD.$('#tile'); T.classList.remove('hide');
+    const c = document.createElement('canvas'); c.width = 1640; c.height = 820; T.appendChild(c); const X = c.getContext('2d'); X.imageSmoothingEnabled = false;
+    const S = 5, r = JD.rng(23), keep = Math.random; Math.random = r;
+    W.setSize(S, 328, 164, 1); W.avoid = { x: 52, y: 64, w: 224, h: 36 }; W.layout({}); W.avoid = null;
+    Math.random = keep;
+    X.drawImage(W.bg, 1, 1, W.W, W.H, 0, 0, W.W * S, W.H * S);
+    const pick = W.order.filter(it => !it.txt && !it.hidden);
+    pick.forEach(it => {
+      const px = Math.round(it.x * S), py = Math.round(it.y * S);
+      X.save(); X.translate(px + 7, py + 10); X.rotate(it.ang); X.scale(S, S); X.globalAlpha = 0.34; X.drawImage(it.sil, -it.GW / 2, -it.GH / 2); X.restore();
+      X.save(); X.translate(px, py); X.rotate(it.ang); X.scale(S, S); X.drawImage(it.cv[0], -it.GW / 2, -it.GH / 2); X.restore();
+    });
+    const tw = 150, th = 30, tp = new JD.G(tw, th), tr = JD.rng(5);
+    tp.r(0, 2, tw, th - 4, 'a');
+    for (let x = 0; x < tw; x++) { if (tr() < 0.5) tp.p(x, 1, 'a'); if (tr() < 0.5) tp.p(x, th - 2, 'a'); }
+    for (let y = 0; y < th; y++) { const e = Math.floor(tr() * 3); for (let i = 0; i < e; i++) { tp.p(i, y, '.'); tp.p(tw - 1 - i, y, '.'); } }
+    tp.dith(0, 0, tw, th, 'd', 1); for (let i = 0; i < 40; i++) tp.p(tr() * tw, tr() * th, 'A');
+    tp.shade(); tp.outline('N');
+    const tc = JD.toCanvas(tp), ts = 8, tcx = 820, tcy = 410;
+    X.save(); X.translate(tcx + 10, tcy + 14); X.rotate(-0.03); X.globalAlpha = 0.4; X.drawImage(JD.toCanvas(tp, true), -tc.width * ts / 2, -tc.height * ts / 2, tc.width * ts, tc.height * ts); X.restore();
+    X.save(); X.translate(tcx, tcy); X.rotate(-0.03); X.drawImage(tc, -tc.width * ts / 2, -tc.height * ts / 2, tc.width * ts, tc.height * ts); X.restore();
+    const txt = 'JUNK DRAWER', g = new JD.G(132, 18);
+    g.big(txt, 1, 3, 'O', 2); g.big(txt, 1, 2, 'O', 2); g.big(txt, 1, 0, 'y', 2);
+    g.shade(); g.outline();
+    for (let y = 0; y < g.H; y++) for (let x = 0; x < g.W; x++) if (g.a[y * g.W + x] === 'y' && y % 2 === 0 && x % 2) g.a[y * g.W + x] = 'y';
+    const gc = JD.toCanvas(g), gs = 8;
+    X.save(); X.translate(tcx, tcy); X.rotate(-0.03); X.drawImage(gc, Math.round(-gc.width * gs / 2), Math.round(-gc.height * gs / 2) + 4, gc.width * gs, gc.height * gs); X.restore();
+    window.TILE_READY = true;
+  }
+};
+}
+// ===== main.js =====
+{
+const JD = window.JD;
+JD.ITEMS.forEach(JD.bake);
+if (JD.Q.has('sheet')) JD.Sheet.show();
+else if (JD.Q.has('tile')) JD.Tile.show();
+else JD.boot();
+}
+</script>
+</body>
+</html>
