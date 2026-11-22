@@ -3,7 +3,7 @@
 Every photographed sky and surface and nearly every household object comes from **Poly Haven** (polyhaven.com), released under **CC0 1.0**
 (public domain). Downloaded originals are in `assets_raw/` (fetched by `tools/fetch_assets.py`); `tools/optimise_assets.py` and
 `tools/optimise_tex.py` turn them into the files in `assets/` (one .glb per model with 512 px-1k JPEG textures, decimated where noted;
-1k HDRIs for lighting plus a 3072 px JPEG of the upper half of each sky as the visible backdrop). Total `assets/` size: 21.4 MB.
+1k HDRIs for lighting plus a 3072 px JPEG of the upper half of each sky as the visible backdrop). Total `assets/` size: 23.2 MB.
 
 Dollhouse furniture (sofa, bed, ottoman, cabinet, mirror, table, chair, tea set) is recoloured to glossy pink plastic and scaled 1.32x (doll scale); the cake keeps its own texture at 2.1x.
 Changes: pool tiles and carpet textures are desaturated so the game can tint them (pale aqua tiles, blue carpet). The laptop is scaled to 55%,
@@ -67,9 +67,13 @@ The dollhouse’s toy grand piano is "Piano" by **jeremy** on Poly Pizza (poly.p
 | Leafy Grass | Charlotte Baglioni | CC0 1.0 | [polyhaven.com/a/leafy_grass](https://polyhaven.com/a/leafy_grass) |  | `tex_leafy_grass_*.jpg` 779 KB |
 | Painted Plaster Wall | Amal Kumar | CC0 1.0 | [polyhaven.com/a/painted_plaster_wall](https://polyhaven.com/a/painted_plaster_wall) |  | `tex_painted_plaster_wall_*.jpg` 304 KB |
 | Poly Wool Herringbone | colormass, Rico Cilliers | CC0 1.0 | [polyhaven.com/a/poly_wool_herringbone](https://polyhaven.com/a/poly_wool_herringbone) |  | `tex_poly_wool_herringbone_*.jpg` 530 KB |
+| Rock Ground | Rob Tuytel | CC0 1.0 | [polyhaven.com/a/rock_ground](https://polyhaven.com/a/rock_ground) |  | `tex_rock_ground_*.jpg` 849 KB |
 | Roof Slates 02 | Rob Tuytel | CC0 1.0 | [polyhaven.com/a/roof_slates_02](https://polyhaven.com/a/roof_slates_02) |  | `tex_roof_slates_02_*.jpg` 495 KB |
 | Rounded Square Tiled Wall | Charlotte Baglioni | CC0 1.0 | [polyhaven.com/a/rounded_square_tiled_wall](https://polyhaven.com/a/rounded_square_tiled_wall) |  | `tex_rounded_square_tiled_wall_*.jpg` 442 KB |
+| Sand 01 | Rob Tuytel | CC0 1.0 | [polyhaven.com/a/sand_01](https://polyhaven.com/a/sand_01) |  | `tex_sand_01_*.jpg` 440 KB |
+| Snow 02 | Rob Tuytel | CC0 1.0 | [polyhaven.com/a/snow_02](https://polyhaven.com/a/snow_02) |  | `tex_snow_02_*.jpg` 396 KB |
 | Weathered Plank Siding | Dimitrios Savva | CC0 1.0 | [polyhaven.com/a/weathered_plank_siding](https://polyhaven.com/a/weathered_plank_siding) |  | `tex_weathered_plank_siding_*.jpg` 295 KB |
+| Wood Floor | Dimitrios Savva | CC0 1.0 | [polyhaven.com/a/wood_floor](https://polyhaven.com/a/wood_floor) |  | `tex_wood_floor_*.jpg` 194 KB |
 
 ## Built in code (no external asset)
 
@@ -80,6 +84,10 @@ power pylons and wires, toy track, and the six small items (cassette, key, marbl
 Level 2 (the suburb): the pink clapboard houses (Poly Haven Weathered Plank Siding tinted pink, Grey Roof 01 shingles, Concrete Pavement),
 porches, windows, picket fences, mailboxes, the garage, the street and the cotton-candy clouds (canvas-drawn spun-sugar fibres on instanced puffs) are built in code;
 the mown-lawn albedo is drawn in a canvas over Poly Haven grass normals. Fire hydrant, hose, sprinkler, potted plant and porch-swing bench are Poly Haven models.
+Levels 3-10 are built in code on top of these assets: the Poolrooms (Poly Haven rounded square tiles, three.js Reflector water), the 1990s mall
+(canvas terrazzo, Poly Haven plaster, shape-only signs), the giant soft play (canvas puzzle-mat floor), the pastel beach (Poly Haven Sand 01, a wave/foam shader),
+the repeating bedroom (Poly Haven Wood Floor, a lava-lamp shader), the cloud train (Wood Floor, herringbone), the snowglobe night (Poly Haven Snow 02) and
+the garden above the sky. Their small findable items are modelled in code. Level 6, 8 and 10 skies reuse the Poly Haven HDRIs listed above.
 All sound is synthesised live with WebAudio: no samples.
 Font: the sign and the level 2 screen use the system Comic Sans MS; if it is missing, Comic Neue (SIL Open Font License, Craig Rozynski) loads from Google Fonts.
 
@@ -88,4 +96,4 @@ Font: the sign and the level 2 screen use the system Comic Sans MS; if it is mis
 | Library | Author | Licence |
 |---|---|---|
 | three.js r128 (cdnjs) | three.js authors | MIT |
-| GLTFLoader, RGBELoader, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, CopyShader, LuminosityHighPassShader - three@0.128.0/examples/js (jsdelivr) | three.js authors | MIT |
+| GLTFLoader, RGBELoader, Reflector, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, CopyShader, LuminosityHighPassShader - three@0.128.0/examples/js (jsdelivr) | three.js authors | MIT |
