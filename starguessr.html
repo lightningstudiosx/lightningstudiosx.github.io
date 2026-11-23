@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>STARGUESSR &middot; Kai.fun</title>
+<meta name="description" content="GeoGuessr in space! You are beamed to a real star near the Sun. Read the real night sky from there, then guess where you are on a 3D map of our stellar neighbourhood.">
+<meta name="theme-color" content="#02040a">
+<script src="bdp.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root { --bg: #02040a; --panel: rgba(8, 16, 34, 0.82); --panel2: rgba(14, 26, 52, 0.9); --line: rgba(120, 200, 255, 0.28);
+--cyan: #6fe3ff; --gold: #ffd36b; --pink: #ff5f93; --text: #e6f2ff; --dim: #93a9c8; --ok: #6dffb0;
+--hud: 'Orbitron', 'Exo 2', system-ui, sans-serif; --body: 'Exo 2', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--body); overflow: hidden; overscroll-behavior: none; }
+body { -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
+#app { position: fixed; inset: 0; overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#gl:active { cursor: grabbing; }
+.hide { display: none !important; }
+button { font-family: var(--body); color: var(--text); cursor: pointer; border: 0; background: none; -webkit-user-select: none; user-select: none; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+a { color: var(--cyan); }
+svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#kai { position: fixed; top: 12px; left: 14px; z-index: 30; padding: 7px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line);
+color: var(--text); text-decoration: none; font: 600 14px var(--body); }
+#kai:hover { border-color: var(--cyan); color: var(--cyan); }
+#hud { position: fixed; top: 10px; left: 112px; right: 12px; z-index: 20; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+.hb { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+.hb .k { font: 500 10px var(--hud); letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; }
+.hb b { font: 700 17px var(--hud); color: var(--text); }
+.hb.diff { font: 700 12px var(--hud); letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 12px; color: var(--ok); }
+.hb.diff[data-d="medium"] { color: var(--gold); }
+.hb.diff[data-d="hard"] { color: var(--pink); }
+#hTimerBox.warn b { color: var(--pink); animation: pulse 0.5s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: 0.45; } }
+.grow { flex: 1; }
+.ib { width: 40px; height: 40px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); display: grid; place-items: center; }
+.ib svg { width: 20px; height: 20px; }
+.ib:hover { border-color: var(--cyan); color: var(--cyan); }
+.ib.off .wave { opacity: 0; }
+#tools { position: fixed; left: 14px; top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column; gap: 8px; }
+.tool { display: flex; align-items: center; gap: 9px; padding: 9px 14px 9px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; font: 600 14px var(--body); text-align: left; }
+.tool svg { width: 22px; height: 22px; flex: none; }
+.tool:hover { border-color: var(--cyan); }
+.tool.on { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 14px rgba(255, 211, 107, 0.25); }
+.tool.sm { width: 44px; justify-content: center; padding: 8px; }
+#tools .sm + .sm { margin-top: -2px; }
+.card { background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+#starCard { position: fixed; top: 66px; right: 14px; z-index: 21; width: 270px; padding: 14px 16px 12px; }
+#starCard h3 { margin: 0 24px 8px 0; font: 700 16px var(--hud); color: var(--gold); }
+#starCard h3.unk { color: var(--dim); }
+#starCard .row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 14px; border-top: 1px solid rgba(120, 200, 255, 0.1); }
+#starCard .row span { color: var(--dim); }
+#starCard .row b { font-weight: 600; text-align: right; }
+#starCard .tip { margin: 8px 0 0; font-size: 12px; color: var(--dim); }
+.x { position: absolute; top: 8px; right: 10px; font-size: 22px; line-height: 1; color: var(--dim); }
+.sw { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; box-shadow: 0 0 8px currentColor; vertical-align: -1px; }
+.st5 { color: var(--gold); letter-spacing: 1px; }
+#skyLabels { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.clab, .slab { position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 12px var(--hud); letter-spacing: 0.08em; text-transform: uppercase; display: none; }
+.clab.warp { color: rgba(255, 205, 110, 0.9); text-shadow: 0 0 6px #000; }
+.clab.ghost { color: rgba(110, 190, 255, 0.6); font-weight: 500; font-size: 11px; }
+.slab { text-transform: none; letter-spacing: 0.02em; font: 600 13px var(--body); color: #fff; text-shadow: 0 0 4px #000, 0 0 8px #000; }
+.slab.sun, #sunRing span { color: var(--gold); }
+#sunRing { position: absolute; left: 0; top: 0; width: 46px; height: 46px; border: 2px solid var(--gold); border-radius: 50%; display: none; box-shadow: 0 0 16px rgba(255, 211, 107, 0.6); animation: ring 1.6s ease-in-out infinite; }
+#sunRing span { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font: 700 12px var(--hud); letter-spacing: 0.1em; text-shadow: 0 0 6px #000; }
+@keyframes ring { 50% { box-shadow: 0 0 28px rgba(255, 211, 107, 0.9); } }
+#toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.toast { background: var(--panel2); border: 1px solid var(--cyan); color: var(--text); padding: 8px 16px; border-radius: 999px; font: 600 14px var(--body); transition: opacity 0.4s, transform 0.4s; text-align: center; max-width: 90vw; }
+.toast.out { opacity: 0; transform: translateY(-8px); }
+#boot { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; transition: opacity 0.6s; }
+#boot.out { opacity: 0; pointer-events: none; }
+#boot p { color: var(--dim); font-size: 15px; margin: 0; }
+.logo { margin: 0; font: 900 64px var(--hud); letter-spacing: 0.06em; color: #fff; text-shadow: 0 0 18px rgba(111, 227, 255, 0.8), 0 0 42px rgba(111, 227, 255, 0.45); line-height: 1; }
+.logo span { color: var(--gold); text-shadow: 0 0 18px rgba(255, 211, 107, 0.8), 0 0 42px rgba(255, 170, 60, 0.45); }
+#boot .logo { font-size: 44px; }
+#mapWrap { position: fixed; right: 14px; bottom: 14px; z-index: 22; width: 360px; display: flex; flex-direction: column; gap: 8px; transition: width 0.22s ease; }
+#mapPanel { position: relative; height: 236px; border: 1px solid rgba(120, 200, 255, 0.45); border-radius: 16px; overflow: hidden; touch-action: none; cursor: crosshair;
+box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 24px rgba(80, 180, 255, 0.18); transition: height 0.22s ease; }
+#mapWrap.wide { width: min(58vw, 880px); }
+#mapWrap.wide #mapPanel { height: min(60vh, 620px); }
+#mapWrap.reveal { left: 14px; top: 64px; right: 14px; bottom: 14px; width: auto; }
+#mapWrap.reveal #mapPanel { height: auto; flex: 1; cursor: grab; }
+#mapWrap.reveal #bGuess, #mapWrap.reveal #hBox, #mapWrap.reveal #mapHint { display: none; }
+#mapWrap:not(.wide):not(.reveal):not(.open) .mapUi { display: none; }
+#mapLabels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.mapUi { position: absolute; z-index: 2; }
+#mapBar { top: 8px; left: 8px; display: flex; gap: 6px; }
+#mapBar button { min-width: 38px; height: 32px; padding: 0 10px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font: 700 12px var(--hud); letter-spacing: 0.06em; }
+#mapBar button:hover { border-color: var(--cyan); }
+#mapBar button.on { color: var(--gold); border-color: rgba(255, 211, 107, 0.6); }
+#hBox { left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 12px; }
+#hBox label { font: 600 12px var(--body); color: var(--dim); white-space: nowrap; min-width: 112px; }
+#hBox label b { color: var(--pink); font-family: var(--hud); }
+#hBox input { flex: 1; accent-color: var(--pink); }
+#mapHint { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center; font: 600 13px var(--body); color: var(--dim); pointer-events: none; text-shadow: 0 0 6px #000; }
+#mapWrap:not(.wide):not(.open) #mapHint { bottom: 10px; }
+.mlab { position: absolute; left: 0; top: 0; display: none; white-space: nowrap; font: 500 11px var(--body); color: rgba(225, 238, 255, 0.85); text-shadow: 0 0 4px #000, 0 0 6px #000; }
+.mlab.sun { color: var(--gold); font: 700 12px var(--hud); letter-spacing: 0.06em; }
+.mlab.cluster { color: #8fe9ff; font-style: italic; }
+.mlab.ring { color: rgba(111, 200, 255, 0.55); font: 500 10px var(--hud); }
+.mlab.dir { color: rgba(150, 200, 255, 0.5); font: 600 10px var(--hud); letter-spacing: 0.1em; text-transform: uppercase; }
+.mlab.pin { color: var(--pink); font-weight: 700; font-size: 12px; }
+.mlab.target { color: var(--gold); font: 700 14px var(--hud); }
+.big { border-radius: 14px; padding: 12px 18px; font: 700 17px var(--hud); letter-spacing: 0.08em; color: #1b1203; background: linear-gradient(180deg, #ffe28f, #ffb340); box-shadow: 0 4px 20px rgba(255, 179, 64, 0.35); }
+.big:hover { filter: brightness(1.08); }
+.big:disabled { background: rgba(60, 74, 100, 0.85); color: var(--dim); box-shadow: none; cursor: default; font-size: 13px; filter: none; }
+.ghostBtn { border-radius: 14px; padding: 11px 16px; font: 600 15px var(--body); background: var(--panel); border: 1px solid var(--line); }
+.ghostBtn:hover { border-color: var(--cyan); }
+#bMap, #bBackMap { position: fixed; z-index: 22; bottom: 14px; left: 50%; transform: translateX(-50%); }
+#revealCard { position: fixed; z-index: 25; bottom: 30px; left: 30px; width: min(470px, calc(100vw - 28px)); padding: 16px 20px; }
+#revealCard .pts { display: flex; align-items: baseline; gap: 8px; }
+#revealCard .pts b { font: 900 40px var(--hud); color: var(--gold); text-shadow: 0 0 18px rgba(255, 211, 107, 0.5); }
+#revealCard .pts span { color: var(--dim); font: 600 14px var(--hud); }
+#revealCard .pts em { margin-left: auto; color: var(--pink); font-style: normal; font-size: 13px; }
+.bar { height: 8px; border-radius: 99px; background: rgba(120, 200, 255, 0.15); overflow: hidden; margin: 6px 0 10px; }
+.bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ff5f93, #ffd36b, #6dffb0); transition: width 1s ease; }
+#revealCard .err { margin: 0 0 6px; font-size: 15px; }
+#revealCard h3 { margin: 6px 0 2px; font: 600 16px var(--body); color: var(--dim); }
+#revealCard h3 span { color: #fff; font: 700 18px var(--hud); }
+#revealCard .meta { margin: 0 0 6px; font-size: 13px; color: var(--dim); }
+#revealCard .fact { margin: 0 0 12px; font-size: 15px; line-height: 1.4; color: #cfe6ff; }
+.btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.screen { position: fixed; inset: 0; z-index: 15; display: flex; align-items: center; justify-content: center; padding: 72px 16px 24px; overflow-y: auto; }
+#home { background: radial-gradient(ellipse at center, rgba(2, 4, 10, 0.25), rgba(2, 4, 10, 0.75)); }
+.homeIn { max-width: 820px; width: 100%; text-align: center; margin: auto; }
+#home .logo { font-size: clamp(40px, 10.5vw, 104px); }
+.tag { font-size: 18px; color: #cfe2ff; max-width: 560px; margin: 16px auto 26px; line-height: 1.4; text-shadow: 0 0 8px #000; }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.mode, .daily { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 6px; transition: transform 0.15s, border-color 0.15s; }
+.mode:hover, .daily:hover { transform: translateY(-2px); border-color: var(--cyan); }
+.mode b, .daily b { font: 700 20px var(--hud); letter-spacing: 0.06em; }
+.mode[data-m="easy"] b { color: var(--ok); } .mode[data-m="medium"] b { color: var(--gold); } .mode[data-m="hard"] b { color: var(--pink); }
+.mode span, .daily span { font-size: 14px; color: var(--dim); line-height: 1.35; }
+.mode .best { font: 600 12px var(--hud); color: var(--gold); font-style: normal; min-height: 14px; }
+.daily { width: 100%; margin-top: 12px; align-items: center; text-align: center; border-color: rgba(255, 211, 107, 0.5); background: linear-gradient(90deg, rgba(60, 40, 10, 0.8), rgba(12, 22, 48, 0.85), rgba(60, 40, 10, 0.8)); }
+.daily b { color: var(--gold); }
+.opts { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 18px; font-size: 14px; }
+.chk { display: flex; align-items: center; gap: 6px; color: #cfe2ff; cursor: pointer; }
+.chk input { width: 18px; height: 18px; accent-color: var(--gold); }
+.lnk { color: var(--cyan); font: 600 14px var(--body); padding: 4px; text-decoration: underline; text-underline-offset: 3px; }
+.panel { background: var(--panel2); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px; max-width: 680px; width: 100%; margin: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+.panel h2 { font: 700 24px var(--hud); margin: 0 0 10px; color: var(--cyan); }
+.panel h3 { font: 700 15px var(--hud); color: var(--gold); margin: 16px 0 6px; }
+.panel p, .panel li { line-height: 1.5; color: #d6e8ff; }
+.panel .small { font-size: 13px; color: var(--dim); }
+.how li { margin-bottom: 8px; } .cred { padding-left: 18px; }
+.logo.sm { font-size: 34px; text-align: center; }
+.sub { text-align: center; color: var(--dim); margin: 6px 0 4px; }
+.total { text-align: center; } .total b { font: 900 54px var(--hud); color: var(--gold); text-shadow: 0 0 24px rgba(255, 211, 107, 0.5); } .total span { color: var(--dim); font: 600 16px var(--hud); margin-left: 6px; }
+.newBest { text-align: center; color: var(--ok); font: 700 15px var(--hud); letter-spacing: 0.08em; animation: pulse 0.7s ease-in-out infinite alternate; }
+.bestLine { text-align: center; color: var(--dim); font-size: 14px; }
+.rt { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+.rt th { text-align: left; color: var(--dim); font: 600 11px var(--hud); letter-spacing: 0.08em; text-transform: uppercase; padding: 6px; }
+.rt td { padding: 8px 6px; border-top: 1px solid rgba(120, 200, 255, 0.12); }
+.rt .nm small { display: block; color: var(--dim); font-size: 12px; } .rt .sc { white-space: nowrap; font-weight: 700; text-align: right; }
+#shareTxt { background: rgba(0, 0, 0, 0.35); border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; font: 500 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; color: #cfe6ff; }
+.phoneOnly { display: none; }
+@media (max-width: 759px) {
+#kai { top: 10px; left: 8px; padding: 6px 10px; font-size: 13px; }
+#kai.inGame { padding: 6px 8px; }
+#hud { left: 92px; right: 8px; gap: 5px; top: 8px; }
+.hb { min-width: 0; padding: 3px 8px; } .hb b { font-size: 14px; } .hb .k { font-size: 9px; } .hb.diff { display: none; }
+.ib { width: 36px; height: 36px; }
+#tools { top: auto; bottom: 80px; left: 8px; transform: none; gap: 6px; }
+.tool { padding: 9px; } .tool span { display: none; } .tool.sm { width: 42px; }
+#starCard { top: auto; bottom: 80px; right: 8px; left: 64px; width: auto; }
+#mapWrap:not(.open):not(.reveal) { display: none; }
+#mapWrap.open, #mapWrap.reveal { left: 8px; right: 8px; top: 56px; bottom: 8px; width: auto; }
+#mapWrap.open #mapPanel { height: auto; flex: 1; }
+.phoneOnly { display: inline-block; }
+#bMap, #bBackMap { left: 64px; right: 8px; transform: none; }
+#revealCard { bottom: 8px; left: 8px; width: calc(100vw - 16px); max-height: 52vh; overflow-y: auto; padding: 12px 14px; }
+#revealCard .pts b { font-size: 30px; } #revealCard .fact { font-size: 14px; }
+.modes { grid-template-columns: 1fr; }
+.mode { padding: 12px 14px; }
+.tag { font-size: 16px; margin: 12px auto 18px; }
+.panel { padding: 16px; }
+.rt { font-size: 13px; } .total b { font-size: 42px; }
+}
+body.tile #kai, body.tile #toasts, body.tile #boot { display: none !important; }
+#tileArt { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+#tileArt svg { position: absolute; inset: 0; }
+.tileTitle { position: absolute; left: 0; right: 0; top: 168px; text-align: center; font: 900 160px var(--hud); letter-spacing: 0.04em; color: #f6fcff;
+text-shadow: 0 0 6px #fff, 0 0 26px rgba(111, 227, 255, 0.95), 0 0 70px rgba(60, 170, 255, 0.75), 0 0 140px rgba(60, 120, 255, 0.6), 0 6px 0 rgba(0, 30, 70, 0.6); }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div id="skyLabels"><div id="sunRing"><span>Sun</span></div></div>
+  <a id="kai" href="index.html">&larr; Kai.fun</a>
+  <header id="hud" class="hide">
+    <div class="hb"><span class="k">Round</span><b id="hRound">1/5</b></div>
+    <div class="hb"><span class="k">Score</span><b id="hScore">0</b></div>
+    <div class="hb" id="hTimerBox"><span class="k">Time</span><b id="hTimer">1:30</b></div>
+    <div class="hb diff" id="hDiff">Easy</div>
+    <span class="grow"></span>
+    <button class="ib" id="bSnd2" title="Sound on/off" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+    <button class="ib" id="bQuit" title="Back to menu" aria-label="Quit"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div id="tools" class="hide">
+    <button class="tool" id="bGhost" title="Show Earth's constellations, warped and as ghosts"><svg viewBox="0 0 24 24"><path d="M4 18 9 8l6 5 5-9"/><circle cx="4" cy="18" r="1.6"/><circle cx="9" cy="8" r="1.6"/><circle cx="15" cy="13" r="1.6"/><circle cx="20" cy="4" r="1.6"/></svg><span>Constellations</span></button>
+    <button class="tool" id="bHint" title="Show the names of the brightest stars (costs 20% of this round)"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span>Hint</span></button>
+    <button class="tool" id="bSun" title="Point the view at the Sun"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><span>Find the Sun</span></button>
+    <button class="tool sm" id="bZin" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tool sm" id="bZout" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+  </div>
+  <div id="starCard" class="card hide"></div>
+  <div id="mapWrap" class="hide">
+    <div id="mapPanel">
+      <div id="mapLabels"></div>
+      <div class="mapUi" id="mapBar">
+        <button id="bMode" title="Switch between top-down and 3D">3D</button><button id="bSnap" class="on" title="Snap the pin onto stars">Snap</button><button id="bMzin" aria-label="Zoom map in">+</button><button id="bMzout" aria-label="Zoom map out">&minus;</button><button id="bMapX" class="phoneOnly">Sky</button>
+      </div>
+      <div class="mapUi" id="hBox"><label for="hSlider">Height <b id="hVal">0 ly</b></label><input type="range" id="hSlider" min="-50" max="50" value="0" step="0.5" aria-label="Pin height above the galactic plane"></div>
+      <div id="mapHint">Tap the map to drop your guess pin</div>
+    </div>
+    <button id="bGuess" class="big" disabled>Place your pin on the map</button>
+  </div>
+  <button id="bMap" class="big hide">Open map &amp; guess</button>
+  <button id="bBackMap" class="big hide">Back to the map</button>
+  <div id="revealCard" class="card hide"></div>
+  <section id="home" class="screen">
+    <div class="homeIn">
+      <h1 class="logo" aria-label="STARGUESSR">STAR<span>GUESSR</span></h1>
+      <p class="tag">You've been beamed to a real star near the Sun. Read the night sky from there, then guess where in space you are!</p>
+      <div class="modes">
+        <button class="mode" data-m="easy"><b>Easy</b><span>Famous neighbours within about 30 light-years. Includes a Sun finder.</span><i class="best"></i></button>
+        <button class="mode" data-m="medium"><b>Medium</b><span>Named stars out to about 150 light-years.</span><i class="best"></i></button>
+        <button class="mode" data-m="hard"><b>Hard</b><span>Deep space, out to about 600 light-years.</span><i class="best"></i></button>
+      </div>
+      <button class="daily" id="bDaily"><b>Daily Challenge</b><span id="dailyInfo"></span></button>
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="optTimer"> Timer: 90 s per round</label>
+        <button class="lnk" id="bSnd">Sound: on</button><button class="lnk" id="bHow">How to play</button><button class="lnk" id="bAbout">About &amp; credits</button>
+      </div>
+    </div>
+  </section>
+  <section id="results" class="screen hide"><div class="panel" id="resPanel"></div></section>
+  <section id="about" class="screen hide"><div class="panel" id="aboutPanel"></div></section>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="boot"><div class="logo">STAR<span>GUESSR</span></div><p id="bootMsg">Charting 78,000 real stars&hellip;</p></div>
+</div>
+<script>
+"use strict";
+// ===== util.js =====
+{
+const SG = window.SG = {};
+const Q = new URLSearchParams(location.search);
+SG.Q = Q;
+SG.TEST = Q.has('test');
+SG.TILE = Q.has('tile');
+SG.$ = (id) => document.getElementById(id);
+SG.h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+SG.clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+SG.lerp = (a, b, t) => a + (b - a) * t;
+SG.smooth = (a, b, x) => { const t = SG.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+SG.damp = (a, b, k, dt) => b + (a - b) * Math.exp(-k * dt);
+SG.ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+SG.isPhone = () => innerWidth < 760;
+SG.fmt = (n) => Math.round(n).toLocaleString('en-US');
+SG.ly = (d) => (d < 10 ? d.toFixed(1) : SG.fmt(d)) + ' ly';
+SG.esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+SG.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const subs = {};
+SG.on = (n, f) => { (subs[n] = subs[n] || []).push(f); };
+SG.emit = (n, a, b) => { for (const f of subs[n] || []) { try { f(a, b); } catch (e) { console.error(e); } } };
+SG.store = {
+  get(k, d) { try { const v = localStorage.getItem('starguessr.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('starguessr.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+if (Q.has('reset')) { try { for (const k of Object.keys(localStorage)) if (k.startsWith('starguessr.')) localStorage.removeItem(k); } catch (e) { /* blocked */ } }
+SG.rng = (seed) => {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+};
+SG.hash = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+SG.rand = SG.rng(Q.has('seed') ? +Q.get('seed') : (Date.now() & 0xffffff) ^ 0x5eed);
+SG.v = {
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  dist: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]),
+};
+SG.toast = (msg, ms = 2400) => {
+  const box = SG.$('toasts'); if (!box) return;
+  const t = SG.h('div', 'toast', msg); box.appendChild(t);
+  setTimeout(() => t.classList.add('out'), ms); setTimeout(() => t.remove(), ms + 500);
+};
+}
+// ===== data.js =====
+{
+const C = SG.Cat = { base: 'starguessr/assets/', n: 0, ready: false };
+const SPEC = 'OBAFGKMD';
+C.parse = (buf, meta) => {
+  const dv = new DataView(buf);
+  if (dv.getUint32(0, true) !== 0x31434753) throw new Error('bad star file');
+  const n = dv.getUint32(4, true), DMAX = dv.getFloat32(8, true);
+  C.n = n;
+  C.pos = new Float32Array(n * 3); C.dist = new Float32Array(n); C.absMag = new Float32Array(n);
+  C.ci = new Float32Array(n); C.spec = new Uint8Array(n);
+  let o = 12;
+  for (let i = 0; i < n; i++, o += 12) {
+    const ux = dv.getInt16(o, true) / 32767, uy = dv.getInt16(o + 2, true) / 32767, uz = dv.getInt16(o + 4, true) / 32767;
+    const q = dv.getUint16(o + 6, true) / 65535, d = DMAX * q * q;
+    const ul = Math.hypot(ux, uy, uz) || 1;
+    C.pos[i * 3] = ux / ul * d; C.pos[i * 3 + 1] = uy / ul * d; C.pos[i * 3 + 2] = uz / ul * d;
+    C.dist[i] = d; C.absMag[i] = dv.getInt16(o + 8, true) / 100;
+    C.ci[i] = dv.getUint8(o + 10) / 255 * 3 - 0.5; C.spec[i] = dv.getUint8(o + 11);
+  }
+  C.hip = new Uint32Array(buf.slice(o, o + n * 4)); o += n * 4;
+  C.con = new Uint8Array(buf.slice(o, o + n));
+  C.cons = meta.cons; C.lines = meta.lines; C.pools = meta.pools; C.source = meta.source;
+  C.names = new Map(); C.byName = new Map();
+  for (const [i, s] of meta.names) {
+    const [name, alt] = s.split('|');
+    const nm = name === 'Sol' ? 'the Sun' : name;
+    C.names.set(i, { name: nm, alt: alt || '' });
+    for (const k of [nm, alt]) if (k && !C.byName.has(k.toLowerCase())) C.byName.set(k.toLowerCase(), i);
+  }
+  C.ready = true;
+  return n;
+};
+C.load = async () => {
+  const get = (f) => fetch(C.base + f).then((r) => { if (!r.ok) throw new Error(f + ' ' + r.status); return r; });
+  const [buf, meta] = await Promise.all([get('stars.bin').then((r) => r.arrayBuffer()), get('stars.json').then((r) => r.json())]);
+  return C.parse(buf, meta);
+};
+C.p = (i) => [C.pos[i * 3], C.pos[i * 3 + 1], C.pos[i * 3 + 2]];
+C.find = (name) => { const i = C.byName.get(String(name).toLowerCase()); return i == null ? -1 : i; };
+C.appMag = (i, v) => {
+  const dx = C.pos[i * 3] - v[0], dy = C.pos[i * 3 + 1] - v[1], dz = C.pos[i * 3 + 2] - v[2];
+  return C.absMag[i] + 5 * Math.log10(Math.max(1e-9, Math.hypot(dx, dy, dz)) / 32.6156);
+};
+C.name = (i) => { const n = C.names.get(i); return n ? n.name : ''; };
+C.label = (i) => C.name(i) || (C.hip[i] ? 'HIP ' + C.hip[i] : 'Star #' + i);
+C.fullName = (i) => { const n = C.names.get(i); if (!n) return C.label(i); return n.alt ? n.name + ' (' + n.alt + ')' : n.name; };
+C.conName = (i) => { const c = C.con[i]; return c ? C.cons[c - 1][1] : ''; };
+C.specLetter = (i) => SPEC[C.spec[i] & 15] || '?';
+C.lumClass = (i) => C.spec[i] >> 4;   // 0 dwarf/unknown, 1 subgiant, 2 giant, 3 supergiant
+C.near = (p, r) => { const out = []; for (let i = 0; i < C.n; i++) { const dx = C.pos[i * 3] - p[0], dy = C.pos[i * 3 + 1] - p[1], dz = C.pos[i * 3 + 2] - p[2]; if (dx * dx + dy * dy + dz * dz < r * r) out.push(i); } return out; };
+}
+// ===== astro.js =====
+{
+const A = SG.Astro = {};
+const M = [[-0.0548755604, -0.8734370902, -0.4838350155], [0.4941094279, -0.4448296300, 0.7469822445], [-0.8676661490, -0.1980763734, 0.4559837762]];
+A.EX = [M[0][0], M[1][0], M[2][0]];   // RA 0h, Dec 0
+A.EY = [M[0][1], M[1][1], M[2][1]];   // RA 6h, Dec 0
+A.NCP = [M[0][2], M[1][2], M[2][2]];  // north celestial pole
+A.eqToGal = (raDeg, decDeg) => {
+  const r = raDeg * Math.PI / 180, d = decDeg * Math.PI / 180, c = Math.cos(d);
+  const e = [c * Math.cos(r), c * Math.sin(r), Math.sin(d)];
+  return [0, 1, 2].map((k) => M[k][0] * e[0] + M[k][1] * e[1] + M[k][2] * e[2]);
+};
+A.galToEq = (g0) => {
+  const g = SG.v.norm(g0);
+  const e = [0, 1, 2].map((k) => M[0][k] * g[0] + M[1][k] * g[1] + M[2][k] * g[2]);
+  let ra = Math.atan2(e[1], e[0]) * 180 / Math.PI; if (ra < 0) ra += 360;
+  return { ra, dec: Math.asin(SG.clamp(e[2], -1, 1)) * 180 / Math.PI };
+};
+A.lb = (g) => { const v = SG.v.norm(g); let l = Math.atan2(v[1], v[0]) * 180 / Math.PI; if (l < 0) l += 360; return { l, b: Math.asin(SG.clamp(v[2], -1, 1)) * 180 / Math.PI }; };
+A.fromLB = (l, b, d = 1) => { const L = l * Math.PI / 180, B = b * Math.PI / 180; return [Math.cos(B) * Math.cos(L) * d, Math.cos(B) * Math.sin(L) * d, Math.sin(B) * d]; };
+A.bvTemp = (bv) => 4600 * (1 / (0.92 * bv + 1.7) + 1 / (0.92 * bv + 0.62));
+A.tempRGB = (T) => {
+  const t = T / 100;
+  let r = t <= 66 ? 255 : 329.7 * Math.pow(t - 60, -0.1332);
+  let g = t <= 66 ? 99.47 * Math.log(t) - 161.12 : 288.12 * Math.pow(t - 60, -0.0755);
+  let b = t >= 66 ? 255 : t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04;
+  return [r, g, b].map((x) => SG.clamp(x, 0, 255) / 255);
+};
+A.bvRGB = (bv) => {
+  const c = A.tempRGB(A.bvTemp(SG.clamp(bv, -0.4, 2.0)));
+  const avg = (c[0] + c[1] + c[2]) / 3, s = 1.35;
+  const o = c.map((x) => SG.clamp(avg + (x - avg) * s, 0, 1));
+  const mx = Math.max(o[0], o[1], o[2]) || 1;
+  return o.map((x) => x / mx);
+};
+A.css = (rgb) => 'rgb(' + rgb.map((x) => Math.round(x * 255)).join(',') + ')';
+A.lum = (absMag) => Math.pow(10, (4.83 - absMag) / 2.5);
+A.colorWord = (bv) => bv < -0.1 ? 'blue' : bv < 0.15 ? 'blue-white' : bv < 0.35 ? 'white' : bv < 0.55 ? 'yellow-white' : bv < 0.8 ? 'yellow' : bv < 1.35 ? 'orange' : 'red';
+A.magWord = (m) => m < -3 ? 'blindingly bright' : m < -0.5 ? 'dazzling' : m < 1 ? 'very bright' : m < 2.5 ? 'bright' : m < 4 ? 'easy to spot' : m < 5.5 ? 'faint' : m < 6.6 ? 'very faint' : 'binoculars only';
+A.stars5 = (m) => { const n = m < -0.5 ? 5 : m < 1 ? 4 : m < 2.5 ? 3 : m < 4.5 ? 2 : 1; return '★'.repeat(n) + '☆'.repeat(5 - n); };
+A.kind = (i) => {
+  const C = SG.Cat, L = C.specLetter(i), lc = C.lumClass(i), col = A.colorWord(C.ci[i]);
+  if (i === 0) return 'yellow dwarf star';
+  if (L === 'D') return 'white dwarf (a tiny, hot leftover star core)';
+  if (lc === 3) return col + ' supergiant';
+  if (lc === 2) return col + ' giant';
+  if (lc === 1) return col + ' subgiant';
+  return { M: 'red dwarf', K: 'orange dwarf', G: 'yellow dwarf, like our Sun', F: 'yellow-white star', A: 'white star', B: 'blue-white star', O: 'hot blue star' }[L] || col + ' star';
+};
+A.conDirs = () => {
+  const C = SG.Cat, out = [];
+  for (const [ab, segs] of Object.entries(C.lines)) {
+    const s = [0, 0, 0], seen = new Set();
+    for (const i of segs) { if (seen.has(i)) continue; seen.add(i); const u = SG.v.norm(C.p(i)); s[0] += u[0]; s[1] += u[1]; s[2] += u[2]; }
+    const entry = C.cons.find((c) => c[0] === ab);
+    out.push({ ab, name: entry ? entry[1] : ab, dir: SG.v.norm(s), stars: [...seen] });
+  }
+  return out;
+};
+}
+// ===== famous.js =====
+{
+SG.Facts = {
+  'the Sun': 'Our home star! It holds 99.8% of all the mass in the Solar System.',
+  'Rigil Kentaurus': 'Alpha Centauri A is the closest Sun-like star. Its light takes about 4.4 years to reach Earth.',
+  'Toliman': 'Alpha Centauri B circles its twin, Alpha Centauri A, once every 80 years.',
+  'Proxima Centauri': 'The closest star to the Sun: a small red dwarf with a planet in its "just right" zone.',
+  "Barnard's Star": "It moves across Earth's sky faster than any other star - a Moon-width every 180 years.",
+  'Wolf 359': 'A tiny, dim red dwarf. In Star Trek, a famous space battle happened here!',
+  'Lalande 21185': 'One of the brightest red dwarfs in the northern sky, with planets circling it.',
+  'Sirius': "The brightest star in Earth's night sky! A tiny white dwarf nicknamed 'the Pup' orbits it.",
+  'Ross 154': 'A red dwarf that sometimes flares, suddenly getting much brighter for a few minutes.',
+  'Ross 248': 'It is slowly getting closer: in about 36,000 years it will be the nearest star to the Sun.',
+  'Ran': 'Epsilon Eridani is a young star with dusty rings, like our Solar System was long ago.',
+  'Lacaille 9352': 'A red dwarf that zips across the sky quickly, with super-Earth planets.',
+  'Ross 128': 'A quiet red dwarf with a rocky, Earth-sized planet called Ross 128 b.',
+  '61 Cygni': 'The first star (after the Sun) to have its distance measured, by Friedrich Bessel in 1838.',
+  'Procyon': "Its name means 'before the dog' because it rises just before Sirius, the Dog Star.",
+  'Groombridge 34': 'Two red dwarfs that orbit each other from far apart.',
+  'Epsilon Indi': "Two brown dwarfs - 'failed stars' - circle it from far away.",
+  'Tau Ceti': 'A calm, Sun-like star only 12 light-years away: a favourite of sci-fi writers.',
+  "Luyten's Star": 'A red dwarf with a planet that might be rocky like Earth.',
+  "Kapteyn's Star": 'A super-old star, maybe 11 billion years old, that might have come from a smashed-up dwarf galaxy.',
+  'Lacaille 8760': 'One of the biggest red dwarfs, yet still too faint to see from Earth without binoculars.',
+  'Kruger 60': 'Two red dwarfs dancing around each other once every 44 years.',
+  'Ross 614': 'A pair of red dwarfs, one of them among the smallest stars ever weighed.',
+  "Van Maanen's Star": 'The closest lonely white dwarf: a dead star core about the size of Earth.',
+  'Wolf 1061': 'Has three planets, and one is in the zone where water could stay liquid.',
+  'Keid': "Star Trek fans say Mr Spock's home planet Vulcan orbits this star!",
+  'Altair': 'Spins so fast - once every 9 hours - that it is squashed into an egg shape.',
+  'Alsafi': 'A calm orange star in Draco, the dragon constellation.',
+  'Achird': 'A Sun-like star with an orange partner star, in Cassiopeia.',
+  'Vega': 'It was the North Star 12,000 years ago, and will be again in about 13,700 years.',
+  'Fomalhaut': 'Surrounded by a giant ring of dust, like an eye staring out into space.',
+  'Chara': 'A Sun-like star that scientists list as a great place to look for life.',
+  'Groombridge 1830': 'An old star racing through the galaxy at about 300 kilometres every second.',
+  'Pollux': 'An orange giant star with a giant planet even bigger than Jupiter.',
+  'Arcturus': "An orange giant and the brightest star in the northern half of Earth's sky.",
+  'Capella': 'Looks like one star, but it is really two yellow giants plus two small red dwarfs.',
+  'Aldebaran': 'The red eye of Taurus the bull. The Pioneer 10 probe is heading its way, but will take 2 million years.',
+  'Regulus': 'The heart of Leo the lion. It spins so fast it is nearly flying apart.',
+  'Spica': 'Two hot blue stars so close together they squeeze each other into egg shapes.',
+  'Antares': 'A red supergiant so huge it would swallow the orbit of Mars if it sat where the Sun is.',
+  'Betelgeuse': 'A red supergiant that will one day explode as a supernova, bright enough to see in the daytime.',
+  'Rigel': 'A blue supergiant shining over 100,000 times brighter than the Sun.',
+  'Deneb': 'One of the most powerful stars you can see: around 200,000 times brighter than the Sun.',
+  'Polaris': "The North Star! Earth's north pole points almost straight at it.",
+  'Canopus': "The second-brightest star in Earth's night sky. Spacecraft use it to find their way.",
+  'Achernar': 'Spins so fast that it bulges out into a squashed, pumpkin-like shape.',
+  'Castor': 'Looks like one star, but it is really six stars all orbiting together!',
+  'Mizar': 'Has a partner, Alcor. Long ago, spotting both stars was a test of good eyesight.',
+  'Alcyone': 'The brightest star of the Pleiades, the Seven Sisters star cluster.',
+  'Algol': "The 'Demon Star' dims every 2.9 days when its partner star passes in front of it.",
+};
+}
+// ===== famous2.js =====
+{
+Object.assign(SG.Facts, {
+  'Bellatrix': "Orion's shoulder: a hot blue giant. Its name means 'female warrior'.",
+  'Alnilam': "The middle star of Orion's Belt, a blue supergiant hundreds of thousands of times brighter than the Sun.",
+  'Mintaka': "The first star of Orion's Belt to rise: it is really a group of several hot stars.",
+  'Alnitak': "The left-most star of Orion's Belt, right next to the glowing Flame Nebula.",
+  'Dubhe': 'One of the two Pointer Stars of the Big Dipper: follow them to find the North Star.',
+  'Merak': 'A Pointer Star of the Big Dipper, belonging to a family of stars moving together.',
+  'Hadar': 'Beta Centauri: a trio of hot blue stars that points the way to the Southern Cross.',
+  'Acrux': 'The brightest star of the Southern Cross, which appears on the flags of Australia and New Zealand.',
+  'Denebola': "The tail of Leo the lion. Its name means 'the lion's tail' in Arabic.",
+  'Shaula': 'The stinger in the tail of Scorpius, the scorpion.',
+  'Mira': "'The Wonderful': a giant star that swells and fades over about 11 months.",
+  'Alphard': "'The lonely one': the only bright star in its patch of Hydra, the water snake.",
+  'Thuban': 'It was the North Star when the ancient Egyptians built the pyramids.',
+  'Albireo': 'Through a telescope it is a gorgeous pair: one golden star and one blue star.',
+  'Elnath': 'The tip of one of the horns of Taurus the bull.',
+  'Hamal': 'The brightest star of Aries, the ram: an orange giant with a planet.',
+  'Mirfak': 'The brightest star of Perseus, sitting inside a sparkly star cluster.',
+  'Kochab': "A Guardian of the Pole in the Little Dipper, about 400 times brighter than the Sun.",
+  'Schedar': "An orange giant that marks the queen's heart in Cassiopeia.",
+  'Eltanin': "The dragon's eye in Draco. It may pass very close to the Sun in 1.5 million years.",
+  'Rasalhague': "The head of Ophiuchus, the snake-holder. It spins so fast it's squashed.",
+  'Alkaid': 'The end of the Big Dipper handle, and a hot blue star.',
+  'Alioth': 'The brightest star of the Big Dipper.',
+  'Gacrux': 'The red-orange top of the Southern Cross: the closest red giant to the Sun.',
+  'Mimosa': 'A hot blue star in the Southern Cross that gently pulses.',
+  'Alcor': "Mizar's partner star: together they are called the horse and rider.",
+  'Izar': "'The belt' of Bootes: a stunning orange and blue double star.",
+  'Enif': "The nose of Pegasus, the flying horse: an orange supergiant.",
+  'Alpheratz': 'It joins two constellations: the corner of the Great Square of Pegasus and the head of Andromeda.',
+  'Sadr': 'The heart of Cygnus, the swan, glowing among clouds of gas.',
+});
+SG.Clusters = [
+  { name: 'Hyades', l: 180.06, b: -22.34, d: 153, fact: 'The closest star cluster to the Sun: the V-shaped face of Taurus.' },
+  { name: 'Pleiades', l: 166.57, b: -23.52, d: 444, fact: 'The Seven Sisters: a young cluster of hot blue stars.' },
+  { name: 'Beehive', l: 205.92, b: 32.48, d: 577, fact: 'A swarm of about 1,000 stars in Cancer.' },
+  { name: 'Coma Cluster', l: 221.3, b: 84.0, d: 280, fact: "The stars of Berenice's Hair." },
+  { name: 'Alpha Persei Cluster', l: 147.3, b: -6.4, d: 570, fact: 'A bright family of stars around Mirfak.' },
+  { name: 'Southern Pleiades', l: 289.6, b: -4.9, d: 480, fact: 'IC 2602, a twin of the Pleiades near the Southern Cross.' },
+  { name: 'Ursa Major Group', l: 113.0, b: 61.6, d: 80, fact: 'Most Big Dipper stars travel through space together.' },
+  { name: 'Scorpius-Centaurus', l: 330, b: 12, d: 430, fact: 'The nearest big nursery of hot young stars.' },
+  { name: "Ptolemy's Cluster", l: 355.9, b: -4.5, d: 980, fact: 'M7, noticed by the astronomer Ptolemy almost 2,000 years ago.' },
+  { name: 'Orion Nebula', l: 209.0, b: -19.4, d: 1344, fact: 'A giant glowing cloud where new stars are being born.' },
+];
+SG.MapStars = ['the Sun', 'Sirius', 'Rigil Kentaurus', "Barnard's Star", 'Wolf 359', 'Procyon', 'Tau Ceti', 'Ran', 'Altair', 'Vega',
+  'Fomalhaut', 'Arcturus', 'Pollux', 'Capella', 'Castor', 'Aldebaran', 'Regulus', 'Spica', 'Antares', 'Betelgeuse', 'Rigel',
+  'Deneb', 'Polaris', 'Canopus', 'Achernar', '61 Cygni', 'Epsilon Indi', 'Lalande 21185', 'Mizar', 'Alcyone', 'Algol',
+  'Bellatrix', 'Alnilam', 'Dubhe', 'Hadar', 'Acrux', 'Denebola', 'Shaula', 'Mira', 'Thuban', 'Albireo', 'Hamal', 'Mirfak',
+  'Kochab', 'Schedar', 'Eltanin', 'Alphard', 'Elnath', 'Gacrux', 'Enif', 'Alpheratz', 'Sadr'];
+SG.factFor = (i) => {
+  const C = SG.Cat, A = SG.Astro, nm = C.name(i);
+  if (nm && SG.Facts[nm]) return SG.Facts[nm];
+  const L = A.lum(C.absMag[i]), d = C.dist[i], parts = [];
+  parts.push('A ' + A.kind(i) + '.');
+  if (L > 2) parts.push('It shines about ' + SG.fmt(L) + ' times brighter than the Sun.');
+  else if (L < 0.02) parts.push('It gives off less than ' + (L < 0.002 ? '0.2' : '2') + '% of the Sun’s light.');
+  parts.push('Its light takes ' + SG.fmt(d) + ' years to reach Earth' + (d > 40 && d < 2000 ? ', so we see it as it was in the year ' + (new Date().getFullYear() - Math.round(d)) + '.' : '.'));
+  if (C.conName(i)) parts.push("From Earth it sits in " + C.conName(i) + '.');
+  return parts.join(' ');
+};
+}
+// ===== rules.js =====
+{
+const R = SG.Rules = {};
+R.DIFF = {
+  easy: { key: 'easy', label: 'Easy', R: 30, k: 10, pool: 'easy', mapR: 45, blurb: 'Famous star neighbours within about 30 light-years' },
+  medium: { key: 'medium', label: 'Medium', R: 150, k: 45, pool: 'medium', mapR: 190, blurb: 'Named stars out to about 150 light-years' },
+  hard: { key: 'hard', label: 'Hard', R: 600, k: 180, pool: 'hard', mapR: 720, blurb: 'Deep space: anywhere out to about 600 light-years' },
+};
+R.ROUNDS = 5;
+R.MAX = 5000;
+R.TIMER = 90;
+R.HINT_FACTOR = 0.8;
+R.DAILY_DIFFS = ['easy', 'easy', 'medium', 'medium', 'hard'];
+R.score = (err, diff) => {
+  const D = R.DIFF[diff] || R.DIFF.medium;
+  if (!(err >= 0) || !isFinite(err)) return 0;
+  if (err <= D.R / 60) return R.MAX;
+  return Math.round(R.MAX * Math.exp(-err / D.k));
+};
+R.today = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+R.dailySeed = (date) => SG.hash('starguessr-daily-' + date);
+R.makeRounds = (mode, seed) => {
+  const rnd = SG.rng(seed >>> 0), diffs = mode === 'daily' ? R.DAILY_DIFFS : new Array(R.ROUNDS).fill(mode);
+  const used = new Set();
+  return diffs.map((df) => {
+    const pool = SG.Cat.pools[R.DIFF[df].pool];
+    let idx = pool[0];
+    for (let t = 0; t < 60; t++) { idx = pool[Math.floor(rnd() * pool.length)]; if (!used.has(idx)) break; }
+    used.add(idx);
+    return { idx, diff: df, ra: rnd() * 360, dec: (rnd() - 0.5) * 70 };
+  });
+};
+R.best = (mode) => (SG.store.get('best', {})[mode] || 0);
+R.saveResult = (mode, total, date) => {
+  const b = SG.store.get('best', {});
+  const isBest = total > (b[mode] || 0);
+  if (isBest) b[mode] = total;
+  SG.store.set('best', b);
+  if (mode === 'daily') { const d = SG.store.get('daily', {}); d[date] = Math.max(d[date] || 0, total); SG.store.set('daily', d); }
+  const h = SG.store.get('history', []); h.unshift({ mode, total, t: Date.now() }); SG.store.set('history', h.slice(0, 20));
+  return isBest;
+};
+R.dailyDone = (date) => (SG.store.get('daily', {})[date] || 0);
+R.square = (s) => (s >= 4500 ? '🟩' : s >= 3000 ? '🟨' : s >= 1500 ? '🟧' : '🟥');
+R.shareText = (g) => {
+  const title = g.mode === 'daily' ? 'STARGUESSR Daily ' + g.date : 'STARGUESSR ' + R.DIFF[g.mode].label;
+  const lines = [title + (g.timer ? ' ⏱' : ''), '⭐ ' + SG.fmt(g.total) + ' / ' + SG.fmt(R.MAX * R.ROUNDS), g.results.map((r) => R.square(r.score)).join('')];
+  lines.push(g.results.map((r) => (r.err < 10 ? r.err.toFixed(1) : Math.round(r.err)) + ' ly').join(' · '));
+  lines.push('kaifun.fun/starguessr.html');
+  return lines.join('\n');
+};
+}
+// ===== render.js =====
+{
+const R = SG.R = { frameMs: [], cpu: [], ok: false, gpu: 'unknown' };
+R.init = () => {
+  const canvas = SG.$('gl');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: SG.TILE }); }
+  catch (e) { return false; }
+  R.renderer = renderer;
+  renderer.setClearColor(0x02040a, 1);
+  renderer.autoClear = false;
+  try {
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    if (ext) R.gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+  } catch (e) { /* not exposed */ }
+  R.resize();
+  addEventListener('resize', R.resize);
+  R.ok = true;
+  return true;
+};
+R.pixelRatio = () => Math.min(window.devicePixelRatio || 1, SG.isPhone() ? 2 : 1.5);
+R.resize = () => {
+  const w = innerWidth, h = innerHeight;
+  R.w = w; R.h = h;
+  R.renderer.setPixelRatio(R.pixelRatio());
+  R.renderer.setSize(w, h, false);
+  SG.emit('resize', w, h);
+};
+R.draw = (scene, cam, rect) => {
+  const r = R.renderer;
+  if (rect) {
+    const y = R.h - rect.bottom;
+    r.setViewport(rect.left, y, rect.width, rect.height); r.setScissor(rect.left, y, rect.width, rect.height); r.setScissorTest(true);
+  } else { r.setViewport(0, 0, R.w, R.h); r.setScissorTest(false); }
+  r.clear(true, true, false);
+  r.render(scene, cam);
+  r.setScissorTest(false);
+};
+R.mark = (ms) => { R.frameMs.push(ms); if (R.frameMs.length > 600) R.frameMs.shift(); };
+R.stats = () => {
+  const a = R.frameMs.slice().sort((x, y) => x - y);
+  if (!a.length) return { fps: 0, n: 0 };
+  const mean = a.reduce((s, x) => s + x, 0) / a.length, p95 = a[Math.floor(a.length * 0.95)];
+  const c = R.cpu.length ? R.cpu.reduce((s, x) => s + x, 0) / R.cpu.length : 0;
+  return { fps: +(1000 / mean).toFixed(1), meanMs: +mean.toFixed(2), p95Ms: +p95.toFixed(2), maxMs: +a[a.length - 1].toFixed(1), cpuMs: +c.toFixed(2), n: a.length };
+};
+R.glowTex = (inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, inner); gr.addColorStop(0.25, inner); gr.addColorStop(1, outer);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); return t;
+};
+}
+// ===== milkyway.js =====
+{
+const MW = SG.MW = {};
+const NOISE = `
+float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int k = 0; k < 6; k++) { s += a * vn(p); p = p * 2.03 + 1.7; a *= 0.5; } return s; }
+`;
+const BAKE = `
+precision highp float; varying vec2 vUv; uniform vec2 res;
+${NOISE}
+float blob(vec3 d, float l, float b, float r){ vec3 c = vec3(cos(b) * cos(l), cos(b) * sin(l), sin(b)); float a = acos(clamp(dot(d, c), -1.0, 1.0)); return exp(-a * a / (r * r)); }
+void main(){
+  float l = (vUv.x - 0.5) * 6.2831853, b = (vUv.y - 0.5) * 3.1415927;
+  vec3 d = vec3(cos(b) * cos(l), cos(b) * sin(l), sin(b));
+  float toward = 0.5 + 0.5 * cos(l);
+  float bulge = exp(-(l * l) / 0.16 - (b * b) / 0.05);
+  float width = 0.075 + 0.05 * toward + 0.12 * bulge;
+  float band = exp(-pow(b / width, 2.0));
+  float n = fbm(d * 3.2), n2 = fbm(d * 9.0 + 3.1);
+  float glow = band * (0.32 + 0.75 * n * n + 0.25 * n2) * (0.45 + 0.75 * pow(toward, 1.6)) + bulge * 1.1 * (0.6 + 0.5 * n2);
+  glow += exp(-pow(b / 0.45, 2.0)) * 0.05;
+  float riftZone = smoothstep(-0.9, -0.3, l) * (1.0 - smoothstep(1.2, 1.6, l));
+  float dust = smoothstep(0.42, 0.72, fbm(d * 7.0 + 11.0)) * exp(-pow((b + 0.012) / (0.035 + 0.02 * toward), 2.0));
+  glow *= 1.0 - (0.35 + 0.5 * riftZone) * dust;
+  vec3 col = mix(vec3(0.55, 0.64, 0.92), vec3(1.0, 0.84, 0.62), clamp(bulge * 1.4 + 0.25 * toward * n, 0.0, 1.0)) * glow * 0.2;
+  col += vec3(1.0, 0.38, 0.55) * (blob(d, -2.6354, -0.3386, 0.035) * 0.12 + blob(d, -1.2636, -0.0105, 0.03) * 0.1 + blob(d, 0.1047, -0.0209, 0.02) * 0.08 + blob(d, 1.4835, -0.0175, 0.03) * 0.06);
+  col += vec3(0.75, 0.8, 0.95) * (blob(d, -1.3875, -0.5742, 0.07) * 0.16 * (0.7 + 0.6 * n2) + blob(d, -0.9983, -0.7732, 0.04) * 0.1);
+  col += vec3(0.85, 0.85, 1.0) * blob(d, 2.1153, -0.377, 0.018) * 0.12;
+  vec2 cell = floor(vUv * res);
+  float s = h3(vec3(cell, 7.0)), dens = 0.004 + 0.06 * band + 0.08 * bulge;
+  col += vec3(0.75 + 0.25 * h3(vec3(cell, 3.0)), 0.8, 0.95) * step(1.0 - dens, s) * (0.08 + 0.25 * h3(vec3(cell, 5.0))) * smoothstep(0.3, 0.7, cos(b));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+const SKY_V = 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+const SKY_F = `
+precision highp float; varying vec3 vDir; uniform sampler2D map; uniform float gain;
+void main(){
+  vec3 d = normalize(vDir);
+  vec2 uv = vec2(atan(d.y, d.x) / 6.2831853 + 0.5, asin(clamp(d.z, -1.0, 1.0)) / 3.1415927 + 0.5);
+  vec3 c = texture2D(map, uv).rgb * gain;
+  float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) / 255.0;
+  gl_FragColor = vec4(c + vec3(0.004, 0.006, 0.014) + dither, 1.0);
+}`;
+MW.bake = (renderer) => {
+  const W = SG.isPhone() ? 2048 : 4096, H = W / 2;
+  const rt = new THREE.WebGLRenderTarget(W, H, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: false });
+  const mat = new THREE.ShaderMaterial({ uniforms: { res: { value: new THREE.Vector2(W, H) } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }', fragmentShader: BAKE, depthTest: false });
+  const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false; scene.add(quad);
+  renderer.setRenderTarget(rt); renderer.setViewport(0, 0, W, H); renderer.clear(); renderer.render(scene, cam); renderer.setRenderTarget(null);
+  mat.dispose(); quad.geometry.dispose();
+  MW.tex = rt.texture;
+  return rt.texture;
+};
+MW.mesh = () => {
+  const mat = new THREE.ShaderMaterial({ uniforms: { map: { value: MW.tex }, gain: { value: 1.2 } }, vertexShader: SKY_V, fragmentShader: SKY_F, side: THREE.BackSide, depthWrite: false, depthTest: false });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1500, 64, 32), mat);
+  m.renderOrder = -10; m.frustumCulled = false;
+  MW.mat = mat;
+  return m;
+};
+}
+// ===== stars.js =====
+{
+const S = SG.Stars = { hideR: 0.15 };
+const VS = `
+attribute float absMag; attribute vec3 color; attribute float phase;
+uniform vec3 viewer; uniform float mlim, time, pxScale, hideR, twinkle;
+varying vec3 vCol; varying float vA, vSpike, vCore, vHaloR, vHalo, vHalf;
+void main(){
+  vec3 d = position - viewer; float r = length(d);
+  float m = absMag + 5.0 * log(max(r, 1e-6) / 32.6156) / 2.302585;
+  float rel = mlim - m;
+  if (r < hideR || rel < 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(d / r * 1000.0, 1.0);
+  float b = pow(10.0, 0.4 * min(rel, 16.0));
+  float core = min(0.62 * pow(b, 0.25) + 0.55, 26.0) * pxScale;
+  float halo = smoothstep(1.6, 4.0, core / pxScale);
+  float tw = 1.0 - twinkle * (0.5 + 0.5 * sin(time * (1.3 + phase * 2.7) + phase * 61.0)) * (0.45 / (1.0 + rel * 0.5));
+  vA = clamp(0.3 + rel * 0.28, 0.0, 1.0) * tw;
+  vCol = color; vSpike = smoothstep(5.5, 10.0, rel);
+  vCore = core; vHaloR = core * 2.0; vHalo = halo * 0.55;
+  vHalf = core * (1.5 + 3.5 * halo + 3.0 * vSpike) + 1.0;
+  gl_PointSize = vHalf * 2.0;
+}`;
+const FS = `
+varying vec3 vCol; varying float vA, vSpike, vCore, vHaloR, vHalo, vHalf;
+void main(){
+  vec2 p = (gl_PointCoord * 2.0 - 1.0) * vHalf; float rp = length(p);
+  if (rp > vHalf) discard;
+  float core = exp(-rp * rp / (vCore * vCore));
+  float halo = vHalo * exp(-rp / vHaloR);
+  float sp = vSpike * (exp(-abs(p.x) / (0.12 * vCore + 0.3)) + exp(-abs(p.y) / (0.12 * vCore + 0.3))) * max(0.0, 1.0 - rp / vHalf) * 0.5;
+  vec3 c = vCol * (core * 0.9 + halo + sp) + vec3(core * 0.6);
+  gl_FragColor = vec4(c * vA * (1.0 - smoothstep(0.8, 1.0, rp / vHalf)), 1.0);
+}`;
+S.build = () => {
+  const C = SG.Cat, n = C.n, col = new Float32Array(n * 3), ph = new Float32Array(n);
+  const rnd = SG.rng(99);
+  for (let i = 0; i < n; i++) { const c = SG.Astro.bvRGB(C.ci[i]); col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2]; ph[i] = rnd(); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(C.pos, 3));
+  g.setAttribute('absMag', new THREE.BufferAttribute(C.absMag, 1));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('phase', new THREE.BufferAttribute(ph, 1));
+  S.colors = col;
+  S.uni = { viewer: { value: new THREE.Vector3() }, mlim: { value: 6.6 }, time: { value: 0 }, pxScale: { value: 1 }, hideR: { value: S.hideR }, twinkle: { value: SG.reduced ? 0 : 1 } };
+  S.mat = new THREE.ShaderMaterial({ uniforms: S.uni, vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+  S.points = new THREE.Points(g, S.mat);
+  S.points.frustumCulled = false; S.points.renderOrder = 3;
+  return S.points;
+};
+S.limitFor = (fov) => 6.6 + 2.0 * Math.log10(70 / fov);
+S.update = (time, fov) => {
+  S.uni.time.value = time;
+  S.uni.mlim.value = S.limitFor(fov);
+  S.uni.pxScale.value = SG.R.renderer.getPixelRatio() * SG.clamp(Math.pow(innerHeight / 900, 0.35), 0.8, 1.2);
+};
+S.setViewer = (v) => {
+  S.viewer = v.slice();
+  S.uni.viewer.value.set(v[0], v[1], v[2]);
+  const C = SG.Cat, n = C.n, mags = S.mags = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const dx = C.pos[i * 3] - v[0], dy = C.pos[i * 3 + 1] - v[1], dz = C.pos[i * 3 + 2] - v[2], r = Math.hypot(dx, dy, dz);
+    mags[i] = r < S.hideR ? 99 : C.absMag[i] + 5 * Math.log10(r / 32.6156);
+  }
+  const order = [];
+  for (let i = 0; i < n; i++) if (mags[i] < 3.5) order.push(i);
+  order.sort((a, b) => mags[a] - mags[b]);
+  S.brightest = order;
+  S.rank = new Map(order.map((i, k) => [i, k + 1]));
+  return mags;
+};
+S.dirTo = (i) => SG.v.norm(SG.v.sub(SG.Cat.p(i), S.viewer || [0, 0, 0]));
+}
+// ===== lines.js =====
+{
+const L = SG.Lines = { on: false, labels: [] };
+const VS = `
+uniform vec3 viewer; uniform float hideR; varying float vA;
+void main(){ vec3 d = position - viewer; float r = length(d); vA = r < hideR ? 0.0 : 1.0;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(d / max(r, 1e-6) * 990.0, 1.0); }`;
+const FS = 'uniform vec3 color; uniform float opacity; varying float vA; void main(){ gl_FragColor = vec4(color * opacity * vA, 1.0); }';
+const mat = (hex, op, viewer) => new THREE.ShaderMaterial({
+  uniforms: { viewer: { value: viewer }, hideR: { value: SG.Stars.hideR }, color: { value: new THREE.Color(hex) }, opacity: { value: op } },
+  vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+});
+L.build = (scene) => {
+  const C = SG.Cat, segs = [];
+  for (const v of Object.values(C.lines)) for (const i of v) segs.push(i);
+  const pos = new Float32Array(segs.length * 3);
+  segs.forEach((i, k) => { pos[k * 3] = C.pos[i * 3]; pos[k * 3 + 1] = C.pos[i * 3 + 1]; pos[k * 3 + 2] = C.pos[i * 3 + 2]; });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  L.viewer = new THREE.Vector3();
+  L.warped = new THREE.LineSegments(g, mat(0xffc65a, 0.45, L.viewer));
+  L.ghost = new THREE.LineSegments(g, mat(0x5fb8ff, 0.32, new THREE.Vector3(0, 0, 0)));
+  for (const o of [L.warped, L.ghost]) { o.frustumCulled = false; o.visible = false; o.renderOrder = 2; scene.add(o); }
+  L.cons = SG.Astro.conDirs();
+  const box = SG.$('skyLabels');
+  for (const c of L.cons) {
+    const w = SG.h('div', 'clab warp', SG.esc(c.name)), gh = SG.h('div', 'clab ghost', SG.esc(c.name));
+    box.appendChild(w); box.appendChild(gh);
+    L.labels.push({ c, w, gh });
+  }
+  L.show(false);
+};
+L.show = (on) => {
+  L.on = on;
+  L.warped.visible = L.ghost.visible = on;
+  for (const l of L.labels) { l.w.style.display = l.gh.style.display = 'none'; }
+  SG.emit('ghost', on);
+};
+L.setViewer = (v) => L.viewer.set(v[0], v[1], v[2]);
+L.isGhostOnly = () => SG.v.len(SG.Stars.viewer || [0, 0, 0]) < 0.01;
+L.update = () => {
+  if (!L.on) return;
+  const v = SG.Stars.viewer || [0, 0, 0], atSun = L.isGhostOnly();
+  for (const l of L.labels) {
+    const s = [0, 0, 0];
+    for (const i of l.c.stars) { const u = SG.v.norm(SG.v.sub(SG.Cat.p(i), v)); s[0] += u[0]; s[1] += u[1]; s[2] += u[2]; }
+    place(l.w, SG.v.norm(s));
+    if (atSun) l.gh.style.display = 'none'; else place(l.gh, l.c.dir);
+  }
+};
+const place = (el, dir) => {
+  const p = SG.Sky.project(dir);
+  if (!p.front || p.x < -50 || p.y < -20 || p.x > innerWidth + 50 || p.y > innerHeight + 20 || SG.UI.covered(p.x, p.y)) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.transform = 'translate(' + Math.round(p.x) + 'px,' + Math.round(p.y) + 'px) translate(-50%,-50%)';
+};
+}
+// ===== skycam.js =====
+{
+const S = SG.Sky = { ra: 90, dec: 0, fov: 70, vRa: 0, vDec: 0, tween: null, enabled: true };
+const A = SG.Astro;
+S.dir = (ra, dec) => {
+  const r = ra * Math.PI / 180, d = dec * Math.PI / 180, c = Math.cos(d);
+  return [0, 1, 2].map((k) => c * Math.cos(r) * A.EX[k] + c * Math.sin(r) * A.EY[k] + Math.sin(d) * A.NCP[k]);
+};
+S.fovMax = () => (innerWidth < innerHeight ? 95 : 80);
+S.init = () => {
+  S.scene = new THREE.Scene();
+  S.cam = new THREE.PerspectiveCamera(S.fov, innerWidth / innerHeight, 0.5, 4000);
+  S.cam.up.set(A.NCP[0], A.NCP[1], A.NCP[2]);
+  S.scene.add(SG.MW.mesh());
+  S.scene.add(SG.Stars.build());
+  SG.Lines.build(S.scene);
+  SG.on('resize', (w, h) => { S.cam.aspect = w / h; S.cam.updateProjectionMatrix(); });
+  bind(SG.$('gl'));
+};
+S.setViewer = (v) => { SG.Stars.setViewer(v); SG.Lines.setViewer(v); };
+S.look = (ra, dec, fov) => { S.ra = ra; S.dec = dec; if (fov) S.fov = fov; S.tween = null; S.vRa = S.vDec = 0; };
+S.lookAtDir = (g, fov, secs = 1.2) => {
+  const e = A.galToEq(g);
+  let dRa = ((e.ra - S.ra + 540) % 360) - 180;
+  S.tween = { ra0: S.ra, dec0: S.dec, fov0: S.fov, dRa, dDec: e.dec - S.dec, fov1: fov || S.fov, t: 0, T: secs };
+};
+S.zoom = (f) => { S.fov = SG.clamp(S.fov * f, 6, S.fovMax()); };
+S.update = (dt, time) => {
+  if (S.tween) {
+    const tw = S.tween; tw.t += dt; const k = SG.ease(Math.min(1, tw.t / tw.T));
+    S.ra = tw.ra0 + tw.dRa * k; S.dec = tw.dec0 + tw.dDec * k; S.fov = SG.lerp(tw.fov0, tw.fov1, k);
+    if (tw.t >= tw.T) S.tween = null;
+  } else if (!S.dragging) {
+    S.ra += S.vRa * dt; S.dec += S.vDec * dt;
+    S.vRa *= Math.exp(-4 * dt); S.vDec *= Math.exp(-4 * dt);
+    if (S.drift) S.ra += S.drift * dt;
+  }
+  S.dec = SG.clamp(S.dec, -89, 89); S.ra = (S.ra + 360) % 360;
+  S.fov = SG.clamp(S.fov, 6, S.fovMax());
+  const d = S.dir(S.ra, S.dec);
+  S.cam.fov = S.fov; S.cam.updateProjectionMatrix();
+  S.cam.lookAt(d[0], d[1], d[2]);
+  S.cam.updateMatrixWorld();
+  SG.Stars.update(time, S.fov);
+};
+const tmp = new THREE.Vector3();
+S.project = (dir) => {
+  tmp.set(dir[0], dir[1], dir[2]);
+  const fwd = S.dir(S.ra, S.dec), front = SG.v.dot(dir, fwd) > 0.05;
+  tmp.project(S.cam);
+  return { x: (tmp.x + 1) / 2 * innerWidth, y: (1 - tmp.y) / 2 * innerHeight, front };
+};
+S.unproject = (x, y) => {
+  tmp.set(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2, 0.5).unproject(S.cam);
+  return SG.v.norm([tmp.x, tmp.y, tmp.z]);
+};
+function bind(el) {
+  const pts = new Map();
+  let start = null, pinch0 = 0, fov0 = 0;
+  const degPerPx = () => S.fov / innerHeight;
+  el.addEventListener('pointerdown', (e) => {
+    if (!S.enabled) return;
+    el.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    S.tween = null; S.dragging = true; S.vRa = S.vDec = 0;
+    if (pts.size === 1) start = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = S.fov; if (start) start.moved = 99; }
+  });
+  el.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (pts.size >= 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 0) S.fov = SG.clamp(fov0 * pinch0 / Math.max(20, d), 6, S.fovMax()); return; }
+    const k = degPerPx(), cosd = Math.max(0.2, Math.cos(S.dec * Math.PI / 180));
+    S.ra += dx * k / cosd; S.dec += dy * k;
+    S.vRa = dx * k / cosd * 60; S.vDec = dy * k * 60;
+    if (start) start.moved += Math.abs(dx) + Math.abs(dy);
+  });
+  const up = (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (pts.size === 0) {
+      S.dragging = false;
+      if (start && start.moved < 7 && performance.now() - start.t < 600) { S.vRa = S.vDec = 0; SG.emit('skytap', e.clientX, e.clientY); }
+      start = null;
+    }
+  };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', (e) => { if (!S.enabled) return; e.preventDefault(); S.tween = null; S.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+  addEventListener('keydown', (e) => {
+    if (!S.enabled || e.target.tagName === 'INPUT' || SG.Game.phase !== 'sky') return;
+    const k = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[e.key];
+    if (k) { S.ra -= k[0] * S.fov / 70; S.dec += k[1] * S.fov / 70; e.preventDefault(); }
+    if (e.key === '+' || e.key === '=') S.zoom(0.85);
+    if (e.key === '-') S.zoom(1.18);
+  });
+}
+}
+// ===== pick.js =====
+{
+const P = SG.Pick = { sel: -1, sunOn: false, hintLabels: [] };
+const C = () => SG.Cat;
+P.at = (x, y) => {
+  const S = SG.Sky, St = SG.Stars, mags = St.mags; if (!mags) return -1;
+  const dir = S.unproject(x, y), mlim = St.limitFor(S.fov), radPerPx = S.fov * Math.PI / 180 / innerHeight;
+  const v = St.viewer, cat = C();
+  let best = -1, bestScore = 1e9;
+  for (let i = 0; i < cat.n; i++) {
+    const m = mags[i]; if (m > mlim) continue;
+    const dx = cat.pos[i * 3] - v[0], dy = cat.pos[i * 3 + 1] - v[1], dz = cat.pos[i * 3 + 2] - v[2], r = Math.hypot(dx, dy, dz);
+    const cosA = (dx * dir[0] + dy * dir[1] + dz * dir[2]) / r; if (cosA < 0.99) continue;
+    const px = Math.acos(Math.min(1, cosA)) / radPerPx, reach = 14 + Math.max(0, mlim - m) * 2.2;
+    if (px > reach) continue;
+    const score = px - (mlim - m) * 3;
+    if (score < bestScore) { bestScore = score; best = i; }
+  }
+  return best;
+};
+P.named = (i) => i === 0 ? (P.sunOn || SG.Game.revealed() || SG.Game.hint) : (SG.Game.hint || SG.Game.revealed());
+P.select = (i) => {
+  P.sel = i;
+  const card = SG.$('starCard');
+  if (i < 0) { card.classList.add('hide'); return; }
+  const cat = C(), A = SG.Astro, m = SG.Stars.mags[i], rgb = A.bvRGB(cat.ci[i]), rank = SG.Stars.rank.get(i);
+  const show = P.named(i), name = show ? cat.fullName(i) : 'Unknown star';
+  const rows = [
+    ['Colour', '<i class="sw" style="background:' + A.css(rgb) + ';color:' + A.css(rgb) + '"></i>' + A.colorWord(cat.ci[i])],
+    ['Brightness', '<span class="st5">' + A.stars5(m) + '</span> ' + A.magWord(m)],
+    ['Magnitude', m.toFixed(2) + (rank ? ' · #' + rank + ' brightest here' : '')],
+  ];
+  if (show) rows.push(['Type', A.kind(i)]);
+  if (SG.Game.revealed()) rows.push(['From you', SG.ly(SG.v.dist(cat.p(i), SG.Stars.viewer))], ['From Earth', SG.ly(cat.dist[i])]);
+  card.innerHTML = '<button class="x" aria-label="Close">×</button><h3 class="' + (show ? '' : 'unk') + '">' + SG.esc(name) + '</h3>' +
+    rows.map((r) => '<div class="row"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('') +
+    (show ? '' : '<p class="tip">Names appear after you guess, or with a hint.</p>');
+  card.querySelector('.x').onclick = () => P.select(-1);
+  card.classList.remove('hide');
+  SG.Audio && SG.Audio.blip(660 + Math.max(0, 6 - m) * 70);
+};
+SG.on('skytap', (x, y) => { if (SG.Game.phase === 'sky' || SG.Game.phase === 'reveal') P.select(P.at(x, y)); });
+P.findSun = () => {
+  P.sunOn = true;
+  const d = SG.Stars.dirTo(0);
+  SG.Sky.lookAtDir(d, Math.min(SG.Sky.fov, SG.Stars.mags[0] > 6 ? 25 : 45));
+  SG.emit('sunfound');
+};
+P.setHintLabels = () => {
+  const box = SG.$('skyLabels');
+  for (const l of P.hintLabels) l.el.remove();
+  P.hintLabels = [];
+  if (!(SG.Game.hint || SG.Game.revealed())) return;
+  const cat = C(), list = SG.Stars.brightest.filter((i) => cat.name(i)).slice(0, 12);
+  const si = list.indexOf(0); if (si >= 0) list.splice(si, 1);
+  if (!P.sunOn && SG.Stars.mags[0] < 8.5) list.push(0);
+  for (const i of list) { const el = SG.h('div', 'slab' + (i === 0 ? ' sun' : ''), SG.esc(cat.name(i))); box.appendChild(el); P.hintLabels.push({ i, el }); }
+};
+P.reset = () => { P.sunOn = false; P.select(-1); P.setHintLabels(); };
+P.update = () => {
+  const ring = SG.$('sunRing'), S = SG.Sky;
+  const showRing = P.sunOn && (SG.Game.phase === 'sky' || SG.Game.phase === 'reveal');
+  if (showRing) {
+    const p = S.project(SG.Stars.dirTo(0));
+    ring.style.display = p.front && !SG.UI.covered(p.x, p.y) ? 'block' : 'none';
+    ring.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-50%)';
+  } else ring.style.display = 'none';
+  for (const l of P.hintLabels) {
+    const p = S.project(SG.Stars.dirTo(l.i));
+    const ok = p.front && !SG.UI.covered(p.x, p.y) && p.x > -40 && p.x < innerWidth + 40 && p.y > -20 && p.y < innerHeight + 20;
+    l.el.style.display = ok ? 'block' : 'none';
+    if (ok) l.el.style.transform = 'translate(' + Math.round(p.x + 9) + 'px,' + Math.round(p.y - 9) + 'px)';
+  }
+  if (P.sel >= 0 && SG.Game.phase !== 'sky' && SG.Game.phase !== 'reveal') P.select(-1);
+};
+}
+// ===== map.js =====
+{
+const M = SG.Map = {};
+const PVS = `
+attribute float absMag; attribute vec3 color; uniform float pxScale; varying vec3 vCol; varying float vA;
+void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;
+  float s = clamp(2.0 + (1.5 - absMag) * 0.7, 1.7, 8.0); vCol = color; vA = clamp(0.45 + (3.0 - absMag) * 0.12, 0.35, 1.0);
+  gl_PointSize = s * pxScale; }`;
+const PFS = `varying vec3 vCol; varying float vA;
+void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard;
+  gl_FragColor = vec4(vCol * (exp(-r2 * 3.0) + 0.35 * exp(-r2 * 12.0)) * vA, 1.0); }`;
+const DISC_F = `varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0;
+  vec3 c = vec3(0.10, 0.22, 0.42) * (0.04 + 0.3 * exp(-r * 4.0)) * (1.0 - smoothstep(0.85, 1.0, r)); gl_FragColor = vec4(c, 1.0); }`;
+M.RINGS = [10, 25, 50, 100, 250, 500, 1000];
+const lineMat = (hex, op) => new THREE.LineBasicMaterial({ color: hex, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending });
+const spriteMat = (inner, outer) => new THREE.SpriteMaterial({ map: SG.R.glowTex(inner, outer), transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false, blending: THREE.AdditiveBlending });
+M.init = () => {
+  const s = M.scene = new THREE.Scene();
+  M.cam = new THREE.PerspectiveCamera(50, 1.5, 0.05, 30000);
+  M.cam.up.set(0, 0, 1);
+  const disc = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400), new THREE.ShaderMaterial({ vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: DISC_F, depthWrite: false, blending: THREE.AdditiveBlending, transparent: true }));
+  disc.renderOrder = -5; s.add(disc);
+  for (const r of M.RINGS) {
+    const pts = []; for (let k = 0; k <= 160; k++) { const a = k / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); }
+    s.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat(0x58c8ff, r >= 100 ? 0.22 : 0.3)));
+  }
+  const sp = [];
+  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; sp.push(new THREE.Vector3(Math.cos(a) * 4, Math.sin(a) * 4, 0), new THREE.Vector3(Math.cos(a) * 1000, Math.sin(a) * 1000, 0)); }
+  s.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(sp), lineMat(0x58c8ff, 0.07)));
+  s.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(4, 0, 0), new THREE.Vector3(1100, 0, 0)]), lineMat(0xffc070, 0.22)));
+  buildStars(s);
+  M.sun = new THREE.Sprite(spriteMat('rgba(255,230,150,1)', 'rgba(255,200,80,0)')); M.sun.scale.set(0.05, 0.05, 1); s.add(M.sun);
+  buildPin(s);
+  M.target = new THREE.Sprite(spriteMat('rgba(255,215,110,1)', 'rgba(255,170,40,0)')); M.target.visible = false; s.add(M.target);
+  M.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 2, gapSize: 1.4, transparent: true, depthTest: false }));
+  M.line.visible = false; M.line.renderOrder = 5; s.add(M.line);
+  M.sunLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), lineMat(0xffd36b, 0.35));
+  M.sunLine.visible = false; s.add(M.sunLine);
+};
+function buildStars(s) {
+  const C = SG.Cat, idx = [];
+  for (let i = 1; i < C.n; i++) {
+    const d = C.dist[i], Mg = C.absMag[i];
+    if ((d < 60 && Mg < 16) || (Mg < 0 && d < 1500) || (C.name(i) && Mg < 2.5 && d < 900)) idx.push(i);
+  }
+  const pos = new Float32Array(idx.length * 3), col = new Float32Array(idx.length * 3), mag = new Float32Array(idx.length);
+  idx.forEach((i, k) => { for (let j = 0; j < 3; j++) { pos[k * 3 + j] = C.pos[i * 3 + j]; col[k * 3 + j] = SG.Stars.colors[i * 3 + j]; } mag[k] = C.absMag[i]; });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('absMag', new THREE.BufferAttribute(mag, 1));
+  M.pxUni = { value: 1 };
+  M.points = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: { pxScale: M.pxUni }, vertexShader: PVS, fragmentShader: PFS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  M.points.frustumCulled = false; s.add(M.points);
+  M.idx = idx;
+}
+function buildPin(s) {
+  const g = M.pin = new THREE.Group(), red = new THREE.MeshBasicMaterial({ color: 0xff4f8b, depthTest: false, transparent: true });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), red); head.position.z = 3.2;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.62, 2.6, 16), red); cone.rotation.x = -Math.PI / 2; cone.position.z = 1.4;
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true })); dot.position.z = 3.2; dot.position.x = -0.55;
+  g.add(head, cone, dot); for (const m of g.children) m.renderOrder = 6;
+  g.visible = false; s.add(g);
+  M.stalk = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), lineMat(0xff6f9e, 0.7));
+  const ring = []; for (let k = 0; k <= 40; k++) { const a = k / 40 * Math.PI * 2; ring.push(new THREE.Vector3(Math.cos(a), Math.sin(a), 0)); }
+  M.base = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lineMat(0xff6f9e, 0.8));
+  M.stalk.visible = M.base.visible = false; s.add(M.stalk, M.base);
+}
+M.setPin = (p) => {
+  const on = !!p; M.pin.visible = M.stalk.visible = M.base.visible = on; if (!on) return;
+  M.pin.position.set(p[0], p[1], p[2]);
+  M.stalk.geometry.setFromPoints([new THREE.Vector3(p[0], p[1], p[2]), new THREE.Vector3(p[0], p[1], 0)]);
+  M.base.position.set(p[0], p[1], 0);
+};
+M.clear = () => { M.setPin(null); M.target.visible = M.line.visible = M.sunLine.visible = false; };
+M.update = (dt, time) => {
+  const k = M.cam.position.distanceTo(SG.MapCtl.target) * 0.014;
+  M.pin.scale.setScalar(k); M.base.scale.setScalar(k * 1.1);
+  M.pin.rotation.z = SG.MapCtl.theta || 0;
+  M.sun.scale.setScalar(0.045 + 0.006 * Math.sin(time * 2));
+  if (M.target.visible) M.target.scale.setScalar(0.07 + 0.012 * Math.sin(time * 4));
+  M.pxUni.value = SG.R.renderer.getPixelRatio();
+};
+}
+// ===== mapctl.js =====
+{
+const K = SG.MapCtl = { mode: '2d', theta: Math.PI, phi: 0.002, dist: 100, h: 0, snap: true };
+K.target = new THREE.Vector3();
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmp = new THREE.Vector3();
+K.reset = (R) => {
+  K.target.set(0, 0, 0); K.theta = Math.PI; K.h = 0;
+  K.phi = K.mode === '2d' ? 0.002 : 0.95;
+  K.dist = R / Math.tan(25 * Math.PI / 180) * 1.05;
+  K.anim = null; SG.emit('height', 0);
+};
+K.setMode = (m) => { K.mode = m; K.anim = { phi: m === '2d' ? 0.002 : 0.95, t: 0 }; SG.emit('mapmode', m); };
+K.fly = (target, dist, secs = 1.4) => { K.fly0 = { t0: K.target.clone(), t1: new THREE.Vector3(...target), d0: K.dist, d1: dist, t: 0, T: secs }; };
+K.update = (dt) => {
+  if (K.anim) { K.anim.t += dt; K.phi = SG.damp(K.phi, K.anim.phi, 6, dt); if (K.anim.t > 1.2) { K.phi = K.anim.phi; K.anim = null; } }
+  if (K.fly0) {
+    const f = K.fly0; f.t += dt; const k = SG.ease(Math.min(1, f.t / f.T));
+    K.target.lerpVectors(f.t0, f.t1, k); K.dist = SG.lerp(f.d0, f.d1, k);
+    if (f.t >= f.T) K.fly0 = null;
+  }
+  const c = M().cam, sp = Math.sin(K.phi);
+  c.position.set(K.target.x + K.dist * sp * Math.cos(K.theta), K.target.y + K.dist * sp * Math.sin(K.theta), K.target.z + K.dist * Math.cos(K.phi));
+  c.lookAt(K.target); c.updateMatrixWorld();
+};
+const M = () => SG.Map;
+const toNdc = (x, y, rect) => ndc.set((x - rect.left) / rect.width * 2 - 1, 1 - (y - rect.top) / rect.height * 2);
+K.pickPlane = (x, y, rect, h) => {
+  ray.setFromCamera(toNdc(x, y, rect), M().cam);
+  const o = ray.ray.origin, d = ray.ray.direction;
+  if (Math.abs(d.z) < 1e-4) return null;
+  const t = (h - o.z) / d.z; if (t < 0) return null;
+  return [o.x + d.x * t, o.y + d.y * t, h];
+};
+K.toScreen = (p, rect) => {
+  tmp.set(p[0], p[1], p[2]).project(M().cam);
+  return { x: rect.left + (tmp.x + 1) / 2 * rect.width, y: rect.top + (1 - tmp.y) / 2 * rect.height, ok: tmp.z < 1 && tmp.z > -1 };
+};
+K.snapAt = (x, y, rect) => {
+  const C = SG.Cat; let best = -1, bd = 13;
+  for (const i of [0, ...M().idx]) { const s = K.toScreen(C.p(i), rect); if (!s.ok) continue; const d = Math.hypot(s.x - x, s.y - y); if (d < bd) { bd = d; best = i; } }
+  return best;
+};
+K.place = (x, y, rect) => {
+  let p = null, star = -1;
+  if (K.snap) { star = K.snapAt(x, y, rect); if (star >= 0) p = SG.Cat.p(star); }
+  if (!p) p = K.pickPlane(x, y, rect, K.h);
+  if (!p) return;
+  if (star >= 0) { K.h = p[2]; SG.emit('height', K.h); }
+  SG.Game.placePin(p, star);
+};
+K.setHeight = (h) => { K.h = h; const g = SG.Game.pin; if (g) SG.Game.placePin([g[0], g[1], h], -1, true); };
+K.bind = (el) => {
+  const pts = new Map(); let start = null, pinch0 = 0, dist0 = 0;
+  const rect = () => el.getBoundingClientRect();
+  const pan = (dx, dy) => {
+    const c = M().cam, wpp = 2 * K.dist * Math.tan(25 * Math.PI / 180) / rect().height;
+    const right = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 1);
+    if (K.mode === '3d') { right.z = 0; up.z = 0; if (up.lengthSq() < 1e-6) up.set(Math.cos(K.theta + Math.PI), Math.sin(K.theta + Math.PI), 0); right.normalize(); up.normalize(); }
+    K.target.addScaledVector(right, -dx * wpp).addScaledVector(up, dy * wpp);
+    K.fly0 = null;
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, .mapUi')) return;
+    el.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey });
+    if (pts.size === 1) start = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = K.dist; if (start) start.moved = 99; }
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (start) start.moved += Math.abs(dx) + Math.abs(dy);
+    if (pts.size >= 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch0 > 0) K.dist = SG.clamp(dist0 * pinch0 / Math.max(20, d), 3, 9000);
+      pan(dx / 2, dy / 2); return;
+    }
+    if (start && start.moved < 5) return;
+    if (K.mode === '3d' && p.b === 0 && !p.sh) { K.theta -= dx * 0.008; K.phi = SG.clamp(K.phi - dy * 0.008, 0.05, 1.5); K.anim = null; }
+    else pan(dx, dy);
+  });
+  const up = (e) => {
+    if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
+    if (pts.size === 0 && start && start.moved < 7 && performance.now() - start.t < 700 && SG.Game.phase === 'sky') K.place(e.clientX, e.clientY, rect());
+    if (pts.size === 0) start = null;
+  };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  el.addEventListener('wheel', (e) => { e.preventDefault(); K.dist = SG.clamp(K.dist * Math.exp(e.deltaY * 0.0012), 3, 9000); K.fly0 = null; }, { passive: false });
+};
+K.zoom = (f) => { K.dist = SG.clamp(K.dist * f, 3, 9000); };
+}
+// ===== maplabels.js =====
+{
+const ML = SG.MapLabels = { items: [] };
+const COMPASS = ['Sgr', 'Aql', 'Cyg', 'Cas', 'Per', 'Ori', 'CMa', 'Vel', 'Cen', 'Sco'];
+ML.add = (text, pos, cls, pri, extra) => {
+  const el = SG.h('div', 'mlab ' + cls, text);
+  ML.box.appendChild(el);
+  const it = Object.assign({ el, pos, pri, cls, w: 0, shown: false }, extra || {});
+  ML.items.push(it);
+  return it;
+};
+ML.init = () => {
+  const C = SG.Cat;
+  ML.box = SG.$('mapLabels');
+  ML.add('Sun', [0, 0, 0], 'sun', 0);
+  SG.MapStars.forEach((n, k) => { const i = C.find(n); if (i > 0) ML.add(SG.esc(C.name(i)), C.p(i), 'star', 10 + k, { star: i }); });
+  SG.Clusters.forEach((c, k) => ML.add(SG.esc(c.name), SG.Astro.fromLB(c.l, c.b, c.d), 'cluster', 8 + k * 2));
+  SG.Map.RINGS.forEach((r) => { const a = -2.2; ML.add(r + ' ly', [Math.cos(a) * r, Math.sin(a) * r, 0], 'ring', 5, { ring: r }); });
+  const dirs = SG.Astro.conDirs();
+  for (const ab of COMPASS) {
+    const d = dirs.find((x) => x.ab === ab); if (!d) continue;
+    const v = [d.dir[0], d.dir[1]], l = Math.hypot(v[0], v[1]) || 1;
+    ML.add((ab === 'Sgr' ? '→ Sagittarius · galactic centre' : '→ ' + d.name), [0, 0, 0], 'dir', 3, { dir: [v[0] / l, v[1] / l] });
+  }
+  ML.pin = ML.add('Your guess', [0, 0, 0], 'pin', 1); ML.pin.hidden = true;
+  ML.tgt = ML.add('', [0, 0, 0], 'target', 0.5); ML.tgt.hidden = true;
+};
+ML.update = (rect) => {
+  const K = SG.MapCtl, placed = [], R = K.dist * Math.tan(25 * Math.PI / 180) * (rect.width / rect.height);
+  const order = ML.items.slice().sort((a, b) => a.pri - b.pri);
+  const small = rect.width < 420 && SG.Game.phase === 'sky';
+  for (const it of order) {
+    let pos = it.pos;
+    if (it.dir) { const rr = Math.min(R * 0.78, K.dist * 0.42 * rect.width / rect.height); pos = [K.target.x + it.dir[0] * rr, K.target.y + it.dir[1] * rr, K.target.z]; }
+    let show = !it.hidden && (!small || it.pri < 6);
+    if (show && it.ring) show = it.ring > K.dist * 0.04 && it.ring < K.dist * 1.2;
+    let s = null;
+    if (show) { s = K.toScreen(pos, rect); show = s.ok; }
+    if (show) {
+      const x = s.x - rect.left, y = s.y - rect.top;
+      if (!it.w) { it.el.style.display = 'block'; it.w = it.el.offsetWidth || it.el.textContent.length * 7; it.hgt = it.el.offsetHeight || 16; it.shown = true; }
+      const bx = it.dir ? x - it.w / 2 : x + 7, by = it.dir ? y - it.hgt / 2 : y - it.hgt - 3;
+      const box = [bx - 3, by - 2, bx + it.w + 3, by + it.hgt + 2];
+      show = box[0] > 0 && box[1] > 0 && box[2] < rect.width && box[3] < rect.height - 4 &&
+        (it.pri < 1 || !placed.some((b) => b[0] < box[2] && b[2] > box[0] && b[1] < box[3] && b[3] > box[1]));
+      if (show) { placed.push(box); it.el.style.transform = 'translate(' + Math.round(bx) + 'px,' + Math.round(by) + 'px)'; }
+    }
+    if (show !== it.shown) { it.el.style.display = show ? 'block' : 'none'; it.shown = show; }
+  }
+};
+ML.setPin = (p) => { ML.pin.hidden = !p; if (p) ML.pin.pos = p; };
+ML.setTarget = (p, name) => { ML.tgt.hidden = !p; if (p) { ML.tgt.pos = p; ML.tgt.el.textContent = name; ML.tgt.w = 0; } };
+}
+// ===== reveal.js =====
+{
+const RV = SG.Reveal = { t: -1 };
+const V3 = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+RV.start = (pin, target, name, diff) => {
+  const M = SG.Map, K = SG.MapCtl;
+  RV.pin = pin; RV.target = target; RV.t = 0; RV.T = pin ? 1.4 : 0.01; RV.done = false;
+  M.target.position.copy(V3(target)); M.target.visible = true;
+  SG.MapLabels.setTarget(target, name);
+  M.sunLine.geometry.setFromPoints([new THREE.Vector3(0, 0, 0), V3(target)]);
+  M.sunLine.visible = false;
+  const R = SG.Rules.DIFF[diff].R;
+  let mid = target, spread = Math.max(R * 0.25, SG.v.len(target) * 0.35);
+  if (pin) {
+    const e = SG.v.dist(pin, target);
+    mid = [(pin[0] + target[0]) / 2, (pin[1] + target[1]) / 2, (pin[2] + target[2]) / 2];
+    spread = Math.max(e * 0.75, R * 0.12, 3);
+    M.line.material.dashSize = e / 36; M.line.material.gapSize = e / 52;
+    M.line.visible = true;
+  } else M.line.visible = false;
+  RV.fitTo = { mid, spread };
+  SG.Audio && SG.Audio.whoosh();
+};
+RV.fit = () => {
+  const { mid, spread } = RV.fitTo, panel = SG.$('mapPanel').getBoundingClientRect(), card = SG.$('revealCard').getBoundingClientRect();
+  const T25 = Math.tan(25 * Math.PI / 180);
+  let dx = 0, dy = 0, frac = 1;
+  if (card.width > panel.width * 0.7) { const free = Math.max(120, card.top - panel.top); dy = free / 2 - panel.height / 2; frac = free / panel.height; }
+  else { const free = Math.max(160, panel.right - card.right); dx = (panel.width - free) / 2; frac = Math.min(1, free / panel.width * (panel.width / panel.height)); }
+  const dist = spread / T25 * 1.25 / Math.max(0.35, frac), wpp = 2 * dist * T25 / panel.height, c = SG.Map.cam;
+  const right = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 1);
+  const t = V3(mid).addScaledVector(right, -dx * wpp).addScaledVector(up, dy * wpp);
+  SG.MapCtl.fly([t.x, t.y, t.z], dist, 1.2);
+};
+RV.update = (dt) => {
+  if (RV.t < 0 || RV.done) return;
+  if (RV.fitTo) { RV.fit(); RV.fitTo = null; }
+  RV.t += dt;
+  const k = SG.ease(SG.clamp((RV.t - 0.25) / RV.T, 0, 1)), M = SG.Map;
+  if (RV.pin) {
+    const a = RV.pin, b = RV.target, e = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+    M.line.geometry.setFromPoints([V3(a), V3(e)]);
+    M.line.computeLineDistances();
+  }
+  if (k >= 1) { RV.done = true; M.sunLine.visible = true; SG.emit('revealDone'); }
+};
+RV.stop = () => { RV.t = -1; RV.done = false; RV.fitTo = null; SG.MapLabels.setTarget(null); };
+}
+// ===== game.js =====
+{
+const G = SG.Game = { phase: 'home', mode: 'medium', rounds: [], i: 0, results: [], pin: null, pinStar: -1, hint: false, timer: false, left: 0 };
+const Ru = SG.Rules;
+G.revealed = () => G.phase === 'reveal' || G.phase === 'results';
+G.round = () => G.rounds[G.i];
+G.start = (mode, opts = {}) => {
+  G.mode = mode; G.timer = !!opts.timer; G.date = Ru.today();
+  const seed = mode === 'daily' ? Ru.dailySeed(G.date) : (opts.seed != null ? opts.seed : Math.floor(SG.rand() * 4294967295));
+  G.seed = seed;
+  G.rounds = Ru.makeRounds(mode, seed);
+  G.results = []; G.total = 0;
+  G.begin(0);
+  SG.emit('gamestart', mode);
+};
+G.begin = (i) => {
+  G.i = i; const r = G.round(), C = SG.Cat;
+  G.viewer = C.p(r.idx);
+  G.pin = null; G.pinStar = -1; G.hint = false;
+  SG.Sky.setViewer(G.viewer);
+  SG.Sky.look(r.ra, r.dec, innerWidth < innerHeight ? 85 : 70); SG.Sky.drift = 0;
+  SG.Reveal.stop();
+  SG.Map.clear(); SG.MapLabels.setPin(null);
+  SG.MapCtl.reset(Ru.DIFF[r.diff].mapR);
+  SG.Pick.reset();
+  G.left = Ru.TIMER;
+  G.phase = 'sky';
+  SG.emit('round', r);
+};
+G.placePin = (p, star = -1, quiet) => {
+  if (G.phase !== 'sky') return;
+  G.pin = p.slice(); G.pinStar = star;
+  SG.Map.setPin(G.pin); SG.MapLabels.setPin(G.pin);
+  if (!quiet && SG.Audio) SG.Audio.pin();
+  SG.emit('pin', G.pin, star);
+};
+G.useHint = () => {
+  if (G.phase !== 'sky' || G.hint) return;
+  G.hint = true; SG.Pick.setHintLabels();
+  if (SG.Pick.sel >= 0) SG.Pick.select(SG.Pick.sel);
+  SG.emit('hint');
+};
+G.guess = (timedOut) => {
+  if (G.phase !== 'sky' || (!G.pin && !timedOut)) return null;
+  const r = G.round(), C = SG.Cat, target = C.p(r.idx);
+  const err = G.pin ? SG.v.dist(G.pin, target) : Infinity;
+  let score = G.pin ? Ru.score(err, r.diff) : 0;
+  if (G.hint) score = Math.round(score * Ru.HINT_FACTOR);
+  const res = { idx: r.idx, diff: r.diff, err, score, hint: G.hint, pin: G.pin, name: C.fullName(r.idx), dist: C.dist[r.idx], timedOut: !!timedOut && !G.pin };
+  G.results.push(res); G.total += score;
+  G.phase = 'reveal';
+  SG.Reveal.start(G.pin, target, C.name(r.idx) || C.label(r.idx), r.diff);
+  SG.Pick.setHintLabels(); SG.Pick.sunOn = true;
+  SG.emit('reveal', res);
+  return res;
+};
+G.next = () => {
+  if (G.phase !== 'reveal') return;
+  if (G.i + 1 < G.rounds.length) G.begin(G.i + 1); else G.finish();
+};
+G.finish = () => {
+  G.phase = 'results';
+  G.isBest = Ru.saveResult(G.mode, G.total, G.date);
+  G.share = Ru.shareText(G);
+  SG.emit('results', G);
+};
+G.home = () => { G.phase = 'home'; SG.Reveal.stop(); SG.Pick.reset(); SG.emit('home'); };
+G.update = (dt) => {
+  if (G.phase === 'sky' && G.timer) {
+    G.left -= dt;
+    if (G.left <= 0) { G.left = 0; G.guess(true); }
+  }
+};
+}
+// ===== audio.js =====
+{
+const AU = SG.Audio = { on: SG.store.get('sound', true), ctx: null };
+AU.unlock = () => {
+  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  try { AU.ctx = new AC(); } catch (e) { return; }
+  const c = AU.ctx;
+  AU.master = c.createGain(); AU.master.gain.value = AU.on ? 0.8 : 0; AU.master.connect(c.destination);
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.7;
+  const pg = c.createGain(); pg.gain.value = 0.0; pg.gain.linearRampToValueAtTime(0.045, c.currentTime + 4);
+  lp.connect(pg); pg.connect(AU.master);
+  for (const [f, d] of [[110, -6], [110, 7], [164.8, 3], [220, -4]]) { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.detune.value = d; o.connect(lp); o.start(); }
+  const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 260; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  AU.pad = pg;
+};
+addEventListener('pointerdown', AU.unlock, { capture: true });
+addEventListener('keydown', AU.unlock, { capture: true });
+AU.set = (on) => {
+  AU.on = on; SG.store.set('sound', on);
+  if (AU.master) AU.master.gain.setTargetAtTime(on ? 0.8 : 0, AU.ctx.currentTime, 0.1);
+  SG.emit('sound', on);
+};
+const tone = (f, type, t0, dur, vol, f2) => {
+  const c = AU.ctx; if (!c || !AU.on) return;
+  const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dur + 0.05);
+};
+AU.blip = (f = 880) => tone(Math.min(f, 1600), 'sine', 0, 0.16, 0.08);
+AU.click = () => tone(1200, 'triangle', 0, 0.06, 0.04);
+AU.pin = () => { tone(520, 'triangle', 0, 0.12, 0.09, 900); tone(1040, 'sine', 0.06, 0.18, 0.05); };
+AU.tick = () => tone(1500, 'square', 0, 0.04, 0.025);
+AU.whoosh = () => {
+  const c = AU.ctx; if (!c || !AU.on) return;
+  const len = c.sampleRate * 1.4, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+  const s = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime;
+  s.buffer = buf; bp.type = 'bandpass'; bp.Q.value = 2.5; bp.frequency.setValueAtTime(250, t); bp.frequency.exponentialRampToValueAtTime(2400, t + 1.3);
+  g.gain.value = 0.12; s.connect(bp); bp.connect(g); g.connect(AU.master); s.start(t);
+};
+AU.score = (score) => {
+  const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5], n = 1 + Math.round(score / 5000 * 4);
+  for (let k = 0; k < n; k++) tone(notes[k], 'sine', 0.12 * k, 0.5, 0.07);
+  if (score >= 4900) tone(2093, 'triangle', 0.12 * n, 0.8, 0.04);
+};
+AU.fanfare = () => { [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, k) => tone(f, 'triangle', 0.1 * k, 0.6, 0.06)); };
+}
+// ===== ui.js =====
+{
+const U = SG.UI = {};
+const $ = SG.$, G = SG.Game, Ru = SG.Rules;
+const vis = (id, on) => $(id).classList.toggle('hide', !on);
+U.init = () => {
+  document.querySelectorAll('.mode').forEach((b) => { b.onclick = () => U.play(b.dataset.m); });
+  $('bDaily').onclick = () => U.play('daily');
+  $('optTimer').checked = SG.store.get('timer', false);
+  $('optTimer').onchange = () => SG.store.set('timer', $('optTimer').checked);
+  $('bSnd').onclick = $('bSnd2').onclick = () => SG.Audio.set(!SG.Audio.on);
+  $('bQuit').onclick = () => { if (G.phase === 'sky' && !confirm('Quit this game?')) return; G.home(); };
+  $('bGhost').onclick = () => { SG.Lines.show(!SG.Lines.on); SG.Audio.click(); };
+  $('bHint').onclick = () => { if (G.hint) return; G.useHint(); SG.toast('Hint used: the brightest stars are named. This round scores 80%.'); };
+  $('bSun').onclick = () => { SG.Pick.findSun(); SG.Audio.click(); };
+  $('bZin').onclick = () => SG.Sky.zoom(0.7); $('bZout').onclick = () => SG.Sky.zoom(1.4);
+  $('bMode').onclick = () => SG.MapCtl.setMode(SG.MapCtl.mode === '2d' ? '3d' : '2d');
+  $('bSnap').onclick = () => { SG.MapCtl.snap = !SG.MapCtl.snap; $('bSnap').classList.toggle('on', SG.MapCtl.snap); };
+  $('bMzin').onclick = () => SG.MapCtl.zoom(0.7); $('bMzout').onclick = () => SG.MapCtl.zoom(1.4);
+  $('hSlider').oninput = () => { SG.MapCtl.setHeight(+$('hSlider').value); showH(+$('hSlider').value); };
+  $('bGuess').onclick = () => G.guess();
+  $('bMap').onclick = () => U.phoneMap(true);
+  $('bMapX').onclick = () => U.phoneMap(false);
+  $('bBackMap').onclick = () => U.lookSky(false);
+  const wrap = $('mapWrap'); let tOut = 0;
+  wrap.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { clearTimeout(tOut); wrap.classList.add('wide'); } });
+  wrap.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') tOut = setTimeout(() => wrap.classList.remove('wide'), 500); });
+  SG.MapCtl.bind($('mapPanel'));
+  SG.on('sound', (on) => { $('bSnd').textContent = 'Sound: ' + (on ? 'on' : 'off'); $('bSnd2').classList.toggle('off', !on); });
+  SG.emit('sound', SG.Audio.on);
+  SG.on('ghost', (on) => $('bGhost').classList.toggle('on', on));
+  SG.on('hint', () => $('bHint').classList.add('on'));
+  SG.on('sunfound', () => $('bSun').classList.add('on'));
+  SG.on('height', (h) => { $('hSlider').value = h; showH(h); });
+  SG.on('pin', () => { $('bGuess').disabled = false; $('bGuess').textContent = 'GUESS'; $('mapHint').classList.add('hide'); });
+  SG.on('round', U.onRound);
+  SG.on('reveal', (r) => U.onReveal(r));
+  SG.on('home', U.home);
+  addEventListener('keydown', (e) => {
+    if (e.key === ' ' && G.phase === 'reveal' && e.target.tagName !== 'BUTTON') { e.preventDefault(); G.next(); }
+    if (e.key === 'Enter' && G.phase === 'sky' && G.pin) G.guess();
+  });
+  U.home();
+};
+const showH = (h) => { $('hVal').textContent = (h > 0 ? '+' : '') + (Math.abs(h) < 10 ? (+h).toFixed(1) : Math.round(h)) + ' ly'; };
+U.play = (mode) => { SG.Audio.unlock(); SG.Audio.click(); G.start(mode, { timer: $('optTimer').checked }); };
+U.home = () => {
+  U.layers('home');
+  SG.Sky.setViewer([0, 0, 0]); SG.Sky.look(84, 4, 75); SG.Sky.drift = SG.TILE ? 0 : 1.2;
+  SG.Lines.show(false);
+  for (const b of document.querySelectorAll('.mode')) { const s = Ru.best(b.dataset.m); b.querySelector('.best').textContent = s ? 'Best ' + SG.fmt(s) : ''; }
+  const done = Ru.dailyDone(Ru.today());
+  $('dailyInfo').textContent = Ru.today() + ' · same 5 stars for everyone' + (done ? ' · your best today ' + SG.fmt(done) : '');
+};
+U.layers = (ph) => {
+  const game = ph === 'sky' || ph === 'reveal' || ph === 'look';
+  vis('home', ph === 'home'); vis('results', ph === 'results'); vis('about', ph === 'about');
+  vis('hud', game); vis('tools', ph === 'sky' || ph === 'look');
+  vis('mapWrap', ph === 'sky' || ph === 'reveal'); vis('revealCard', ph === 'reveal'); vis('bBackMap', ph === 'look');
+  vis('bMap', ph === 'sky' && SG.isPhone());
+  $('mapWrap').classList.toggle('reveal', ph === 'reveal');
+  if (ph !== 'sky') $('mapWrap').classList.remove('open');
+  $('kai').classList.toggle('inGame', game);
+  SG.Sky.enabled = ph !== 'results' && ph !== 'about';
+  U.ph = ph;
+  if (ph !== 'sky' && ph !== 'look') SG.Pick.select(-1);
+};
+U.phoneMap = (open) => { $('mapWrap').classList.toggle('open', open); vis('bMap', !open && SG.isPhone()); vis('tools', !open); if (open) SG.Pick.select(-1); SG.Audio.click(); };
+U.lookSky = (on) => { U.layers(on ? 'look' : 'reveal'); };
+U.mapVisible = () => {
+  if (U.ph === 'reveal') return true;
+  if (U.ph !== 'sky') return false;
+  return !SG.isPhone() || $('mapWrap').classList.contains('open');
+};
+U.covered = (x, y) => { const r = U.mapRect; if (U.ph === 'reveal' || U.mapCoversSky()) return true; return !!r && x > r.left - 8 && x < r.right + 8 && y > r.top - 8 && y < r.bottom + 60; };
+U.mapCoversSky = () => U.ph === 'reveal' || (U.ph === 'sky' && SG.isPhone() && $('mapWrap').classList.contains('open'));
+addEventListener('resize', () => { if (U.ph) U.layers(U.ph); });
+U.onRound = (r) => {
+  U.layers('sky');
+  const D = Ru.DIFF[r.diff];
+  $('hRound').textContent = (G.i + 1) + '/' + G.rounds.length;
+  $('hScore').textContent = SG.fmt(G.total);
+  $('hDiff').textContent = (G.mode === 'daily' ? 'Daily · ' : '') + D.label;
+  $('hDiff').dataset.d = r.diff;
+  vis('hTimerBox', G.timer);
+  vis('bSun', r.diff === 'easy');
+  for (const id of ['bHint', 'bSun']) $(id).classList.remove('on');
+  $('bGuess').disabled = true; $('bGuess').textContent = 'Place your pin on the map';
+  $('mapHint').classList.remove('hide');
+  const hs = $('hSlider'); hs.min = -D.mapR * 0.6; hs.max = D.mapR * 0.6; hs.step = D.R / 300; hs.value = 0; showH(0);
+  $('bMode').textContent = SG.MapCtl.mode === '2d' ? '3D' : 'Top';
+  SG.toast('Round ' + (G.i + 1) + ': where in space are you?', 2000);
+  if (!SG.store.get('tips', false) && !SG.TEST) {
+    SG.store.set('tips', true);
+    setTimeout(() => SG.toast('Drag to look around. Tap a star to inspect it.', 3800), 2300);
+    setTimeout(() => SG.toast('Then drop your pin on the map and press GUESS!', 3800), 6400);
+  }
+};
+SG.on('mapmode', (m) => { $('bMode').textContent = m === '2d' ? '3D' : 'Top'; });
+let lastSec = -1;
+U.update = () => {
+  if (G.phase === 'sky' && G.timer) {
+    const s = Math.ceil(G.left);
+    if (s !== lastSec) { lastSec = s; $('hTimer').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); $('hTimerBox').classList.toggle('warn', s <= 10); if (s <= 10 && s > 0) SG.Audio.tick(); }
+  }
+};
+}
+// ===== ui2.js =====
+{
+const U = SG.UI, $ = SG.$, G = SG.Game, Ru = SG.Rules;
+U.onReveal = (r) => {
+  U.layers('reveal');
+  const C = SG.Cat, A = SG.Astro, i = r.idx;
+  const sunM = SG.Stars.mags[0];
+  const errTxt = r.timedOut ? 'Time ran out before you placed a pin!' : 'Your pin was <b>' + SG.ly(r.err) + '</b> from the real star' + (r.err < Ru.DIFF[r.diff].R / 60 ? ' — bullseye!' : '.');
+  $('revealCard').innerHTML =
+    '<div class="pts"><b id="ptsN">0</b><span>/ 5,000</span>' + (r.hint ? '<em>hint ×0.8</em>' : '') + '</div>' +
+    '<div class="bar"><i style="width:' + (r.score / 50).toFixed(1) + '%"></i></div>' +
+    '<p class="err">' + errTxt + '</p>' +
+    '<h3>You were at <span>' + SG.esc(C.fullName(i)) + '</span></h3>' +
+    '<p class="meta">' + SG.ly(C.dist[i]) + ' from Earth · ' + SG.esc(A.kind(i)) + ' · the Sun looked ' + (sunM < 6.6 ? 'like a magnitude ' + sunM.toFixed(1) + ' star' : 'too faint to see (mag ' + sunM.toFixed(1) + ')') + '</p>' +
+    '<p class="fact">' + SG.esc(SG.factFor(i)) + '</p>' +
+    '<div class="btns"><button id="bLook" class="ghostBtn">Look at this sky</button><button id="bNext" class="big">' + (G.i + 1 < G.rounds.length ? 'Next round →' : 'See results →') + '</button></div>';
+  $('bNext').onclick = () => { SG.Audio.click(); G.next(); };
+  $('bLook').onclick = () => U.lookSky(true);
+  $('hScore').textContent = SG.fmt(G.total);
+  countUp($('ptsN'), r.score, 900);
+  setTimeout(() => SG.Audio.score(r.score), 600);
+};
+const countUp = (el, to, ms) => {
+  const t0 = performance.now();
+  const step = (now) => { const k = Math.min(1, (now - t0) / ms); el.textContent = SG.fmt(to * SG.ease(k)); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+};
+SG.on('results', (g) => {
+  U.layers('results');
+  const C = SG.Cat, max = Ru.MAX * g.rounds.length;
+  const rows = g.results.map((r, k) => '<tr><td>' + (k + 1) + '</td><td class="nm">' + SG.esc(C.name(r.idx) || C.label(r.idx)) + '<small>' + SG.ly(r.dist) + ' from Earth · ' + Ru.DIFF[r.diff].label + '</small></td><td>' + (r.pin ? SG.ly(r.err) : '—') + '</td><td class="sc">' + Ru.square(r.score) + ' ' + SG.fmt(r.score) + '</td></tr>').join('');
+  const best = Ru.best(g.mode);
+  $('resPanel').innerHTML =
+    '<h2 class="logo sm">STAR<span>GUESSR</span></h2><p class="sub">' + (g.mode === 'daily' ? 'Daily Challenge · ' + g.date : Ru.DIFF[g.mode].label + ' game') + '</p>' +
+    '<div class="total"><b id="totN">0</b><span>/ ' + SG.fmt(max) + '</span></div>' +
+    (g.isBest ? '<div class="newBest">New best score!</div>' : '<div class="bestLine">Your best: ' + SG.fmt(best) + '</div>') +
+    '<table class="rt"><thead><tr><th>#</th><th>Star system</th><th>Off by</th><th>Points</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<pre id="shareTxt">' + SG.esc(g.share) + '</pre>' +
+    '<div class="btns"><button id="bShare" class="big">Copy share text</button><button id="bAgain" class="ghostBtn">Play again</button><button id="bHome" class="ghostBtn">Menu</button></div>';
+  countUp($('totN'), g.total, 1200);
+  SG.Audio.fanfare();
+  $('bShare').onclick = () => {
+    const done = () => SG.toast('Copied! Paste it anywhere to share.');
+    try { navigator.clipboard.writeText(g.share).then(done, () => selectShare()); } catch (e) { selectShare(); }
+  };
+  $('bAgain').onclick = () => U.play(g.mode);
+  $('bHome').onclick = () => G.home();
+});
+const selectShare = () => { const r = document.createRange(); r.selectNodeContents($('shareTxt')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); SG.toast('Select and copy the text above.'); };
+U.page = (html) => {
+  U.layers('about');
+  $('aboutPanel').innerHTML = html + '<div class="btns"><button id="bBack" class="big">Back</button></div>';
+  $('bBack').onclick = () => G.home();
+};
+const HOW = '<h2>How to play</h2><ol class="how">' +
+  '<li><b>You have been beamed to a real star.</b> The sky around you is the real sky from that spot, drawn from a catalogue of about 78,000 stars.</li>' +
+  '<li><b>Look for clues.</b> Drag to look around and zoom to see fainter stars. Bright stars like Sirius look brighter if you are near them. Turn on <i>Constellations</i>: gold lines show the star patterns as they look from here, blue ghosts show how they look from Earth. The more they differ, the further you are from home.</li>' +
+  '<li><b>Find the Sun.</b> It is just a faint yellow star from out here. If you can see it, you are close to home; the direction it sits in tells you which way home is. The Milky Way band barely moves, so use it like a compass.</li>' +
+  '<li><b>Drop your pin</b> on the map of our stellar neighbourhood (the Sun is in the middle). Use the height slider or snap onto a star, then press GUESS.</li>' +
+  '<li><b>Score</b> up to 5,000 points a round. The closer you are in light-years, the more you get!</li></ol>';
+U.how = () => U.page(HOW);
+U.about = () => U.page('<h2>About STARGUESSR</h2><p>GeoGuessr, but in space. Every star is real: its true 3D position, brightness and colour come from a star catalogue, and the sky is recalculated for wherever you are.</p>' +
+  '<h3>Credits</h3><ul class="cred">' +
+  '<li><b>Star data:</b> the <a href="https://github.com/astronexus/HYG-Database" target="_blank" rel="noopener">HYG Database</a> v4.1 by David Nash (astronexus), combining the Hipparcos, Yale Bright Star and Gliese catalogues. Licensed <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>. STARGUESSR uses a trimmed, compressed copy of it, shared under the same licence.</li>' +
+  '<li><b>Constellation lines:</b> simple stick figures drawn for this game from Bayer star designations.</li>' +
+  '<li><b>Milky Way:</b> procedurally generated, no images.</li>' +
+  '<li><b>3D engine:</b> three.js r128 (MIT licence). <b>Fonts:</b> Orbitron and Exo 2 (SIL Open Font Licence).</li></ul>' +
+  '<p class="small">Distances beyond a few hundred light-years are uncertain, and the catalogue misses faint stars far from Earth, so distant skies look a little emptier than they really would.</p>');
+$('bHow').onclick = U.how; $('bAbout').onclick = U.about;
+}
+// ===== tile.js =====
+{
+SG.Tile = {
+  setup() {
+    document.body.classList.add('tile');
+    SG.UI.layers('none');
+    SG.Sky.setViewer([0, 0, 0]);
+    SG.Sky.look(262, -30, 74); SG.Sky.drift = 0; SG.Sky.enabled = false;
+    SG.Stars.uni.twinkle.value = 0; SG.MW.mat.uniforms.gain.value = 1.6;
+    const art = SG.h('div', '', '');
+    art.id = 'tileArt';
+    document.body.appendChild(art);
+    let n = 0;
+    const draw = () => {
+      if (++n < 4) return requestAnimationFrame(draw);
+      const p = SG.Sky.project(SG.Stars.dirTo(SG.Cat.find('Antares')));
+      const sx = SG.clamp(p.x, 980, 1500), sy = SG.clamp(p.y, 560, 700);
+      const px = 300, py = 640;
+      art.innerHTML =
+        '<svg width="1640" height="820" viewBox="0 0 1640 820">' +
+        '<defs><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+        '<radialGradient id="pg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ff9cc0"/><stop offset="1" stop-color="#e8285f"/></radialGradient></defs>' +
+        '<path d="M' + px + ' ' + (py + 6) + ' Q ' + ((px + sx) / 2) + ' ' + (Math.min(py, sy) - 210) + ' ' + (sx - 30) + ' ' + (sy - 12) + '" fill="none" stroke="#ffffff" stroke-width="7" stroke-dasharray="22 16" stroke-linecap="round" opacity="0.92" filter="url(#gl)"/>' +
+        '<radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff"/><stop offset="0.25" stop-color="#ffe7b0"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>' +
+        '<circle cx="' + sx + '" cy="' + sy + '" r="26" fill="url(#sg)"/><path d="M' + (sx - 30) + ' ' + sy + 'H' + (sx + 30) + 'M' + sx + ' ' + (sy - 30) + 'V' + (sy + 30) + '" stroke="#fff6dd" stroke-width="2" opacity="0.8"/>' +
+        '<circle cx="' + sx + '" cy="' + sy + '" r="34" fill="none" stroke="#ffd36b" stroke-width="5" filter="url(#gl)"/>' +
+        '<circle cx="' + sx + '" cy="' + sy + '" r="58" fill="none" stroke="#ffd36b" stroke-width="2.5" opacity="0.55"/>' +
+        '<ellipse cx="' + px + '" cy="' + (py + 8) + '" rx="46" ry="13" fill="none" stroke="#ff6f9e" stroke-width="4" opacity="0.8"/>' +
+        '<g filter="url(#gl)" transform="translate(' + px + ' ' + py + ')"><path d="M0 0 C -16 -40 -46 -62 -46 -100 A 46 46 0 1 1 46 -100 C 46 -62 16 -40 0 0 Z" fill="url(#pg)" stroke="#fff" stroke-width="4"/><circle cx="0" cy="-100" r="17" fill="#fff"/></g>' +
+        '</svg><div class="tileTitle">STARGUESSR</div>';
+      document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { window.TILE_READY = true; })));
+    };
+    requestAnimationFrame(draw);
+  },
+};
+}
+// ===== main.js =====
+{
+const fail = (msg) => { const b = SG.$('bootMsg'); if (b) b.innerHTML = msg; };
+let last = 0, time = 0;
+const frame = (now) => {
+  requestAnimationFrame(frame);
+  const ms = last ? now - last : 16.7; last = now;
+  const dt = Math.min(0.05, ms / 1000); time += dt;
+  if (!document.hidden) SG.R.mark(ms);
+  const c0 = performance.now();
+  SG.Game.update(dt); SG.UI.update();
+  SG.Sky.update(dt, time);
+  SG.R.renderer.setScissorTest(false); SG.R.renderer.setViewport(0, 0, SG.R.w, SG.R.h);
+  if (SG.UI.mapCoversSky()) SG.R.renderer.clear(true, true, false); else SG.R.draw(SG.Sky.scene, SG.Sky.cam, null);
+  SG.UI.mapRect = null;
+  if (SG.UI.mapVisible()) {
+    const rect = SG.UI.mapRect = SG.$('mapPanel').getBoundingClientRect();
+    if (rect.width > 20 && rect.height > 20) {
+      SG.MapCtl.update(dt); SG.Reveal.update(dt); SG.Map.update(dt, time);
+      SG.Map.cam.aspect = rect.width / rect.height; SG.Map.cam.updateProjectionMatrix();
+      SG.R.draw(SG.Map.scene, SG.Map.cam, rect);
+      SG.MapLabels.update(rect);
+    }
+  }
+  SG.Lines.update(); SG.Pick.update();
+  SG.R.cpu.push(performance.now() - c0); if (SG.R.cpu.length > 240) SG.R.cpu.shift();
+  if (!window.SG_READY) { window.SG_READY = true; const b = SG.$('boot'); if (b) { b.classList.add('out'); setTimeout(() => b.remove(), 700); } SG.emit('ready'); }
+};
+const boot = async () => {
+  if (!window.THREE) return fail('Could not load the 3D engine. Check your connection and refresh.');
+  if (!SG.R.init()) return fail('Your browser could not start WebGL (3D graphics). Try another browser.');
+  try { await SG.Cat.load(); } catch (e) { console.error(e); return fail('Could not load the star catalogue. Check your connection and refresh.'); }
+  SG.MW.bake(SG.R.renderer);
+  SG.Sky.init();
+  SG.Map.init();
+  SG.MapLabels.init();
+  SG.UI.init();
+  if (SG.TILE && SG.Tile) SG.Tile.setup();
+  requestAnimationFrame(frame);
+};
+const C = SG.Cat;
+const idx = (s) => (typeof s === 'number' ? s : C.find(s));
+SG.api = {
+  count: () => C.n,
+  pools: () => ({ easy: C.pools.easy.length, medium: C.pools.medium.length, hard: C.pools.hard.length }),
+  find: (s) => idx(s),
+  magFrom: (s, from) => C.appMag(idx(s), from == null ? [0, 0, 0] : C.p(idx(from))),
+  eqFromSun: (s) => SG.Astro.galToEq(C.p(idx(s))),
+  shaderMag: (s) => SG.Stars.mags[idx(s)],
+  start: (mode, seed, timer) => { SG.Game.start(mode, { seed, timer }); return SG.api.state(); },
+  state: () => { const G = SG.Game; return { phase: G.phase, i: G.i, total: G.total, pin: G.pin, results: G.results.map((r) => ({ name: r.name, err: r.err, score: r.score, diff: r.diff })), rounds: G.rounds.map((r) => r.idx), ui: SG.UI.ph }; },
+  target: () => C.p(SG.Game.round().idx),
+  pinNear: (dx, dy, dz) => { const t = SG.api.target(); SG.Game.placePin([t[0] + dx, t[1] + dy, t[2] + dz]); return SG.Game.pin; },
+  score: (err, diff) => SG.Rules.score(err, diff),
+  rounds: (mode, seed) => SG.Rules.makeRounds(mode, seed).map((r) => r.idx),
+  daily: (date) => SG.Rules.makeRounds('daily', SG.Rules.dailySeed(date)).map((r) => C.label(r.idx)),
+  stats: () => SG.R.stats(),
+  lookAt: (s, fov) => { const d = SG.Stars.dirTo(idx(s)); const e = SG.Astro.galToEq(d); SG.Sky.look(e.ra, e.dec, fov || SG.Sky.fov); SG.Sky.drift = 0; },
+  project: (s) => SG.Sky.project(SG.Stars.dirTo(idx(s))),
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+}
+</script>
+</body>
+</html>
