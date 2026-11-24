@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feed the Black Hole</title>
+<meta name="description" content="Start with a black hole the mass of a paperclip. Feed it the heaviest thing on offer, before it evaporates, until it eats the universe.">
+<style>
+  :root{--ink:#f4efe6;--muted:#9a93a8;--gold:#ffb54a;--hot:#ff6a3d;--cool:#7fd8ff;--bad:#ff4f6a;--good:#5fe0a0;--card:#141020;--line:#2a2238}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05040a;color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;overflow:hidden}
+  canvas#sky{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+  button{font:inherit;cursor:pointer}
+  .hud{position:fixed;left:0;right:0;top:0;padding:14px 18px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;pointer-events:none;z-index:3}
+  .hud .l,.hud .r{pointer-events:auto}
+  .massLabel{font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+  .mass{font-size:clamp(22px,3.4vw,38px);font-weight:900;line-height:1.05}
+  .mass small{font-size:.5em;color:var(--muted);font-weight:700;display:block;margin-top:2px}
+  .facts{font-size:13px;color:var(--muted);text-align:right;line-height:1.55;max-width:46vw}
+  .facts b{color:var(--ink)}
+  .iconBtns{display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px}
+  .iconBtns button{background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:6px 10px;font-size:14px}
+  .iconBtns button:hover{background:rgba(255,255,255,.14)}
+  .meter{position:fixed;left:50%;transform:translateX(-50%);top:14px;width:min(360px,40vw);z-index:3;text-align:center}
+  .meter .lab{font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+  .meter .bar{height:10px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid var(--line)}
+  .meter .fill{height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,#ff4f6a,#ffb54a 45%,#fff2c2);transition:width .12s linear}
+  .meter .combo{font-size:13px;margin-top:6px;color:var(--gold);font-weight:900;min-height:18px}
+  .deck{position:fixed;left:0;right:0;bottom:0;padding:0 14px 18px;z-index:3;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .prompt{font-size:clamp(15px,2vw,19px);text-align:center;color:var(--ink);text-shadow:0 2px 8px #000}
+  .prompt em{color:var(--gold);font-style:normal;font-weight:900}
+  .cards{display:flex;gap:12px;justify-content:center;width:100%;max-width:820px}
+  .card{flex:1 1 0;min-width:0;background:linear-gradient(180deg,#1b1530,#110d1c);border:2px solid var(--line);border-radius:18px;color:var(--ink);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative}
+  .card:hover:not(:disabled),.card:focus-visible{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 10px 30px rgba(255,181,74,.18);outline:none}
+  .card .emo{font-size:clamp(38px,6vw,58px);line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6))}
+  .card .nm{font-weight:900;font-size:clamp(13px,1.6vw,16px);text-align:center;line-height:1.15;min-height:2.3em;display:flex;align-items:center}
+  .card .kg{font-size:13px;color:var(--muted);min-height:2.6em;text-align:center;line-height:1.3}
+  .card .key{position:absolute;top:8px;left:10px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+  .card.heaviest{border-color:var(--good);box-shadow:0 0 0 2px rgba(95,224,160,.25)}
+  .card.picked.wrong{border-color:var(--bad)}
+  .card.revealed .kg{color:var(--ink)}
+  .card.gone .emo{opacity:0}
+  .card:disabled{cursor:default}
+  .toast{position:fixed;left:50%;top:22%;transform:translate(-50%,0);z-index:6;background:rgba(10,8,18,.88);border:1px solid var(--line);border-radius:14px;padding:10px 18px;font-weight:900;text-align:center;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;max-width:90vw}
+  .toast.on{opacity:1;transform:translate(-50%,-8px)}
+  .toast small{display:block;font-weight:400;color:var(--muted);margin-top:3px}
+  .flyer{position:fixed;z-index:5;pointer-events:none;font-size:56px;line-height:1;will-change:transform;left:0;top:0}
+  .screen{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at center,rgba(5,4,10,.55),rgba(5,4,10,.92))}
+  .screen[hidden]{display:none}
+  .panel{max-width:560px;width:100%;text-align:center;background:rgba(17,13,28,.92);border:1px solid var(--line);border-radius:22px;padding:26px 24px;box-shadow:0 30px 80px rgba(0,0,0,.6);max-height:92vh;overflow:auto}
+  .panel h1{font-size:clamp(30px,6vw,52px);line-height:1;letter-spacing:1px;margin-bottom:10px}
+  .panel h1 span{background:linear-gradient(90deg,#fff2c2,#ffb54a,#ff6a3d);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .panel p{color:var(--muted);line-height:1.55;margin:8px 0}
+  .panel p b{color:var(--ink)}
+  .panel .big{font-size:22px;color:var(--ink);font-weight:900}
+  .go{margin-top:16px;background:linear-gradient(180deg,#ffc56b,#ff8a3d);color:#1a0f05;border:0;border-radius:14px;padding:13px 30px;font-weight:900;font-size:19px;box-shadow:0 6px 0 #a4481c}
+  .go:active{transform:translateY(4px);box-shadow:0 2px 0 #a4481c}
+  .ghost{margin-top:10px;background:none;border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:9px 18px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;text-align:left}
+  .stats div{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:13px;color:var(--muted)}
+  .stats div b{display:block;color:var(--ink);font-size:15px}
+  .belly{list-style:none;text-align:left;margin-top:10px;max-height:52vh;overflow:auto;border-top:1px solid var(--line)}
+  .belly li{display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);font-size:14px}
+  .belly li .e{font-size:22px;width:30px;text-align:center}
+  .belly li .m{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+  .back{position:fixed;left:14px;bottom:14px;z-index:9;color:var(--muted);font-size:12px;text-decoration:none}
+  @media (max-width:640px){
+    .hud{padding:10px 10px 0}.facts{font-size:11px;max-width:58vw}.meter{top:150px;width:82vw}
+    .cards{gap:7px}.card{padding:10px 6px}.card .kg{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<div class="hud">
+  <div class="l">
+    <div class="massLabel">your black hole weighs</div>
+    <div class="mass" id="mass">1 gram<small id="massAlt">about a paperclip</small></div>
+  </div>
+  <div class="r">
+    <div class="iconBtns">
+      <button id="bellyBtn" title="Everything it has eaten">Stomach</button>
+      <button id="muteBtn" title="Sound">Sound on</button>
+    </div>
+    <div class="facts" id="facts"></div>
+  </div>
+</div>
+
+<div class="meter" aria-live="polite">
+  <div class="lab">Before it evaporates</div>
+  <div class="bar"><div class="fill" id="fill"></div></div>
+  <div class="combo" id="combo"></div>
+</div>
+
+<div class="deck">
+  <div class="prompt" id="prompt">Feed it the <em>heaviest</em> thing.</div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="screen" id="intro">
+  <div class="panel">
+    <h1><span>FEED THE<br>BLACK HOLE</span></h1>
+    <p>Somebody left a black hole on your desk. It weighs <b>one gram</b>, about a paperclip.</p>
+    <p>A black hole that small would really evaporate into Hawking radiation in about <b>10<sup>-25</sup> seconds</b>. Yours is more patient. It gives you a few seconds per meal.</p>
+    <p>Each turn you get three things. Feed it the <b>heaviest one</b>. Pick right and it's satisfied. Pick wrong and it starts to fade. Every mass is real.</p>
+    <p class="big">Goal: eat the universe.</p>
+    <p id="bestLine"></p>
+    <button class="go" id="startBtn">Start feeding</button>
+  </div>
+</div>
+
+<div class="screen" id="end" hidden>
+  <div class="panel">
+    <h1 id="endTitle"><span>IT EVAPORATED</span></h1>
+    <p id="endText"></p>
+    <div class="stats" id="endStats"></div>
+    <button class="go" id="againBtn">Feed a new one</button><br>
+    <button class="ghost" id="shareBtn">Copy my result</button>
+  </div>
+</div>
+
+<div class="screen" id="bellyScreen" hidden>
+  <div class="panel">
+    <h1 style="font-size:32px"><span>STOMACH</span></h1>
+    <p>Everything your black hole has eaten this run, heaviest first.</p>
+    <ul class="belly" id="bellyList"></ul>
+    <button class="go" id="bellyClose">Back to feeding</button>
+  </div>
+</div>
+
+<a class="back" href="index.html">← kai.fun</a>
+
+<script>
+'use strict';
+// ------------------------------------------------------------------------------------------------
+// Real masses (kg). Rounded estimates from published figures; galaxies and clusters include dark matter.
+// ------------------------------------------------------------------------------------------------
+const THINGS = [
+  ['A grain of rice', 2.5e-5, '🍚', 'About 40,000 grains of rice make a kilogram.'],
+  ['A raisin', 5e-4, '🍇', 'A raisin is a grape that lost about 80% of its weight as water.'],
+  ['A paperclip', 1e-3, '📎', 'A standard paperclip weighs about one gram.'],
+  ['A sugar cube', 4e-3, '🧊', 'One cube is about a teaspoon of sugar.'],
+  ['A US quarter', 5.67e-3, '🪙', 'Every quarter weighs exactly 5.670 grams.'],
+  ['An AA battery', 2.3e-2, '🔋', 'An alkaline AA weighs about 23 grams.'],
+  ['A golf ball', 4.59e-2, '⛳', 'The rules say a golf ball can weigh at most 45.93 g.'],
+  ['A hen\'s egg', 5.7e-2, '🥚', 'A large egg is about 57 grams.'],
+  ['A tennis ball', 5.8e-2, '🎾', 'Official tennis balls weigh 56 to 59.4 grams.'],
+  ['A banana', 1.2e-1, '🍌', 'A medium banana weighs about 120 g.'],
+  ['A smartphone', 1.9e-1, '📱', 'Most phones weigh between 150 and 230 grams.'],
+  ['An apple', 2e-1, '🍎', 'A large apple is about 200 grams.'],
+  ['A can of soda', 3.7e-1, '🥤', 'The full can, not just the drink.'],
+  ['A soccer ball', 4.3e-1, '⚽', 'FIFA allows 410 to 450 grams.'],
+  ['A pineapple', 1.0, '🍍', 'A typical pineapple is about a kilogram.'],
+  ['A laptop', 1.6, '💻', 'Lighter than it feels at the end of the day.'],
+  ['A brick', 2.7, '🧱', 'A standard clay brick is about 2.7 kg.'],
+  ['A house cat', 4.5, '🐈', 'An average adult cat weighs 4 to 5 kg.'],
+  ['A bowling ball', 7, '🎳', 'Bowling balls go up to 16 pounds (7.3 kg).'],
+  ['A watermelon', 9, '🍉', 'The record watermelon weighed 159 kg.'],
+  ['A car tyre', 11, '🛞', 'A normal car tyre is about 11 kg.'],
+  ['A golden retriever', 30, '🐕', 'Males weigh about 30 to 34 kg.'],
+  ['An adult human', 62, '🧍', 'The average adult weighs about 62 kg worldwide.'],
+  ['A red kangaroo', 85, '🦘', 'Big males can weigh 85 kg and jump 8 metres.'],
+  ['A gorilla', 160, '🦍', 'Silverbacks weigh up to about 200 kg.'],
+  ['A grizzly bear', 300, '🐻', 'Male grizzlies weigh 180 to 360 kg.'],
+  ['A polar bear', 450, '🐻‍❄️', 'The biggest land carnivore on Earth.'],
+  ['A grand piano', 480, '🎹', 'A concert grand weighs about half a tonne.'],
+  ['A horse', 500, '🐎', 'Most riding horses weigh 400 to 600 kg.'],
+  ['A cow', 700, '🐄', 'A dairy cow weighs about 700 kg.'],
+  ['A great white shark', 1100, '🦈', 'Large great whites weigh over a tonne.'],
+  ['A small car', 1200, '🚗', 'A compact car is about 1.2 tonnes.'],
+  ['A hippo', 1500, '🦛', 'Hippos weigh 1.5 tonnes and can outrun you.'],
+  ['A white rhino', 2300, '🦏', 'The second-largest land animal.'],
+  ['An African elephant', 6000, '🐘', 'The largest land animal alive.'],
+  ['A T. rex', 8400, '🦖', 'Estimates for big adults are around 8.4 tonnes.'],
+  ['A school bus', 11000, '🚌', 'An empty full-size school bus is about 11 tonnes.'],
+  ['A humpback whale', 30000, '🐋', 'Humpbacks weigh about 30 tonnes.'],
+  ['A loaded semi truck', 36000, '🚛', 'The legal limit in the US is about 36 tonnes.'],
+  ['A main battle tank', 66000, '🪖', 'An M1A2 Abrams weighs about 66 tonnes.'],
+  ['A blue whale', 150000, '🐳', 'The heaviest animal that has ever lived.'],
+  ['The Statue of Liberty', 225000, '🗽', 'Its copper skin is only 2.4 mm thick.'],
+  ['A full Boeing 747', 412000, '✈️', 'Maximum takeoff weight of a 747-400.'],
+  ['The Space Station', 420000, '🛰️', 'The ISS weighs about 420 tonnes.'],
+  ['A giant sequoia', 1.9e6, '🌲', 'General Sherman, the biggest tree, weighs about 1,900 tonnes.'],
+  ['A fuelled Saturn V', 2.9e6, '🚀', 'Most of that was fuel, burned in minutes.'],
+  ['The Eiffel Tower', 1.01e7, '🗼', 'Its iron structure alone weighs 7,300 tonnes.'],
+  ['The Titanic', 5.2e7, '🛳️', 'Its displacement was about 52,000 tonnes.'],
+  ['An aircraft carrier', 1.0e8, '🚢', 'A Nimitz-class carrier displaces about 100,000 tonnes.'],
+  ['All the gold ever mined', 2.1e8, '🥇', 'It would fit in a cube about 22 metres wide.'],
+  ['The Empire State Building', 3.3e8, '🏙️', 'About 365,000 tonnes.'],
+  ['The Golden Gate Bridge', 8.9e8, '🌉', 'About 887,000 tonnes in total.'],
+  ['The Great Pyramid', 6e9, '🔺', 'About 6 million tonnes of stone.'],
+  ['The Hoover Dam', 6.6e9, '🏞️', '6.6 million tonnes of concrete.'],
+  ['Asteroid Bennu', 7.3e10, '☄️', 'NASA brought a piece of it back to Earth in 2023.'],
+  ['Every human alive', 5.0e11, '👥', '8.1 billion people at about 62 kg each.'],
+  ['All the cars on Earth', 1.8e12, '🚙', 'About 1.5 billion cars.'],
+  ['All the plastic ever made', 8.3e12, '🧴', 'About 8.3 billion tonnes since the 1950s.'],
+  ['Lake Tahoe', 1.5e14, '💧', '150 cubic kilometres of water.'],
+  ['Mount Everest', 1.6e14, '🏔️', 'A rough estimate: about 160 trillion kg of rock.'],
+  ['Halley\'s Comet', 2.2e14, '☄️', 'It comes back every 76 years. Next visit: 2061.'],
+  ['All the water in Earth\'s rivers', 2.1e15, '🏞️', 'About 2,100 cubic kilometres at any moment.'],
+  ['Lake Baikal', 2.36e16, '🌊', 'The deepest lake: about 23,600 cubic km of water.'],
+  ['Earth\'s atmosphere', 5.15e18, '🌫️', 'All the air on Earth.'],
+  ['Asteroid Psyche', 2.3e19, '🪨', 'A metal-rich asteroid; a NASA probe is on its way.'],
+  ['All of Antarctica\'s ice', 2.4e19, '🧊', 'About 26.5 million cubic km of ice.'],
+  ['Asteroid Pallas', 2.0e20, '🪨', 'The third-largest asteroid.'],
+  ['Asteroid Vesta', 2.6e20, '🪨', 'The brightest asteroid seen from Earth.'],
+  ['Dwarf planet Ceres', 9.4e20, '🪨', 'The biggest object in the asteroid belt.'],
+  ['All of Earth\'s oceans', 1.4e21, '🌊', 'Only about 0.02% of Earth\'s mass.'],
+  ['Charon, Pluto\'s moon', 1.59e21, '🌑', 'Half the size of Pluto itself.'],
+  ['Pluto', 1.3e22, '🥶', 'Lighter than our Moon.'],
+  ['Europa', 4.8e22, '🧊', 'Jupiter\'s moon with an ocean under its ice.'],
+  ['The Moon', 7.35e22, '🌕', 'About 1.2% of Earth\'s mass.'],
+  ['Titan', 1.35e23, '🟠', 'Saturn\'s moon with lakes of liquid methane.'],
+  ['Ganymede', 1.48e23, '🌑', 'The biggest moon in the Solar System.'],
+  ['Mercury', 3.3e23, '🟤', 'The smallest planet.'],
+  ['Mars', 6.42e23, '🔴', 'About a tenth of Earth\'s mass.'],
+  ['Venus', 4.87e24, '🟡', 'Almost Earth\'s twin in mass.'],
+  ['Earth', 5.97e24, '🌍', '6 septillion kg. Including you.'],
+  ['Uranus', 8.68e25, '🔵', '14.5 Earths.'],
+  ['Neptune', 1.02e26, '🔵', '17 Earths.'],
+  ['Saturn', 5.68e26, '🪐', 'It would float in a big enough bathtub.'],
+  ['Jupiter', 1.9e27, '🟠', 'More than twice all the other planets combined.'],
+  ['Hot Jupiter WASP-12b', 2.8e27, '🔥', 'A planet so close to its star it\'s being eaten.'],
+  ['A brown dwarf', 1.4e29, '🟤', 'Too heavy to be a planet, too light to be a star.'],
+  ['Proxima Centauri', 2.4e29, '🔴', 'The closest star to the Sun.'],
+  ['The Sun', 1.99e30, '☀️', '99.86% of the Solar System\'s mass.'],
+  ['White dwarf Sirius B', 2.0e30, '⚪', 'A Sun\'s worth of mass squeezed to the size of Earth.'],
+  ['A neutron star', 2.8e30, '💫', 'A teaspoon of it would weigh a billion tonnes.'],
+  ['Sirius A', 4.1e30, '✨', 'The brightest star in the night sky.'],
+  ['Vega', 4.3e30, '🌟', 'Twice the Sun\'s mass, spinning very fast.'],
+  ['The Crab Nebula', 9.2e30, '🦀', 'The leftovers of a supernova seen in the year 1054.'],
+  ['Betelgeuse', 3.6e31, '🔴', 'A red supergiant that will explode someday.'],
+  ['Cygnus X-1', 4.2e31, '⚫', 'The first black hole ever discovered: 21 Suns.'],
+  ['Rigel', 4.2e31, '🔵', 'A blue supergiant in Orion.'],
+  ['R136a1', 4.0e32, '🌟', 'The heaviest star known: about 200 Suns.'],
+  ['The Pleiades', 1.6e33, '✨', 'The Seven Sisters star cluster: about 800 Suns.'],
+  ['The Orion Nebula', 4.0e33, '🌌', 'A star nursery of about 2,000 Suns.'],
+  ['Globular cluster M13', 1.0e36, '🔆', 'Half a million stars packed into a ball.'],
+  ['Omega Centauri', 8.0e36, '🔆', 'The biggest star cluster in our galaxy.'],
+  ['Sagittarius A*', 8.5e36, '⚫', 'The black hole at the middle of the Milky Way.'],
+  ['Andromeda\'s black hole', 2.0e38, '⚫', 'About 100 million Suns.'],
+  ['The Fornax dwarf galaxy', 3.2e38, '🌌', 'A small galaxy orbiting ours.'],
+  ['The Sombrero\'s black hole', 2.0e39, '⚫', 'About a billion Suns.'],
+  ['M87*', 1.3e40, '⚫', 'The first black hole ever photographed.'],
+  ['TON 618', 1.3e41, '⚫', 'One of the heaviest black holes known: 66 billion Suns.'],
+  ['The Large Magellanic Cloud', 2.7e41, '🌌', 'Our galaxy\'s biggest satellite galaxy.'],
+  ['The Milky Way', 2.3e42, '🌌', 'Home. Including all its dark matter.'],
+  ['The Andromeda Galaxy', 3.0e42, '🌀', 'It will collide with us in about 4.5 billion years.'],
+  ['The Local Group', 5.0e42, '🌐', 'The Milky Way, Andromeda and about 80 small galaxies.'],
+  ['The Virgo Cluster', 2.4e45, '🌐', 'About 1,500 galaxies.'],
+  ['Everything within 100 million light years', 9.4e45, '🔭', 'All matter, dark matter included, in a sphere around us.'],
+  ['The Laniakea Supercluster', 2.0e47, '🕸️', 'Our home supercluster: 100,000 galaxies.'],
+  ['Everything within 1 billion light years', 9.4e48, '🔭', 'The cosmic web of thousands of superclusters.'],
+  ['Everything within 3 billion light years', 2.5e50, '🔭', 'Matter thins out as a sphere this big averages everything.'],
+  ['Everything within 10 billion light years', 9.4e51, '🔭', 'Almost to the edge of what we can see.'],
+  ['All ordinary matter in the observable universe', 1.5e53, '🌌', 'Every atom in every star, planet and person.']
+].map(([name, kg, emoji, fact], id) => ({ id, name, kg, emoji, fact }));
+
+const UNIVERSE = 1.5e53;
+const START_MASS = 1e-3;
+const G = 6.674e-11, C = 2.998e8, HBAR = 1.0546e-34;
+const SUN = 1.989e30, EARTH = 5.972e24, JUPITER = 1.898e27;
+
+// ------------------------------------------------------------------------------------------------
+// Number formatting
+// ------------------------------------------------------------------------------------------------
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
+function sci(x, digits = 2) {
+  if (x === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  const m = x / Math.pow(10, e);
+  return (Math.round(m * Math.pow(10, digits - 1)) / Math.pow(10, digits - 1)) + ' × 10' + sup(e);
+}
+const WORDS = [[1e33, 'decillion'], [1e30, 'nonillion'], [1e27, 'octillion'], [1e24, 'septillion'], [1e21, 'sextillion'], [1e18, 'quintillion'], [1e15, 'quadrillion'], [1e12, 'trillion'], [1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand']];
+function nice(n) {
+  const r = n >= 100 ? Math.round(n) : n >= 10 ? Math.round(n * 10) / 10 : Math.round(n * 100) / 100;
+  return r.toLocaleString('en-US');
+}
+/** A human mass string: grams, kilograms, tonnes, then big-number words, then scientific. */
+function massText(kg) {
+  if (kg < 1) return nice(kg * 1000) + ' g';
+  if (kg < 1000) return nice(kg) + ' kg';
+  if (kg < 1e6) return nice(kg / 1000) + ' tonnes';
+  for (const [v, w] of WORDS) if (kg >= v && kg < v * 1000 && v >= 1e6) return nice(kg / v) + ' ' + w + ' kg';
+  return sci(kg) + ' kg';
+}
+function massAlt(kg) {
+  if (kg >= SUN * 0.05) return nice(kg / SUN) + ' × the Sun';
+  if (kg >= JUPITER * 0.1) return nice(kg / JUPITER) + ' × Jupiter';
+  if (kg >= EARTH * 0.01) return nice(kg / EARTH) + ' × Earth';
+  if (kg >= 1e6) return sci(kg) + ' kg';
+  return 'about ' + aOrAn(closestThing(kg).name.replace(/^(A|An|The) /, '').toLowerCase());
+}
+const aOrAn = s => (/^[aeiou]/.test(s) ? 'an ' : 'a ') + s;
+function closestThing(kg) {
+  let best = THINGS[0], d = Infinity;
+  for (const t of THINGS) { const dd = Math.abs(Math.log10(t.kg / kg)); if (dd < d) { d = dd; best = t; } }
+  return best;
+}
+
+// real lengths (m) for "your event horizon is as wide as ..."
+const LENGTHS = [
+  [8.4e-16, 'a proton'], [5.3e-11, 'a hydrogen atom'], [1e-7, 'a virus'], [2e-6, 'a bacterium'], [7e-5, 'a human hair\'s width'],
+  [1e-3, 'a grain of sand'], [1e-2, 'a pea'], [2.2e-2, 'a grape'], [0.22, 'a football'], [1.7, 'a person'], [12, 'a bus'],
+  [100, 'a football pitch'], [330, 'the Eiffel Tower'], [8849, 'Mount Everest\'s height'], [3.5e4, 'a big city'],
+  [1.27e7, 'the Earth'], [1.4e8, 'Jupiter'], [7.7e8, 'the Moon\'s orbit'], [1.39e9, 'the Sun'], [3e11, 'Earth\'s orbit'],
+  [9e12, 'Neptune\'s orbit'], [9.46e15, 'a light year'], [4e16, 'the gap to the nearest star'], [1e21, 'the Milky Way'],
+  [5e22, 'the Local Group'], [5e24, 'the Laniakea Supercluster'], [8.8e26, 'the observable universe']
+];
+function horizonText(m) {
+  const d = 2 * (2 * G * m / (C * C));          // diameter
+  let best = LENGTHS[0];
+  for (const L of LENGTHS) if (d >= L[0] * 0.5) best = L;
+  const ratio = d / best[0];
+  const tag = ratio < 1.5 ? 'about as wide as ' : ratio < 10 ? Math.round(ratio) + '× as wide as ' : Math.round(ratio) + '× wider than ';
+  return { d, line: tag + best[1] };
+}
+function lengthText(m) {
+  if (m < 1e-9) return sci(m) + ' m';
+  if (m < 1e-3) return nice(m * 1e6) + ' µm';
+  if (m < 1) return nice(m * 1000) + ' mm';
+  if (m < 1000) return nice(m) + ' m';
+  if (m < 9.46e14) return massTextLike(m / 1000) + ' km';
+  return massTextLike(m / 9.46e15) + ' light years';
+}
+function massTextLike(v) {
+  if (v < 1e6) return nice(v);
+  for (const [k, w] of WORDS) if (v >= k && v < k * 1000) return nice(v / k) + ' ' + w;
+  return sci(v);
+}
+function timeText(s) {
+  if (s < 1e-6) return sci(s) + ' s';
+  if (s < 1) return nice(s * 1000) + ' ms';
+  if (s < 3600) return nice(s) + ' s';
+  const yr = s / 3.156e7;
+  if (yr < 1) return nice(s / 86400) + ' days';
+  if (yr < 1e6) return nice(yr) + ' years';
+  return massTextLike(yr) + ' years';
+}
+
+// ------------------------------------------------------------------------------------------------
+// Sound: a few tiny synth effects
+// ------------------------------------------------------------------------------------------------
+const SFX = {
+  ctx: null, on: localStorage.getItem('bh_mute') !== '1',
+  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.on = false; } } },
+  tone(f0, f1, dur, type = 'sine', vol = 0.15, delay = 0) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.ctx.destination); o.start(t); o.stop(t + dur + 0.05);
+  },
+  gulp() { this.tone(220, 40, 0.6, 'sine', 0.25); this.tone(110, 30, 0.8, 'triangle', 0.15, 0.05); },
+  good() { this.tone(523, 1046, 0.18, 'triangle', 0.12); this.tone(784, 1568, 0.25, 'triangle', 0.1, 0.09); },
+  bad() { this.tone(180, 90, 0.35, 'sawtooth', 0.08); },
+  boom() { this.tone(80, 20, 1.6, 'sawtooth', 0.2); this.tone(900, 60, 1.2, 'square', 0.05); },
+  win() { [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, f * 1.01, 0.5, 'triangle', 0.1, i * 0.12)); }
+};
+
+// ------------------------------------------------------------------------------------------------
+// Game state
+// ------------------------------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+const S = { mass: START_MASS, eaten: [], round: 0, combo: 0, bestCombo: 0, perfect: 0, life: 1, running: false, locked: false, offer: [], biggest: null, shown: START_MASS };
+const DRAIN_SECONDS = 16;           // a full meter lasts this long
+const WRONG_COST = 0.38;            // picking something that isn't the heaviest
+
+function pickOffer() {
+  const M = S.mass, used = new Set(S.eaten.map(t => t.id));
+  let lo = 0.02, hi = 300, pool = [];
+  for (let widen = 0; widen < 8; widen++) {
+    pool = THINGS.filter(t => !used.has(t.id) && t.kg >= M * lo && t.kg <= M * hi);
+    if (pool.length >= 3 && pool.some(t => t.kg >= M * 0.5)) break;
+    lo /= 10; hi *= 10;
+  }
+  if (pool.length < 3) pool = THINGS.filter(t => !used.has(t.id)).sort((a, b) => Math.abs(Math.log(a.kg / M)) - Math.abs(Math.log(b.kg / M))).slice(0, 6);
+  // the closer the masses, the harder it is: later rounds allow tighter trios
+  const minGap = Math.max(1.12, 2.2 - S.round * 0.035);
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const trio = shuffle(pool.slice()).slice(0, 3);
+    if (trio.length < 3) break;
+    const s = trio.slice().sort((a, b) => a.kg - b.kg);
+    if (s[1].kg / s[0].kg >= minGap && s[2].kg / s[1].kg >= minGap && s[2].kg >= M * 0.3) return trio;
+  }
+  return shuffle(pool.slice()).slice(0, 3);
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function deal() {
+  S.offer = pickOffer();
+  S.round++;
+  S.locked = false;
+  const cards = $('cards');
+  cards.innerHTML = '';
+  S.offer.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'card';
+    b.innerHTML = '<span class="key">' + (i + 1) + '</span><span class="emo">' + t.emoji + '</span><span class="nm">' + t.name + '</span><span class="kg">? kg</span>';
+    b.addEventListener('click', () => choose(i));
+    cards.appendChild(b);
+  });
+  $('prompt').innerHTML = 'Feed it the <em>heaviest</em> thing.';
+}
+
+function choose(i) {
+  if (S.locked || !S.running) return;
+  S.locked = true;
+  SFX.init();
+  const picked = S.offer[i];
+  const heaviest = S.offer.reduce((a, b) => (b.kg > a.kg ? b : a));
+  const right = picked === heaviest;
+  const cards = [...$('cards').children];
+  cards.forEach((c, j) => {
+    c.disabled = true;
+    c.classList.add('revealed');
+    c.querySelector('.kg').innerHTML = massText(S.offer[j].kg) + '<br><span style="color:var(--muted)">' + sci(S.offer[j].kg) + ' kg</span>';
+    if (S.offer[j] === heaviest) c.classList.add('heaviest');
+  });
+  cards[i].classList.add('picked');
+  if (!right) cards[i].classList.add('wrong');
+
+  if (right) {
+    S.combo++; S.perfect++; S.bestCombo = Math.max(S.bestCombo, S.combo);
+    S.life = 1;
+    SFX.good();
+  } else {
+    S.combo = 0;
+    S.life = Math.max(0, S.life - WRONG_COST);
+    SFX.bad();
+  }
+  updateCombo(right ? null : heaviest);
+  fly(cards[i], picked, () => {
+    eat(picked);
+    if (S.life <= 0) { evaporate(); return; }
+    if (S.mass >= UNIVERSE * 0.999) { win(); return; }
+    setTimeout(deal, 650);
+  });
+}
+
+function updateCombo(missed) {
+  const el = $('combo');
+  if (missed) el.innerHTML = '<span style="color:var(--bad)">The heaviest was ' + missed.name.replace(/^(A|An) /, 'the ').replace(/^The the/, 'The') + '</span>';
+  else el.textContent = S.combo >= 2 ? '🔥 ' + S.combo + ' perfect meals in a row' : S.combo === 1 ? 'Perfect meal' : '';
+}
+
+function eat(t) {
+  const before = S.mass;
+  S.mass += t.kg;
+  S.eaten.push(t);
+  if (!S.biggest || t.kg > S.biggest.kg) S.biggest = t;
+  SFX.gulp();
+  pulse = 1;
+  burst();
+  milestone(before, S.mass);
+  updateHud();
+}
+
+const MILESTONES = [
+  [1, 'It now outweighs a kilogram of anything.'], [1000, 'It weighs a tonne.'], [5.0e11, 'It now outweighs every human alive.'],
+  [7.35e22, 'It\'s heavier than the Moon.'], [EARTH, 'It\'s heavier than the Earth. Its horizon is still only about 1.8 cm wide.'],
+  [JUPITER, 'It\'s heavier than Jupiter.'], [SUN, 'It\'s now a stellar black hole: heavier than the Sun.'],
+  [8.5e36, 'It\'s now heavier than the black hole in the middle of our galaxy.'], [2.3e42, 'It just outgrew the entire Milky Way.'],
+  [2.0e47, 'It\'s heavier than our whole supercluster.']
+];
+function milestone(a, b) {
+  for (const [m, msg] of MILESTONES) if (a < m && b >= m) { toast('🏁 ' + msg); return; }
+}
+
+let toastT = 0;
+function toast(html, ms = 2800) {
+  const el = $('toast');
+  el.innerHTML = html;
+  el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), ms);
+}
+
+function updateHud() {
+  $('mass').innerHTML = massText(S.mass) + '<small>' + massAlt(S.mass) + '</small>';
+  const h = horizonText(S.mass);
+  const tEvap = 8.41e-17 * Math.pow(S.mass, 3);               // 5120πG²M³/(ħc⁴), seconds
+  const temp = 1.227e23 / S.mass;                             // ħc³/(8πGMk), kelvin
+  $('facts').innerHTML =
+    'Event horizon: <b>' + lengthText(h.d) + '</b> across<br>' + h.line + '<br>' +
+    'Temperature: <b>' + (temp >= 1e6 ? sci(temp) : nice(temp)) + ' K</b><br>' +
+    'Would really evaporate in: <b>' + timeText(tEvap) + '</b>';
+}
+
+// ------------------------------------------------------------------------------------------------
+// Feeding animation: the item spirals in and stretches (spaghettification)
+// ------------------------------------------------------------------------------------------------
+function fly(card, t, done) {
+  const r = card.querySelector('.emo').getBoundingClientRect();
+  card.classList.add('gone');
+  const f = document.createElement('div');
+  f.className = 'flyer';
+  f.textContent = t.emoji;
+  document.body.appendChild(f);
+  const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+  const cx = innerWidth / 2, cy = bhY();
+  const a0 = Math.atan2(sy - cy, sx - cx), d0 = Math.hypot(sx - cx, sy - cy);
+  const dur = 1100, t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    const e = k * k * (3 - 2 * k);
+    const ang = a0 + e * Math.PI * 2.2;
+    const dist = d0 * (1 - e);
+    const x = cx + Math.cos(ang) * dist, y = cy + Math.sin(ang) * dist * 0.55;
+    const stretch = 1 + e * 3.2, thin = Math.max(0.05, 1 - e * 0.95);
+    const rot = (ang + Math.PI / 2) * 180 / Math.PI;
+    f.style.transform = 'translate(' + (x - 28) + 'px,' + (y - 28) + 'px) rotate(' + rot + 'deg) scale(' + thin + ',' + (stretch * thin) + ')';
+    f.style.opacity = String(1 - Math.max(0, (k - 0.85) / 0.15));
+    if (k < 1) requestAnimationFrame(step); else { f.remove(); done(); }
+  };
+  requestAnimationFrame(step);
+}
+
+// ------------------------------------------------------------------------------------------------
+// The sky: stars bent by gravitational lensing, a glowing accretion disk, the black shadow
+// ------------------------------------------------------------------------------------------------
+const cv = $('sky'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1, stars = [], disk = [], pulse = 0, sparks = [];
+function resize() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  stars = Array.from({ length: Math.round(W * H / 2600) }, () => ({ x: Math.random(), y: Math.random(), m: Math.random() ** 3, tw: Math.random() * 6 }));
+}
+addEventListener('resize', resize);
+resize();
+for (let i = 0; i < 900; i++) disk.push({ a: Math.random() * Math.PI * 2, r: 1.55 + Math.random() ** 1.6 * 2.3, s: 0.6 + Math.random() * 0.8, z: Math.random() });
+
+const bhY = () => (innerWidth < 640 ? H * 0.42 : H * 0.44);
+function bhRadius() {
+  const prog = (Math.log10(S.shown) - Math.log10(START_MASS)) / (Math.log10(UNIVERSE) - Math.log10(START_MASS));
+  return Math.min(W, H) * ((W < 640 ? 0.05 : 0.035) + prog * (W < 640 ? 0.12 : 0.085));
+}
+
+function burst() {
+  const cx = W / 2, cy = bhY(), R = bhRadius();
+  for (let i = 0; i < 70; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 5;
+    sparks.push({ x: cx + Math.cos(a) * R * 1.2, y: cy + Math.sin(a) * R * 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5, life: 1 });
+  }
+}
+
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  // the shown mass eases toward the real one so growth looks smooth
+  S.shown = Math.exp(Math.log(S.shown) + (Math.log(S.mass) - Math.log(S.shown)) * Math.min(1, dt * 3));
+  if (S.running && !S.locked) {
+    S.life = Math.max(0, S.life - dt / DRAIN_SECONDS);
+    if (S.life <= 0) { S.locked = true; evaporate(); }
+  }
+  $('fill').style.width = (S.life * 100).toFixed(1) + '%';
+  pulse *= Math.pow(0.04, dt);
+  draw(now / 1000);
+  requestAnimationFrame(frame);
+}
+
+function draw(t) {
+  const cx = W / 2, cy = bhY();
+  const R = bhRadius() * (1 + pulse * 0.12);
+  const fading = S.running ? 1 - Math.max(0, 0.35 - S.life) * 1.6 : 1;
+  ctx.fillStyle = '#05040a';
+  ctx.fillRect(0, 0, W, H);
+
+  // stars, pushed outward near the hole like a gravitational lens
+  const lensK = R * R * 2.4;
+  for (const s of stars) {
+    let x = s.x * W, y = s.y * H;
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1;
+    const nd = d + lensK / d;
+    x = cx + dx / d * nd; y = cy + dy / d * nd;
+    const tw = 0.55 + 0.45 * Math.sin(t * 1.3 + s.tw);
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.25 + s.m * 0.75) * tw + ')';
+    const sz = 0.6 + s.m * 1.6;
+    ctx.fillRect(x, y, sz, sz);
+  }
+
+  // glow behind everything
+  const glow = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 5.5);
+  glow.addColorStop(0, 'rgba(255,150,60,' + 0.22 * fading + ')');
+  glow.addColorStop(1, 'rgba(255,90,40,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  const tilt = 0.26;
+  const spin = t * 0.6;
+  // far side of the disk (top half) and its lensed image arching over the top
+  drawDisk(cx, cy, R, tilt, spin, true, fading);
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, R * (1.32 + i * 0.16), R * (1.18 + i * 0.12), 0, Math.PI, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,' + (190 - i * 40) + ',' + (110 - i * 30) + ',' + (0.55 - i * 0.15) * fading + ')';
+    ctx.lineWidth = R * (0.16 - i * 0.035);
+    ctx.stroke();
+  }
+  // the shadow
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#000';
+  ctx.fill();
+  // photon ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 1.03, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,236,200,' + 0.85 * fading + ')';
+  ctx.lineWidth = Math.max(1.2, R * 0.035);
+  ctx.shadowColor = 'rgba(255,200,120,.9)';
+  ctx.shadowBlur = 14;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // near side of the disk (bottom half) passes in front of the shadow
+  drawDisk(cx, cy, R, tilt, spin, false, fading);
+
+  // sparks from the last meal
+  for (const p of sparks) {
+    p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 0.02;
+    ctx.fillStyle = 'rgba(255,' + Math.round(160 + 90 * p.life) + ',120,' + Math.max(0, p.life) + ')';
+    ctx.fillRect(p.x, p.y, 2, 2);
+  }
+  sparks = sparks.filter(p => p.life > 0);
+}
+
+function drawDisk(cx, cy, R, tilt, spin, back, fading) {
+  for (const p of disk) {
+    const a = p.a + spin * p.s / p.r;
+    const s = Math.sin(a);
+    if (back ? s > 0 : s <= 0) continue;
+    const x = cx + Math.cos(a) * p.r * R, y = cy + s * p.r * R * tilt;
+    const inner = 1 - (p.r - 1.55) / 2.3;
+    const beam = 1 + 0.7 * Math.cos(a);                    // the side spinning toward us is brighter
+    const alpha = Math.min(1, (0.18 + inner * 0.6) * beam) * fading;
+    const g = Math.round(120 + inner * 120), b = Math.round(50 + inner * 150);
+    ctx.fillStyle = 'rgba(255,' + g + ',' + b + ',' + alpha + ')';
+    const sz = (1 + inner * 1.6) * (R / 60 + 0.6);
+    ctx.fillRect(x, y, sz * 1.8, sz);
+  }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Start, end, sharing
+// ------------------------------------------------------------------------------------------------
+function best() { try { return JSON.parse(localStorage.getItem('bh_best') || 'null'); } catch (e) { return null; } }
+function saveBest() {
+  const b = best();
+  if (!b || S.mass > b.mass) localStorage.setItem('bh_best', JSON.stringify({ mass: S.mass, round: S.round }));
+}
+function showBestLine() {
+  const b = best();
+  $('bestLine').innerHTML = b ? 'Your biggest black hole so far: <b>' + massText(b.mass) + '</b> (' + massAlt(b.mass) + ').' : '';
+}
+
+function start() {
+  SFX.init();
+  Object.assign(S, { mass: START_MASS, shown: START_MASS, eaten: [], round: 0, combo: 0, bestCombo: 0, perfect: 0, life: 1, running: true, locked: false, biggest: null });
+  $('intro').hidden = true;
+  $('end').hidden = true;
+  $('combo').textContent = '';
+  updateHud();
+  deal();
+}
+
+function evaporate() {
+  S.running = false;
+  saveBest();
+  SFX.boom();
+  burst(); burst();
+  const pct = (Math.log10(S.mass) - Math.log10(START_MASS)) / (Math.log10(UNIVERSE) - Math.log10(START_MASS)) * 100;
+  $('endTitle').innerHTML = '<span>IT EVAPORATED</span>';
+  $('endText').innerHTML = 'Starved of food, your black hole glowed hotter and hotter and vanished in a flash of <b>Hawking radiation</b>. It got <b>' + Math.max(0, Math.round(pct)) + '%</b> of the way to eating the universe.';
+  fillStats();
+  setTimeout(() => { $('end').hidden = false; }, 900);
+}
+
+function win() {
+  S.running = false;
+  saveBest();
+  SFX.win();
+  $('endTitle').innerHTML = '<span>YOU ATE THE UNIVERSE</span>';
+  $('endText').innerHTML = 'Every atom in every star, planet and person is inside your black hole now. Its event horizon is about <b>' + lengthText(horizonText(S.mass).d) + '</b> across. Nothing is left to eat.';
+  fillStats();
+  setTimeout(() => { $('end').hidden = false; }, 900);
+}
+
+function fillStats() {
+  $('endStats').innerHTML =
+    '<div>Final mass<b>' + massText(S.mass) + '</b></div>' +
+    '<div>That\'s<b>' + massAlt(S.mass) + '</b></div>' +
+    '<div>Meals<b>' + S.eaten.length + ' (' + S.perfect + ' perfect)</b></div>' +
+    '<div>Best streak<b>' + S.bestCombo + ' in a row</b></div>' +
+    '<div>Biggest meal<b>' + (S.biggest ? S.biggest.emoji + ' ' + S.biggest.name : 'nothing') + '</b></div>' +
+    '<div>Event horizon<b>' + lengthText(horizonText(S.mass).d) + '</b></div>';
+}
+
+function share() {
+  const txt = '🕳️ My black hole on kai.fun grew from a paperclip to ' + massText(S.mass) + ' (' + massAlt(S.mass) + ') in ' + S.eaten.length + ' meals. Biggest meal: ' + (S.biggest ? S.biggest.name : 'nothing') + '. https://kaifun.fun/blackhole.html';
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Copied!'), () => toast(txt, 6000));
+}
+
+function openBelly() {
+  const list = S.eaten.slice().sort((a, b) => b.kg - a.kg);
+  $('bellyList').innerHTML = list.length
+    ? list.map(t => '<li><span class="e">' + t.emoji + '</span><span><b>' + t.name + '</b><br><span style="color:var(--muted);font-size:12px">' + t.fact + '</span></span><span class="m">' + massText(t.kg) + '</span></li>').join('')
+    : '<li>Nothing yet. It\'s hungry.</li>';
+  if (S.running) S.locked = true;
+  $('bellyScreen').hidden = false;
+}
+function closeBelly() {
+  $('bellyScreen').hidden = true;
+  if (S.running) S.locked = false;
+}
+
+$('startBtn').addEventListener('click', start);
+$('againBtn').addEventListener('click', start);
+$('shareBtn').addEventListener('click', share);
+$('bellyBtn').addEventListener('click', openBelly);
+$('bellyClose').addEventListener('click', closeBelly);
+$('muteBtn').addEventListener('click', () => {
+  SFX.on = !SFX.on;
+  localStorage.setItem('bh_mute', SFX.on ? '0' : '1');
+  $('muteBtn').textContent = SFX.on ? 'Sound on' : 'Sound off';
+});
+$('muteBtn').textContent = SFX.on ? 'Sound on' : 'Sound off';
+addEventListener('keydown', e => {
+  if (!$('bellyScreen').hidden && e.key === 'Escape') { closeBelly(); return; }
+  if (['1', '2', '3'].includes(e.key) && S.running && !S.locked && $('bellyScreen').hidden) choose(+e.key - 1);
+});
+
+showBestLine();
+updateHud();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
