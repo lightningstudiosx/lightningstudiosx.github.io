@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNFINISHED</title>
+<meta name="description" content="You're a character in a 3D game its developer abandoned halfway. Broken textures, broken code, and no moves. Write your own.">
+<style>
+  :root{--bg:#0d0f14;--panel:#15181f;--line:#262b36;--ink:#d6dae3;--muted:#7d8596;--pink:#ff2bd6;--ok:#5fe08a;--warn:#ffcc4d;--err:#ff5a6a;--blue:#6cb6ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden}
+  button,textarea,select{font:inherit}
+  #app{display:flex;height:100vh}
+  #view{position:relative;flex:1;min-width:0}
+  #view canvas{display:block;width:100%;height:100%;cursor:grab}
+  #view canvas:active{cursor:grabbing}
+  #side{width:min(470px,42vw);display:flex;flex-direction:column;background:var(--panel);border-left:2px solid var(--line)}
+  #side.hide{display:none}
+  .tabbar{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);background:#11131a}
+  .tabbar .file{font:600 13px Consolas,monospace;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:6px 6px 0 0;padding:5px 10px}
+  .tabbar .file i{color:var(--warn);font-style:normal}
+  .tabbar .sp{flex:1}
+  .btn{background:#222734;color:var(--ink);border:1px solid #343b4b;border-radius:7px;padding:6px 11px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn:hover{background:#2c3242}
+  .btn.run{background:#1f6f3f;border-color:#2c9a58;color:#fff}
+  .btn.run:hover{background:#278a4f}
+  .edWrap{position:relative;flex:1;min-height:0;display:flex;font:14px/1.55 Consolas,"Cascadia Mono",monospace}
+  .gutter{padding:10px 8px 10px 10px;color:#4b5263;text-align:right;user-select:none;white-space:pre;overflow:hidden;min-width:40px;background:#13161c}
+  textarea#code{flex:1;resize:none;border:0;outline:none;background:transparent;color:#e6e9ef;padding:10px 12px;font:inherit;white-space:pre;overflow:auto;tab-size:2;caret-color:var(--pink)}
+  .console{height:30%;min-height:120px;border-top:2px solid var(--line);background:#0f1116;overflow:auto;font:12.5px/1.5 Consolas,monospace;padding:8px 10px}
+  .console div{white-space:pre-wrap;word-break:break-word}
+  .console .err{color:var(--err)}.console .warn{color:var(--warn)}.console .ok{color:var(--ok)}.console .log{color:var(--blue)}.console .dim{color:var(--muted)}
+  .docs{position:absolute;inset:0;background:#13161c;overflow:auto;padding:14px 16px;font:13px/1.55 "Segoe UI",sans-serif;display:none;z-index:2}
+  .docs.on{display:block}
+  .docs h3{font-size:15px;margin:12px 0 6px;color:#fff}
+  .docs code,.docs pre{font-family:Consolas,monospace;color:#ffd27a}
+  .docs pre{background:#0d0f14;border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap;margin:6px 0}
+  .docs table{border-collapse:collapse;width:100%}
+  .docs td{border-bottom:1px solid var(--line);padding:5px 4px;vertical-align:top}
+  .docs td:last-child{color:var(--muted);white-space:nowrap;text-align:right}
+  .hud{position:absolute;left:12px;top:10px;font:13px Consolas,monospace;pointer-events:none;text-shadow:0 1px 3px #000}
+  .hud .lvl{font-size:15px;color:#fff;font-weight:700}
+  .hud .todo{color:var(--warn);max-width:46vw;margin-top:4px;line-height:1.45}
+  .cpu{position:absolute;left:12px;bottom:14px;width:min(320px,40vw);font:12px Consolas,monospace;pointer-events:none}
+  .cpu .bar{height:12px;border:1px solid #3b4252;background:#0b0d12;margin-top:4px;position:relative;overflow:hidden}
+  .cpu .fill{position:absolute;inset:0;width:100%;background:linear-gradient(90deg,#ff2bd6,#6cb6ff);transition:width .08s linear}
+  .tools{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+  .ticker{position:absolute;left:50%;transform:translateX(-50%);top:10px;font:12px Consolas,monospace;color:var(--err);background:rgba(20,0,6,.75);border:1px solid #5a1b26;padding:3px 9px;border-radius:5px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+  .ticker.on{opacity:1}
+  .bubble{position:absolute;pointer-events:none;background:#fff;color:#111;font:700 14px "Comic Sans MS","Segoe UI",sans-serif;padding:5px 10px;border-radius:10px;transform:translate(-50%,-100%);white-space:nowrap}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,7,10,.72);z-index:5;padding:20px}
+  .overlay[hidden]{display:none}
+  .card{max-width:560px;width:100%;background:#151820;border:1px solid #343b4b;border-radius:14px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .card h1{font:900 44px/1 "Arial Black",Impact,sans-serif;letter-spacing:2px;margin-bottom:6px}
+  .card h1 .bk{color:var(--pink);text-shadow:3px 0 #00e5ff,-3px 0 #ff2bd6}
+  .card h2{font:700 22px Consolas,monospace;color:var(--ok);margin-bottom:8px}
+  .card p{color:#aab1c0;line-height:1.55;margin:8px 0}
+  .card p b{color:#fff}
+  .card .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .card .btn{font-size:15px;padding:9px 16px}
+  .mono{font-family:Consolas,monospace}
+  .levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px}
+  .levels button{text-align:left;font:12px Consolas,monospace}
+  .levels button:disabled{opacity:.35;cursor:default}
+  .back{position:absolute;left:12px;bottom:46px;color:var(--muted);font-size:12px;text-decoration:none}
+  @media (max-width:820px){#app{flex-direction:column}#side{width:100%;height:46vh;border-left:0;border-top:2px solid var(--line)}#view{height:54vh;flex:none}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="view">
+    <div class="hud"><div class="lvl" id="lvlName">level_01</div><div class="todo" id="lvlTodo"></div></div>
+    <div class="ticker" id="ticker"></div>
+    <div class="tools">
+      <button class="btn" id="levelsBtn">levels/</button>
+      <button class="btn" id="restartBtn" title="Respawn (R)">respawn</button>
+      <button class="btn" id="toggleSide">&lt;/&gt; code</button>
+    </div>
+    <div class="cpu">CPU <span id="cpuTxt">100</span>% · deaths <span id="deaths">0</span><div class="bar"><div class="fill" id="cpuFill"></div></div></div>
+    <a class="back" href="index.html">← kai.fun</a>
+    <div class="overlay" id="intro">
+      <div class="card">
+        <h1>UN<span class="bk">FINISHED</span></h1>
+        <p>You're the main character of a 3D game. Its developer <b>gave up halfway</b>. The textures are missing, the code is broken, and nobody finished your moves.</p>
+        <p>You can <b>walk</b> (WASD) and look around (drag the view). That's it. Everything else, like jumping, you have to <b>code yourself</b> in <span class="mono">skills.js</span> on the right, then press <b>RUN</b>.</p>
+        <p>Every move costs <b>CPU</b>, and this old engine doesn't have much. Reach the <span class="mono" style="color:#5fe08a">EXIT_TODO</span> door in each level.</p>
+        <div class="row"><button class="btn run" id="startBtn">Boot the game</button><button class="btn" id="docsBtn2">Read the API first</button></div>
+        <p style="font-size:12px;margin-top:14px">Needs a keyboard. Your code only runs in your own browser.</p>
+      </div>
+    </div>
+    <div class="overlay" id="done" hidden>
+      <div class="card">
+        <h2 id="doneTitle">✓ level compiled</h2>
+        <p id="doneText"></p>
+        <div class="row"><button class="btn run" id="nextBtn">Next level →</button><button class="btn" id="stayBtn">Replay this one</button></div>
+      </div>
+    </div>
+    <div class="overlay" id="levelsBox" hidden>
+      <div class="card">
+        <h2 style="color:#fff">levels/</h2>
+        <p>Your skills.js code carries over between levels.</p>
+        <div class="levels" id="levelList"></div>
+        <div class="row"><button class="btn" id="levelsClose">Close</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="side">
+    <div class="tabbar">
+      <span class="file">skills.js <i id="dirty"></i></span>
+      <span class="sp"></span>
+      <button class="btn" id="docsBtn">API</button>
+      <button class="btn" id="resetCode" title="Put the original broken file back">reset</button>
+      <button class="btn run" id="runBtn" title="Ctrl+Enter">▶ RUN</button>
+    </div>
+    <div class="edWrap">
+      <div class="gutter" id="gutter">1</div>
+      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="skills.js: write your moves here"></textarea>
+      <div class="docs" id="docs"></div>
+    </div>
+    <div class="console" id="console" aria-live="polite"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// =================================================================================================
+// Tuning
+// =================================================================================================
+const GRAVITY = 20, WALK = 5, MAX_JUMP = 9, MAX_DASH = 16, CPU_MAX = 100, CPU_REGEN = 28;
+const HALF = new THREE.Vector3(0.35, 0.9, 0.35);            // player box half-size (feet at y - 0.9)
+const COST = { jump: 8, airJump: 22, dash: 25, push: 2.2, block: 35, teleport: 60, remove: 50, slowFall: 22 };
+
+// =================================================================================================
+// Little helpers
+// =================================================================================================
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ERRORS = [
+  'NullPointerException: player fell out of world', 'Uncaught TypeError: cannot read properties of undefined (reading "floor")',
+  'Segmentation fault (core dumped)', 'StackOverflowError at Player.die(Player.java:404)', 'RangeError: you are not supposed to be here',
+  'FATAL: respawn.cpp line 12 // TODO handle death properly', 'ReferenceError: ground is not defined', 'assert(player.alive) failed'
+];
+const WARNINGS = [
+  'WARN: shadow map not implemented, using vibes', 'WARN: texture "grass_final_FINAL2.png" not found', 'WARN: 37 unused variables',
+  'WARN: physics tick took 900ms (it is fine)', 'WARN: audio.mp3 is 0 bytes', 'WARN: deprecated: fun()', 'WARN: NPC navmesh missing, NPCs will improvise',
+  'WARN: localization key MENU_TITLE_TODO missing'
+];
+
+// =================================================================================================
+// Textures: everything is generated so nothing needs downloading (fittingly, they all look broken)
+// =================================================================================================
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.magFilter = THREE.NearestFilter;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+  return t;
+}
+const TEX = {
+  missing: canvasTex(64, 64, (g) => { for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { g.fillStyle = (x + y) % 2 ? '#000' : '#ff00dc'; g.fillRect(x * 32, y * 32, 32, 32); } }, true),
+  dev: canvasTex(128, 128, (g, w) => {
+    g.fillStyle = '#7a7f88'; g.fillRect(0, 0, w, w);
+    g.fillStyle = '#6e737c'; g.fillRect(0, 0, 64, 64); g.fillRect(64, 64, 64, 64);
+    g.strokeStyle = '#ff9a3c'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, w - 2);
+    g.fillStyle = '#ffd3a8'; g.font = 'bold 14px Consolas'; g.fillText('1m', 6, 18);
+  }, true),
+  devOrange: canvasTex(128, 128, (g, w) => {
+    g.fillStyle = '#e07a2a'; g.fillRect(0, 0, w, w);
+    g.fillStyle = '#d36d1f'; g.fillRect(0, 0, 64, 64); g.fillRect(64, 64, 64, 64);
+    g.strokeStyle = '#fff2'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, w - 2);
+  }, true),
+  notFound: canvasTex(256, 128, (g, w, h) => {
+    g.fillStyle = '#222'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ff00dc'; g.font = 'bold 22px Consolas'; g.textAlign = 'center';
+    g.fillText('TEXTURE', w / 2, 52); g.fillText('NOT FOUND', w / 2, 84);
+  }, true),
+  sky: canvasTex(512, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2a3350'); gr.addColorStop(1, '#5a6a8a');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,.08)'; g.font = 'bold 20px Consolas';
+    for (let y = 30; y < h; y += 46) for (let x = (y / 46 % 2) * 90; x < w; x += 180) g.fillText('SKYBOX_MISSING', x, y);
+  })
+};
+function labelTex(text, color = '#ffcc4d', bg = 'rgba(10,12,18,.78)') {
+  const font = 'bold 30px Consolas';
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  g.font = font;
+  c.width = Math.ceil(g.measureText(text).width) + 28; c.height = 48;
+  g.font = font; g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = color; g.fillText(text, 14, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return { t, w: c.width, h: c.height };
+}
+/** A floating panel of the level's own (broken) source code, with red squiggles under the bugs. */
+function codeTex(title, lines) {
+  const W = 640, H = 64 + lines.length * 30;
+  return canvasTex(W, H, (g) => {
+    g.fillStyle = '#12151c'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1c2130'; g.fillRect(0, 0, W, 42);
+    g.fillStyle = '#ffcc4d'; g.font = 'bold 22px Consolas'; g.fillText(title, 16, 28);
+    g.font = '20px Consolas';
+    lines.forEach((ln, i) => {
+      const y = 70 + i * 30, bug = ln.startsWith('!'), text = bug ? ln.slice(1) : ln;
+      g.fillStyle = '#4b5263'; g.fillText(String(i + 1).padStart(2), 10, y);
+      g.fillStyle = /^\s*\/\//.test(text) ? '#6b7a8f' : bug ? '#ff8a96' : '#d6dae3';
+      g.fillText(text, 50, y);
+      if (bug) {
+        const wdt = g.measureText(text).width; g.strokeStyle = '#ff3b4f'; g.lineWidth = 2; g.beginPath();
+        for (let x = 50; x < 50 + wdt; x += 6) { g.lineTo(x, y + 6 + ((x / 6) % 2 ? 3 : 0)); }
+        g.stroke();
+      }
+    });
+  });
+}
+
+// =================================================================================================
+// Three.js world
+// =================================================================================================
+const view = $('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = TEX.sky;
+scene.fog = new THREE.Fog(0x4a5878, 30, 90);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 300);
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a3328, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(12, 24, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 90 });
+scene.add(sun, sun.target);
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+new ResizeObserver(resize).observe(view);
+
+const MATS = {
+  dev: (rx, ry) => { const t = TEX.dev.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: .9 }); },
+  devOrange: (rx, ry) => { const t = TEX.devOrange.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: .9 }); },
+  missing: (rx, ry) => { const t = TEX.missing.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: .7, emissive: 0x220018 }); },
+  notFound: () => new THREE.MeshStandardMaterial({ map: TEX.notFound, roughness: .8 }),
+  stretched: () => { const t = TEX.dev.clone(); t.needsUpdate = true; t.repeat.set(0.08, 6); return new THREE.MeshStandardMaterial({ map: t }); }
+};
+
+// =================================================================================================
+// Levels. Boxes are [x, y, z, w, h, d, kind, look]. y is the box centre; floors sit with their top at y = 0.
+// kinds: solid, kill (placeholder kill volume), exit (the EXIT_TODO door), deco (not solid)
+// =================================================================================================
+const LEVELS = [
+  {
+    id: 'level_01_tutorial_FINAL.js', start: [0, 1, 0],
+    todo: '// TODO: teach the player to jump\n// (i never wrote jump. press RUN after you do)',
+    boxes: [
+      [0, -0.5, -6, 6, 1, 18, 'solid', 'dev'], [0, 0.55, -8, 6, 1.1, 1, 'solid', 'devOrange'],
+      [0, -0.5 + 1.1, -13, 6, 1, 9, 'solid', 'dev'], [0, 2.1, -16.6, 2, 3, 0.6, 'exit']
+    ],
+    code: ['// tutorial.js  (abandoned 2019)', 'function onStart() {', '!  player.moves = [];  // add moves later', '!  showTutorial(undefinde);', '}', '// step is 1.1m. jump() height = v²/40'],
+    codeAt: [-4.5, 3.5, -7], deco: [['placeholder_tree_final_v2', -2.4, 0, -3], ['// TODO: add railing', 2.6, 1.1, -12]]
+  },
+  {
+    id: 'level_02_wall_test.js', start: [0, 1, 0],
+    todo: '// wall is 3.4m tall. one jump reaches ~2m.\n// i was gonna add double jump. never did.',
+    boxes: [
+      [0, -0.5, -7, 8, 1, 20, 'solid', 'dev'], [0, 1.7, -8, 8, 3.4, 1.2, 'solid', 'missing'],
+      [0, 2.1, -15.6, 2, 3, 0.6, 'exit'], [-4.2, 3, -8, 0.4, 6, 20, 'solid', 'notFound'], [4.2, 3, -8, 0.4, 6, 20, 'solid', 'notFound']
+    ],
+    code: ['// wall_test.js', 'const WALL_H = 3.4;', '!if (player.jumps = 2) {', '!  // allow double jump', '!}  // never called lol', 'export defualt WALL_H;'],
+    codeAt: [-3.9, 4, -4], deco: [['wall_tmp (do not ship)', 0, 3.6, -8]]
+  },
+  {
+    id: 'level_03_gap_v3.js', start: [0, 1, 0],
+    todo: '// gap is 9.5m. walking jumps cover ~4.5m.\n// dash() was on the roadmap.',
+    boxes: [
+      [0, -0.5, -3, 6, 1, 10, 'solid', 'dev'], [0, -0.5, -21, 6, 1, 6, 'solid', 'dev'], [0, -12, -13, 30, 2, 34, 'kill'],
+      [0, 2.1, -23.1, 2, 3, 0.6, 'exit']
+    ],
+    code: ['// gap_v3.js  (v1 and v2 were worse)', 'bridge.visible = false; // TODO', '!bridge.collision = flase;', '!for (;;) { buildBridge(); }', '// ^ froze my pc. commented out', '// ...not actually commented out'],
+    codeAt: [3.6, 3.4, -9], deco: [['bridge (missing)', 0, 0.5, -12.8], ['kill_zone_placeholder', 0, -9.5, -12.8]]
+  },
+  {
+    id: 'level_04_missing_floor.js', start: [0, 1, 0],
+    todo: '// the floor never loaded. there are 3 pillars.\n// spawnBlock() exists in the engine. probably.',
+    boxes: [
+      [0, -0.5, 0, 4, 1, 4, 'solid', 'dev'], [0, -0.5, -8, 1.4, 1, 1.4, 'solid', 'missing'], [1.5, 0.6, -15, 1.4, 1, 1.4, 'solid', 'missing'],
+      [-1, 1.4, -22, 1.4, 1, 1.4, 'solid', 'missing'], [0, 0.9, -30, 4, 1, 4, 'solid', 'dev'], [0, -12, -15, 40, 2, 50, 'kill'],
+      [0, 3, -31.6, 2, 3, 0.6, 'exit']
+    ],
+    code: ['// missing_floor.js', 'floor.load("floor_final.glb")', '!  .then(f => scene.add(f))', '!  .catch(() => {}) // :)', '// pillars spaced 7-8m apart', '// TODO: make this possible'],
+    codeAt: [-4, 3.5, -10], deco: [['floor.glb  0 bytes', 3, 0.5, -12]]
+  },
+  {
+    id: 'level_05_npc_test.js', start: [0, 1, 0],
+    todo: '// NPC guards have no AI. or animations.\n// they just T-pose and shove you off. remove() them?',
+    boxes: [
+      [0, -0.5, -12, 5, 1, 28, 'solid', 'dev'], [0, -12, -12, 40, 2, 50, 'kill'], [0, 2.1, -25.6, 2, 3, 0.6, 'exit']
+    ],
+    npcs: [[0, -7, 2.2], [0, -13, 1.8], [0, -19, 2.5]],
+    code: ['// npc_test.js', 'class Guard extends NPC {', '!  think() { /* TODO: AI */ }', '!  animate() { return T_POSE; }', '!  onTouch(p) { p.yeet(); }', '}'],
+    codeAt: [-3.8, 3.6, -10], deco: [['npc_guard (AI: TODO)', 3, 0.5, -6]]
+  },
+  {
+    id: 'level_06_elevator_broken.js', start: [0, 1, 0],
+    todo: '// the exit is 10m up. the elevator only goes to 3m.\n// climb it however you want.',
+    boxes: [
+      [0, -0.5, -4, 8, 1, 8, 'solid', 'dev'], [0, 5, -9, 8, 12, 1, 'solid', 'notFound'], [-4.5, 5, -4, 1, 12, 8, 'solid', 'dev'],
+      [4.5, 5, -4, 1, 12, 8, 'solid', 'dev'], [0, 9.5, -7, 4, 1, 3, 'solid', 'devOrange'], [0, 11.6, -8.2, 2, 3, 0.6, 'exit']
+    ],
+    movers: [[0, 0.25, -2.5, 2, 0.5, 2, 0, 3, 2.5]],
+    code: ['// elevator.js', 'elevator.maxHeight = 3; // TODO: 10', '!while (elevator.y < goal) {', '!  elevator.y++  // missing ;', '!}', '// good luck!!'],
+    codeAt: [-3.9, 6, -1], deco: [['elevator (75% done)', 1.6, 1.2, -2.5]]
+  },
+  {
+    id: 'level_07_ending_404.js', start: [0, 1, 0],
+    todo: '// ending.glb not found.\n// there is no ending. make one.',
+    boxes: [
+      [0, -0.5, 0, 5, 1, 5, 'solid', 'dev'], [4.5, 1.2, -6.5, 2, 1, 2, 'solid', 'missing'], [2, 2.7, -12.5, 2, 1, 2, 'solid', 'missing'],
+      [-3.5, 1.5, -17.5, 2, 1, 2, 'solid', 'notFound'], [-5.2, 6, -17.5, 0.6, 9, 3, 'solid', 'missing'], [0, 7.5, -28, 6, 1, 6, 'solid', 'devOrange'],
+      [0, -14, -15, 60, 2, 60, 'kill'], [0, 9.6, -30.6, 2, 3, 0.6, 'exit']
+    ],
+    npcs: [[0, -27, 2.2, 8]],
+    movers: [[1, 3.5, -22.5, 2, 0.5, 2, 3.5, 6.5, 2]],
+    code: ['// ending.js', 'import ending from "./ending.glb"', '!// ^ 404', '!credits.roll(undefined)', 'thanks.forPlaying = true', '// if you see this, you finished it'],
+    codeAt: [3.8, 6, -18], deco: [['THE END (placeholder)', 0, 10.4, -28]]
+  }
+];
+
+// =================================================================================================
+// World building
+// =================================================================================================
+let world = new THREE.Group();
+scene.add(world);
+let colliders = [], triggers = [], npcs = [], movers = [], tmpBlocks = [], flickers = [];
+const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), onGround: false, facing: new THREE.Vector3(0, 0, -1), dashT: 0, slow: false, groundRef: null, hitT: 0, airJumps: 0 };
+let levelIdx = 0, deaths = 0, cpu = CPU_MAX, won = false, playing = false;
+
+function box(x, y, z, w, h, d, mat) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = true;
+  world.add(m);
+  return m;
+}
+function aabb(x, y, z, w, h, d) {
+  return { min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2), max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2) };
+}
+function sprite(text, x, y, z, color, scale = 0.012) {
+  const L = labelTex(text, color);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: L.t, depthTest: true }));
+  s.scale.set(L.w * scale, L.h * scale, 1);
+  s.position.set(x, y, z);
+  world.add(s);
+  return s;
+}
+
+function buildLevel(i) {
+  scene.remove(world);
+  world = new THREE.Group();
+  scene.add(world);
+  colliders = []; triggers = []; npcs = []; movers = []; tmpBlocks = []; flickers = [];
+  const L = LEVELS[i];
+  for (const [x, y, z, w, h, d, kind, look] of L.boxes) {
+    if (kind === 'kill') {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0xff2040, wireframe: true, transparent: true, opacity: .35 }));
+      m.position.set(x, y, z); world.add(m);
+      triggers.push({ ...aabb(x, y, z, w, h, d), kind: 'kill' });
+      continue;
+    }
+    if (kind === 'exit') {
+      const frame = new THREE.MeshStandardMaterial({ color: 0x2bd46a, emissive: 0x0d5a2a });
+      box(x - w / 2, y, z, 0.2, h, 0.3, frame); box(x + w / 2, y, z, 0.2, h, 0.3, frame); box(x, y + h / 2, z, w + 0.2, 0.2, 0.3, frame);
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: 0x5fe08a, transparent: true, opacity: .35, side: THREE.DoubleSide }));
+      glow.position.set(x, y, z); world.add(glow); flickers.push({ m: glow, rate: 0.03 });
+      sprite('EXIT_TODO', x, y + h / 2 + 0.6, z, '#5fe08a', 0.014);
+      triggers.push({ ...aabb(x, y, z, w, h, d + 0.6), kind: 'exit' });
+      continue;
+    }
+    const rx = Math.max(1, w), ry = Math.max(1, Math.max(h, d));
+    const mat = look === 'missing' ? MATS.missing(Math.max(1, w), Math.max(1, d)) : look === 'notFound' ? MATS.notFound() : look === 'devOrange' ? MATS.devOrange(rx, ry) : MATS.dev(rx, ry);
+    const m = box(x, y, z, w, h, d, mat);
+    colliders.push({ ...aabb(x, y, z, w, h, d), mesh: m });
+    // some walls z-fight or flicker, like an unfinished build
+    if (look === 'notFound' && Math.random() < 0.6) flickers.push({ m, rate: 0.01 });
+  }
+  for (const [x, z, range, y] of L.npcs || []) addNpc(x, z, range, y || 0);
+  for (const [x, y, z, w, h, d, y0, y1, period] of L.movers || []) {
+    const m = box(x, y, z, w, h, d, MATS.devOrange(w, d));
+    const c = { ...aabb(x, y, z, w, h, d), mesh: m, mover: { y0, y1, period, h, prevY: y } };
+    colliders.push(c); movers.push(c);
+  }
+  // the level's own broken source code, floating in the air
+  const ct = codeTex(L.id, L.code);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 4.4 * ct.image.height / ct.image.width), new THREE.MeshBasicMaterial({ map: ct, side: THREE.DoubleSide, transparent: true, opacity: .93 }));
+  panel.position.set(...L.codeAt);
+  panel.lookAt(L.start[0], L.codeAt[1] - 0.5, L.start[2]);
+  world.add(panel);
+  for (const [t, x, y, z] of L.deco || []) sprite(t, x, y + 0.5, z, '#ffcc4d', 0.01);
+  // a stretched-texture placeholder prop in every level, because of course
+  const prop = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.4, 5), MATS.stretched());
+  prop.position.set(L.start[0] - 2.2, L.start[1] + 0.3, L.start[2] + 1.6);
+  prop.castShadow = true; world.add(prop);
+  // a z-fighting decal on the start floor
+  const z1 = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ color: 0xff00dc }));
+  const z2 = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ color: 0x00e5ff }));
+  for (const zf of [z1, z2]) { zf.rotation.x = -Math.PI / 2; zf.position.set(L.start[0] + 1.2, L.start[1] - 0.999, L.start[2] + 0.8); world.add(zf); }
+  levelIdx = i;
+  $('done').hidden = true;
+  $('lvlName').textContent = L.id;
+  $('lvlTodo').textContent = L.todo;
+  respawn(true);
+}
+
+function addNpc(x, z, range, y) {
+  const g = new THREE.Group();
+  const mat = MATS.missing(1, 1);
+  const part = (w, h, d, px, py) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(px, py, 0); m.castShadow = true; g.add(m); };
+  part(0.7, 0.9, 0.4, 0, 1.25); part(0.45, 0.45, 0.45, 0, 1.95); part(2.0, 0.22, 0.22, 0, 1.55);      // body, head, T-pose arms
+  part(0.25, 0.8, 0.25, -0.18, 0.4); part(0.25, 0.8, 0.25, 0.18, 0.4);
+  g.position.set(x, y, z);
+  world.add(g);
+  const tag = sprite('npc_guard (AI: TODO)', x, y + 2.8, z, '#ff8a96', 0.008);
+  npcs.push({ g, tag, x0: x, y, z, range, t: Math.random() * 6, alive: true, id: npcs.length });
+}
+
+// =================================================================================================
+// The player: an untextured mannequin stuck in a T-pose (the walk animation was never imported)
+// =================================================================================================
+const player = new THREE.Group();
+{
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: .6 });
+  const part = (w, h, d, x, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, 0); m.castShadow = true; player.add(m); };
+  part(0.55, 0.7, 0.3, 0, 0.2); part(0.36, 0.36, 0.36, 0, 0.75); part(1.5, 0.16, 0.16, 0, 0.45); part(0.2, 0.75, 0.2, -0.14, -0.5); part(0.2, 0.75, 0.2, 0.14, -0.5);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.12), new THREE.MeshStandardMaterial({ color: 0xff00dc }));
+  nose.position.set(0, 0.77, -0.22); player.add(nose);
+}
+scene.add(player);
+const playerTag = (() => { const L = labelTex('Player_Final_v3 (no anims)', '#6cb6ff'); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: L.t })); s.scale.set(L.w * 0.007, L.h * 0.007, 1); scene.add(s); return s; })();
+
+function respawn(fresh) {
+  const s = LEVELS[levelIdx].start;
+  P.pos.set(s[0], s[1], s[2]);
+  P.vel.set(0, 0, 0);
+  P.dashT = 0; P.slow = false; P.airJumps = 0; P.groundRef = null; P.onGround = false;
+  P.facing.set(0, 0, -1);
+  for (const b of tmpBlocks) { world.remove(b.mesh); colliders.splice(colliders.indexOf(b), 1); }
+  tmpBlocks = [];
+  cpu = CPU_MAX;
+  won = false;
+  camYaw = 0; camPitch = 0.38;
+  if (!fresh) {
+    deaths++;
+    $('deaths').textContent = deaths;
+    const e = ERRORS[Math.floor(Math.random() * ERRORS.length)];
+    ticker(e);
+    out(e + '  → respawned', 'err');
+  }
+}
+
+// =================================================================================================
+// Input and camera
+// =================================================================================================
+const keys = new Set();
+let camYaw = 0, camPitch = 0.38, camDist = 8.5, dragging = false, lastX = 0, lastY = 0;
+const typing = () => document.activeElement === $('code');
+const keyName = e => (e.key === ' ' ? 'space' : e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase());
+addEventListener('keydown', (e) => {
+  if (typing() || !playing) return;
+  const k = keyName(e);
+  if (k === 'space' || k.startsWith('arrow')) e.preventDefault();
+  if (!keys.has(k)) { keys.add(k); fireKey(k); }
+  if (k === 'r' && !handlers.key.has('r')) respawn(true);
+});
+addEventListener('keyup', (e) => keys.delete(keyName(e)));
+addEventListener('blur', () => keys.clear());
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; cv.setPointerCapture(e.pointerId); if (typing()) $('code').blur(); });
+cv.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  camYaw -= (e.clientX - lastX) * 0.006;
+  camPitch = clamp(camPitch + (e.clientY - lastY) * 0.005, -0.15, 1.3);
+  lastX = e.clientX; lastY = e.clientY;
+});
+cv.addEventListener('pointerup', () => { dragging = false; });
+cv.addEventListener('wheel', (e) => { e.preventDefault(); camDist = clamp(camDist + e.deltaY * 0.01, 4, 18); }, { passive: false });
+
+// =================================================================================================
+// Physics
+// =================================================================================================
+const overlaps = (a, b) => a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y && a.min.z < b.max.z && a.max.z > b.min.z;
+function playerBox(pos = P.pos) {
+  return { min: new THREE.Vector3(pos.x - HALF.x, pos.y - HALF.y, pos.z - HALF.z), max: new THREE.Vector3(pos.x + HALF.x, pos.y + HALF.y, pos.z + HALF.z) };
+}
+function moveAxis(axis, d, canStep) {
+  if (!d) return;
+  P.pos[axis] += d;
+  const pb = playerBox();
+  for (const c of colliders) {
+    if (!overlaps(pb, c)) continue;
+    // walk up small ledges (up to 35 cm) instead of getting stuck on them
+    if (axis !== 'y' && canStep) {
+      const climb = c.max.y - (P.pos.y - HALF.y);
+      if (climb > 0 && climb <= 0.35) {
+        const up = P.pos.clone(); up.y += climb + 1e-3;
+        if (!colliders.some(o => o !== c && overlaps(playerBox(up), o))) { P.pos.y = up.y; pb.min.y = P.pos.y - HALF.y; pb.max.y = P.pos.y + HALF.y; continue; }
+      }
+    }
+    if (d > 0) P.pos[axis] = c.min[axis] - HALF[axis] - 1e-4;
+    else P.pos[axis] = c.max[axis] + HALF[axis] + 1e-4;
+    if (axis === 'y') {
+      if (d < 0) { P.onGround = true; P.groundRef = c; }
+      P.vel.y = 0;
+    } else P.vel[axis] = 0;
+    pb.min[axis] = P.pos[axis] - HALF[axis]; pb.max[axis] = P.pos[axis] + HALF[axis];
+  }
+}
+
+function step(dt, t) {
+  // moving platforms carry whoever stands on them
+  for (const m of movers) {
+    const M = m.mover, y = M.y0 + (M.y1 - M.y0) * (0.5 - 0.5 * Math.cos(t * Math.PI * 2 / M.period / 2));
+    const dy = y - M.prevY;
+    M.prevY = y;
+    m.mesh.position.y = y;
+    m.min.y = y - M.h / 2; m.max.y = y + M.h / 2;
+    if (P.groundRef === m && P.onGround) P.pos.y += dy;
+    // a platform coming down on top of you shoves you out sideways instead of swallowing you
+    else if (overlaps(playerBox(), m)) {
+      const outs = [[m.min.x - HALF.x - 0.01 - P.pos.x, 'x'], [m.max.x + HALF.x + 0.01 - P.pos.x, 'x'], [m.min.z - HALF.z - 0.01 - P.pos.z, 'z'], [m.max.z + HALF.z + 0.01 - P.pos.z, 'z']];
+      outs.sort((a, b) => Math.abs(a[0]) - Math.abs(b[0]));
+      P.pos[outs[0][1]] += outs[0][0];
+    }
+  }
+  // temporary blocks get garbage-collected
+  for (const b of tmpBlocks.slice()) {
+    b.life -= dt;
+    b.mesh.material.opacity = Math.min(1, b.life / 1.5);
+    if (b.life <= 0) { world.remove(b.mesh); colliders.splice(colliders.indexOf(b), 1); tmpBlocks.splice(tmpBlocks.indexOf(b), 1); }
+  }
+  // walking: the one thing the developer finished
+  const f = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw)), r = new THREE.Vector3(-f.z, 0, f.x);
+  const wish = new THREE.Vector3();
+  if (keys.has('w') || keys.has('arrowup')) wish.add(f);
+  if (keys.has('s') || keys.has('arrowdown')) wish.sub(f);
+  if (keys.has('d') || keys.has('arrowright')) wish.add(r);
+  if (keys.has('a') || keys.has('arrowleft')) wish.sub(r);
+  if (wish.lengthSq() > 0) { wish.normalize(); P.facing.copy(wish); }
+  if (P.dashT > 0) P.dashT -= dt;
+  else {
+    const k = Math.min(1, dt * (P.onGround ? 12 : 4));
+    P.vel.x += (wish.x * WALK - P.vel.x) * k;
+    P.vel.z += (wish.z * WALK - P.vel.z) * k;
+  }
+  const g = P.slow && P.vel.y < 0 ? GRAVITY * 0.18 : GRAVITY;
+  if (P.slow) { if (!spend(COST.slowFall * dt, true)) P.slow = false; }
+  P.vel.y = Math.max(-30, P.vel.y - g * dt);
+  const wasGround = P.onGround;
+  P.onGround = false;
+  // step up small ledges when walking, and mantle them in mid-air when not shooting upward
+  const canStep = wasGround || P.vel.y < 2;
+  moveAxis('x', P.vel.x * dt, canStep);
+  moveAxis('z', P.vel.z * dt, canStep);
+  moveAxis('y', P.vel.y * dt);
+  if (!P.onGround) P.groundRef = null;
+  if (P.onGround && !wasGround) { P.airJumps = 0; fire(handlers.land); }
+  // NPCs: T-posing guards that slide back and forth and shove you
+  P.hitT = Math.max(0, P.hitT - dt);
+  for (const n of npcs) {
+    if (!n.alive) continue;
+    n.t += dt;
+    // "AI": slide toward whichever side of the corridor the player is on
+    if (n.cx === undefined) n.cx = n.x0;
+    const want = clamp(P.pos.x, n.x0 - n.range, n.x0 + n.range);
+    n.cx += clamp(want - n.cx, -1.8 * dt, 1.8 * dt);
+    const x = n.cx + Math.sin(n.t * 2.1) * 0.35;
+    n.g.position.x = x; n.tag.position.x = x;
+    n.g.rotation.y = Math.sin(n.t * 7) * 0.05;
+    const nb = aabb(x, n.y + 1.1, n.z, 2.0, 2.2, 0.6);
+    if (P.hitT <= 0 && overlaps(playerBox(), nb)) {
+      const away = new THREE.Vector3(P.pos.x - x, 0, 0.6).normalize();
+      P.vel.set(away.x * 11, 6, away.z * 4);
+      P.dashT = 0.35; P.hitT = 0.6;
+      ticker('npc_guard.onTouch(): player.yeet()');
+      tone(140, 70, 0.25, 'square', 0.08);
+    }
+  }
+  // triggers: kill volumes and the exit
+  const pb = playerBox();
+  for (const tr of triggers) if (overlaps(pb, tr)) {
+    if (tr.kind === 'kill') { respawn(false); return; }
+    if (tr.kind === 'exit' && !won) { winLevel(); return; }
+  }
+  if (P.pos.y < -20) { respawn(false); return; }
+  cpu = Math.min(CPU_MAX, cpu + CPU_REGEN * dt);
+  fire(handlers.tick, dt);
+}
+
+// =================================================================================================
+// The skill API: everything your code is allowed to do
+// =================================================================================================
+const handlers = { key: new Map(), tick: [], land: [] };
+const cooldowns = new Map();
+let saying = null;
+function spend(n, quiet) {
+  if (cpu < n) { if (!quiet) { out('not enough CPU (' + Math.floor(cpu) + '% < ' + Math.ceil(n) + '%)', 'warn'); tone(110, 90, 0.12, 'square', 0.05); } return false; }
+  cpu -= n;
+  return true;
+}
+const snapshot = () => ({
+  x: +P.pos.x.toFixed(2), y: +(P.pos.y - HALF.y).toFixed(2), z: +P.pos.z.toFixed(2),
+  vx: +P.vel.x.toFixed(2), vy: +P.vel.y.toFixed(2), vz: +P.vel.z.toFixed(2),
+  onGround: P.onGround, facing: { x: +P.facing.x.toFixed(2), z: +P.facing.z.toFixed(2) }, cpu: Math.floor(cpu)
+});
+const API = {
+  onKey(key, fn) {
+    if (typeof fn !== 'function') throw new Error('onKey("' + key + '", fn): fn must be a function');
+    const k = String(key).toLowerCase().replace(/^ $/, 'space');
+    if (!handlers.key.has(k)) handlers.key.set(k, []);
+    handlers.key.get(k).push(fn);
+  },
+  onTick(fn) { handlers.tick.push(fn); },
+  onLand(fn) { handlers.land.push(fn); },
+  jump(power = 7) {
+    const v = clamp(+power || 0, 0, MAX_JUMP);
+    if (!spend(P.onGround ? COST.jump : COST.airJump)) return false;
+    if (!P.onGround) P.airJumps++;
+    P.vel.y = v; P.onGround = false; P.groundRef = null;
+    tone(330, 660, 0.12, 'square', 0.05);
+    return true;
+  },
+  dash(power = 12) {
+    const v = clamp(+power || 0, 0, MAX_DASH);
+    if (!spend(COST.dash)) return false;
+    P.vel.x = P.facing.x * v; P.vel.z = P.facing.z * v;
+    if (P.vel.y < 0) P.vel.y = 0;
+    P.dashT = 0.22;
+    tone(600, 200, 0.15, 'sawtooth', 0.04);
+    return true;
+  },
+  push(x = 0, y = 0, z = 0) {
+    const v = new THREE.Vector3(+x || 0, +y || 0, +z || 0);
+    if (v.length() > 10) v.setLength(10);
+    if (!spend(COST.push * v.length())) return false;
+    P.vel.add(v);
+    P.dashT = Math.max(P.dashT, 0.12);
+    return true;
+  },
+  spawnBlock(dx = 0, dy = -0.5, dz = 0) {
+    const off = new THREE.Vector3(+dx || 0, +dy || 0, +dz || 0);
+    if (off.length() > 3.01) { out('spawnBlock: too far (max 3m from your feet)', 'warn'); return false; }
+    const c = new THREE.Vector3(P.pos.x + off.x, P.pos.y - HALF.y + off.y, P.pos.z + off.z);
+    const bb = aabb(c.x, c.y, c.z, 1, 1, 1);
+    if (overlaps(bb, playerBox())) { out('spawnBlock: would spawn inside you', 'warn'); return false; }
+    if (!spend(COST.block)) return false;
+    const mat = MATS.missing(1, 1); mat.transparent = true;
+    const m = box(c.x, c.y, c.z, 1, 1, 1, mat);
+    const b = { ...bb, mesh: m, life: 6 };
+    colliders.push(b); tmpBlocks.push(b);
+    tone(200, 400, 0.08, 'triangle', 0.06);
+    return true;
+  },
+  teleport(dx = 0, dy = 0, dz = 0) {
+    const off = new THREE.Vector3(+dx || 0, +dy || 0, +dz || 0);
+    if (off.length() > 3.01) { out('teleport: too far (max 3m)', 'warn'); return false; }
+    const to = P.pos.clone().add(off);
+    if (colliders.some(c => overlaps(playerBox(to), c))) { out('teleport: something is in the way', 'warn'); return false; }
+    if (!spend(COST.teleport)) return false;
+    P.pos.copy(to); P.vel.y = Math.max(P.vel.y, 0);
+    tone(900, 1800, 0.1, 'sine', 0.05);
+    return true;
+  },
+  slowFall(on = true) { P.slow = !!on; },
+  nearest(kind = 'npc') {
+    let best = null, bd = Infinity;
+    const consider = (o) => { const d = Math.hypot(o.x - P.pos.x, o.y - (P.pos.y - HALF.y), o.z - P.pos.z); if (d < bd) { bd = d; best = { ...o, dist: +d.toFixed(2) }; } };
+    if (kind === 'npc') for (const n of npcs) if (n.alive) consider({ kind: 'npc', id: n.id, x: n.g.position.x, y: n.y, z: n.z });
+    if (kind === 'exit') for (const t of triggers) if (t.kind === 'exit') consider({ kind: 'exit', x: (t.min.x + t.max.x) / 2, y: t.min.y, z: (t.min.z + t.max.z) / 2 });
+    return best;
+  },
+  remove(thing) {
+    if (!thing || thing.kind !== 'npc') { out('remove(): you can only remove() an npc from nearest("npc")', 'warn'); return false; }
+    const n = npcs[thing.id];
+    if (!n || !n.alive) return false;
+    if (Math.hypot(n.g.position.x - P.pos.x, n.z - P.pos.z) > 4) { out('remove(): too far away (get within 4m)', 'warn'); return false; }
+    if (!spend(COST.remove)) return false;
+    n.alive = false; world.remove(n.g); world.remove(n.tag);
+    out('rm npc_guard_' + thing.id + '  ✓ deleted', 'ok');
+    tone(500, 60, 0.3, 'square', 0.06);
+    return true;
+  },
+  cooldown(name, sec) {
+    const now = performance.now() / 1000, until = cooldowns.get(name) || 0;
+    if (now < until) return false;
+    cooldowns.set(name, now + (+sec || 0));
+    return true;
+  },
+  say(text) { saying = { text: String(text).slice(0, 60), until: performance.now() + 2500 }; },
+  log(...a) { out(a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' '), 'log'); },
+  get player() { return snapshot(); },
+  time() { return performance.now() / 1000; }
+};
+// `player` is not passed in: it's a live global getter, so handlers always read fresh values
+const API_NAMES = Object.keys(Object.getOwnPropertyDescriptors(API)).filter(n => n !== 'player');
+
+function fire(list, ...args) {
+  for (const fn of list) {
+    try { loopBudget = 20000; fn(...args); }
+    catch (e) { report(e); removeHandler(fn); }
+  }
+}
+function fireKey(k) { const l = handlers.key.get(k); if (l) fire(l); }
+function removeHandler(fn) {
+  handlers.tick = handlers.tick.filter(f => f !== fn);
+  handlers.land = handlers.land.filter(f => f !== fn);
+  for (const [k, l] of handlers.key) handlers.key.set(k, l.filter(f => f !== fn));
+}
+function report(e) {
+  const msg = (e && e.message) || String(e);
+  out('skill crashed and was unloaded: ' + msg, 'err');
+  ticker('Uncaught ' + ((e && e.name) || 'Error') + ': ' + msg);
+  tone(120, 60, 0.3, 'sawtooth', 0.06);
+}
+
+// loops in your code get a budget so a while(true) can't freeze the game
+let loopBudget = 20000;
+window.__loop = () => { if (--loopBudget < 0) throw new Error('infinite loop? (loop ran 20,000 times in one go)'); return true; };
+function guardLoops(src) {
+  return src
+    .replace(/\bwhile\s*\(/g, 'while (__loop() && ')
+    .replace(/\bfor\s*\(([^;()]*);/g, 'for ($1; __loop() && ');
+}
+
+function compile() {
+  const src = $('code').value;
+  handlers.key = new Map(); handlers.tick = []; handlers.land = []; cooldowns.clear();
+  P.slow = false;
+  let fn;
+  try {
+    fn = new Function(...API_NAMES, '"use strict";\n' + guardLoops(src));
+  } catch (e) {
+    out('SyntaxError: ' + e.message + '  (nothing loaded, fix it and RUN again)', 'err');
+    ticker('SyntaxError: ' + e.message);
+    return false;
+  }
+  try {
+    loopBudget = 20000;
+    fn(...API_NAMES.map(n => API[n]));
+  } catch (e) { report(e); return false; }
+  const keysBound = [...handlers.key.keys()];
+  out('compiled ✓  ' + (keysBound.length ? 'keys: ' + keysBound.join(', ') : 'no keys bound') + (handlers.tick.length ? ' · ' + handlers.tick.length + ' onTick' : '') + (handlers.land.length ? ' · ' + handlers.land.length + ' onLand' : ''), 'ok');
+  localStorage.setItem('unfinished_code', src);
+  $('dirty').textContent = '';
+  return true;
+}
+Object.defineProperty(window, 'player', { get: snapshot, configurable: true });
+
+// =================================================================================================
+// Console, ticker, sound
+// =================================================================================================
+function out(text, cls = 'dim') {
+  const c = $('console'), d = document.createElement('div');
+  d.className = cls; d.textContent = text;
+  c.appendChild(d);
+  while (c.children.length > 120) c.firstChild.remove();
+  c.scrollTop = c.scrollHeight;
+}
+let tickT = 0;
+function ticker(text) {
+  const t = $('ticker'); t.textContent = text; t.classList.add('on');
+  clearTimeout(tickT); tickT = setTimeout(() => t.classList.remove('on'), 2600);
+}
+let AC = null, muted = false;
+function tone(f0, f1, dur, type, vol) {
+  if (muted) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur + 0.02);
+  } catch (e) { /* no audio */ }
+}
+
+// =================================================================================================
+// Winning, levels, saving
+// =================================================================================================
+const SAVE = JSON.parse(localStorage.getItem('unfinished_save') || '{"unlocked":0}');
+function winLevel() {
+  won = true;
+  tone(523, 1046, 0.2, 'triangle', 0.08); setTimeout(() => tone(784, 1568, 0.3, 'triangle', 0.08), 140);
+  SAVE.unlocked = Math.max(SAVE.unlocked, levelIdx + 1);
+  localStorage.setItem('unfinished_save', JSON.stringify(SAVE));
+  const last = levelIdx === LEVELS.length - 1;
+  const warnings = 3 + Math.floor(Math.random() * 60);
+  $('doneTitle').textContent = last ? '✓ ending.js compiled' : '✓ ' + LEVELS[levelIdx].id + ' compiled';
+  $('doneText').innerHTML = last
+    ? 'There was never an ending. <b>You made one.</b><br><br>credits.txt:<br>design ......... the dev (quit)<br>art ............ TEXTURE NOT FOUND<br>programming .... <b>you</b><br>playtesting .... <b>you</b>, ' + deaths + ' deaths<br><br>Thanks for finishing it.'
+    : '0 errors, ' + warnings + ' warnings. Deaths so far: <b>' + deaths + '</b>. Your skills.js carries over to the next level.';
+  $('nextBtn').textContent = last ? 'Back to level 1' : 'Next level →';
+  $('done').hidden = false;
+}
+$('nextBtn').addEventListener('click', () => { $('done').hidden = true; buildLevel((levelIdx + 1) % LEVELS.length); });
+$('stayBtn').addEventListener('click', () => { $('done').hidden = true; respawn(true); });
+function openLevels() {
+  $('levelList').innerHTML = LEVELS.map((L, i) => '<button class="btn" data-i="' + i + '"' + (i > SAVE.unlocked ? ' disabled' : '') + '>' + (i <= SAVE.unlocked ? '' : '🔒 ') + L.id + '</button>').join('');
+  $('levelList').querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { $('levelsBox').hidden = true; buildLevel(+b.dataset.i); }));
+  $('levelsBox').hidden = false;
+}
+$('levelsBtn').addEventListener('click', openLevels);
+$('levelsClose').addEventListener('click', () => { $('levelsBox').hidden = true; });
+$('restartBtn').addEventListener('click', () => respawn(true));
+$('toggleSide').addEventListener('click', () => { $('side').classList.toggle('hide'); resize(); });
+
+// =================================================================================================
+// Editor
+// =================================================================================================
+const STARTER = `// skills.js
+// The developer quit before finishing the player's moves.
+// Walking works (WASD) and you can drag the view. Everything else is up to you.
+// Write your moves, then press RUN (or Ctrl+Enter). Open "API" for the full list.
+
+onKey("space", () => {
+  // TODO: jump
+});
+`;
+const code = $('code');
+code.value = localStorage.getItem('unfinished_code') || STARTER;
+function gutter() {
+  const n = code.value.split('\n').length;
+  $('gutter').textContent = Array.from({ length: n }, (_, i) => i + 1).join('\n');
+  $('gutter').scrollTop = code.scrollTop;
+}
+code.addEventListener('input', () => { gutter(); $('dirty').textContent = '● unsaved'; });
+code.addEventListener('scroll', () => { $('gutter').scrollTop = code.scrollTop; });
+code.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = code.selectionStart;
+    code.setRangeText('  ', s, code.selectionEnd, 'end');
+    gutter();
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault(); run();
+  } else if (e.key === 'Escape') code.blur();
+});
+gutter();
+function run() { compile(); code.blur(); }
+$('runBtn').addEventListener('click', run);
+$('resetCode').addEventListener('click', () => {
+  if (!confirm('Put the original broken skills.js back? Your code will be replaced.')) return;
+  code.value = STARTER; gutter(); compile();
+});
+
+$('docs').innerHTML = `
+  <h3>How it works</h3>
+  <p>Your file runs once when you press RUN. Use it to bind moves to keys. Moves cost <b>CPU</b>, which refills at ${CPU_REGEN}% per second.</p>
+  <pre>onKey("space", () =&gt; jump(8));
+onKey("shift", () =&gt; dash(12));</pre>
+  <h3>Moves</h3>
+  <table>
+    <tr><td><code>jump(power)</code> velocity up, max ${MAX_JUMP}. Height ≈ power² / 40 metres. Works in mid-air too (costs more).</td><td>${COST.jump}% / ${COST.airJump}% air</td></tr>
+    <tr><td><code>dash(power)</code> shoot forward the way you're walking, max ${MAX_DASH}</td><td>${COST.dash}%</td></tr>
+    <tr><td><code>push(x, y, z)</code> add any velocity (max 10 total)</td><td>${COST.push}% per unit</td></tr>
+    <tr><td><code>spawnBlock(dx, dy, dz)</code> a 1 m block offset from your feet (max 3 m). Default (0, -0.5, 0) is right under you. Lasts 6 s.</td><td>${COST.block}%</td></tr>
+    <tr><td><code>teleport(dx, dy, dz)</code> blink up to 3 m</td><td>${COST.teleport}%</td></tr>
+    <tr><td><code>slowFall(true/false)</code> fall slowly while on</td><td>${COST.slowFall}% / s</td></tr>
+    <tr><td><code>remove(nearest("npc"))</code> delete a guard within 4 m</td><td>${COST.remove}%</td></tr>
+  </table>
+  <h3>Events</h3>
+  <table>
+    <tr><td><code>onKey(key, fn)</code> keys: "space", "shift", "e", "q", "1", "arrowup"…</td><td></td></tr>
+    <tr><td><code>onTick(dt =&gt; …)</code> runs every frame</td><td></td></tr>
+    <tr><td><code>onLand(fn)</code> runs when you touch the ground</td><td></td></tr>
+  </table>
+  <h3>Reading the world</h3>
+  <table>
+    <tr><td><code>player</code> x, y, z, vx, vy, vz, onGround, facing, cpu (read only)</td><td></td></tr>
+    <tr><td><code>nearest("npc" | "exit")</code> the closest one, with x, y, z, dist</td><td></td></tr>
+    <tr><td><code>cooldown(name, seconds)</code> true if ready (then starts the cooldown)</td><td></td></tr>
+    <tr><td><code>say(text)</code>, <code>log(...)</code>, <code>time()</code></td><td></td></tr>
+  </table>
+  <h3>Example: a double jump</h3>
+  <pre>let jumps = 0;
+onLand(() =&gt; { jumps = 0; });
+onKey("space", () =&gt; {
+  if (jumps &lt; 2 &amp;&amp; jump(9)) jumps++;
+});</pre>
+  <p>Press <b>R</b> to respawn. Drag the view to look around, scroll to zoom.</p>
+  <button class="btn" id="docsClose">Close API</button>`;
+const toggleDocs = (on) => $('docs').classList.toggle('on', on);
+$('docsBtn').addEventListener('click', () => toggleDocs(!$('docs').classList.contains('on')));
+$('docs').addEventListener('click', (e) => { if (e.target.id === 'docsClose') toggleDocs(false); });
+$('docsBtn2').addEventListener('click', () => { start(); toggleDocs(true); });
+
+// =================================================================================================
+// Main loop
+// =================================================================================================
+const clock = new THREE.Clock();
+let warnT = 6;
+function frame() {
+  const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+  if (playing && !won && $('levelsBox').hidden) step(dt, t);
+  // flickering, unfinished things
+  for (const fl of flickers) if (Math.random() < fl.rate) fl.m.visible = !fl.m.visible;
+  // player model
+  player.position.set(P.pos.x, P.pos.y + 0.05, P.pos.z);
+  player.rotation.y = Math.atan2(-P.facing.x, -P.facing.z);
+  player.rotation.z = P.dashT > 0 ? 0.25 : 0;
+  playerTag.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z);
+  // camera orbits behind the player
+  const target = new THREE.Vector3(P.pos.x, P.pos.y + 0.8, P.pos.z);
+  const camPos = new THREE.Vector3(
+    target.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+    target.y + Math.sin(camPitch) * camDist,
+    target.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist);
+  camera.position.lerp(camPos, Math.min(1, dt * 10));
+  camera.lookAt(target);
+  sun.position.set(P.pos.x + 12, P.pos.y + 24, P.pos.z + 8);
+  sun.target.position.copy(P.pos);
+  // HUD
+  $('cpuTxt').textContent = Math.floor(cpu);
+  $('cpuFill').style.width = (cpu / CPU_MAX * 100) + '%';
+  bubble();
+  if (playing && (warnT -= dt) < 0) { warnT = 9 + Math.random() * 12; out(WARNINGS[Math.floor(Math.random() * WARNINGS.length)], 'warn'); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+let bubbleEl = null;
+function bubble() {
+  if (!saying || performance.now() > saying.until) { if (bubbleEl) { bubbleEl.remove(); bubbleEl = null; } return; }
+  if (!bubbleEl) { bubbleEl = document.createElement('div'); bubbleEl.className = 'bubble'; view.appendChild(bubbleEl); }
+  bubbleEl.textContent = saying.text;
+  const p = new THREE.Vector3(P.pos.x, P.pos.y + 2.1, P.pos.z).project(camera);
+  bubbleEl.style.left = ((p.x + 1) / 2 * view.clientWidth) + 'px';
+  bubbleEl.style.top = ((1 - p.y) / 2 * view.clientHeight) + 'px';
+}
+
+function start() {
+  if (playing) return;
+  playing = true;
+  $('intro').hidden = true;
+  out('UNFINISHED engine v0.0.3-pre-alpha-broken', 'dim');
+  out('loading skills.js…', 'dim');
+  compile();
+}
+$('startBtn').addEventListener('click', start);
+// hooks for poking at the game from the console (and for automated play-testing)
+window.__unfinished = {
+  P, API, LEVELS, buildLevel, compile, sim: { step, keys, fireKey, start },
+  get level() { return levelIdx; }, get won() { return won; }, get deaths() { return deaths; }, get cpu() { return cpu; }, set cpu(v) { cpu = v; },
+  set yaw(v) { camYaw = v; }
+};
+
+resize();
+buildLevel(Math.min(SAVE.unlocked, LEVELS.length - 1));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
