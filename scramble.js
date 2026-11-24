@@ -34,6 +34,13 @@ addEventListener('resize', placeButton);
 addEventListener('load', placeButton);
 new ResizeObserver(placeButton).observe(grid);
 btn.addEventListener('click', () => scramble());
+// The hands work in screen space, so hold the page still while they move tiles around.
+const holdScroll = e => { if (busy && !(card && card.open)) e.preventDefault(); };
+addEventListener('wheel', holdScroll, { passive: false });
+addEventListener('touchmove', holdScroll, { passive: false });
+addEventListener('keydown', e => {
+  if (busy && !(card && card.open) && [' ', 'PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) e.preventDefault();
+});
 
 // ------------------------------------------------------------------ small helpers
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -392,6 +399,7 @@ function startLoop() {
     const time = (now - t0) / 1000;
     applyHand(H.right, R, time);
     applyHand(H.left, L, time);
+    if (frameHook) frameHook(time);
     H.renderer.render(H.scene, H.camera);
     requestAnimationFrame(frame);
   };
@@ -404,37 +412,197 @@ function stopLoop() {
 }
 
 // ------------------------------------------------------------------ tile motion
-let jitterTimer = 0;
+// While the hands work, each tile already sits in its new slot (CSS order) and a transform
+// offset holds it wherever it really is on screen. The hands push those offsets around:
+// dragging tiles under their palms, raking them into a pile, and sliding each one into place.
+let frameHook = null;
+const motion = new Map();            // tile -> { b: new slot rect, ox, oy, rot, wasVisible, willBeVisible }
+const held = new Map();              // hand side -> { t, m, gx, gy } for a tile being slid by that hand
 
-function startJitter() {
-  const tick = () => {
-    const time = (performance.now() - t0) / 1000;
-    const hands = [handScreen(R, time), handScreen(L, time)];
-    const sigma = H ? H.scale * 9 : 160;
-    for (const t of shown()) {
-      const r = t.getBoundingClientRect();
-      if (r.bottom < -50 || r.top > innerHeight + 50) continue;
-      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      let px = 0, py = 0;
-      for (const hnd of hands) {
-        const d2 = (cx - hnd.x) ** 2 + (cy - hnd.y) ** 2;
-        const f = Math.exp(-d2 / (2 * sigma * sigma));
-        px += hnd.vx * 38 * f;
-        py += hnd.vy * 38 * f;
-      }
-      px += (Math.random() - 0.5) * 8;
-      py += (Math.random() - 0.5) * 8;
-      const rot = px * 0.18 + (Math.random() - 0.5) * 3;
-      t.style.transition = 'transform 140ms linear';
-      t.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) rotate(${rot.toFixed(2)}deg)`;
-    }
-  };
-  tick();
-  jitterTimer = setInterval(tick, 140);
+function setTile(t, m) {
+  t.style.transform = `translate(${m.ox.toFixed(1)}px,${m.oy.toFixed(1)}px) rotate(${m.rot.toFixed(2)}deg)`;
 }
 
-function stopJitter() {
-  clearInterval(jitterTimer);
+function centerOf(m) {
+  return { x: m.b.left + m.b.width / 2 + m.ox, y: m.b.top + m.b.height / 2 + m.oy };
+}
+
+/** Applies the new order, but keeps every on-screen tile visually where it was. */
+function beginPhysicalShuffle() {
+  const list = tiles();
+  const first = new Map(list.map(t => [t, t.getBoundingClientRect()]));
+  list.forEach(t => {
+    t.style.transition = 'none';
+    t.style.transform = '';
+  });
+  const order = nextOrder && nextOrder.length === list.length ? nextOrder : shuffled(list.length);
+  nextOrder = null;
+  list.forEach((t, i) => { t.style.order = String(order[i]); });
+  placeButton();
+  motion.clear();
+  const h = innerHeight;
+  for (const t of list) {
+    if (t.offsetParent === null) continue;
+    const a = first.get(t), b = t.getBoundingClientRect();
+    const wasVisible = a.bottom > 0 && a.top < h;
+    const willBeVisible = b.bottom > 0 && b.top < h;
+    if (!wasVisible && !willBeVisible) continue;              // never on screen: it just moves
+    const m = { b, ox: a.left - b.left, oy: a.top - b.top, rot: 0, wasVisible, willBeVisible };
+    motion.set(t, m);
+    setTile(t, m);
+  }
+}
+
+/** Frame hook: tiles under a pressing palm get dragged along with it. */
+function dragUnderPalms() {
+  const prev = {};
+  return (time) => {
+    const reach = H.scale * 10;
+    const hands = [R, L].map(a => {
+      const p = handScreen(a, time);
+      const last = prev[a.side];
+      prev[a.side] = p;
+      return { a, p, dx: last ? p.x - last.x : 0, dy: last ? p.y - last.y : 0 };
+    });
+    for (const [t, m] of motion) {
+      if (!m.wasVisible) continue;
+      const c = centerOf(m);
+      let moved = false;
+      for (const hd of hands) {
+        if (hd.a.z > 110 || (!hd.dx && !hd.dy)) continue;
+        const f = clamp(1.25 - Math.hypot(c.x - hd.p.x, c.y - hd.p.y) / reach, 0, 1);
+        if (f > 0) {
+          m.ox += hd.dx * f;
+          m.oy += hd.dy * f;
+          m.rot = clamp(m.rot + hd.dx * f * 0.06, -14, 14);
+          moved = true;
+        }
+      }
+      if (moved) {
+        t.style.zIndex = '7';
+        setTile(t, m);
+      }
+    }
+  };
+}
+
+/** Frame hook: a tile being slid stays under the fingers of the hand holding it. */
+function followHolds(time) {
+  for (const [side, hd] of held) {
+    const p = handScreen(side === 'R' ? R : L, time);
+    const m = hd.m;
+    m.ox = p.x + hd.gx - (m.b.left + m.b.width / 2);
+    m.oy = p.y + hd.gy - (m.b.top + m.b.height / 2);
+    m.rot *= 0.88;                                         // it straightens out as it is dragged
+    setTile(hd.t, m);
+  }
+}
+
+/** The hands rake every tile on screen down into a pile at the bottom edge. */
+async function rakeIntoPile(topY) {
+  const w = innerWidth, h = innerHeight, s = H.scale;
+  frameHook = null;
+  await Promise.all([
+    tween(R, { swirlAmp: 0, x: w * 0.68, y: topY, z: 110, spread: 0.5, curl: 0.05, rz: 0.15 }, 380),
+    tween(L, { swirlAmp: 0, x: w * 0.32, y: topY, z: 110, spread: 0.5, curl: 0.05, rz: -0.15 }, 380)
+  ]);
+  await Promise.all([tween(R, { z: 50 }, 130), tween(L, { z: 50 }, 130)]);
+
+  const rakeMs = 700, bottom = h + s * 8;
+  tween(R, { y: bottom, z: 60, x: w * 0.72 }, rakeMs, k => k * k);
+  tween(L, { y: bottom, z: 60, x: w * 0.28 }, rakeMs, k => k * k);
+  for (const [t, m] of motion) {
+    let tx, ty, rot;
+    if (m.willBeVisible) {
+      // waits in the pile, peeking up from the bottom edge
+      tx = clamp(m.b.left + m.ox + (Math.random() - 0.5) * 160, w * 0.02, w * 0.98 - m.b.width) - m.b.left;
+      ty = h - 34 - Math.random() * 26 - m.b.top;
+      rot = (Math.random() - 0.5) * 18;
+    } else {
+      tx = m.ox + (Math.random() - 0.5) * 120;
+      ty = h + 90 + Math.random() * 140 - m.b.top;
+      rot = m.rot + (Math.random() - 0.5) * 24;
+    }
+    if (!m.wasVisible) {
+      // comes from somewhere off screen: slip it in just under the bottom edge first
+      m.ox = tx;
+      m.oy = h + 40 - m.b.top;
+      setTile(t, m);
+      void t.offsetWidth;
+    }
+    const cy = centerOf(m).y;
+    const delay = clamp((cy - topY) / (bottom - topY), 0, 1) * rakeMs * 0.7;
+    t.style.zIndex = '7';
+    t.style.transition = `transform ${Math.round(rakeMs * 0.65)}ms cubic-bezier(.45,0,.7,1) ${Math.round(delay)}ms`;
+    Object.assign(m, { ox: tx, oy: ty, rot });
+    setTile(t, m);
+  }
+  await wait(rakeMs + 150);
+  for (const [t, m] of [...motion]) {
+    t.style.transition = 'none';
+    if (!m.willBeVisible) {
+      // it left the screen; drop it straight into its new (off-screen) slot
+      t.style.transform = '';
+      t.style.zIndex = '';
+      motion.delete(t);
+    }
+  }
+}
+
+/** One hand slides a tile from the pile into its new slot. */
+async function slideHome(a, t, m, speed) {
+  const c = centerOf(m);
+  await tween(a, { x: c.x, y: c.y + m.b.height * 0.1, z: 115, curl: 0.12, spread: 0.35, rz: a.side === 'R' ? 0.3 : -0.3, rx: 0.05 }, 220 * speed);
+  await tween(a, { z: 46, curl: 0.24, spread: 0.12 }, 75);
+  const hp = handScreen(a, (performance.now() - t0) / 1000);
+  const now = centerOf(m);
+  const gx = now.x - hp.x, gy = now.y - hp.y;
+  t.style.transition = 'none';
+  t.style.zIndex = '8';
+  held.set(a.side, { t, m, gx, gy });
+  await tween(a, { x: m.b.left + m.b.width / 2 - gx, y: m.b.top + m.b.height / 2 - gy, z: 54 }, 330 * speed);
+  held.delete(a.side);
+  t.style.transition = 'transform 170ms cubic-bezier(.3,1.6,.5,1)';
+  Object.assign(m, { ox: 0, oy: 0, rot: 0 });
+  setTile(t, m);
+  setTimeout(() => { t.style.zIndex = ''; }, 190);
+  await tween(a, { z: 108, curl: 0.1, spread: 0.3 }, 70);
+}
+
+/** Both hands deal the new games from the pile into their slots; the rest slide in by themselves. */
+async function dealFromPile() {
+  const w = innerWidth, h = innerHeight;
+  frameHook = followHolds;
+  const jobs = [...motion].sort((p, q) => (p[1].b.top - q[1].b.top) || (p[1].b.left - q[1].b.left));
+  const byHand = jobs.filter(([, m]) => m.b.top + m.b.height * 0.6 < h - 50 && m.b.bottom > 40).slice(0, 8);
+  const queues = { L: [], R: [] };
+  for (const job of byHand) {
+    const cx = job[1].b.left + job[1].b.width / 2;
+    const middle = Math.abs(cx - w / 2) < job[1].b.width * 0.3;
+    const side = middle ? (queues.L.length <= queues.R.length ? 'L' : 'R') : (cx < w / 2 ? 'L' : 'R');
+    queues[side].push(job);
+  }
+  while (queues.L.length > queues.R.length + 1) queues.R.push(queues.L.pop());
+  while (queues.R.length > queues.L.length + 1) queues.L.push(queues.R.pop());
+  const run = async (a, list) => {
+    for (let i = 0; i < list.length; i++) await slideHome(a, list[i][0], list[i][1], Math.max(0.55, 1 - i * 0.12));
+  };
+  await Promise.all([run(R, queues.R), run(L, queues.L)]);
+  frameHook = null;
+
+  const rest = jobs.filter(job => !byHand.includes(job));
+  rest.forEach(([t, m], i) => {
+    t.style.transition = `transform 480ms cubic-bezier(.2,.85,.3,1) ${i * 50}ms`;
+    Object.assign(m, { ox: 0, oy: 0, rot: 0 });
+    setTile(t, m);
+  });
+  if (rest.length) await wait(520 + rest.length * 50);
+  for (const t of tiles()) {
+    t.style.transition = '';
+    t.style.transform = '';
+    t.style.zIndex = '';
+  }
+  motion.clear();
 }
 
 /** Give every tile a new random place (CSS order) and glide it there (FLIP). */
@@ -644,19 +812,19 @@ async function scramble() {
       tween(R, { z: 70, spread: 0.7, curl: 0.04, rx: 0.02 }, 240),
       tween(L, { z: 70, spread: 0.7, curl: 0.04, rx: 0.02 }, 240)
     ]);
-    // 3. swirl everything around
+    // 3. new places are decided now; the hands physically move every tile there
+    beginPhysicalShuffle();
+    // 4. swirl: whatever is under a palm gets dragged around with it
     const amp = clamp(Math.min(w, h) * 0.11, 50, 150);
+    frameHook = dragUnderPalms();
     tween(R, { swirlAmp: amp }, 350);
     tween(L, { swirlAmp: amp }, 350);
-    startJitter();
-    await wait(1350);
-    stopJitter();
-    // 4. drop every game into a new spot while the hands sweep apart
-    tween(R, { swirlAmp: 0, x: Math.min(w - s * 4, rx + w * 0.12), y: midY - h * 0.08, z: 150, spread: 0.2, curl: 0.15 }, 650);
-    tween(L, { swirlAmp: 0, x: Math.max(s * 4, lx - w * 0.12), y: midY - h * 0.08, z: 150, spread: 0.2, curl: 0.15 }, 650);
-    await reorderTiles(true);
+    await wait(1050);
+    // 5. rake everything into a pile at the bottom, then deal the new games out of it
+    await rakeIntoPile(clamp(areaTop + 40, 40, h * 0.3));
+    await dealFromPile();
 
-    // 5. pick a game and hand it over
+    // 6. pick a game and hand it over
     await present(pickTile(), true);
   } finally {
     busy = false;
