@@ -1,0 +1,1727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Water Bottle · Kai.fun</title>
+<meta name="description" content="A hyperrealistic plastic water bottle on a table. Unscrew the cap, tilt it, pour it out, and crush it.">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#5e5045;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;cursor:grab}
+#c.hov{cursor:pointer}#c.drag{cursor:grabbing}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 58%,rgba(24,14,6,.34) 100%)}
+.back{position:fixed;top:14px;left:14px;z-index:5;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#2a2520;font-weight:700;font-size:13px;text-decoration:none;letter-spacing:.02em;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.back:hover{background:rgba(255,255,255,.85)}
+#ttl{position:fixed;left:20px;bottom:max(18px,env(safe-area-inset-bottom));z-index:4;pointer-events:none;color:#fff;text-shadow:0 1px 10px rgba(40,25,10,.45)}
+#ttl h1{margin:0;font-weight:300;font-size:clamp(24px,3vw,34px);letter-spacing:.32em;text-transform:uppercase;line-height:1}
+#ttl p{margin:8px 0 0;font-size:12px;letter-spacing:.08em;opacity:.88}
+#ml{margin-top:6px;font-size:11px;letter-spacing:.12em;opacity:.7;font-variant-numeric:tabular-nums}
+#btns{position:fixed;top:14px;right:14px;z-index:5;display:flex;gap:8px}
+.rb{height:36px;min-width:36px;padding:0 10px;border:0;border-radius:999px;background:rgba(255,255,255,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#2a2520;display:grid;place-items:center;cursor:pointer;font:700 11px/1 inherit;font-family:inherit;letter-spacing:.08em;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.rb:hover{background:rgba(255,255,255,.85)}
+.rb svg{width:18px;height:18px}
+#load{position:fixed;inset:0;display:grid;place-items:center;background:#5e5045;color:#fff;font-size:12px;letter-spacing:.3em;text-transform:uppercase;z-index:9;transition:opacity .6s}
+#load.gone{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="vig"></div>
+<a class="back" href="index.html">&larr; kai.fun</a>
+<div id="btns">
+  <button class="rb" id="bSnd" title="Sound on/off" aria-label="Sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="sndW" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+  <button class="rb" id="bQ" title="Quality">HD</button>
+  <button class="rb" id="bReset" title="New bottle" aria-label="New bottle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+</div>
+<div id="ttl"><h1>Water Bottle</h1><p>drag to tilt · twist the cap · hold to crush</p><div id="ml"></div></div>
+<div id="load">pouring…</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+const $ = id => document.getElementById(id);
+const V3 = THREE.Vector3;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { x = clamp((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
+const TAU = Math.PI * 2;
+const QS = new URLSearchParams(location.search);
+
+/* ---------------- renderer / scene ---------------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+let HQ = QS.get('lq') ? false : true;
+try { if (localStorage.getItem('wb_lq') === '1') HQ = false; } catch (e) {}
+const setPR = () => renderer.setPixelRatio(HQ ? Math.min(devicePixelRatio || 1, 2) : 1);
+setPR();
+
+const scene = new THREE.Scene();
+const FOG = new THREE.Color(0x5e5045);
+scene.background = FOG.clone();
+scene.fog = new THREE.Fog(FOG, 90, 330);
+const pmrem = new THREE.PMREMGenerator(renderer);
+// photographic studio-room environment: big window on the left, soft fill right, warm wooden floor
+function makeEnvScene() {
+  const es = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.16, 0.13, 0.11), side: THREE.BackSide }));
+  room.position.y = 12; es.add(room);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.26, 0.16, 0.08) }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -2.9; es.add(floor);
+  const panel = (w, h, int, col, x, y, z, ry, rx = 0) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(int), side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.rotation.set(rx, ry, 0); es.add(m);
+  };
+  panel(16, 18, 9, 0xfff3e2, -29.5, 11, -4, Math.PI / 2);        // window (key)
+  panel(3, 18, 0.15, 0x302820, -29.4, 11, -4, Math.PI / 2);      // window mullion
+  panel(14, 10, 2.2, 0xe8f0ff, 29.5, 10, 6, -Math.PI / 2);       // soft fill
+  panel(20, 12, 1.6, 0xfff8f0, 0, 26.9, 0, 0, Math.PI / 2);      // ceiling softbox
+  panel(30, 12, 0.45, 0xf1e0c8, 0, 9, -29.5, 0);                 // back wall glow
+  panel(26, 10, 0.4, 0xf4ece2, 0, 9, 29.5, Math.PI);             // camera-side wall
+  return es;
+}
+const envTex = pmrem.fromScene(makeEnvScene(), 0.02).texture;
+scene.environment = envTex;
+
+const camera = new THREE.PerspectiveCamera(30, 1, 1, 1200);
+const camTarget = new V3(4.5, 9.2, 0);
+const cam = { yaw: 0.05, pitch: 0.2, dist: 58, tyaw: 0.05, tpitch: 0.2 };
+function placeCamera() {
+  const a = innerWidth / innerHeight;
+  const needV = 14.5 / Math.tan(THREE.MathUtils.degToRad(15));
+  const needH = 14.5 / (Math.tan(THREE.MathUtils.degToRad(15)) * a);
+  cam.dist = Math.max(needV, needH) * (cam.zoom || 1);
+  camera.position.set(
+    camTarget.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist,
+    camTarget.y + Math.sin(cam.pitch) * cam.dist,
+    camTarget.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
+  camera.lookAt(camTarget);
+}
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  placeCamera();
+}
+addEventListener('resize', resize);
+
+/* lights: soft window key + env */
+const sun = new THREE.DirectionalLight(0xfff0dc, 2.3);
+sun.position.set(-34, 58, 26);
+sun.target.position.set(4, 0, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -36; sun.shadow.camera.right = 36;
+sun.shadow.camera.top = 36; sun.shadow.camera.bottom = -36;
+sun.shadow.camera.near = 20; sun.shadow.camera.far = 140;
+sun.shadow.radius = 7; sun.shadow.blurSamples = 16;
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xfff4e6, 0x6b4a30, 0.25);
+scene.add(hemi);
+
+/* ---------------- procedural textures ---------------- */
+function hash2(x, y) { let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, o = 4) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < o; i++) { s += a * vnoise(x * f, y * f); f *= 2.03; a *= 0.5; } return s; }
+function vnoiseP(x, y, px) { // periodic in x with integer period px
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const x0 = ((xi % px) + px) % px, x1 = (x0 + 1) % px;
+  const a = hash2(x0, yi), b = hash2(x1, yi), c = hash2(x0, yi + 1), d = hash2(x1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbmP(x, y, px, o = 3) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < o; i++) { s += a * vnoiseP(x * f, y * f, px * f); f *= 2; a *= 0.5; } return s; }
+
+function makeWood() {
+  const W = 1024, H = 1024, PH = 256;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const rc = document.createElement('canvas'); rc.width = W; rc.height = H;
+  const ctx = cv.getContext('2d'), rctx = rc.getContext('2d');
+  const img = ctx.createImageData(W, H), rim = rctx.createImageData(W, H);
+  const d = img.data, rd = rim.data;
+  for (let y = 0; y < H; y++) {
+    const pl = (y / PH) | 0, v = y - pl * PH, off = pl * 37.31 + 3.7;
+    const tint = 0.9 + 0.2 * hash2(pl, 7);
+    for (let x = 0; x < W; x++) {
+      const xx = x + pl * 311;
+      const warp = fbmP(xx * 4 / W, v * 0.011 + off, 4, 3) * 2 - 1;
+      const ring = v * 0.05 + warp * 3.2 + fbmP(xx * 2 / W, v * 0.004 + off, 2, 2) * 5.0;
+      const g = ring - Math.floor(ring);
+      const late = smooth(0.55, 0.92, g) * (1 - smooth(0.93, 1.0, g));
+      const pore = vnoiseP(xx * 96 / W, v * 1.6 + off, 96);
+      const streak = fbmP(xx * 6 / W, v * 0.35 + off * 3, 6, 2);
+      let k = late * 0.62 + (pore > 0.8 ? 0.2 : 0) + (streak - 0.5) * 0.4 + 0.05;
+      k = clamp(k, 0, 1);
+      let r = lerp(172, 112, k) * tint, gg = lerp(118, 70, k) * tint, b = lerp(74, 38, k) * tint;
+      const seam = Math.min(v, PH - 1 - v);
+      if (seam < 3) { const s = seam < 1.5 ? 0.35 : 0.7; r *= s; gg *= s; b *= s; }
+      const i = (y * W + x) * 4;
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255;
+      const ro = clamp(150 + k * 60 + (seam < 3 ? 80 : 0) + (pore - 0.5) * 30, 0, 255);
+      rd[i] = rd[i + 1] = rd[i + 2] = ro; rd[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0); rctx.putImageData(rim, 0, 0);
+  const map = new THREE.CanvasTexture(cv), rough = new THREE.CanvasTexture(rc);
+  map.colorSpace = THREE.SRGBColorSpace;
+  for (const t of [map, rough]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.repeat.set(400 / 64, 400 / 64); }
+  return { map, rough };
+}
+
+/* condensation droplets normal map (tileable) */
+function makeDroplets(count, rmin, rmax, seed = 1) {
+  const S = 1024;
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(S, S), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { d[i] = 128; d[i + 1] = 128; d[i + 2] = 255; d[i + 3] = 255; }
+  let s = seed * 9301 + 49297;
+  const R = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const drop = (cx, cy, rx, ry) => {
+    const x0 = Math.floor(cx - rx), x1 = Math.ceil(cx + rx), y0 = Math.floor(cy - ry), y1 = Math.ceil(cy + ry);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const dx = (x - cx) / rx, dy = (y - cy) / ry, q = dx * dx + dy * dy;
+      if (q > 1) continue;
+      const z = Math.sqrt(1 - q) + 0.25;
+      const l = Math.hypot(dx, dy, z);
+      const px = ((x % S) + S) % S, py = ((y % S) + S) % S, k = (py * S + px) * 4;
+      d[k] = (dx / l * 0.5 + 0.5) * 255; d[k + 1] = (-dy / l * 0.5 + 0.5) * 255; d[k + 2] = (z / l * 0.5 + 0.5) * 255;
+    }
+  };
+  for (let i = 0; i < count; i++) {
+    const r = rmin + Math.pow(R(), 3.2) * (rmax - rmin);
+    drop(R() * S, R() * S, r, r * (0.92 + R() * 0.16));
+  }
+  for (let t = 0; t < 7; t++) { // running streaks
+    let x = R() * S, y = R() * S * 0.4; const len = 150 + R() * 380;
+    for (let k = 0; k < len; k += 3) { x += (R() - 0.5) * 1.6; drop(x, y + k, 3.2 + R() * 1.2, 4); }
+    drop(x, y + len + 6, 9, 11);
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+/* fictional brand label: "KAI SPRINGS" */
+function makeLabel() {
+  const W = 2048, H = 640;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  let gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#0a3a7c'); gr.addColorStop(0.45, '#1768c4'); gr.addColorStop(1, '#08306a');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createRadialGradient(1024, 330, 40, 1024, 330, 950);
+  gr.addColorStop(0, 'rgba(150,210,255,.6)'); gr.addColorStop(1, 'rgba(150,210,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  let s = 11; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const ridge = (base, amp, col, snow) => {
+    const pts = []; let x = -40;
+    while (x <= W + 160) { pts.push([x, base - (0.25 + 0.75 * R()) * amp]); x += 70 + R() * 120; }
+    g.beginPath(); g.moveTo(-40, H);
+    for (const [px, py] of pts) g.lineTo(px, py);
+    g.lineTo(W + 160, H); g.closePath(); g.fillStyle = col; g.fill();
+    if (!snow) return;
+    g.fillStyle = 'rgba(246,251,255,.95)';
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [px, py] = pts[i], [ax, ay] = pts[i - 1], [bx, by] = pts[i + 1];
+      if (py > ay || py > by) continue;
+      const t = 0.32;
+      g.beginPath(); g.moveTo(px, py);
+      g.lineTo(px + (bx - px) * t, py + (by - py) * t);
+      for (let k = 1; k < 5; k++) { const f = 1 - k / 5; g.lineTo(px + (bx - px) * t * f + (ax - px) * t * (1 - f), py + ((by - py) * f + (ay - py) * (1 - f)) * t * (k % 2 ? 0.7 : 1)); }
+      g.lineTo(px + (ax - px) * t, py + (ay - py) * t); g.closePath(); g.fill();
+    }
+  };
+  ridge(470, 170, '#3f8fdc', true);
+  ridge(520, 110, '#2a76c8', true);
+  ridge(560, 60, '#155fb0', false);
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3;
+  for (let k = 0; k < 4; k++) { g.beginPath(); for (let x = 0; x <= W; x += 8) g.lineTo(x, 585 + k * 14 + Math.sin(x * 0.012 + k * 1.7) * 6); g.stroke(); }
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#fff';
+  g.shadowColor = 'rgba(0,20,60,.45)'; g.shadowBlur = 18; g.shadowOffsetY = 6;
+  g.font = 'italic 900 236px "Arial Black","Segoe UI Black",Impact,sans-serif';
+  g.fillText('KAI', 1024, 330);
+  g.shadowBlur = 8; g.shadowOffsetY = 3;
+  g.font = '700 70px "Segoe UI",Arial,sans-serif';
+  if ('letterSpacing' in g) g.letterSpacing = '34px';
+  g.fillText('SPRINGS', 1024 + 17, 420);
+  g.font = '600 30px "Segoe UI",Arial,sans-serif';
+  if ('letterSpacing' in g) g.letterSpacing = '12px';
+  g.fillText('NATURAL SPRING WATER', 1024 + 6, 92);
+  g.font = '700 30px "Segoe UI",Arial,sans-serif';
+  if ('letterSpacing' in g) g.letterSpacing = '6px';
+  g.fillText('500 mL · 16.9 FL OZ', 1024 + 3, 520);
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.shadowColor = 'transparent';
+  // nutrition panel (left side)
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  g.fillStyle = '#f7f9fb'; rr(352, 118, 330, 420, 14); g.fill();
+  g.fillStyle = '#111'; g.textAlign = 'left';
+  g.font = '900 40px "Arial Black",Arial,sans-serif'; g.fillText('Nutrition Facts', 368, 170);
+  g.fillRect(368, 182, 298, 3);
+  g.font = '500 21px Arial,sans-serif'; g.fillText('Serving size  1 bottle (500 mL)', 368, 212);
+  g.fillRect(368, 224, 298, 10);
+  g.font = '900 34px Arial,sans-serif'; g.fillText('Calories', 368, 268); g.textAlign = 'right'; g.fillText('0', 666, 268); g.textAlign = 'left';
+  g.fillRect(368, 280, 298, 5);
+  const rows = [['Total Fat 0g', '0%'], ['Sodium 5mg', '0%'], ['Total Carb. 0g', '0%'], ['Total Sugars 0g', ''], ['Protein 0g', ''], ['Calcium 12mg', '1%'], ['Magnesium 4mg', '1%']];
+  g.font = '600 21px Arial,sans-serif';
+  rows.forEach(([a, b], i) => { const y = 312 + i * 31; g.fillText(a, 368, y); g.textAlign = 'right'; g.fillText(b, 666, y); g.textAlign = 'left'; g.fillRect(368, y + 9, 298, 1.5); });
+  g.font = '500 15px Arial,sans-serif'; g.fillText('Not a significant source of anything but water.', 368, 528);
+  // right side: info + barcode + recycling
+  g.fillStyle = '#fff'; g.textAlign = 'center';
+  g.font = '600 26px "Segoe UI",Arial,sans-serif';
+  ['Bottled at the source', 'in the Kai Valley.', 'Best before: see cap.', 'Keep cool, away from sunlight.'].forEach((t, i) => g.fillText(t, 1540, 150 + i * 36));
+  g.fillStyle = '#fff'; rr(1420, 330, 240, 150, 8); g.fill();
+  g.fillStyle = '#111';
+  let bx = 1438; while (bx < 1640) { const w = 2 + ((R() * 4) | 0); g.fillRect(bx, 344, w, 104); bx += w + 2 + ((R() * 4) | 0); }
+  g.font = '600 17px monospace'; g.fillText('4 006381 333931', 1540, 470);
+  g.strokeStyle = '#fff'; g.lineWidth = 4;
+  g.beginPath(); g.moveTo(1730, 360); g.lineTo(1770, 430); g.lineTo(1690, 430); g.closePath(); g.stroke();
+  g.fillStyle = '#fff'; g.font = '800 30px Arial,sans-serif'; g.fillText('1', 1730, 422); g.font = '700 22px Arial,sans-serif'; g.fillText('PET', 1730, 462);
+  g.font = '700 22px "Segoe UI",Arial,sans-serif'; g.fillText('RECYCLE ME', 1540, 520);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.offset.x = 0.5; t.anisotropy = 8;
+  return t;
+}
+
+/* ---------------- table + backdrop ---------------- */
+const wood = makeWood();
+const tableMat = new THREE.MeshPhysicalMaterial({ map: wood.map, roughnessMap: wood.rough, roughness: 1, clearcoat: 0.42, clearcoatRoughness: 0.22, envMapIntensity: 0.7 });
+const table = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), tableMat);
+table.rotation.x = -Math.PI / 2;
+table.receiveShadow = true;
+scene.add(table);
+
+{
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
+  const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#7f7062'); gr.addColorStop(0.6, '#6a5b4e'); gr.addColorStop(1, '#5e5045');
+  g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+  const w = g.createRadialGradient(110, 80, 10, 110, 80, 230);
+  w.addColorStop(0, 'rgba(255,238,210,.55)'); w.addColorStop(1, 'rgba(255,238,210,0)');
+  g.fillStyle = w; g.fillRect(0, 0, 512, 256);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(1100, 520), new THREE.MeshBasicMaterial({ map: t, fog: false }));
+  back.position.set(0, 180, -330);
+  scene.add(back);
+}
+
+/* ---------------- bottle profile ---------------- */
+const SEG = 72, GROWS = 119, GY0 = 0.9, GDY = 0.15;
+const gridY = k => GY0 + k * GDY;
+const groove = (y, c, w, dep) => { const x = (y - c) / w; return Math.abs(x) < 1 ? dep * 0.5 * (1 + Math.cos(Math.PI * x)) : 0; };
+function bodyR(y) {
+  let r = 3.3;
+  for (const c of [1.95, 3.0, 4.05, 5.1]) r -= groove(y, c, 0.4, 0.21);
+  r += groove(y, 6.05, 0.2, 0.04) + groove(y, 13.15, 0.2, 0.04);
+  r -= 0.05 * smooth(6.15, 6.4, y) * (1 - smooth(12.8, 13.05, y));
+  for (const c of [13.85, 14.7]) r -= groove(y, c, 0.36, 0.17);
+  if (y > 15.1) { const t = Math.min(1, (y - 15.1) / 3.5); r = 1.42 + (r - 1.42) * Math.pow(0.5 + 0.5 * Math.cos(Math.PI * t), 0.85); }
+  return r;
+}
+function threadDR(y, th) {
+  const ph = (y - 19.75) / 0.3 - th / TAU;
+  const f = ph - Math.floor(ph);
+  const prof = Math.max(0, 1 - Math.abs(f - 0.5) / 0.3);
+  return 0.12 * Math.pow(prof, 0.6) * smooth(19.72, 19.92, y) * (1 - smooth(20.66, 20.86, y));
+}
+const MOUTH_Y = 21.15, MOUTH_R = 0.99, LIP_Y = 21.21;
+function outerProfile() {
+  const P = [];
+  for (let k = 0; k <= 6; k++) { const rr = 1.7 * k / 6; P.push({ r: rr, y: 0.55 - 0.4 * (rr / 1.7) ** 2, g: -1, ns: -1 }); }
+  P.push({ r: 2.05, y: 0.05, g: -1 }, { r: 2.35, y: 0.0, g: -1 });
+  for (let k = 1; k < 6; k++) { const a = k / 6 * Math.PI / 2; P.push({ r: 2.35 + 0.95 * Math.sin(a), y: 0.9 - 0.9 * Math.cos(a), g: -1 }); }
+  for (let k = 0; k < GROWS; k++) { const y = gridY(k); P.push({ r: bodyR(y), y, g: k }); }
+  for (const [r, y] of [[1.42, 18.82], [1.52, 18.845], [1.9, 18.88], [1.96, 18.95], [1.9, 19.03], [1.47, 19.06], [1.36, 19.1], [1.36, 19.33], [1.45, 19.4], [1.46, 19.48], [1.32, 19.56], [1.28, 19.66]]) P.push({ r, y, g: -1 });
+  for (let y = 19.72; y <= 20.87; y += 0.05) P.push({ r: 1.27, y, g: -1, th: true });
+  for (const [r, y] of [[1.27, 20.95], [1.25, 21.08], [1.2, 21.17], [1.12, 21.21], [1.06, 21.17], [1.04, 21.05], [1.04, 20.4], [1.04, 19.4]]) P.push({ r, y, g: -1 });
+  return P;
+}
+function innerProfile() {
+  const P = [], IN = 0.04;
+  for (let k = 0; k <= 6; k++) { const rr = 1.68 * k / 6; P.push({ r: rr, y: 0.6 - 0.4 * (rr / 1.68) ** 2, g: -1, ns: -1 }); }
+  P.push({ r: 2.04, y: 0.1, g: -1 }, { r: 2.35, y: 0.05, g: -1 });
+  for (let k = 1; k < 6; k++) { const a = k / 6 * Math.PI / 2; P.push({ r: 2.35 + (0.95 - IN) * Math.sin(a), y: 0.9 - 0.85 * Math.cos(a), g: -1 }); }
+  for (let k = 0; k < GROWS; k++) { const y = gridY(k); P.push({ r: bodyR(y) - IN, y, g: k }); }
+  for (const [r, y] of [[1.36, 18.8], [1.18, 18.95], [1.0, 19.1], [0.99, 19.5], [0.99, 20.6], [0.99, MOUTH_Y], [0.5, MOUTH_Y]]) P.push({ r, y, g: -1 });
+  P.push({ r: 0, y: MOUTH_Y, g: -1, ns: 1 });
+  return P;
+}
+const LABEL_K0 = 37, LABEL_K1 = 79;
+function labelProfile() {
+  const P = [];
+  for (let k = LABEL_K0; k <= LABEL_K1; k++) { const y = gridY(k); P.push({ r: bodyR(y) + 0.018, y, g: k }); }
+  return P;
+}
+
+/* lathe geometry with per-vertex rest data; vertex (j,i) = j*(seg+1)+i */
+function latheGeo(prof, seg, opt = {}) {
+  const np = prof.length, W = seg + 1, nv = np * W;
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2);
+  const col = opt.colors ? new Float32Array(nv * 3) : null;
+  for (let j = 0; j < np; j++) {
+    const p = prof[j];
+    for (let i = 0; i <= seg; i++) {
+      const th = i / seg * TAU;
+      let r = p.r;
+      if (p.th) r += threadDR(p.y, th);
+      if (p.fn) r += p.fn(th);
+      const v = j * W + i;
+      pos[v * 3] = r * Math.sin(th); pos[v * 3 + 1] = p.y; pos[v * 3 + 2] = r * Math.cos(th);
+      uv[v * 2] = i / seg; uv[v * 2 + 1] = opt.uvY ? opt.uvY(p, j) : j / (np - 1);
+      if (col) { const c = opt.colors(p, j); col[v * 3] = c[0]; col[v * 3 + 1] = c[1]; col[v * 3 + 2] = c[2]; }
+    }
+  }
+  const idx = [];
+  for (let j = 0; j < np - 1; j++) for (let i = 0; i < seg; i++) {
+    const a = j * W + i, b = a + 1, c = a + W, d = c + 1;
+    idx.push(a, b, c, b, d, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (col) g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(nv > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  g.userData = { prof, seg, np, rest: pos.slice() };
+  latheNormals(g);
+  return g;
+}
+function latheNormals(g) {
+  const { prof, seg, np } = g.userData, W = seg + 1;
+  const P = g.attributes.position.array, N = g.attributes.normal.array;
+  for (let j = 0; j < np; j++) {
+    const jp = Math.min(np - 1, j + 1), jm = Math.max(0, j - 1);
+    for (let i = 0; i <= seg; i++) {
+      const ip = i + 1 > seg ? 1 : i + 1, im = i - 1 < 0 ? seg - 1 : i - 1;
+      const a = (j * W + ip) * 3, b = (j * W + im) * 3, c = (jp * W + i) * 3, e = (jm * W + i) * 3;
+      const tx = P[a] - P[b], ty = P[a + 1] - P[b + 1], tz = P[a + 2] - P[b + 2];
+      const ux = P[c] - P[e], uy = P[c + 1] - P[e + 1], uz = P[c + 2] - P[e + 2];
+      let nx = ty * uz - tz * uy, ny = tz * ux - tx * uz, nz = tx * uy - ty * ux;
+      let l = Math.hypot(nx, ny, nz);
+      const o = (j * W + i) * 3;
+      if (l < 1e-9) { nx = 0; ny = prof[j].ns || 1; nz = 0; l = 1; }
+      N[o] = nx / l; N[o + 1] = ny / l; N[o + 2] = nz / l;
+    }
+  }
+  g.attributes.normal.needsUpdate = true;
+}
+
+/* ---------------- deformation grid ---------------- */
+const G = new Float32Array(GROWS * SEG * 3);        // current offsets (local space)
+const GREST = new Float32Array(GROWS * SEG * 3);    // rest node positions (outer surface)
+for (let k = 0; k < GROWS; k++) {
+  const y = gridY(k), r = bodyR(y);
+  for (let i = 0; i < SEG; i++) { const th = i / SEG * TAU, o = (k * SEG + i) * 3; GREST[o] = r * Math.sin(th); GREST[o + 1] = y; GREST[o + 2] = r * Math.cos(th); }
+}
+function applyGrid(g) {
+  const { prof, seg, np, rest } = g.userData, W = seg + 1, P = g.attributes.position.array;
+  for (let j = 0; j < np; j++) {
+    const k = prof[j].g;
+    for (let i = 0; i <= seg; i++) {
+      const v = (j * W + i) * 3;
+      if (k < 0) { P[v] = rest[v]; P[v + 1] = rest[v + 1]; P[v + 2] = rest[v + 2]; continue; }
+      const o = (k * SEG + (i % SEG)) * 3;
+      P[v] = rest[v] + G[o]; P[v + 1] = rest[v + 1] + G[o + 1]; P[v + 2] = rest[v + 2] + G[o + 2];
+    }
+  }
+  g.attributes.position.needsUpdate = true;
+  latheNormals(g);
+  g.computeBoundingSphere();
+}
+
+/* ---------------- volume proxy (interior, coarse) ---------------- */
+const PC = 36;
+const proxyRows = [];
+{
+  const ip = innerProfile();
+  proxyRows.push(ip[0], ip[3], ip[6], ip[7], ip[8], ip[10], ip[12]);
+  for (let k = 0; k < GROWS; k += 3) proxyRows.push({ r: bodyR(gridY(k)) - 0.04, y: gridY(k), g: k });
+  proxyRows.push({ r: bodyR(gridY(118)) - 0.04, y: gridY(118), g: 118 });
+  proxyRows.push({ r: 1.18, y: 18.95, g: -1 }, { r: 0.99, y: 19.3, g: -1 }, { r: 0.99, y: MOUTH_Y, g: -1 }, { r: 0, y: MOUTH_Y, g: -1 });
+}
+const PRN = proxyRows.length;
+const PX = new Float32Array(PRN * PC * 3), PXR = new Float32Array(PRN * PC * 3), PD = new Float32Array(PRN * PC);
+const PT = [];
+for (let j = 0; j < PRN; j++) for (let c = 0; c < PC; c++) {
+  const th = c / PC * TAU, o = (j * PC + c) * 3, r = proxyRows[j].r;
+  PXR[o] = r * Math.sin(th); PXR[o + 1] = proxyRows[j].y; PXR[o + 2] = r * Math.cos(th);
+  if (j < PRN - 1) { const a = j * PC + c, b = j * PC + (c + 1) % PC, cc = a + PC, d = b + PC; PT.push(a, b, cc, b, d, cc); }
+}
+const PTI = new Uint16Array(PT);
+function updateProxy() {
+  for (let j = 0; j < PRN; j++) {
+    const k = proxyRows[j].g;
+    for (let c = 0; c < PC; c++) {
+      const o = (j * PC + c) * 3;
+      if (k < 0) { PX[o] = PXR[o]; PX[o + 1] = PXR[o + 1]; PX[o + 2] = PXR[o + 2]; continue; }
+      const go = (k * SEG + c * 2) * 3;
+      PX[o] = PXR[o] + G[go]; PX[o + 1] = PXR[o + 1] + G[go + 1]; PX[o + 2] = PXR[o + 2] + G[go + 2];
+    }
+  }
+}
+/* volume of proxy below plane dot(p,u) < h (signed tets from a point on the plane) */
+function volBelow(ux, uy, uz, h) {
+  const n = PRN * PC;
+  let mn = 1e9, mx = -1e9;
+  for (let i = 0; i < n; i++) { const d = PX[i * 3] * ux + PX[i * 3 + 1] * uy + PX[i * 3 + 2] * uz - h; PD[i] = d; }
+  const ox = ux * h, oy = uy * h, oz = uz * h;
+  let V = 0;
+  const qx = [0, 0, 0, 0], qy = [0, 0, 0, 0], qz = [0, 0, 0, 0];
+  for (let t = 0; t < PTI.length; t += 3) {
+    const A = PTI[t], B = PTI[t + 1], C = PTI[t + 2];
+    const da = PD[A], db = PD[B], dc = PD[C];
+    if (da >= 0 && db >= 0 && dc >= 0) continue;
+    let m = 0;
+    const I = [A, B, C], D = [da, db, dc];
+    for (let e = 0; e < 3; e++) {
+      const i0 = I[e], i1 = I[(e + 1) % 3], d0 = D[e], d1 = D[(e + 1) % 3];
+      if (d0 < 0) { qx[m] = PX[i0 * 3] - ox; qy[m] = PX[i0 * 3 + 1] - oy; qz[m] = PX[i0 * 3 + 2] - oz; m++; }
+      if ((d0 < 0) !== (d1 < 0)) {
+        const s = d0 / (d0 - d1);
+        qx[m] = PX[i0 * 3] + (PX[i1 * 3] - PX[i0 * 3]) * s - ox;
+        qy[m] = PX[i0 * 3 + 1] + (PX[i1 * 3 + 1] - PX[i0 * 3 + 1]) * s - oy;
+        qz[m] = PX[i0 * 3 + 2] + (PX[i1 * 3 + 2] - PX[i0 * 3 + 2]) * s - oz; m++;
+      }
+    }
+    for (let k = 1; k < m - 1; k++) {
+      const ax = qx[0], ay = qy[0], az = qz[0], bx = qx[k], by = qy[k], bz = qz[k], cx = qx[k + 1], cy = qy[k + 1], cz = qz[k + 1];
+      V += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+    }
+  }
+  return V / 6;
+}
+function projRange(ux, uy, uz) {
+  let mn = 1e9, mx = -1e9;
+  for (let i = 0, n = PRN * PC; i < n; i++) { const d = PX[i * 3] * ux + PX[i * 3 + 1] * uy + PX[i * 3 + 2] * uz; if (d < mn) mn = d; if (d > mx) mx = d; }
+  return [mn, mx];
+}
+function solveLevel(ux, uy, uz, V, h0) {
+  const [lo0, hi0] = projRange(ux, uy, uz);
+  if (V <= 0.01) return lo0 - 0.01;
+  let lo = lo0, hi = hi0, flo = -V, fhi = 1;
+  let h = clamp(h0, lo, hi), f = volBelow(ux, uy, uz, h) - V;
+  for (let it = 0; it < 14 && Math.abs(f) > 0.15; it++) {
+    if (f > 0) { hi = h; fhi = f; } else { lo = h; flo = f; }
+    let hn = h - f / 30; // ~cross-section area guess
+    if (it > 1 || hn <= lo || hn >= hi) hn = (fhi > 0 && flo < 0 && it > 0) ? lo + (hi - lo) * (-flo / (fhi - flo)) : (lo + hi) / 2;
+    if (hn <= lo || hn >= hi) hn = (lo + hi) / 2;
+    h = hn; f = volBelow(ux, uy, uz, h) - V;
+  }
+  return h;
+}
+
+/* ---------------- materials ---------------- */
+// clear plastic / glass: premultiplied output so reflections are not dimmed by opacity, fresnel-driven alpha
+function glassify(mat, fres, key) {
+  mat.premultipliedAlpha = true;
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uFres = { value: fres };
+    sh.fragmentShader = 'uniform float uFres;\n' + sh.fragmentShader
+      .replace('#include <opaque_fragment>', `
+        float fres_ = pow(1.0 - clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0), 3.0);
+        float aT = clamp(diffuseColor.a + fres_ * uFres, 0.0, 1.0);
+        gl_FragColor = vec4(max(outgoingLight - totalDiffuse * (1.0 - aT), 0.0), aT);`)
+      .replace('#include <premultiplied_alpha_fragment>', '');
+  };
+  mat.customProgramCacheKey = () => 'glassify_' + key;
+}
+const dropTex = makeDroplets(1700, 2.2, 13, 3);
+dropTex.repeat.set(2, 2);
+const petMat = new THREE.MeshPhysicalMaterial({
+  color: 0x1c2a33, roughness: 0.035, metalness: 0, ior: 1.57,
+  transparent: true, opacity: 0.03, side: THREE.DoubleSide, depthWrite: false,
+  normalMap: dropTex, normalScale: new THREE.Vector2(0.32, 0.32), envMapIntensity: 1.0, specularIntensity: 1
+});
+glassify(petMat, 0.5, 'pet');
+
+function waterMat(back, U, thick = 3.6) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: 0.015, metalness: 0, transmission: 1, ior: 1.333, thickness: thick,
+    attenuationColor: new THREE.Color(0xd2ecff), attenuationDistance: 40, specularIntensity: 1, envMapIntensity: 1.15,
+    side: back ? THREE.BackSide : THREE.FrontSide
+  });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uPlane = U.uPlane; sh.uniforms.uWave = U.uWave;
+    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    let f = 'varying vec3 vWP;\nuniform vec4 uPlane;\nuniform vec4 uWave;\n' + sh.fragmentShader;
+    f = f.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n float dPl = dot(vWP, uPlane.xyz) - uPlane.w;\n if (dPl > 0.0) discard;');
+    if (back) f = f.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      { vec3 pn = uPlane.xyz; vec2 q = vWP.xz; float t = uWave.y;
+        pn.x += uWave.x * (sin(q.x*2.3 + t*7.0) + 0.6*sin(q.y*3.1 - t*6.1 + 1.3)) + uWave.z * sin(q.x*9.0 + q.y*4.0 + t*17.0);
+        pn.z += uWave.x * (sin(q.y*2.1 + t*6.6) + 0.6*sin(q.x*2.9 + t*5.3 + 2.1)) + uWave.z * sin(q.y*8.0 - q.x*5.0 + t*15.0);
+        pn = normalize(pn);
+        float sd = dot(cameraPosition - vWP, uPlane.xyz) >= 0.0 ? 1.0 : -1.0;
+        normal = normalize((viewMatrix * vec4(pn * sd, 0.0)).xyz); }`);
+    else f = f.replace('#include <opaque_fragment>', `{ float dd = -dPl;
+        float band = smoothstep(0.0, 0.05, dd) * (1.0 - smoothstep(0.05, 0.3, dd));
+        outgoingLight *= 1.0 - uWave.w * 0.5 * band;
+        outgoingLight += vec3(0.85, 0.92, 1.0) * uWave.w * 0.6 * exp(-dd * 28.0); }
+      #include <opaque_fragment>`);
+    sh.fragmentShader = f;
+  };
+  m.customProgramCacheKey = () => back ? 'waterB' : 'waterF';
+  return m;
+}
+function clipDepthMat(U, opacity) {
+  const m = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaHash: true, opacity });
+  if (U) {
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uPlane = U.uPlane;
+      sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = 'varying vec3 vWP;\nuniform vec4 uPlane;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (dot(vWP, uPlane.xyz) - uPlane.w > 0.0) discard;');
+    };
+    m.customProgramCacheKey = () => 'clipdepth';
+  }
+  return m;
+}
+const WU = { uPlane: { value: new THREE.Vector4(0, 1, 0, 10) }, uWave: { value: new THREE.Vector4(0, 0, 0, 1) } };
+
+/* ---------------- bottle meshes ---------------- */
+const bottle = new THREE.Group();
+scene.add(bottle);
+const outerGeo = latheGeo(outerProfile(), SEG, { uvY: p => p.y / 21.2 });
+const bottleMesh = new THREE.Mesh(outerGeo, petMat);
+bottleMesh.castShadow = true;
+bottleMesh.customDepthMaterial = clipDepthMat(null, 0.14);
+bottleMesh.frustumCulled = false;
+const waterGeo = latheGeo(innerProfile(), SEG, { uvY: p => p.y / 21.2 });
+const waterF = new THREE.Mesh(waterGeo, waterMat(false, WU));
+const waterB = new THREE.Mesh(waterGeo, waterMat(true, WU));
+waterF.castShadow = true; waterF.customDepthMaterial = clipDepthMat(WU, 0.38);
+waterF.frustumCulled = waterB.frustumCulled = false;
+const labelTex = makeLabel();
+const labelDrops = dropTex.clone(); labelDrops.repeat.set(2, 0.6); labelDrops.needsUpdate = true;
+const labelGeo = latheGeo(labelProfile(), SEG, { uvY: p => (p.y - gridY(LABEL_K0)) / (gridY(LABEL_K1) - gridY(LABEL_K0)) });
+const labelMat = new THREE.MeshPhysicalMaterial({ map: labelTex, roughness: 0.34, clearcoat: 0.8, clearcoatRoughness: 0.08, clearcoatNormalMap: labelDrops, clearcoatNormalScale: new THREE.Vector2(0.7, 0.7), side: THREE.DoubleSide, envMapIntensity: 0.9 });
+labelMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n if (!gl_FrontFacing) diffuseColor.rgb = vec3(0.86, 0.87, 0.85);'); };
+labelMat.customProgramCacheKey = () => 'label';
+const labelMesh = new THREE.Mesh(labelGeo, labelMat);
+labelMesh.castShadow = true; labelMesh.frustumCulled = false;
+bottle.add(labelMesh, waterB, waterF, bottleMesh);
+
+/* cap + tamper band */
+const CAP_BLUE = new THREE.Color('#1d5ccc'), CAP_LINER = new THREE.Color('#eeeeea');
+function capProfile() {
+  const P = [];
+  const kn = th => 0.022 * Math.cos(th * 96);
+  P.push({ r: 0, y: 1.64, g: -1, ns: -1, c: CAP_LINER }, { r: 1.05, y: 1.64, c: CAP_LINER }, { r: 1.3, y: 1.64, c: CAP_LINER });
+  P.push({ r: 1.41, y: 1.56 }, { r: 1.41, y: 0.12 }, { r: 1.44, y: 0.0 }, { r: 1.53, y: 0.0 }, { r: 1.56, y: 0.05 });
+  for (let k = 0; k <= 8; k++) { const y = 0.12 + k / 8 * 1.46; P.push({ r: 1.565, y, fn: kn }); }
+  P.push({ r: 1.555, y: 1.66 }, { r: 1.53, y: 1.73 }, { r: 1.47, y: 1.775 }, { r: 1.36, y: 1.8 }, { r: 1.0, y: 1.805 }, { r: 0.92, y: 1.79 }, { r: 0.86, y: 1.8 }, { r: 0.4, y: 1.812 }, { r: 0, y: 1.815, ns: 1 });
+  return P;
+}
+const capGeo = latheGeo(capProfile(), 384, { colors: p => { const c = p.c || CAP_BLUE; return [c.r, c.g, c.b]; } });
+const capMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.3, sheenColor: new THREE.Color(0x7fa8ff), envMapIntensity: 1.0 });
+const capMesh = new THREE.Mesh(capGeo, capMat);
+capMesh.castShadow = true;
+const cap = new THREE.Group(); cap.add(capMesh);
+const CAP_Y = 19.6;
+cap.position.y = CAP_Y;
+bottle.add(cap);
+const bandGeo = latheGeo([{ r: 1.6, y: 19.12 }, { r: 1.6, y: 19.56 }, { r: 1.5, y: 19.58 }, { r: 1.47, y: 19.5 }, { r: 1.47, y: 19.14 }, { r: 1.55, y: 19.1 }, { r: 1.6, y: 19.12 }], 96, { colors: () => [CAP_BLUE.r, CAP_BLUE.g, CAP_BLUE.b] });
+const band = new THREE.Mesh(bandGeo, capMat);
+band.castShadow = true;
+bottle.add(band);
+
+/* ---------------- state ---------------- */
+const S = {
+  vol: 0, h: 17, cap: 0,                // water volume (mL), plane offset in local frame, capacity
+  n: new V3(0, 1, 0), sv: new THREE.Vector2(), so: new THREE.Vector2(), // slosh normal offset & velocity
+  wave: 0, ripple: 0, t: 0,
+  deformDirty: true,
+};
+function refreshDeform() {
+  applyGrid(outerGeo); applyGrid(waterGeo); applyGrid(labelGeo);
+  updateProxy();
+  S.cap = volBelow(0, 1, 0, 60);
+  S.deformDirty = false;
+}
+refreshDeform();
+// fill line: the height that holds exactly what the label says (500 mL), found by bisection on the real shape
+function fullFillH() {
+  let lo = 2, hi = 22;
+  for (let i = 0; i < 32; i++) { const m = (lo + hi) / 2; if (volBelow(0, 1, 0, m) < 500) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+const FILL_H = fullFillH();
+S.vol = volBelow(0, 1, 0, FILL_H); S.h = FILL_H;
+
+const _q = new THREE.Quaternion(), _v = new V3(), _u = new V3();
+function updateWater() {
+  if (S.deformDirty) refreshDeform();
+  bottle.updateMatrixWorld();
+  _q.copy(bottle.quaternion).invert();
+  _u.copy(S.n).applyQuaternion(_q);
+  S.ul.copy(_u);
+  S.h = solveLevel(_u.x, _u.y, _u.z, Math.min(S.vol, S.cap), S.h);
+  const c = S.h + bottle.position.dot(S.n);
+  WU.uPlane.value.set(S.n.x, S.n.y, S.n.z, c);
+  WU.uWave.value.x = S.wave; WU.uWave.value.y = S.t; WU.uWave.value.z = S.ripple;
+  waterF.visible = waterB.visible = S.vol > 0.3;
+}
+
+/* ---------------- drinking glass ---------------- */
+const GLASS = { x: 12.8, z: -0.8, vol: 0, level: 0.86, tilt: new THREE.Vector2(), tv: new THREE.Vector2(), wave: 0 };
+const GL_TOP = 10.55;
+const glassInR = y => lerp(3.17, 3.55, clamp((y - 1.1) / 9.5, 0, 1));
+function glassProfile() {
+  const P = [{ r: 0, y: 0, ns: -1 }, { r: 2.9, y: 0 }, { r: 3.25, y: 0.04 }, { r: 3.38, y: 0.18 }, { r: 3.41, y: 0.45 }];
+  for (let k = 1; k <= 10; k++) P.push({ r: lerp(3.41, 3.78, k / 10), y: 0.45 + k / 10 * 10.2 });
+  P.push({ r: 3.785, y: 10.72 }, { r: 3.75, y: 10.79 }, { r: 3.68, y: 10.8 }, { r: 3.61, y: 10.75 }, { r: 3.58, y: 10.66 });
+  for (let k = 1; k <= 10; k++) { const y = 10.66 - k / 10 * 9.56; P.push({ r: glassInR(y) + 0.02, y }); }
+  P.push({ r: 3.16, y: 1.0 }, { r: 3.0, y: 0.9 }, { r: 2.4, y: 0.855 }, { r: 1.2, y: 0.84 }, { r: 0, y: 0.83, ns: 1 });
+  return P;
+}
+function glassWaterProfile() {
+  const P = [{ r: 0, y: 0.86, ns: -1 }, { r: 1.2, y: 0.87 }, { r: 2.58, y: 0.9 }, { r: 3.08, y: 0.98 }, { r: 3.16, y: 1.15 }];
+  for (let k = 1; k <= 12; k++) { const y = 1.15 + k / 12 * 9.4; P.push({ r: glassInR(y) - 0.015, y }); }
+  P.push({ r: 1.5, y: GL_TOP }, { r: 0, y: GL_TOP, ns: 1 });
+  return P;
+}
+const GL_VT = []; // cumulative volume table, 0.05 cm steps from y=0.86
+{ let v = 0; for (let y = 0.86; y <= GL_TOP + 0.001; y += 0.05) { GL_VT.push(v); const r = y < 1.15 ? lerp(2.6, 3.16, (y - 0.86) / 0.29) : glassInR(y) - 0.015; v += Math.PI * r * r * 0.05; } }
+const GL_CAP = GL_VT[GL_VT.length - 1];
+function glassLevel(v) {
+  if (v <= 0) return 0.86;
+  for (let i = 1; i < GL_VT.length; i++) if (GL_VT[i] >= v) return 0.86 + (i - 1 + (v - GL_VT[i - 1]) / (GL_VT[i] - GL_VT[i - 1])) * 0.05;
+  return GL_TOP;
+}
+const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x26332d, roughness: 0.02, ior: 1.5, transparent: true, opacity: 0.035, depthWrite: false, envMapIntensity: 0.75, specularIntensity: 1 });
+glassify(glassMat, 0.5, 'glass');
+const glassGrp = new THREE.Group();
+glassGrp.position.set(GLASS.x, 0, GLASS.z);
+scene.add(glassGrp);
+const glassMesh = new THREE.Mesh(latheGeo(glassProfile(), 96), glassMat);
+glassMesh.castShadow = true; glassMesh.customDepthMaterial = clipDepthMat(null, 0.12);
+const GU = { uPlane: { value: new THREE.Vector4(0, 1, 0, 0) }, uWave: { value: new THREE.Vector4(0, 0, 0, 1) } };
+const gwGeo = latheGeo(glassWaterProfile(), 64);
+const gwF = new THREE.Mesh(gwGeo, waterMat(false, GU, 3)), gwB = new THREE.Mesh(gwGeo, waterMat(true, GU, 2));
+gwF.castShadow = true; gwF.customDepthMaterial = clipDepthMat(GU, 0.3);
+glassGrp.add(gwB, gwF, glassMesh);
+function updateGlassWater() {
+  const lv = glassLevel(GLASS.vol);
+  GLASS.level = lv;
+  const n = _v.set(GLASS.tilt.x, 1, GLASS.tilt.y).normalize();
+  GU.uPlane.value.set(n.x, n.y, n.z, n.x * GLASS.x + n.y * lv + n.z * GLASS.z);
+  GU.uWave.value.x = GLASS.wave * 0.6; GU.uWave.value.y = S.t; GU.uWave.value.z = GLASS.wave * 0.3;
+  gwF.visible = gwB.visible = GLASS.vol > 0.5;
+}
+
+/* ---------------- puddle (height-field on the table) ---------------- */
+const PN = 128, PSIZE = 64, PCX = 1, PCZ = 3, PCELL = PSIZE / PN, PX0 = PCX - PSIZE / 2, PZ0 = PCZ + PSIZE / 2;
+const PD_ = new Float32Array(PN * PN), PD2 = new Float32Array(PN * PN), PWH = new Float32Array(PN * PN), PWV = new Float32Array(PN * PN), PWET = new Float32Array(PN * PN), PTHR = new Float32Array(PN * PN);
+const PBAR = new Float32Array(PN * PN);
+for (let y = 0; y < PN; y++) for (let x = 0; x < PN; x++) {
+  PTHR[y * PN + x] = 0.17 + 0.16 * fbm(x * 0.06, y * 0.06, 3) + 0.04 * vnoise(x * 0.6, y * 0.6);
+  const b = fbm(x * 0.05 + 40, y * 0.05 + 17, 4);
+  PBAR[y * PN + x] = 0.01 + 0.3 * Math.pow(b, 2.2) + 0.05 * vnoise(x * 0.45 + 9, y * 0.45);
+}
+const pudData = new Uint8Array(PN * PN * 4);
+const pudTex = new THREE.DataTexture(pudData, PN, PN, THREE.RGBAFormat);
+pudTex.magFilter = pudTex.minFilter = THREE.LinearFilter; pudTex.needsUpdate = true;
+const PUD = { active: false, total: 0, dirty: true, acc: 0, any: false };
+const pudMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, roughness: 0.03, ior: 1.333, thickness: 0.3, transparent: true, alphaMap: pudTex, bumpMap: pudTex, bumpScale: 3, specularIntensity: 1, envMapIntensity: 0.95, depthWrite: false });
+const puddle = new THREE.Mesh(new THREE.PlaneGeometry(PSIZE, PSIZE), pudMat);
+puddle.rotation.x = -Math.PI / 2; puddle.position.set(PCX, 0.025, PCZ);
+puddle.renderOrder = 1;
+scene.add(puddle);
+// wet wood darkening on the table, read from the puddle texture
+tableMat.onBeforeCompile = sh => {
+  sh.uniforms.uWet = { value: pudTex }; sh.uniforms.uPud = { value: new THREE.Vector3(PX0, PZ0, PSIZE) };
+  sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = 'varying vec3 vWP;\nuniform sampler2D uWet;\nuniform vec3 uPud;\n' + sh.fragmentShader
+    .replace('#include <map_fragment>', `#include <map_fragment>
+      vec2 puv = vec2((vWP.x - uPud.x) / uPud.z, (uPud.y - vWP.z) / uPud.z);
+      float wet = (puv.x > 0.0 && puv.x < 1.0 && puv.y > 0.0 && puv.y < 1.0) ? texture2D(uWet, puv).b : 0.0;
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * diffuseColor.rgb * 2.0, wet * 0.4) * (1.0 - 0.2 * wet);`)
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.3, wet);');
+};
+tableMat.customProgramCacheKey = () => 'tableWet';
+function pudCell(x, z) { return [Math.floor((x - PX0) / PCELL), Math.floor((PZ0 - z) / PCELL)]; }
+function addPuddle(x, z, vol, rad = 0.8) {
+  const [cx, cy] = pudCell(x, z);
+  const rc = Math.max(1, Math.ceil(rad / PCELL));
+  let wsum = 0; const cells = [];
+  for (let dy = -rc; dy <= rc; dy++) for (let dx = -rc; dx <= rc; dx++) {
+    const X = cx + dx, Y = cy + dy; if (X < 1 || Y < 1 || X >= PN - 1 || Y >= PN - 1) continue;
+    const w = Math.max(0, 1 - Math.hypot(dx, dy) / (rc + 0.5)); if (w <= 0) continue;
+    cells.push(Y * PN + X, w); wsum += w;
+  }
+  if (!wsum) return;
+  const dep = vol / (PCELL * PCELL) / wsum;
+  for (let i = 0; i < cells.length; i += 2) { PD_[cells[i]] += dep * cells[i + 1]; PWET[cells[i]] = 1; }
+  PUD.active = true; PUD.any = true; PUD.total += vol;
+}
+function pudImpulse(x, z, amp) {
+  const [cx, cy] = pudCell(x, z);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const X = cx + dx, Y = cy + dy; if (X < 1 || Y < 1 || X >= PN - 1 || Y >= PN - 1) continue;
+    const i = Y * PN + X; if (PD_[i] > 0.02) PWV[i] -= amp * (dx || dy ? 0.5 : 1);
+  }
+}
+function pudDepthAt(x, z) { const [cx, cy] = pudCell(x, z); if (cx < 0 || cy < 0 || cx >= PN || cy >= PN) return 0; return PD_[cy * PN + cx]; }
+function pudStep(dt) {
+  // spreading: only water above the local "surface tension" threshold moves
+  if (PUD.active) {
+    let moving = false;
+    for (let it = 0; it < 6; it++) {
+      PD2.set(PD_);
+      for (let y = 1; y < PN - 1; y++) for (let x = 1; x < PN - 1; x++) {
+        const i = y * PN + x, ea = PD_[i] - PTHR[i];
+        if (ea <= 0) continue;
+        moving = true;
+        let out = 0;
+        const nb = [i + 1, i - 1, i + PN, i - PN];
+        for (let k = 0; k < 4; k++) {
+          const j = nb[k], dry = PD_[j] < 0.005;
+          const d = dry ? ea - PBAR[j] : ea - Math.max(0, PD_[j] - PTHR[j]);
+          if (d > 0) { const f = d * 0.11; PD2[j] += f; out += f; if (dry) PWET[j] = 1; }
+        }
+        PD2[i] -= out;
+      }
+      PD_.set(PD2);
+    }
+    PUD.active = moving;
+  }
+  // ripples + evaporation
+  const c2 = 18 * 18 / (PCELL * PCELL);
+  let total = 0, wetAny = false;
+  for (let y = 1; y < PN - 1; y++) for (let x = 1; x < PN - 1; x++) {
+    const i = y * PN + x, d = PD_[i];
+    if (d > 0.02) {
+      const lap = PWH[i + 1] + PWH[i - 1] + PWH[i + PN] + PWH[i - PN] - 4 * PWH[i];
+      PWV[i] = (PWV[i] + lap * c2 * dt) * (1 - 2.2 * dt);
+    } else { PWV[i] = 0; PWH[i] = 0; }
+    if (d > 0) {
+      const edge = (PD_[i + 1] < 0.01) + (PD_[i - 1] < 0.01) + (PD_[i + PN] < 0.01) + (PD_[i - PN] < 0.01);
+      PD_[i] = Math.max(0, d - dt * 0.0011 * (1 + edge * 1.5));
+      total += PD_[i];
+    } else if (PWET[i] > 0) { PWET[i] = Math.max(0, PWET[i] - dt / 25); wetAny = true; }
+  }
+  for (let i = 0; i < PN * PN; i++) PWH[i] += PWV[i] * dt;
+  PUD.total = total * PCELL * PCELL;
+  PUD.any = total > 0 || wetAny;
+  PUD.dirty = true;
+}
+function pudUpload() {
+  if (!PUD.dirty) return; PUD.dirty = false;
+  const wv = i => clamp((PD_[i] - 0.01) / 0.03, 0, 1);
+  for (let i = 0; i < PN * PN; i++) {
+    const d = PD_[i], o = i * 4;
+    const x = i % PN, edge = x === 0 || x === PN - 1 || i < PN || i >= PN * (PN - 1);
+    const a = edge ? wv(i) : (wv(i) * 4 + wv(i - 1) + wv(i + 1) + wv(i - PN) + wv(i + PN) + 0.5 * (wv(i - PN - 1) + wv(i - PN + 1) + wv(i + PN - 1) + wv(i + PN + 1))) / 10;
+    const ds = edge ? d : (d * 4 + PD_[i - 1] + PD_[i + 1] + PD_[i - PN] + PD_[i + PN]) / 8;
+    pudData[o] = clamp(ds * 300 + PWH[i] * 900 + 20, 0, 255);
+    pudData[o + 1] = clamp(smooth(0.25, 0.75, a) * 255, 0, 255);
+    pudData[o + 2] = clamp(Math.max(PWET[i] * 0.6, Math.min(1, d * 12)) * 255, 0, 255);
+    pudData[o + 3] = 255;
+  }
+  pudTex.needsUpdate = true;
+}
+
+/* caustic light under the bottle */
+const causticTex = (() => {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(128, 64, 2, 128, 64, 120);
+  gr.addColorStop(0, 'rgba(255,248,225,1)'); gr.addColorStop(0.18, 'rgba(255,240,205,.55)'); gr.addColorStop(0.5, 'rgba(200,225,255,.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.save(); g.translate(128, 64); g.scale(1, 0.32); g.translate(-128, -64); g.fillRect(0, 0, 256, 128); g.restore();
+  const g2 = g.createLinearGradient(0, 0, 256, 0);
+  g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(0.5, 'rgba(255,255,240,.5)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = g2; g.fillRect(0, 61, 256, 6);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const caustic = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: causticTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.0 }));
+caustic.rotation.x = -Math.PI / 2; caustic.position.y = 0.04;
+scene.add(caustic);
+const SUN_DIR = new V3().subVectors(sun.target.position, sun.position).normalize();
+function updateCaustic() {
+  const fill = clamp(S.vol / 500, 0, 1);
+  const up = Math.max(0, bottle.quaternion.w * bottle.quaternion.w * 2 - 1);
+  const p = bottle.localToWorld(_v.set(0, Math.min(S.h, 15) * 0.45 + 1, 0));
+  const k = p.y / -SUN_DIR.y;
+  const gx = p.x + SUN_DIR.x * k * 0.85, gz = p.z + SUN_DIR.z * k * 0.85;
+  caustic.position.set(gx, 0.04 + bottle.position.y * 0, gz);
+  caustic.rotation.z = Math.atan2(SUN_DIR.z, SUN_DIR.x) * -1;
+  caustic.scale.set(9 + k * 0.4, 3.2, 1);
+  caustic.material.opacity = 0.55 * fill * up * clamp(1 - bottle.position.y / 18, 0, 1);
+  caustic.visible = caustic.material.opacity > 0.01;
+}
+
+/* ---------------- sound proxy (filled in later) ---------------- */
+const SNDF = {};
+const SND = new Proxy(SNDF, { get: (t, k) => t[k] || (() => {}) });
+
+/* ---------------- bottle pose, slosh ---------------- */
+const B = { x: 0, z: 0, lift: 0, tilt: 0, vl: 0, vt: 0, tl: 0, tt: 0, held: false, pw: new V3(), pv: new V3(), acc: new V3(), first: true, angV: 0 };
+const PIV = 9, Z_AX = new V3(0, 0, 1);
+function minLift(t) {
+  const s = Math.sin(t), c = Math.cos(t);
+  let mn = 1e9;
+  for (const [px, py] of [[-3.3, -PIV], [3.3, -PIV], [-3.3, 6], [3.3, 6], [-1.6, 12.5], [1.6, 12.5]]) mn = Math.min(mn, -px * s + py * c);
+  return Math.max(0, -mn - PIV);
+}
+function poseBottle() {
+  bottle.quaternion.setFromAxisAngle(Z_AX, -B.tilt);
+  _v.set(0, PIV, 0).applyQuaternion(bottle.quaternion);
+  bottle.position.set(B.x - _v.x, PIV + B.lift - _v.y, B.z - _v.z);
+  bottle.updateMatrixWorld();
+}
+function bottleStep(dt) {
+  const w = 15, z = 0.82;
+  if (!B.held) { B.tt = 0; B.tl = 0; }
+  const prevT = B.tilt;
+  B.vt += (w * w * (B.tt - B.tilt) - 2 * z * w * B.vt) * dt; B.tilt += B.vt * dt;
+  const ml = minLift(B.tilt), tl = Math.max(B.tl, ml);
+  if (B.held) B.vl += (w * w * (tl - B.lift) - 2 * z * w * B.vl) * dt;
+  else B.vl += (11 * 11 * (tl - B.lift) - 2 * 0.75 * 11 * B.vl) * dt - 300 * dt * (B.lift > ml + 0.01 ? 1 : 0);
+  B.lift += B.vl * dt;
+  if (B.lift < ml) {
+    if (B.vl < -6 && ml < 0.05) landing(-B.vl);
+    B.lift = ml; if (B.vl < 0) B.vl = 0;
+  }
+  poseBottle();
+  // acceleration of the water body -> free-surface slosh
+  const p = bottle.localToWorld(_u.set(0, Math.max(2, S.h * 0.5), 0));
+  if (B.first) { B.pw.copy(p); B.pv.set(0, 0, 0); B.first = false; }
+  const vx = (p.x - B.pw.x) / dt, vy = (p.y - B.pw.y) / dt, vz = (p.z - B.pw.z) / dt;
+  const ax = (vx - B.pv.x) / dt, ay = (vy - B.pv.y) / dt, az = (vz - B.pv.z) / dt;
+  B.acc.x += (clamp(ax, -6000, 6000) - B.acc.x) * 0.25; B.acc.y += (clamp(ay, -6000, 6000) - B.acc.y) * 0.25; B.acc.z += (clamp(az, -6000, 6000) - B.acc.z) * 0.25;
+  B.pv.set(vx, vy, vz); B.pw.copy(p);
+  B.angV = (B.tilt - prevT) / dt;
+  const den = Math.max(250, 981 + B.acc.y);
+  const tx = clamp(B.acc.x / den + 0.05 * B.angV, -0.9, 0.9), tz = clamp(B.acc.z / den, -0.9, 0.9);
+  const ws = 19, zs = 0.07;
+  S.sv.x += (ws * ws * (tx - S.so.x) - 2 * zs * ws * S.sv.x) * dt;
+  S.sv.y += (ws * ws * (tz - S.so.y) - 2 * zs * ws * S.sv.y) * dt;
+  S.so.x = clamp(S.so.x + S.sv.x * dt, -1, 1); S.so.y = clamp(S.so.y + S.sv.y * dt, -1, 1);
+  S.n.set(S.so.x, 1, S.so.y).normalize();
+  S.wave += (clamp(S.sv.length() * 0.006, 0, 0.09) - S.wave) * Math.min(1, dt * 6);
+  S.ripple *= Math.exp(-dt * 2.2);
+  SND.slosh(S.sv.length());
+}
+function landing(v) {
+  SND.thunk(Math.min(1, v / 60));
+  S.sv.x += rnd(-1, 1) * v * 0.03; S.sv.y += rnd(-1, 1) * v * 0.03;
+  S.ripple = Math.min(0.08, S.ripple + v * 0.001);
+}
+
+/* ---------------- cap state machine ---------------- */
+const CAPS = { state: 'on', A: 0, sealed: true, AOFF: 5.4, vel: new V3(), spin: 0, upside: true, anim: 0, from: new V3(), fromQ: new THREE.Quaternion(), auto: false, tick: 0, rest: 0.9 };
+const mouthWorld = (out = new V3()) => bottle.localToWorld(out.set(0, MOUTH_Y, 0));
+function capOnPose() { cap.position.set(0, CAP_Y + CAPS.A * 0.3 / TAU, 0); cap.rotation.set(0, CAPS.A, 0); }
+function twistCap(dA) {
+  if (CAPS.state !== 'on') return;
+  if (CAPS.sealed && dA > 0) dA *= 0.45;
+  const a0 = CAPS.A;
+  CAPS.A = clamp(CAPS.A + dA, 0, CAPS.AOFF + 0.01);
+  if (CAPS.sealed) {
+    for (const th of [0.22, 0.34, 0.47, 0.58, 0.7, 0.83]) if (a0 < th && CAPS.A >= th) SND.snap(0.6 + Math.random() * 0.4);
+    if (CAPS.A > 0.9) CAPS.sealed = false;
+  }
+  CAPS.tick += Math.abs(CAPS.A - a0);
+  if (CAPS.tick > 0.42) { CAPS.tick = 0; SND.tick(0.35); }
+  if (a0 > 0 && CAPS.A === 0 && dA < 0) SND.tick(0.8);
+  if (CAPS.A >= CAPS.AOFF) popCap();
+  capOnPose();
+}
+function popCap() {
+  CAPS.state = 'held'; CAPS.A = CAPS.AOFF;
+  scene.attach(cap);
+  SND.pop();
+  const pr = pressure();
+  if (pr > 1.04) SND.hiss(Math.min(1, (pr - 1) * 2.5));
+  openBottle();
+  if (P.mode === 'twist') { P.mode = 'capheld'; }
+  else { CAPS.state = 'fall'; CAPS.vel.set(rnd(-30, 30), 60, rnd(-10, 20)); CAPS.spin = rnd(-8, 8); }
+}
+function capFollow(px, py) {
+  // keep cap on a camera-facing plane through the bottle
+  const pl = new THREE.Plane(new V3(0, 0, 1), -bottle.position.z - 1);
+  const hit = new V3();
+  if (ray.ray.intersectPlane(pl, hit)) {
+    hit.y = Math.max(hit.y, 1.2);
+    CAPS.vel.subVectors(hit, cap.position).multiplyScalar(40).clampLength(0, 260);
+    cap.position.lerp(hit, 0.6);
+    cap.quaternion.slerp(_q.identity(), 0.2);
+  }
+}
+function releaseCap() {
+  const m = mouthWorld(new V3());
+  if (cap.position.distanceTo(m) < 4.5 && B.tilt < 0.3 && !B.held) startCapReturn();
+  else { CAPS.state = 'fall'; CAPS.spin = rnd(-6, 6) + CAPS.vel.x * 0.02; }
+}
+function startCapReturn() {
+  CAPS.state = 'return'; CAPS.anim = 0;
+  CAPS.from.copy(cap.position); CAPS.fromQ.copy(cap.quaternion);
+}
+function capStep(dt) {
+  if (CAPS.state === 'on') {
+    if (CAPS.auto) {
+      const a0 = CAPS.A; CAPS.A = Math.max(0, CAPS.A - dt * 11);
+      CAPS.tick += a0 - CAPS.A; if (CAPS.tick > 0.5) { CAPS.tick = 0; SND.tick(0.45); }
+      if (CAPS.A === 0) { CAPS.auto = false; SND.tick(0.9); closeBottle(); }
+      capOnPose();
+    }
+    return;
+  }
+  if (CAPS.state === 'fall') {
+    CAPS.vel.y -= 981 * dt;
+    cap.position.addScaledVector(CAPS.vel, dt);
+    const tgt = CAPS.upside ? Math.PI : 0;
+    cap.rotation.x += (tgt - cap.rotation.x) * Math.min(1, dt * 5);
+    cap.rotation.z *= 1 - Math.min(1, dt * 5);
+    cap.rotation.y += CAPS.spin * dt;
+    // keep out of bottle & glass
+    for (const [cx, cz, r] of [[bottle.position.x, bottle.position.z, 3.3 + 1.6], [GLASS.x, GLASS.z, 3.8 + 1.6]]) {
+      if (cap.position.y > (cx === GLASS.x ? 10.8 : 22) + 1) continue;
+      const dx = cap.position.x - cx, dz = cap.position.z - cz, d = Math.hypot(dx, dz);
+      if (d < r && d > 1e-4) { cap.position.x = cx + dx / d * r; cap.position.z = cz + dz / d * r; const vn = (CAPS.vel.x * dx + CAPS.vel.z * dz) / d; if (vn < 0) { CAPS.vel.x -= 1.5 * vn * dx / d; CAPS.vel.z -= 1.5 * vn * dz / d; } }
+    }
+    const ry = CAPS.upside ? 1.815 : 0.0;
+    if (cap.position.y < ry) {
+      cap.position.y = ry;
+      if (CAPS.vel.y < -40) { SND.capHit(Math.min(1, -CAPS.vel.y / 400)); CAPS.vel.y *= -0.32; CAPS.spin *= 0.7; }
+      else CAPS.vel.y = 0;
+      const f = Math.exp(-dt * 4.5); CAPS.vel.x *= f; CAPS.vel.z *= f; CAPS.spin *= f;
+      if (CAPS.vel.y === 0 && Math.hypot(CAPS.vel.x, CAPS.vel.z) < 2 && Math.abs(CAPS.spin) < 0.3) { CAPS.state = 'table'; cap.rotation.x = CAPS.upside ? Math.PI : 0; cap.rotation.z = 0; }
+    }
+    if (cap.position.x < -13 || cap.position.x > 23) { cap.position.x = clamp(cap.position.x, -13, 23); CAPS.vel.x *= -0.4; }
+    if (cap.position.z < -12 || cap.position.z > 9) { cap.position.z = clamp(cap.position.z, -12, 9); CAPS.vel.z *= -0.4; }
+    return;
+  }
+  if (CAPS.state === 'return') {
+    if (B.held || B.tilt > 0.05 || B.lift > 0.2) return;
+    CAPS.anim = Math.min(1, CAPS.anim + dt / 0.5);
+    const t = CAPS.anim, e = t * t * (3 - 2 * t);
+    const m = mouthWorld(new V3()); m.y += -MOUTH_Y + CAP_Y + CAPS.AOFF * 0.3 / TAU;
+    cap.position.lerpVectors(CAPS.from, m, e); cap.position.y += Math.sin(Math.PI * t) * 7;
+    cap.quaternion.slerpQuaternions(CAPS.fromQ, bottle.quaternion, e);
+    if (t >= 1) { bottle.attach(cap); CAPS.state = 'on'; CAPS.A = CAPS.AOFF; CAPS.auto = true; capOnPose(); SND.tick(0.7); }
+  }
+}
+
+/* ---------------- air pressure (cap sealed) ---------------- */
+const isSealed = () => CAPS.state === 'on' && CAPS.A < 1.25;
+function closeBottle() { S.air0 = Math.max(1, S.cap - S.vol); }
+function openBottle() { S.air0 = 0; }
+function pressure() { return isSealed() && S.air0 > 0 ? S.air0 / Math.max(0.3, S.cap - S.vol) : 1; }
+let wasSealed = true;
+function sealWatch() {
+  const now = isSealed();
+  if (wasSealed && !now) { const pr = pressure(); if (pr > 1.04) SND.hiss(Math.min(1, (pr - 1) * 2.5)); openBottle(); }
+  if (!wasSealed && now) closeBottle();
+  wasSealed = now;
+}
+
+/* ---------------- input ---------------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const P = { mode: null, id: null, x0: 0, y0: 0, x: 0, y: 0, t0: 0, tilt0: 0, lift0: 0, local: new V3(), lx: 0, ly: 0, rpx: 40, moved: false, sq2: false, key: false };
+cam.zoom = 1;
+function setRay(cx, cy) { const r = canvas.getBoundingClientRect(); ndc.set((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1); ray.setFromCamera(ndc, camera); }
+function worldPerPx() { return 2 * camera.position.distanceTo(bottle.position) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / canvas.clientHeight; }
+function pick() {
+  const objs = [bottleMesh, labelMesh];
+  if (CAPS.state === 'on' || CAPS.state === 'table') objs.push(capMesh);
+  const h = ray.intersectObjects(objs, false);
+  return h[0] || null;
+}
+function startHold() {
+  P.mode = 'hold'; B.held = true;
+  P.tilt0 = B.tilt; P.lift0 = Math.max(B.lift, minLift(B.tilt)) + 2.5;
+  B.tt = P.tilt0; B.tl = P.lift0;
+  SND.grab();
+}
+canvas.addEventListener('pointerdown', e => {
+  initAudio();
+  if (P.mode) { if (P.mode === 'hold') P.sq2 = true; return; }
+  setRay(e.clientX, e.clientY);
+  const h = pick();
+  P.id = e.pointerId; P.x0 = P.x = P.lx = e.clientX; P.y0 = P.y = P.ly = e.clientY; P.t0 = performance.now(); P.moved = false;
+  try { canvas.setPointerCapture(e.pointerId); } catch (er) {}
+  canvas.classList.add('drag');
+  if (!h) { P.mode = 'orbit'; return; }
+  if (h.object === capMesh) {
+    if (CAPS.state === 'on' && !B.held) {
+      P.mode = 'twist'; CAPS.auto = false;
+      const c = cap.getWorldPosition(new V3()), r = c.clone().add(new V3(1.57, 0, 0).applyQuaternion(camera.quaternion));
+      c.project(camera); r.project(camera);
+      P.rpx = Math.max(8, Math.abs(r.x - c.x) * canvas.clientWidth / 2);
+    } else if (CAPS.state === 'table') P.mode = 'capgrab';
+    else P.mode = 'orbit';
+    return;
+  }
+  P.mode = 'pending';
+  P.local.copy(bottle.worldToLocal(h.point.clone()));
+});
+canvas.addEventListener('pointermove', e => {
+  if (!P.mode) { hover(e); return; }
+  if (e.pointerId !== P.id) return;
+  const dx = e.clientX - P.lx, dy = e.clientY - P.ly;
+  P.lx = P.x = e.clientX; P.ly = P.y = e.clientY;
+  if (Math.hypot(P.x - P.x0, P.y - P.y0) > 6) P.moved = true;
+  setRay(e.clientX, e.clientY);
+  switch (P.mode) {
+    case 'orbit': cam.tyaw = clamp(cam.tyaw - dx * 0.004, -0.75, 0.75); cam.tpitch = clamp(cam.tpitch + dy * 0.003, 0.02, 0.8); break;
+    case 'pending': if (P.moved) startHold(); break;
+    case 'hold': {
+      const k = Math.PI / (0.62 * Math.min(canvas.clientWidth, 1100));
+      B.tt = clamp(P.tilt0 + (P.x - P.x0) * k, -2.95, 2.95);
+      B.tl = clamp(P.lift0 - (P.y - P.y0) * worldPerPx(), 0, 24);
+      break;
+    }
+    case 'twist': twistCap(dx / P.rpx * 1.3); break;
+    case 'capgrab': if (P.moved) { P.mode = 'capheld'; CAPS.state = 'held'; SND.tick(0.3); } break;
+    case 'capheld': capFollow(); break;
+    case 'squeeze': crushMove(dx, dy); break;
+  }
+});
+function endPointer(e) {
+  if (e.pointerId !== P.id) { if (P.mode === 'hold') P.sq2 = false; return; }
+  switch (P.mode) {
+    case 'pending': SND.tap(); S.ripple = Math.min(0.06, S.ripple + 0.02); break;
+    case 'hold': B.held = false; P.sq2 = false; crushEnd(); break;
+    case 'capgrab': startCapReturn(); break;
+    case 'capheld': releaseCap(); break;
+    case 'squeeze': crushEnd(); break;
+  }
+  P.mode = null; P.id = null; canvas.classList.remove('drag');
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * (1 + e.deltaY * 0.0012), 0.5, 1.35); }, { passive: false });
+let hovT = 0;
+function hover(e) {
+  const now = performance.now(); if (now - hovT < 60) return; hovT = now;
+  setRay(e.clientX, e.clientY);
+  canvas.classList.toggle('hov', !!pick());
+}
+addEventListener('keydown', e => { if (e.code === 'Space') { P.key = true; e.preventDefault(); } });
+addEventListener('keyup', e => { if (e.code === 'Space') { P.key = false; if (P.mode !== 'squeeze') crushEnd(); } });
+function inputStep() {
+  if (P.mode === 'pending' && !P.moved && performance.now() - P.t0 > 230) { P.mode = 'squeeze'; crushStart(P.local, false); }
+}
+
+/* ---------------- crushing (CPU deformation of the grid) ---------------- */
+const GK = new Float32Array(GROWS * SEG), GWN = new Float32Array(GROWS * SEG), GW = new Float32Array(GROWS), GC = new Float32Array(GROWS * SEG);
+{
+  const tri = x => 2 * Math.abs(x - Math.floor(x) - 0.5);
+  const W1 = [], W2 = [];
+  for (let n = 0; n < 6; n++) W1.push({ m: (2 + (n * 3) % 6) * (n % 2 ? 1 : -1), f: rnd(0.18, 0.5) * (Math.random() < 0.5 ? -1 : 1), p: Math.random() });
+  for (let n = 0; n < 5; n++) W2.push({ m: (5 + n * 2) * (n % 2 ? 1 : -1), f: rnd(0.6, 1.3) * (Math.random() < 0.5 ? -1 : 1), p: Math.random() });
+  for (let k = 0; k < GROWS; k++) {
+    const y = gridY(k);
+    GW[k] = smooth(0.95, 2.4, y) * Math.pow(1 - smooth(14.9, 18.45, y), 0.8);
+    for (let i = 0; i < SEG; i++) {
+      const th = i / SEG, o = k * SEG + i;
+      let a = 0; for (const w of W1) a = Math.max(a, tri(w.m * th + w.f * y + w.p));
+      let b = 0; for (const w of W2) b = Math.max(b, 1 - tri(w.m * th + w.f * y + w.p));
+      GK[o] = 0.35 + 1.5 * a * a * a;
+      GWN[o] = clamp((b - 0.6) * 3.2, -1, 1);
+    }
+  }
+}
+const G0 = new Float32Array(G.length), GREL = new Float32Array(G.length), GPREV = new Float32Array(G.length);
+const CR = { on: false, local: new V3(), hold: 0, sigma: 1.6, buck: 0, drag: 0, rec: 0, recMax: 0, recOn: false, cap0: 0, frac: 0, crackT: 0 };
+const ringC = new Float32Array(GROWS * 2);
+function ringCenters() {
+  for (let k = 0; k < GROWS; k++) {
+    let sx = 0, sz = 0;
+    for (let i = 0; i < SEG; i++) { const o = (k * SEG + i) * 3; sx += GREST[o] + G[o]; sz += GREST[o + 2] + G[o + 2]; }
+    ringC[k * 2] = sx / SEG; ringC[k * 2 + 1] = sz / SEG;
+  }
+}
+function flattenStep(local, amt) {
+  const th0 = Math.atan2(local.x, local.z), y0 = clamp(local.y, 1.6, 16.8);
+  const dx = Math.sin(th0), dz = Math.cos(th0), px = Math.cos(th0), pz = -Math.sin(th0);
+  const sig = CR.sigma;
+  ringCenters();
+  for (let k = 0; k < GROWS; k++) {
+    const y = gridY(k), fy = Math.exp(-(((y - y0) / sig) ** 2)) * GW[k];
+    if (fy < 0.004) continue;
+    const cx = ringC[k * 2], cz = ringC[k * 2 + 1], R0 = bodyR(y);
+    for (let i = 0; i < SEG; i++) {
+      const n = k * SEG + i, o = n * 3;
+      const x = GREST[o] + G[o] - cx, z = GREST[o + 2] + G[o + 2] - cz;
+      const u = x * dx + z * dz, v = x * px + z * pz;
+      const da = Math.min(0.5, amt * fy * GK[n]);
+      let u2 = u * (1 - da);
+      if (Math.abs(u2) < 0.1) u2 = Math.abs(u) < 0.1 ? u : Math.sign(u) * 0.1;
+      const v2 = v * (1 + 0.5 * da * Math.max(0, 1 - Math.abs(v) / (1.62 * R0)));
+      const c0 = GC[n]; GC[n] = Math.min(1, c0 + da * 0.9); const dc = GC[n] - c0;
+      const th = i / SEG * TAU, wr = GWN[n] * 0.2 * dc;
+      G[o] = cx + u2 * dx + v2 * px - GREST[o] + Math.sin(th) * wr;
+      G[o + 2] = cz + u2 * dz + v2 * pz - GREST[o + 2] + Math.cos(th) * wr;
+      G[o + 1] += (y0 - y) * da * 0.012;
+    }
+  }
+}
+function dent(th0, y0, depth, size, rot) {
+  ringCenters();
+  const cr = Math.cos(rot), sr = Math.sin(rot);
+  for (let k = 0; k < GROWS; k++) {
+    const y = gridY(k); if (Math.abs(y - y0) > size * 1.6) continue;
+    const R0 = bodyR(y), cx = ringC[k * 2], cz = ringC[k * 2 + 1];
+    for (let i = 0; i < SEG; i++) {
+      let dth = i / SEG * TAU - th0; dth -= Math.round(dth / TAU) * TAU;
+      const a = dth * R0, b = y - y0;
+      const a2 = a * cr + b * sr, b2 = -a * sr + b * cr;
+      const f = 1 - (Math.abs(a2) / size + Math.abs(b2) / (size * 0.62));
+      if (f <= 0) continue;
+      const n = k * SEG + i, o = n * 3;
+      const x = GREST[o] + G[o] - cx, z = GREST[o + 2] + G[o + 2] - cz, r = Math.hypot(x, z);
+      if (r < 0.2) continue;
+      const push = Math.min(depth * Math.pow(f, 0.9) * GW[k], r - 0.18);
+      G[o] -= x / r * push; G[o + 2] -= z / r * push;
+      GC[n] = Math.min(1, GC[n] + f * 0.3);
+    }
+  }
+}
+function capacityNow() { updateProxy(); return volBelow(0, 1, 0, 60); }
+function crushStart(local) {
+  if (CR.on) return;
+  CR.on = true; CR.local.copy(local); CR.hold = 0; CR.sigma = 1.5; CR.buck = 0.6; CR.drag = 0; CR.recOn = false;
+  G0.set(G); CR.cap0 = S.cap;
+  SND.squeezeStart();
+  // first contact: a small dent right under the finger
+  const th = Math.atan2(local.x, local.z);
+  if (pressure() < 1.25) { dent(th, local.y, 0.25, rnd(0.9, 1.4), rnd(0, Math.PI)); S.deformDirty = true; SND.crunch(0.35); }
+}
+function crushMove(dx, dy) {
+  CR.drag += Math.hypot(dx, dy);
+  const h = pick();
+  if (h && h.object !== capMesh) { const l = bottle.worldToLocal(h.point.clone()); CR.local.lerp(l, 0.5); }
+}
+function crushEnd() {
+  if (!CR.on) return;
+  CR.on = false;
+  SND.squeezeEnd();
+  // elastic spring-back: strong if the air inside is pressurised
+  GREL.set(G); CR.rec = 0;
+  const pr = pressure();
+  CR.recMax = pr > 1.03 ? 0.8 : 0.12;
+  CR.recOn = true;
+  if (pr > 1.08) SND.popBack(Math.min(1, (pr - 1) * 2));
+}
+function crushStep(dt) {
+  let active = false, loc = CR.local;
+  if (P.mode === 'squeeze') active = true;
+  else if (P.mode === 'hold' && (P.sq2 || P.key)) { active = true; if (!CR.on) crushStart(P.local); }
+  else if (!P.mode && P.key) { active = true; if (!CR.on) crushStart(new V3(0, 9, 3.2)); }
+  if (CR.on && !active && P.mode !== 'squeeze') crushEnd();
+  if (CR.on) {
+    CR.hold += dt;
+    CR.sigma = Math.min(8.5, 1.5 + CR.hold * 1.15);
+    const pr = pressure();
+    const resist = isSealed() ? clamp((1.55 - pr) / 0.5, 0, 1) : 1;
+    const ramp = smooth(0, 0.35, CR.hold);
+    const dragB = Math.min(2.5, CR.drag * 0.02); CR.drag *= Math.exp(-dt * 6);
+    const amt = (0.85 + dragB) * ramp * resist * dt;
+    if (amt > 1e-5) {
+      GPREV.set(G);
+      flattenStep(loc, amt);
+      if (isSealed()) {
+        const capN = capacityNow();
+        if (S.air0 / Math.max(0.3, capN - S.vol) > 1.6) G.set(GPREV);
+      }
+      S.deformDirty = true;
+      CR.buck += amt * (1.2 + Math.random() * 2.5);
+      if (CR.buck > 1 && resist > 0.15) {
+        CR.buck = 0;
+        const side = Math.random() < 0.5 ? 0 : Math.PI;
+        const th = Math.atan2(loc.x, loc.z) + side + rnd(-0.9, 0.9);
+        const yy = clamp(loc.y + rnd(-1, 1) * CR.sigma * 0.8, 1.5, 16.5);
+        const dep = rnd(0.2, 0.55) * resist;
+        dent(th, yy, dep, rnd(0.8, 2.1), rnd(0, Math.PI));
+        if (isSealed() && S.air0 / Math.max(0.3, capacityNow() - S.vol) > 1.6) G.set(GPREV);
+        SND.crunch(clamp(dep * 1.6, 0.2, 1));
+      }
+      SND.crinkle(amt / dt * resist, resist);
+    } else if (resist < 0.2) SND.creak(dt);
+  } else if (CR.recOn) {
+    CR.rec = Math.min(CR.recMax, CR.rec + dt * 2.5);
+    for (let i = 0; i < G.length; i++) G[i] = GREL[i] + (G0[i] - GREL[i]) * CR.rec;
+    S.deformDirty = true;
+    if (CR.rec >= CR.recMax || (CR.recMax > 0.5 && pressure() < 1.015)) CR.recOn = false;
+    if (Math.random() < dt * 25) SND.crinkle(3, 0.4);
+  }
+}
+
+/* ---------------- pouring: flow, stream, droplets, bubbles ---------------- */
+S.ul = new V3(0, 1, 0);
+const FL = { q: 0, glugT: 0, glugP: 0.2, glugging: false, mprev: new V3(), mvel: new V3(), first: true, drips: 0, dripT: 0, impact: 0, glassImpact: 0, squirt: 0, pourAmt: 0 };
+const MAXP = 240, RING = 10;
+const SP = []; // stream particles (oldest first)
+const streamGeo = new THREE.BufferGeometry();
+const stPos = new Float32Array(MAXP * RING * 3), stNor = new Float32Array(MAXP * RING * 3), stIdx = new Uint16Array(MAXP * RING * 6);
+streamGeo.setAttribute('position', new THREE.BufferAttribute(stPos, 3).setUsage(THREE.DynamicDrawUsage));
+streamGeo.setAttribute('normal', new THREE.BufferAttribute(stNor, 3).setUsage(THREE.DynamicDrawUsage));
+streamGeo.setIndex(new THREE.BufferAttribute(stIdx, 1).setUsage(THREE.DynamicDrawUsage));
+const freeWaterMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.02, transmission: 1, ior: 1.333, thickness: 0.6, specularIntensity: 1, envMapIntensity: 1.3, attenuationColor: new THREE.Color(0xd8f0ff), attenuationDistance: 30 });
+const stream = new THREE.Mesh(streamGeo, freeWaterMat);
+stream.frustumCulled = false;
+scene.add(stream);
+const MAXD = 320;
+const DR = [];
+const dropMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), freeWaterMat, MAXD);
+dropMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); dropMesh.frustumCulled = false; dropMesh.count = 0;
+scene.add(dropMesh);
+const MAXB = 160;
+const BU = []; // bubbles in bottle-local space
+const bubMat = new THREE.MeshStandardMaterial({ color: 0xf4f8ff, metalness: 1, roughness: 0.06, envMapIntensity: 1.5 });
+const bubMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), bubMat, MAXB);
+bubMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); bubMesh.frustumCulled = false; bubMesh.count = 0;
+bottle.add(bubMesh);
+const _m4 = new THREE.Matrix4(), _p3 = new V3(), _s3 = new V3(), _qq = new THREE.Quaternion();
+
+function capIsOff() { return CAPS.state !== 'on'; }
+function spawnDrop(p, v, r, vol) { if (DR.length >= MAXD) DR.shift(); DR.push({ p: p.clone(), v: v.clone(), r, vol, age: 0 }); }
+function spawnBubble(lp, r, big) { if (BU.length >= MAXB) BU.shift(); BU.push({ p: lp.clone(), r, big, ph: Math.random() * 6, age: 0, vs: big ? rnd(22, 30) : rnd(4, 12) }); }
+function splash(p, vol, speed, inGlass) {
+  const n = Math.min(10, Math.floor(vol * 0.6 + speed * 0.012 + Math.random() * 1.5));
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, sp = rnd(15, 70) * (0.4 + speed / 400);
+    spawnDrop(p, _s3.set(Math.cos(a) * sp, rnd(25, 110) * (0.4 + speed / 350), Math.sin(a) * sp), rnd(0.04, 0.13), 0.02);
+  }
+}
+function pourStep(dt) {
+  const m = mouthWorld(_p3);
+  if (FL.first) { FL.mprev.copy(m); FL.first = false; }
+  FL.mvel.subVectors(m, FL.mprev).divideScalar(dt); FL.mprev.copy(m);
+  let q = 0, vex = 0, f = 0, glug = false;
+  const u = S.ul;
+  if (capIsOff() && S.vol > 0.05) {
+    const mm = MOUTH_Y * u.y, sN = Math.sqrt(Math.max(0, 1 - u.y * u.y));
+    const H = S.h - mm;
+    const x = sN > 0.02 ? clamp(H / (MOUTH_R * sN), -1, 1) : (H > 0 ? 1 : -1);
+    f = (Math.acos(-x) + x * Math.sqrt(1 - x * x)) / Math.PI;
+    const facingDown = u.y < -0.25;
+    if (f > 0.002) {
+      const A = f * Math.PI * MOUTH_R * MOUTH_R;
+      if (f > 0.9 && facingDown && S.vol > 25) {
+        glug = true;
+        FL.glugT += dt;
+        const ph = FL.glugT / FL.glugP;
+        const Qb = 0.62 * A * Math.sqrt(2 * 981 * clamp(H, 1.5, 5)) * 0.8;
+        if (ph < 0.62) q = Qb * Math.pow(Math.sin(Math.PI * ph / 0.62), 0.6);
+        else q = Qb * 0.12;
+        if (ph >= 0.62 && FL.glugT - dt < 0.62 * FL.glugP) { // air gulps in
+          const lp = new V3(rnd(-0.3, 0.3), MOUTH_Y - 0.6, rnd(-0.3, 0.3));
+          spawnBubble(lp, rnd(0.45, 0.75), true);
+          for (let i = 0; i < 4; i++) spawnBubble(lp.clone().add(_s3.set(rnd(-0.4, 0.4), rnd(-0.4, 0.2), rnd(-0.4, 0.4))), rnd(0.08, 0.22), true);
+          SND.glug(clamp(1 - S.vol / 520, 0, 1), Math.min(1, Qb / 300));
+          S.ripple = Math.min(0.08, S.ripple + 0.02);
+        }
+        if (ph >= 1) { FL.glugT = 0; FL.glugP = 1 / (4.2 + Math.min(4, H * 0.12)) * rnd(0.85, 1.18); }
+        vex = Math.sqrt(2 * 981 * clamp(H, 1, 4)) * 0.6;
+      } else {
+        const hc = Math.max(0.05, H + MOUTH_R * sN) * (f < 0.9 ? 0.45 : 1);
+        q = 0.62 * A * Math.sqrt(2 * 981 * hc);
+        vex = Math.sqrt(2 * 981 * hc);
+        FL.glugT = 0;
+      }
+    }
+    if (S.vol > S.cap + 0.05) { // squeezed out of the neck
+      const ex = (S.vol - S.cap) / 0.07;
+      q += ex; vex = Math.max(vex, Math.min(300, 60 + ex * 1.4)); FL.squirt = 1;
+    }
+  } else if (S.vol > S.cap + 0.05) S.vol = S.cap;
+  FL.glugging = glug;
+  q = Math.min(q, S.vol / dt);
+  if (q > 0.01) {
+    const out = q * dt;
+    S.vol -= out;
+    FL.pourAmt += out;
+    // exit point & direction in local frame
+    const sN = Math.sqrt(Math.max(1e-6, u.x * u.x + u.z * u.z));
+    const lx = -u.x / sN, lz = -u.z / sN;
+    const off = MOUTH_R * (1 - Math.min(1, f)) * 0.75;
+    const lp = new V3(lx * off, MOUTH_Y + 0.05, lz * off);
+    const ld = new V3(lx * (1 - f) * 0.9, 1, lz * (1 - f) * 0.9).normalize();
+    const wp = bottle.localToWorld(lp);
+    const wd = ld.transformDirection(bottle.matrixWorld);
+    vex = clamp(vex, 12, 420);
+    const v = wd.multiplyScalar(vex).add(FL.mvel);
+    const r = clamp(Math.sqrt(q / (Math.PI * vex)), 0.06, 0.95);
+    const prev = SP[SP.length - 1];
+    if (SP.length >= MAXP) SP.shift();
+    let link = !!(prev && prev.age < dt * 1.5 && prev.alive);
+    if (link && (prev.p.distanceTo(wp) > Math.max(1.2, vex * dt * 3) || prev.v.angleTo(v) > 0.35)) link = false;
+    SP.push({ p: wp, v, r0: r, v0: vex, vol: out, age: 0, link, alive: true, seed: Math.random() * 6 });
+    FL.drips = Math.min(4, 2 + Math.floor(q / 60));
+  } else if (FL.drips > 0 && capIsOff()) {
+    FL.dripT -= dt;
+    if (FL.dripT <= 0) {
+      FL.dripT = rnd(0.25, 0.7); FL.drips--;
+      const ax = new V3(0, 1, 0).transformDirection(bottle.matrixWorld);
+      if (ax.y < 0.3) { const wp = bottle.localToWorld(new V3(0, LIP_Y, 0)).addScaledVector(ax, 0.1); spawnDrop(wp, FL.mvel.clone().multiplyScalar(0.5), rnd(0.12, 0.18), 0.05); }
+    }
+  }
+  FL.q = q;
+  // advance stream particles
+  let imp = 0, gimp = 0;
+  for (let i = 0; i < SP.length; i++) {
+    const s = SP[i];
+    if (!s.alive) continue;
+    s.age += dt;
+    s.v.y -= 981 * dt;
+    s.p.addScaledVector(s.v, dt);
+    const sp = s.v.length();
+    s.r = s.r0 * Math.sqrt(s.v0 / Math.max(s.v0, sp));
+    const gx = s.p.x - GLASS.x, gz = s.p.z - GLASS.z, gd = Math.hypot(gx, gz);
+    if (gd < 3.82 && s.p.y < 10.82) {
+      if (gd < glassInR(s.p.y) - 0.05) {
+        if (s.p.y <= GLASS.level + 0.05) { GLASS.vol += s.vol; GLASS.wave = Math.min(0.08, GLASS.wave + s.vol * 0.004 * sp / 200); GLASS.tv.x += rnd(-1, 1) * 0.02; GLASS.tv.y += rnd(-1, 1) * 0.02; gimp += s.vol; if (Math.random() < 0.15) for (let k = 0; k < 4; k++) spawnBubbleGlass(s.p); s.alive = false; }
+      } else if (s.p.y > 10.2) { splash(s.p, s.vol * 3, sp, false); if (Math.random() < 0.5) GLASS.vol += s.vol * 0.5; else addPuddle(GLASS.x + gx / gd * 4.1, GLASS.z + gz / gd * 4.1, s.vol * 0.5, 0.8); imp += s.vol; s.alive = false; }
+      else { addPuddle(GLASS.x + gx / gd * 4.0, GLASS.z + gz / gd * 4.0, s.vol, 0.7); s.alive = false; imp += s.vol * 0.5; }
+      continue;
+    }
+    const floor = pudDepthAt(s.p.x, s.p.z) + 0.03;
+    if (s.p.y <= floor) {
+      addPuddle(s.p.x, s.p.z, s.vol * 0.92, 0.5 + Math.min(1.2, s.vol * 0.2));
+      pudImpulse(s.p.x, s.p.z, Math.min(3, s.vol * sp * 0.0015));
+      splash(new V3(s.p.x, floor + 0.05, s.p.z), s.vol, sp, false);
+      imp += s.vol;
+      s.alive = false;
+    }
+  }
+  while (SP.length && !SP[0].alive) SP.shift();
+  for (let i = 1; i < SP.length; i++) {
+    const a = SP[i - 1], b = SP[i];
+    if (!a.alive) b.link = false;
+    else if (b.link && a.p.distanceToSquared(b.p) > 9) b.link = false;
+  }
+  FL.impact = FL.impact * 0.9 + imp / dt * 0.1;
+  FL.glassImpact = FL.glassImpact * 0.9 + gimp / dt * 0.1;
+  // droplets
+  for (let i = DR.length - 1; i >= 0; i--) {
+    const d = DR[i];
+    d.age += dt; d.v.y -= 981 * dt; d.p.addScaledVector(d.v, dt);
+    const gx = d.p.x - GLASS.x, gz = d.p.z - GLASS.z;
+    if (Math.hypot(gx, gz) < glassInR(Math.max(1, d.p.y)) - 0.05 && d.p.y < GLASS.level + 0.05) { GLASS.vol += d.vol; DR.splice(i, 1); continue; }
+    const pd = pudDepthAt(d.p.x, d.p.z), floor = pd + 0.02;
+    if (d.p.y <= floor) {
+      if (pd < 0.02 && d.r > 0.05) { if (BD.length >= 220) BD.shift(); BD.push({ x: d.p.x, z: d.p.z, r: d.r * rnd(1.2, 1.7), life: rnd(50, 110) }); }
+      else { addPuddle(d.p.x, d.p.z, d.vol, 0.3); pudImpulse(d.p.x, d.p.z, 0.25); }
+      if (d.r > 0.11 && Math.random() < 0.3) SND.drip(d.r);
+      DR.splice(i, 1);
+    } else if (d.age > 4) DR.splice(i, 1);
+  }
+  // bubbles rise through the water (bottle local frame)
+  const c = S.h;
+  for (let i = BU.length - 1; i >= 0; i--) {
+    const b = BU[i];
+    b.age += dt; b.ph += dt * (b.big ? 9 : 14);
+    const vs = b.vs * (b.age < 0.08 ? 0.4 : 1);
+    b.p.x += (u.x * vs + Math.sin(b.ph) * (b.big ? 4 : 1.5)) * dt;
+    b.p.y += u.y * vs * dt;
+    b.p.z += (u.z * vs + Math.cos(b.ph * 1.3) * (b.big ? 4 : 1.5)) * dt;
+    const rr = Math.hypot(b.p.x, b.p.z), lim = (b.p.y > 18.7 ? 0.95 : b.p.y > 15 ? Math.max(0.9, bodyR(Math.min(b.p.y, 18.6)) - 0.1) : 3.15) - b.r;
+    if (rr > lim && rr > 1e-4) { b.p.x *= lim / rr; b.p.z *= lim / rr; }
+    b.p.y = clamp(b.p.y, 0.7 + b.r, MOUTH_Y);
+    const d = b.p.x * u.x + b.p.y * u.y + b.p.z * u.z - c;
+    if (d > -b.r * 0.3 || b.age > 6 || S.vol < 1) { if (b.big) S.ripple = Math.min(0.08, S.ripple + 0.015); BU.splice(i, 1); }
+  }
+  // shaking makes bubbles
+  const shake = S.sv.length();
+  if (shake > 4 && S.vol > 20 && Math.random() < dt * shake * 1.6) {
+    const a = Math.random() * TAU, rr = Math.sqrt(Math.random()) * 2.6;
+    const lp = new V3(Math.cos(a) * rr, 0, Math.sin(a) * rr);
+    lp.y = (c - lp.x * u.x - lp.z * u.z) / Math.max(0.2, u.y) - rnd(0.3, 4);
+    if (lp.y > 1) spawnBubble(lp, rnd(0.03, 0.12), false);
+  }
+}
+const BD = []; // little water beads resting on the varnished table
+function beadStep(dt) {
+  for (let i = BD.length - 1; i >= 0; i--) {
+    const b = BD[i]; b.life -= dt;
+    if (b.life <= 0 || pudDepthAt(b.x, b.z) > 0.05) BD.splice(i, 1);
+  }
+}
+const GB = []; // bubbles in the glass (world space)
+function spawnBubbleGlass(p) { if (GB.length < 40) GB.push({ p: new V3(p.x + rnd(-0.6, 0.6), Math.max(1.2, p.y - rnd(0.5, 3)), p.z + rnd(-0.6, 0.6)), r: rnd(0.04, 0.12), age: 0 }); }
+function glassStep(dt) {
+  const ws = 22, zs = 0.09;
+  GLASS.tv.x += (-ws * ws * GLASS.tilt.x - 2 * zs * ws * GLASS.tv.x) * dt; GLASS.tilt.x += GLASS.tv.x * dt;
+  GLASS.tv.y += (-ws * ws * GLASS.tilt.y - 2 * zs * ws * GLASS.tv.y) * dt; GLASS.tilt.y += GLASS.tv.y * dt;
+  GLASS.wave *= Math.exp(-dt * 2.5);
+  if (GLASS.vol > GL_CAP) { // overflow
+    const ex = GLASS.vol - GL_CAP; GLASS.vol = GL_CAP;
+    const a = Math.random() * TAU; addPuddle(GLASS.x + Math.cos(a) * 4.0, GLASS.z + Math.sin(a) * 4.0, ex, 1);
+  }
+  for (let i = GB.length - 1; i >= 0; i--) { const b = GB[i]; b.age += dt; b.p.y += 9 * dt; if (b.p.y > GLASS.level - b.r || b.age > 3) GB.splice(i, 1); }
+}
+const _t1 = new V3(), _n1 = new V3(), _n2 = new V3(), _zz = new V3(0, 0, 1);
+function updateStreamMesh() {
+  let vi = 0, ii = 0;
+  const n = SP.length;
+  const ringStart = new Int32Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    const s = SP[i];
+    const a = SP[Math.max(0, i - 1)], b = SP[Math.min(n - 1, i + 1)];
+    const hasPrev = i > 0 && s.link, hasNext = i < n - 1 && SP[i + 1].link;
+    if (!hasPrev && !hasNext) { // lone blob -> render as a droplet
+      continue;
+    }
+    _t1.subVectors(hasNext ? b.p : s.p, hasPrev ? a.p : s.p);
+    if (_t1.lengthSq() < 1e-8) _t1.set(0, -1, 0);
+    _t1.normalize();
+    _n1.crossVectors(_t1, Math.abs(_t1.z) > 0.9 ? _s3.set(1, 0, 0) : _zz).normalize();
+    _n2.crossVectors(_t1, _n1);
+    const rr = s.r * (1 + 0.14 * Math.sin(s.age * 55 + s.seed) * Math.min(1, s.age * 8)) * (hasPrev && hasNext ? 1 : 0.55);
+    ringStart[i] = vi;
+    for (let k = 0; k < RING; k++) {
+      const an = k / RING * TAU, ca = Math.cos(an), sa = Math.sin(an);
+      const nx = _n1.x * ca + _n2.x * sa, ny = _n1.y * ca + _n2.y * sa, nz = _n1.z * ca + _n2.z * sa;
+      const o = (vi + k) * 3;
+      stPos[o] = s.p.x + nx * rr; stPos[o + 1] = s.p.y + ny * rr; stPos[o + 2] = s.p.z + nz * rr;
+      stNor[o] = nx; stNor[o + 1] = ny; stNor[o + 2] = nz;
+    }
+    vi += RING;
+    if (hasPrev && ringStart[i - 1] >= 0) {
+      const A = ringStart[i - 1], Bv = ringStart[i];
+      for (let k = 0; k < RING; k++) {
+        const k2 = (k + 1) % RING;
+        stIdx[ii++] = A + k; stIdx[ii++] = Bv + k; stIdx[ii++] = A + k2;
+        stIdx[ii++] = A + k2; stIdx[ii++] = Bv + k; stIdx[ii++] = Bv + k2;
+      }
+    }
+  }
+  streamGeo.setDrawRange(0, ii);
+  streamGeo.attributes.position.needsUpdate = true; streamGeo.attributes.normal.needsUpdate = true; streamGeo.index.needsUpdate = true;
+  stream.visible = ii > 0;
+  // droplets (+ lone stream blobs)
+  let c = 0;
+  for (const d of DR) { if (c >= MAXD) break; _s3.setScalar(d.r); const sp = d.v.length(); _qq.setFromUnitVectors(_n1.set(0, 1, 0), _t1.copy(d.v).normalize()); _s3.y *= 1 + Math.min(1.5, sp * 0.004); _m4.compose(d.p, _qq, _s3); dropMesh.setMatrixAt(c++, _m4); }
+  for (let i = 0; i < n && c < MAXD; i++) { const s = SP[i]; if (ringStart[i] >= 0) continue; _s3.setScalar(Math.max(0.06, s.r)); _m4.compose(s.p, _qq.identity(), _s3); dropMesh.setMatrixAt(c++, _m4); }
+  for (const b of BD) { if (c >= MAXD) break; const k = Math.min(1, b.life / 20); _s3.set(b.r * (0.6 + 0.4 * k), b.r * 0.42 * k + 0.01, b.r * (0.6 + 0.4 * k)); _p3.set(b.x, 0.0, b.z); _m4.compose(_p3, _qq.identity(), _s3); dropMesh.setMatrixAt(c++, _m4); }
+  dropMesh.count = c; dropMesh.instanceMatrix.needsUpdate = true; dropMesh.visible = c > 0;
+  let bc = 0;
+  for (const b of BU) { _s3.set(b.r, b.r * (b.big ? 0.72 : 1), b.r); _m4.compose(b.p, _qq.identity(), _s3); bubMesh.setMatrixAt(bc++, _m4); }
+  bubMesh.count = bc; bubMesh.instanceMatrix.needsUpdate = true; bubMesh.visible = bc > 0;
+}
+
+/* ---------------- audio (WebAudio, all synthesized) ---------------- */
+let AC = null, master = null, NB = null, sndOn = true;
+try { sndOn = localStorage.getItem('wb_snd') !== '0'; } catch (e) {}
+if (QS.get('mute')) sndOn = false;
+const BED = {};
+function initAudio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  try { AC = new C(); } catch (e) { AC = null; return; }
+  master = AC.createGain(); master.gain.value = sndOn ? 0.9 : 0;
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 5;
+  master.connect(comp); comp.connect(AC.destination);
+  const len = AC.sampleRate * 2; NB = AC.createBuffer(1, len, AC.sampleRate);
+  const d = NB.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const bed = (type, f, q) => {
+    const s = AC.createBufferSource(); s.buffer = NB; s.loop = true;
+    const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = AC.createGain(); g.gain.value = 0;
+    s.connect(fl); fl.connect(g); g.connect(master); s.start();
+    return { f: fl, g };
+  };
+  BED.stream = bed('bandpass', 1500, 0.6);
+  BED.streamLo = bed('lowpass', 420, 0.7);
+  BED.glass = bed('bandpass', 900, 7);
+  BED.slosh = bed('lowpass', 380, 1.2);
+}
+const now = () => AC.currentTime;
+function nb(t, dur, f, q, g, type = 'bandpass') {
+  const s = AC.createBufferSource(); s.buffer = NB;
+  const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const gn = AC.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(g, t + 0.0015); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(fl); fl.connect(gn); gn.connect(master); s.start(t, Math.random() * 1.6, dur + 0.05);
+}
+function tone(t, f0, f1, dur, g, type = 'sine', att = 0.003) {
+  const o = AC.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const gn = AC.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(g, t + att); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(gn); gn.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+const live = () => AC && sndOn && AC.state === 'running';
+Object.assign(SNDF, {
+  tick(v = 0.5) { if (!live()) return; const t = now(); nb(t, 0.012, 3200 + Math.random() * 900, 2.5, 0.25 * v); tone(t, 2600, 2300, 0.015, 0.05 * v); },
+  snap(v = 0.7) { if (!live()) return; const t = now(); nb(t, 0.02, 2200 + Math.random() * 1500, 1.5, 0.5 * v); nb(t, 0.008, 6000, 1, 0.3 * v, 'highpass'); },
+  pop() { if (!live()) return; const t = now(); nb(t, 0.03, 1800, 1.2, 0.5); tone(t, 760, 420, 0.06, 0.12); },
+  hiss(v) { if (!live()) return; const t = now(); nb(t, 0.25 + v * 0.6, 4200, 0.6, 0.18 + 0.25 * v, 'highpass'); },
+  thunk(v) { if (!live()) return; const t = now(); const fill = clamp(S.vol / 500, 0, 1); tone(t, 150 - fill * 40, 70, 0.16, 0.45 * v); nb(t, 0.07, 650, 0.8, 0.5 * v, 'lowpass'); nb(t, 0.04, 1100 + 400 * (1 - fill), 2, 0.3 * v); },
+  capHit(v) { if (!live()) return; const t = now(); nb(t, 0.02, 2600, 2, 0.35 * v); tone(t, 1300, 900, 0.03, 0.06 * v); },
+  tap() { if (!live()) return; const t = now(); const fill = clamp(S.vol / S.cap, 0, 1); const f = 230 + 520 * fill; tone(t, f, f * 0.97, 0.12, 0.22); nb(t, 0.03, 1300, 1.5, 0.35); },
+  grab() { if (!live()) return; const t = now(); for (let i = 0; i < 3; i++) nb(t + Math.random() * 0.05, 0.006, 2500 + Math.random() * 3000, 2, 0.08); },
+  glug(empty, s) {
+    if (!live()) return; const t = now();
+    const f = (360 - 190 * empty) * rnd(0.92, 1.08);
+    tone(t, f, f * 1.55, 0.11, 0.55 * (0.5 + 0.5 * s), 'sine', 0.005);
+    tone(t + 0.005, f * 0.5, f * 0.62, 0.09, 0.3 * s, 'sine', 0.004);
+    nb(t, 0.16, 700, 0.9, 0.35 * s, 'lowpass');
+  },
+  drip(r) { if (!live()) return; const t = now(); const f = rnd(900, 1900) / (r * 8); tone(t, f, f * 1.8, 0.04, 0.05); },
+  crinkle(rate, resist = 1) {
+    if (!live()) return; const p = Math.min(0.9, rate * 0.06 * (0.3 + resist));
+    if (Math.random() < p) { const t = now() + Math.random() * 0.008; nb(t, rnd(0.003, 0.012), rnd(1500, 7500), rnd(1, 3), rnd(0.04, 0.22) * (0.4 + resist * 0.6)); }
+  },
+  crunch(v) {
+    if (!live()) return; const t = now();
+    const n = 5 + Math.floor(v * 16);
+    for (let i = 0; i < n; i++) nb(t + Math.pow(Math.random(), 1.6) * (0.05 + v * 0.14), rnd(0.003, 0.016), rnd(1200, 8000), rnd(0.8, 2.5), rnd(0.1, 0.42) * (0.5 + v));
+    nb(t, 0.05 + v * 0.04, 380, 0.8, 0.35 * v, 'lowpass');
+    tone(t, 190, 110, 0.05, 0.12 * v);
+  },
+  popBack(v) { if (!live()) return; const t = now(); for (let i = 0; i < 4; i++) nb(t + i * rnd(0.01, 0.04), 0.012, rnd(1500, 5000), 1.5, 0.3 * v); tone(t, 210, 140, 0.07, 0.15 * v); },
+  creak(dt) { if (!live() || Math.random() > dt * 6) return; const t = now(); nb(t, 0.05, rnd(300, 600), 6, 0.06); },
+  squeezeStart() { if (!live()) return; const t = now(); nb(t, 0.02, 2000, 1, 0.12); },
+  squeezeEnd() {},
+});
+function sndUpdate(dt) {
+  if (!AC || !BED.stream) return;
+  const t = now(), on = sndOn ? 1 : 0;
+  const imp = FL.impact, gi = FL.glassImpact;
+  const flowL = clamp(Math.sqrt(imp / 120), 0, 1) * on;
+  BED.stream.g.gain.setTargetAtTime(flowL * 0.5, t, 0.04);
+  BED.stream.f.frequency.setTargetAtTime(1300 + 900 * Math.random(), t, 0.05);
+  BED.streamLo.g.gain.setTargetAtTime(flowL * 0.35, t, 0.05);
+  const gl = clamp(Math.sqrt(gi / 120), 0, 1) * on;
+  const L = Math.max(0.3, GL_TOP + 0.2 - GLASS.level) + 2.1;
+  BED.glass.f.frequency.setTargetAtTime(34300 / (4 * L), t, 0.05);
+  BED.glass.g.gain.setTargetAtTime(gl * 0.9, t, 0.04);
+  BED.slosh.g.gain.setTargetAtTime(clamp(S.sv.length() * 0.025 * clamp(S.vol / 300, 0.15, 1), 0, 0.3) * on, t, 0.06);
+  // bubbly pings in the falling water
+  if (live() && (imp > 5 || gi > 5) && Math.random() < dt * (6 + (imp + gi) * 0.15)) {
+    const fr = gi > imp ? 34300 / (4 * L) * rnd(1.6, 3.2) : rnd(700, 2600);
+    tone(t, fr, fr * rnd(1.3, 1.9), rnd(0.02, 0.05), 0.04 + 0.05 * Math.random());
+  }
+}
+
+/* ---------------- UI ---------------- */
+function setSoundIcon() { $('sndW').style.display = sndOn ? '' : 'none'; $('bSnd').style.opacity = sndOn ? 1 : 0.6; }
+setSoundIcon();
+$('bSnd').onclick = () => {
+  sndOn = !sndOn; initAudio();
+  if (master) master.gain.setTargetAtTime(sndOn ? 0.9 : 0, AC.currentTime, 0.02);
+  try { localStorage.setItem('wb_snd', sndOn ? '1' : '0'); } catch (e) {}
+  setSoundIcon();
+};
+function applyQuality() {
+  setPR();
+  const sz = HQ ? 2048 : 1024;
+  if (sun.shadow.mapSize.x !== sz) { sun.shadow.mapSize.set(sz, sz); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  $('bQ').textContent = HQ ? 'HD' : 'LO';
+  resize();
+}
+$('bQ').onclick = () => { HQ = !HQ; autoQ.done = true; try { localStorage.setItem('wb_lq', HQ ? '0' : '1'); } catch (e) {} applyQuality(); };
+function resetBottle() {
+  G.fill(0); GC.fill(0); S.deformDirty = true; refreshDeform();
+  S.vol = volBelow(0, 1, 0, FILL_H); S.h = FILL_H;
+  if (cap.parent !== bottle) bottle.attach(cap);
+  Object.assign(CAPS, { state: 'on', A: 0, sealed: true, auto: false, tick: 0 }); capOnPose();
+  closeBottle(); wasSealed = true;
+  CR.on = false; CR.recOn = false;
+  SP.length = 0; BU.length = 0; DR.length = 0; GB.length = 0; BD.length = 0;
+  P.mode = null; B.held = false; B.tilt = 0; B.vt = 0; B.lift = 16; B.vl = 0; B.first = true; FL.first = true; FL.drips = 0;
+  S.so.set(0, 0); S.sv.set(0, 0);
+  GLASS.vol = 0;
+  PD_.fill(0); PWET.fill(0); PWH.fill(0); PWV.fill(0); PUD.dirty = true; PUD.active = false;
+  initAudio(); SND.grab();
+}
+$('bReset').onclick = resetBottle;
+const autoQ = { t: 0, n: 0, done: false };
+function autoQuality(dt) {
+  if (autoQ.done || document.hidden) return;
+  if (dt > 0.25) return;
+  autoQ.w = (autoQ.w || 0) + dt; if (autoQ.w < 2) return;
+  autoQ.t += dt; autoQ.n++;
+  if (autoQ.t > 5) { autoQ.done = true; if (autoQ.t / autoQ.n > 0.05 && HQ) { HQ = false; applyQuality(); } }
+}
+let mlT = 0;
+function uiUpdate(dt) {
+  mlT -= dt; if (mlT > 0) return; mlT = 0.2;
+  let s = Math.round(Math.max(0, S.vol)) + ' mL';
+  if (GLASS.vol > 1) s += ' · glass ' + Math.round(GLASS.vol) + ' mL';
+  $('ml').textContent = s;
+}
+
+/*@@FEATURES@@*/
+
+/* ---------------- main loop ---------------- */
+const STEP = 1 / 120;
+let acc = 0, lastT = performance.now();
+function simStep(dt) {
+  S.t += dt;
+  inputStep();
+  bottleStep(dt);
+  capStep(dt);
+  sealWatch();
+  crushStep(dt);
+  pourStep(dt);
+  glassStep(dt);
+  beadStep(dt);
+  PUD.acc += dt;
+  if (PUD.acc >= 1 / 60) { PUD.acc -= 1 / 60; if (PUD.any !== false || PUD.active) pudStep(1 / 60); }
+}
+function visualUpdate(dt) {
+  cam.yaw += (cam.tyaw - cam.yaw) * Math.min(1, dt * 10);
+  cam.pitch += (cam.tpitch - cam.pitch) * Math.min(1, dt * 10);
+  placeCamera();
+  updateWater();
+  updateGlassWater();
+  updateCaustic();
+  updateStreamMesh();
+  pudUpload();
+  sndUpdate(dt);
+  uiUpdate(dt);
+}
+function advance(sec) {
+  acc += sec; let n = 0;
+  while (acc >= STEP && n < 14) { simStep(STEP); acc -= STEP; n++; }
+  if (n >= 14) acc = 0;
+  visualUpdate(sec);
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const raw = Math.max(0, (now - lastT) / 1000), dt = Math.min(0.1, raw); lastT = now;
+  autoQuality(raw);
+  advance(dt);
+  renderer.render(scene, camera);
+}
+closeBottle();
+poseBottle();
+applyQuality();
+advance(0.016);
+renderer.render(scene, camera);
+$('load').classList.add('gone');
+requestAnimationFrame(frame);
+
+/* debug / testing hooks */
+window.WB = {
+  THREE, scene, camera, renderer, bottle, cap, S, G, B, CAPS, CR, FL, GLASS, PUD, P, SP, DR, BU, cam, camTarget,
+  advance, render: () => renderer.render(scene, camera),
+  run(sec) { const n = Math.round(sec / 0.02); for (let i = 0; i < n; i++) advance(0.02); renderer.render(scene, camera); },
+  hold(tilt, lift) { B.held = true; B.tt = tilt; B.tl = lift; }, release() { B.held = false; },
+  popCap() { CAPS.A = CAPS.AOFF - 0.01; twistCap(0.05); if (CAPS.state === 'held') { CAPS.state = 'fall'; CAPS.vel.set(-40, 80, 30); } },
+  squeeze(x, y, z) { P.mode = 'squeeze'; crushStart(new V3(x, y, z)); }, unsqueeze() { P.mode = null; crushEnd(); },
+  reset: resetBottle,
+};
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
