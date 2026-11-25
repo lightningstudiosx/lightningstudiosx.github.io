@@ -6,9 +6,10 @@
 <title>EVERYTHING · Kai.fun</title>
 <meta name="description" content="Every kai.fun game squeezed into one: a microgame marathon where each five-second game is one small piece of a real kai.fun game. Clear them to fill your sticker book.">
 <style>
-  html,body{margin:0;height:100%;background:#16121f;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+  html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 35%,#3b2468 0%,#1b1130 55%,#0d0818 100%);color:#fff;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{display:block;border-radius:14px;box-shadow:0 10px 40px #0008;background:#000}
+  canvas{display:block;border-radius:18px;background:#000;box-shadow:0 0 0 5px #111,0 0 0 9px #ffd23d,0 0 0 13px #111,0 24px 70px #000c,0 0 120px #ffd23d33}
+  body:before{content:"";position:fixed;inset:0;background-image:radial-gradient(#ffffff14 1.5px,transparent 1.6px);background-size:26px 26px;pointer-events:none}
   .ui{position:fixed;top:10px;z-index:5;display:flex;gap:8px}
   .ui a,.ui button{font:700 14px system-ui;color:#fff;background:#ffffff1c;border:1px solid #ffffff33;border-radius:999px;padding:6px 12px;text-decoration:none;cursor:pointer}
 </style>
@@ -57,9 +58,15 @@ const D = KF.draw = {
     c.fillStyle = col || '#fff'; c.fillText(s, x, y);
   },
   btn(c, x, y, w, h, label, hot, col) {
-    D.rr(c, x, y + 4, w, h, 12, '#0006');
-    D.rr(c, x, y + (hot ? 2 : 0), w, h, 12, hot ? (col || '#ffd23d') : '#fff', '#111', 3);
-    D.text(c, label, x + w / 2, y + h / 2 + (hot ? 2 : 0), Math.min(22, h * 0.45), '#111');
+    col = col || '#ffffff';
+    let base = col;
+    if (col[0] === '#') { let q = col.slice(1, 7); if (q.length === 3) q = q.split('').map(z => z + z).join(''); const n = parseInt(q, 16); base = 'rgb(' + [(n >> 16) * 0.62, ((n >> 8) & 255) * 0.62, (n & 255) * 0.62].map(Math.round).join(',') + ')'; }
+    const dy = hot ? 3 : 0;
+    D.rr(c, x, y + 7, w, h, 14, 'rgba(0,0,0,0.35)');
+    D.rr(c, x, y + 5, w, h, 14, base, '#111', 3);
+    D.rr(c, x, y + dy, w, h, 14, col, '#111', 3);
+    c.save(); c.beginPath(); c.roundRect(x + 4, y + dy + 3, w - 8, h * 0.42, 10); c.fillStyle = 'rgba(255,255,255,0.35)'; c.fill(); c.restore();
+    D.text(c, label, x + w / 2, y + h / 2 + dy + 1, Math.min(22, h * 0.44), '#111', 'center', '900');
   },
   // Kai: the kai.fun stickman (big round head, one line eye, a smirk to the edge)
   kai(c, x, y, h, o) {
@@ -124,7 +131,7 @@ function toLogical(e) {
   const r = cv.getBoundingClientRect();
   return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H];
 }
-cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); [IN.mx, IN.my] = toLogical(e); IN.down = true; unlockAudio(); e.preventDefault(); });
+cv.addEventListener('pointerdown', (e) => { try { cv.setPointerCapture(e.pointerId); } catch (er) { /* synthetic */ } [IN.mx, IN.my] = toLogical(e); IN.down = true; IN.tap = true; unlockAudio(); e.preventDefault(); });
 cv.addEventListener('pointermove', (e) => { [IN.mx, IN.my] = toLogical(e); });
 cv.addEventListener('pointerup', (e) => { [IN.mx, IN.my] = toLogical(e); IN.down = false; });
 cv.addEventListener('pointercancel', () => { IN.down = false; });
@@ -205,7 +212,8 @@ function stepG(g, dt) {
     g.m.down = g._botDown; g.m.pressed = g.m.down && !was; g.m.released = !g.m.down && was;
   } else {
     const was = g.m.down;
-    g.m.x = IN.mx; g.m.y = IN.my; g.m.down = IN.down; g.m.pressed = IN.down && !was; g.m.released = !IN.down && was;
+    // a tap shorter than one frame still counts as a press (IN.tap latches until a frame sees it)
+    g.m.x = IN.mx; g.m.y = IN.my; g.m.down = IN.down || IN.tap; g.m.pressed = (g.m.down && !was) || (IN.tap && !IN.down); g.m.released = !g.m.down && was;
     g._held = new Set(IN.held); g._kp = IN.kp; g._typed = IN.typed;
   }
   const d = dt * g.speed;
@@ -346,125 +354,255 @@ function button(c, x, y, w, h, label, fn, col) {
 }
 let clickLatch = false;
 function handleUI() {
-  if (IN.down && !clickLatch) {
+  if ((IN.down || IN.tap) && !clickLatch) {
     clickLatch = true;
     for (const b of UI.slice().reverse()) if (IN.mx >= b.x && IN.mx <= b.x + b.w && IN.my >= b.y && IN.my <= b.y + b.h) { KF.sfx('click'); b.fn(); break; }
   }
-  if (!IN.down) clickLatch = false;
+  if (!IN.down && !IN.tap) clickLatch = false;
 }
 
-function bg(c, t, a, b) {
-  const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, a || '#2b1d4e'); gr.addColorStop(1, b || '#5a2d6e'); c.fillStyle = gr; c.fillRect(0, 0, W, H);
-  c.globalAlpha = 0.08;
-  for (let i = 0; i < 14; i++) { const x = ((i * 97 + t * 30) % (W + 80)) - 40; D.circ(c, x, (i * 53) % H, 18 + (i % 4) * 9, '#fff'); }
-  c.globalAlpha = 1;
+function hueOf(id) { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
+function shade(hex, k) {
+  if (hex[0] !== '#') return hex;
+  let s = hex.slice(1, 7); if (s.length === 3) s = s.split('').map(x => x + x).join('');
+  const n = parseInt(s, 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const f = k < 0 ? 0 : 255, a = Math.abs(k);
+  r = Math.round(r + (f - r) * a); g = Math.round(g + (f - g) * a); b = Math.round(b + (f - b) * a);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+// spinning sunburst rays with a vignette: the backdrop for every screen
+function sunburst(c, cx, cy, t, a, b, n) {
+  c.fillStyle = a; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(cx, cy); c.rotate(t * 0.25);
+  c.fillStyle = b;
+  for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, 900, (i / n) * Math.PI * 2, ((i + 0.5) / n) * Math.PI * 2); c.closePath(); c.fill(); }
+  c.restore();
+  const v = c.createRadialGradient(cx, cy, 80, cx, cy, 560); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+  c.fillStyle = v; c.fillRect(0, 0, W, H);
+}
+function bg(c, t, a, b) { sunburst(c, W / 2, H * 0.42, t, a || '#2b1d4e', b || '#35245e', 18); }
+function ribbon(c, text, x, y, col) {
+  c.font = '900 17px "Segoe UI", system-ui, sans-serif';
+  const w = Math.min(W - 60, c.measureText(text).width + 44), dark = shade(col, -0.4);
+  for (const s of [-1, 1]) {
+    const ex = x + s * w / 2;
+    c.fillStyle = dark; c.beginPath();
+    c.moveTo(ex - s * 8, y - 8); c.lineTo(ex + s * 22, y - 8); c.lineTo(ex + s * 12, y + 7); c.lineTo(ex + s * 22, y + 22); c.lineTo(ex - s * 8, y + 22); c.closePath(); c.fill();
+    c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
+  }
+  D.rr(c, x - w / 2, y - 16, w, 32, 4, col, '#111', 3);
+  c.save(); c.beginPath(); c.rect(x - w / 2 + 8, y - 16, w - 16, 32); c.clip();
+  D.text(c, text, x, y, 17, '#111', 'center', '900');
+  c.restore();
+}
+function pill(c, text, x, y, size, fg, bgc) {
+  c.font = '800 ' + size + 'px "Segoe UI", system-ui, sans-serif';
+  const w = c.measureText(text).width + size * 1.4;
+  D.rr(c, x - w / 2, y - size * 0.9, w, size * 1.8, size * 0.9, bgc || '#0009');
+  D.text(c, text, x, y + 1, size, fg || '#fff', 'center', '800');
+}
+function starburst(c, x, y, r1, r2, n, rot, col) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.beginPath();
+  for (let i = 0; i < n * 2; i++) { const r = i % 2 ? r2 : r1, a = i / (n * 2) * Math.PI * 2; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 4; c.stroke(); c.restore();
+}
+// the bouncing rainbow logo, one colour per letter
+const LOGO_COLS = ['#ffd23d', '#ff8c42', '#ff4d6d', '#ff5fd2', '#b98cff', '#7ee0ff', '#5fe08a', '#c8f26a', '#ffd23d', '#ff8c42'];
+function logo(c, word, t, x, y, size) {
+  c.font = '900 ' + size + 'px Impact, "Arial Black", system-ui, sans-serif'; c.textBaseline = 'middle'; c.textAlign = 'center';
+  const ws = [...word].map(ch => c.measureText(ch).width), total = ws.reduce((a, b) => a + b, 0);
+  let px = x - total / 2;
+  [...word].forEach((ch, i) => {
+    const bob = Math.sin(t * 4 + i * 0.6) * size * 0.05, rot = Math.sin(t * 2.6 + i * 1.3) * 0.06;
+    c.save(); c.translate(px + ws[i] / 2, y + bob); c.rotate(rot);
+    c.lineJoin = 'round'; c.strokeStyle = '#111';
+    c.lineWidth = size * 0.22; c.strokeText(ch, 0, size * 0.07);
+    c.lineWidth = size * 0.18; c.strokeText(ch, 0, 0);
+    c.fillStyle = LOGO_COLS[i % LOGO_COLS.length]; c.fillText(ch, 0, 0);
+    c.fillStyle = 'rgba(255,255,255,0.35)'; c.save(); c.beginPath(); c.rect(-ws[i], -size, ws[i] * 2, size * 0.62); c.clip(); c.fillText(ch, 0, 0); c.restore();
+    c.restore();
+    px += ws[i];
+  });
+}
+// a slow wall of real microgame snapshots behind the title
+const MARQ = [];
+function marquee(c, t, alpha) {
+  const ms = pool(); if (!ms.length) return;
+  if (!MARQ.length) { const ids = shuffle(ms.map(m => m.id)); for (let r = 0; r < 3; r++) MARQ.push(ids.slice(r * 8, r * 8 + 8)); }
+  c.save(); c.globalAlpha = alpha;
+  MARQ.forEach((row, r) => {
+    const w = 168, span = w * row.length, dir = r % 2 ? 1 : -1;
+    const off = (((t * 18 * dir) % span) + span) % span;
+    for (let i = -1; i <= Math.ceil(W / w) + 1; i++) {
+      const id = row[(((i + Math.floor(off / w)) % row.length) + row.length) % row.length];
+      const x = i * w - (off % w);
+      c.save(); c.translate(x + 80, 70 + r * 132); c.rotate((((i + r) % 3) - 1) * 0.05);
+      D.rr(c, -74, -50, 148, 100, 10, '#fff'); thumb(c, id, -68, -44, 136, 88, false);
+      c.restore();
+    }
+  });
+  c.restore();
 }
 
 function drawTitle(c, t) {
-  bg(c, t);
+  bg(c, t, '#241640', '#2e1d52');
+  marquee(c, t, 0.32);
+  const v = c.createLinearGradient(0, 0, 0, H); v.addColorStop(0, 'rgba(20,12,40,0.2)'); v.addColorStop(0.5, 'rgba(20,12,40,0.75)'); v.addColorStop(1, 'rgba(20,12,40,0.35)');
+  c.fillStyle = v; c.fillRect(0, 0, W, H);
   const ms = pool(), have = ms.filter(m => SAVE.stickers[m.id]).length;
-  // a ring of tiny verbs orbiting the title
-  c.save(); c.globalAlpha = 0.5;
-  for (let i = 0; i < Math.min(40, ms.length); i++) {
-    const a = t * 0.15 + i / 40 * Math.PI * 2, x = W / 2 + Math.cos(a) * 270, y = 160 + Math.sin(a) * 130;
-    D.text(c, ms[i].verb, x, y, 13, '#fff', 'center', '900');
-  }
-  c.restore();
-  D.big(c, 'EVERYTHING', W / 2, 118, 74, '#ffd23d', 9);
-  D.text(c, 'every kai.fun game, squeezed into one', W / 2, 168, 18, '#fff', 'center', '700', 4);
-  D.kai(c, 96, 330, 120, { walk: t * 6, armR: -0.8 + Math.sin(t * 5) * 0.3 });
-  D.kai(c, 548, 330, 120, { flip: true, face: 'happy', armL: -0.9, armR: -0.9 + Math.sin(t * 4) * 0.4 });
-  button(c, 200, 204, 240, 50, 'PLAY  (4 lives)', () => startRun('marathon'), '#ffd23d');
-  button(c, 200, 262, 240, 44, 'ALL ' + ms.length + ' IN A ROW', () => startRun('all'), '#7ee0ff');
-  button(c, 200, 314, 240, 44, 'STICKER BOOK  ' + have + '/' + ms.length, () => { S.mode = 'book'; S.book.sel = null; }, '#9cf08a');
-  D.text(c, 'best ' + (SAVE.best || 0) + '  ·  all-in-a-row best ' + (SAVE.bestAll || 0) + '/' + ms.length, W / 2, 378, 14, '#fff9', 'center', '700');
+  logo(c, 'EVERYTHING', t, W / 2, 96, 80);
+  pill(c, ms.length + ' kai.fun games  ·  5 seconds each', W / 2, 160, 15, '#fff', '#000a');
+  D.kai(c, 92, 360, 130, { walk: t * 6, armR: -0.8 + Math.sin(t * 5) * 0.3 });
+  D.kai(c, 548, 360, 130, { flip: true, face: 'happy', armL: -0.9, armR: -0.9 + Math.sin(t * 4) * 0.4 });
+  button(c, 190, 192, 260, 54, '▶  PLAY', () => startRun('marathon'), '#ffd23d');
+  button(c, 190, 256, 126, 46, 'ALL ' + ms.length, () => startRun('all'), '#7ee0ff');
+  button(c, 324, 256, 126, 46, 'STICKERS', () => { S.mode = 'book'; S.book.sel = null; }, '#9cf08a');
+  // collection meter
+  const f = ms.length ? have / ms.length : 0;
+  D.rr(c, 190, 318, 260, 16, 8, '#0008'); D.rr(c, 192, 320, Math.max(12, 256 * f), 12, 6, '#9cf08a');
+  D.text(c, have + ' / ' + ms.length + ' stickers  ·  best ' + (SAVE.best || 0) + '  ·  in a row ' + (SAVE.bestAll || 0), W / 2, 350, 13, '#fffc', 'center', '800', 3);
 }
 
-function drawInter(c, t) {
-  const R = S.run, m = S.g.mg;
-  bg(c, t, '#1c3b6b', '#3a1e5c');
-  // lives
-  for (let i = 0; i < (R.kind === 'all' ? 0 : 4); i++) {
-    const x = W / 2 - 75 + i * 50, alive = i < R.lives;
-    heart(c, x, 52, alive ? '#ff4d6d' : '#ffffff22', alive && t < 0.4 ? 1 + Math.sin(t * 20) * 0.1 : 1);
-  }
-  D.text(c, R.kind === 'all' ? (R.idx + ' / ' + R.order.length) : ('score ' + R.score), W / 2, 92, 20, '#fff', 'center', '800', 4);
-  const k = Math.min(1, t / 0.25);
-  D.big(c, m.verb, W / 2, 190, 40 + 50 * k, '#ffd23d');
-  D.text(c, 'from ' + m.game.toUpperCase(), W / 2, 258, 18, '#fff', 'center', '800', 4);
-  if (m.hint) D.text(c, m.hint, W / 2, 290, 15, '#cfe6ff', 'center', '700', 3);
-  D.kai(c, 80, 370, 90, { walk: t * 10 });
-}
 function heart(c, x, y, col, sc) {
   c.save(); c.translate(x, y); c.scale(sc, sc);
   c.beginPath(); c.moveTo(0, 12); c.bezierCurveTo(-26, -6, -14, -26, 0, -12); c.bezierCurveTo(14, -26, 26, -6, 0, 12);
-  c.fillStyle = col; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke(); c.restore();
+  c.fillStyle = col; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
+  c.beginPath(); c.ellipse(-8, -9, 4, 2.5, -0.6, 0, Math.PI * 2); c.fillStyle = 'rgba(255,255,255,0.6)'; c.fill();
+  c.restore();
+}
+function hearts(c, R, t) {
+  if (R.kind === 'all') return;
+  for (let i = 0; i < 4; i++) {
+    const alive = i < R.lives;
+    heart(c, 36 + i * 42, 34, alive ? '#ff4d6d' : 'rgba(255,255,255,0.15)', alive ? 1 + Math.max(0, Math.sin(t * 9 - i)) * 0.08 : 0.85);
+  }
+}
+function drawInter(c, t) {
+  const R = S.run, m = S.g.mg, hue = hueOf(m.id);
+  sunburst(c, 400, 180, t * 3, 'hsl(' + hue + ',55%,26%)', 'hsl(' + hue + ',62%,34%)', 20);
+  hearts(c, R, t);
+  pill(c, R.kind === 'all' ? R.idx + ' / ' + R.order.length : '★ ' + R.score, W - 62, 34, 18, '#ffd23d', '#000a');
+  // snapshot card of the game it comes from
+  c.save(); c.translate(128, 196); c.rotate(-0.09 + Math.sin(t * 2) * 0.015);
+  D.rr(c, -86, -60 + 6, 172, 120, 12, '#0006');
+  D.rr(c, -86, -60, 172, 120, 12, '#fff', '#111', 3);
+  thumb(c, m.id, -78, -52, 156, 104, false);
+  c.restore();
+  // the command pops in
+  const s = t < 0.18 ? (t / 0.18) * 1.25 : 1.25 - 0.25 * Math.min(1, (t - 0.18) / 0.15);
+  c.save(); c.translate(400, 168); c.rotate(-0.05); c.scale(s, s);
+  D.big(c, m.verb, 0, 0, m.verb.length > 9 ? 52 : 70, '#ffd23d');
+  c.restore();
+  ribbon(c, 'from ' + m.game, 400, 238, '#fff4d6');
+  if (m.hint) pill(c, m.hint, 400, 288, 14, '#e8f4ff', '#000a');
+  for (let i = 0; i < 3; i++) D.circ(c, 370 + i * 30, 334, 8, t > (i + 1) * 0.45 ? '#ffd23d' : '#ffffff33', '#111', 2);
 }
 function drawPlayHUD(c) {
-  const g = S.g, f = Math.max(0, 1 - g.t / g.T);
-  D.rr(c, 8, H - 22, W - 16, 14, 7, '#0008');
-  D.rr(c, 10, H - 20, (W - 20) * f, 10, 5, f > 0.3 ? '#ffd23d' : '#ff4d6d');
-  // the fuse spark
-  D.circ(c, 10 + (W - 20) * f, H - 15, 5 + Math.random() * 3, '#fff');
-  D.text(c, g.mg.verb, 12, 18, 16, '#fff', 'left', '900', 4);
+  const g = S.g, f = Math.max(0, 1 - g.t / g.T), low = f < 0.3;
+  D.rr(c, 30, H - 19, W - 44, 10, 5, '#000a');
+  const x1 = 34 + (W - 52) * f;
+  c.strokeStyle = low && Math.floor(g.t * 8) % 2 ? '#ff4d6d' : '#e8d3a8'; c.lineWidth = 5; c.lineCap = 'round';
+  c.setLineDash([7, 5]); c.beginPath(); c.moveTo(34, H - 14); c.lineTo(x1, H - 14); c.stroke(); c.setLineDash([]);
+  for (let i = 0; i < 3; i++) D.circ(c, x1 + (Math.random() - 0.5) * 10, H - 14 + (Math.random() - 0.5) * 10, 3 + Math.random() * 3, i ? '#ffd23d' : '#fff');
+  D.circ(c, 20, H - 18, 14, '#1a1a1a', '#000', 2); D.circ(c, 15, H - 23, 4, 'rgba(255,255,255,0.45)'); D.rr(c, 16, H - 36, 8, 6, 2, '#555');
+  c.font = '900 15px "Segoe UI", system-ui, sans-serif';
+  const w = c.measureText(g.mg.verb).width + 22;
+  D.rr(c, 8, 8, w, 26, 13, '#000a'); D.text(c, g.mg.verb, 8 + w / 2, 22, 15, '#ffd23d', 'center', '900');
 }
 function drawResult(c, t) {
   drawG(S.g, c);
   const win = S.g.result === 'win';
-  c.fillStyle = win ? 'rgba(40,160,80,0.35)' : 'rgba(180,30,50,0.4)'; c.fillRect(0, 0, W, H);
-  D.big(c, win ? 'NICE!' : 'NOPE!', W / 2, H / 2 - 10, 80 + Math.sin(t * 12) * 4, win ? '#9cf08a' : '#ff4d6d');
-  D.text(c, win ? '+1 · ' + S.g.mg.game : (S.g.crashed ? 'the game broke (sorry)' : 'from ' + S.g.mg.game), W / 2, H / 2 + 52, 18, '#fff', 'center', '800', 4);
+  c.fillStyle = win ? 'rgba(20,120,60,0.38)' : 'rgba(140,20,40,0.5)'; c.fillRect(0, 0, W, H);
+  starburst(c, W / 2, H / 2 - 16, 150, 112, 14, t * 1.2, win ? '#ffd23d' : '#ff4d6d');
+  const s = Math.max(1, 2.4 - t * 9);
+  c.save(); c.translate(W / 2, H / 2 - 16); c.rotate(win ? -0.12 : 0.1); c.scale(s, s);
+  D.big(c, win ? 'NICE!' : 'NOPE!', 0, 0, 78, win ? '#9cf08a' : '#ffffff');
+  c.restore();
+  ribbon(c, win ? '+1  ·  ' + S.g.mg.game : (S.g.crashed ? 'that one broke, sorry' : S.g.mg.game), W / 2, H / 2 + 88, win ? '#c6f7b8' : '#ffd0d8');
+  if (S.run) hearts(c, S.run, t);
 }
 function drawSpeedup(c, t) {
-  bg(c, t * 3, '#6b1d1d', '#d9542a');
-  D.big(c, 'SPEED UP!', W / 2, H / 2 - 20, 84 + Math.sin(t * 18) * 6, '#ffd23d');
-  D.text(c, 'x' + S.run.speed.toFixed(2), W / 2, H / 2 + 50, 24, '#fff', 'center', '900', 4);
+  c.fillStyle = '#d9542a'; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(-((t * 900) % 80), 0); c.fillStyle = '#ffb02e';
+  for (let x = -80; x < W + 160; x += 80) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 40, 0); c.lineTo(x - 60, H); c.lineTo(x - 100, H); c.closePath(); c.fill(); }
+  c.restore();
+  for (let i = 0; i < 12; i++) { const y = (i * 37 + t * 600) % H; D.line(c, [W, y, W - 120 - (i % 3) * 60, y], '#fff8', 3); }
+  c.save(); c.translate(W / 2 + (Math.random() - 0.5) * 6, H / 2 - 20); c.rotate(-0.06);
+  D.big(c, 'SPEED UP!', 0, 0, 84 + Math.sin(t * 18) * 5, '#ffd23d'); c.restore();
+  pill(c, 'x' + S.run.speed.toFixed(2), W / 2, H / 2 + 56, 22, '#fff', '#000b');
 }
 function drawOver(c, t) {
-  bg(c, t, '#141026', '#3b1d4e');
+  bg(c, t, '#1a1030', '#251640');
   const R = S.run;
-  D.big(c, R.kind === 'all' ? 'THE END' : 'GAME OVER', W / 2, 70, 60, '#ff4d6d');
-  D.text(c, R.kind === 'all' ? ('you cleared ' + R.score + ' of ' + R.order.length) : ('score ' + R.score), W / 2, 124, 26, '#fff', 'center', '900', 5);
-  D.text(c, R.newStickers.length ? R.newStickers.length + ' new sticker' + (R.newStickers.length > 1 ? 's' : '') + ' for your book' : 'no new stickers this time', W / 2, 160, 17, '#ffd23d', 'center', '800', 4);
-  const show = R.newStickers.slice(-8);
-  show.forEach((id, i) => { const x = W / 2 - (show.length * 66) / 2 + i * 66 + 33; thumb(c, id, x - 30, 184, 60, 40, true); });
-  button(c, 150, 280, 160, 46, 'AGAIN', () => startRun(R.kind), '#ffd23d');
-  button(c, 330, 280, 160, 46, 'MENU', () => { S.mode = 'title'; }, '#7ee0ff');
+  D.rr(c, 70, 30, 500, 300, 22, '#0007');
+  D.rr(c, 70, 24, 500, 300, 22, '#fff8e6', '#111', 4);
+  logo(c, R.kind === 'all' ? 'THE END' : 'GAME OVER', t, W / 2, 74, 54);
+  D.text(c, R.kind === 'all' ? 'cleared ' + R.score + ' of ' + R.order.length : 'score  ' + R.score, W / 2, 128, 30, '#111', 'center', '900');
+  const best = R.kind === 'all' ? SAVE.bestAll : SAVE.best;
+  D.text(c, R.score >= best && R.score > 0 ? 'new best!' : 'best ' + best, W / 2, 158, 15, '#c0392b', 'center', '800');
+  D.text(c, R.newStickers.length ? R.newStickers.length + ' new sticker' + (R.newStickers.length > 1 ? 's' : '') : 'no new stickers this time', W / 2, 186, 15, '#555', 'center', '800');
+  const show = R.newStickers.slice(-6);
+  show.forEach((id, i) => {
+    const x = W / 2 - (show.length * 74) / 2 + i * 74 + 37;
+    c.save(); c.translate(x, 236); c.rotate((hueOf(id) % 20 - 10) / 100);
+    D.rr(c, -33, -24, 66, 48, 8, '#fff', '#111', 2); thumb(c, id, -29, -20, 58, 40, true); c.restore();
+  });
+  button(c, 150, 340, 160, 46, 'AGAIN', () => startRun(R.kind), '#ffd23d');
+  button(c, 330, 340, 160, 46, 'MENU', () => { S.mode = 'title'; }, '#7ee0ff');
 }
 
-// sticker book: 12 per page grid of 4x3
+// sticker book: an album page, 12 stickers per page
 const PER = 12;
+function paper(c) {
+  c.fillStyle = '#f6eed8'; c.fillRect(0, 0, W, H);
+  c.strokeStyle = 'rgba(90,120,170,0.16)'; c.lineWidth = 1;
+  for (let y = 20; y < H; y += 22) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  c.strokeStyle = 'rgba(220,80,80,0.3)'; c.beginPath(); c.moveTo(16, 0); c.lineTo(16, H); c.stroke();
+  for (let i = 0; i < 6; i++) D.circ(c, 8, 40 + i * 64, 4, '#d8cdb0');
+}
 function drawBook(c, t) {
-  bg(c, t, '#1d3b2a', '#2a5a3e');
+  paper(c);
   const ms = pool(), pages = Math.ceil(ms.length / PER), p = S.book.page;
   const have = ms.filter(m => SAVE.stickers[m.id]).length;
-  D.big(c, 'STICKER BOOK', W / 2, 30, 34, '#9cf08a', 6);
-  D.text(c, have + ' / ' + ms.length + '   ·   page ' + (p + 1) + ' / ' + pages, W / 2, 58, 14, '#fff', 'center', '800', 3);
+  logo(c, 'STICKERS', t * 0.5, 190, 32, 34);
+  D.rr(c, 330, 22, 220, 16, 8, '#0002'); D.rr(c, 332, 24, Math.max(10, 216 * have / ms.length), 12, 6, '#5fe08a');
+  D.text(c, have + ' / ' + ms.length, 590, 30, 15, '#333', 'center', '900');
   ms.slice(p * PER, p * PER + PER).forEach((m, i) => {
-    const x = 24 + (i % 4) * 150, y = 74 + Math.floor(i / 4) * 92;
-    const got = !!SAVE.stickers[m.id];
-    D.rr(c, x, y, 140, 84, 10, got ? '#fff' : '#ffffff18', '#111', 3);
-    if (got) { thumb(c, m.id, x + 6, y + 6, 128, 52, false); D.text(c, m.verb, x + 70, y + 70, 13, '#111', 'center', '900'); }
-    else { D.text(c, '?', x + 70, y + 32, 30, '#ffffff55', 'center', '900'); D.text(c, m.game.length > 20 ? m.game.slice(0, 19) + '…' : m.game, x + 70, y + 68, 11, '#ffffffaa', 'center', '700'); }
-    UI.push({ x, y, w: 140, h: 84, fn: () => { S.book.sel = m.id; } });
+    const x = 30 + (i % 4) * 150, y = 58 + Math.floor(i / 4) * 96;
+    const got = !!SAVE.stickers[m.id], rot = ((hueOf(m.id) % 13) - 6) / 100;
+    c.save(); c.translate(x + 70, y + 44); c.rotate(got ? rot : 0);
+    if (got) {
+      D.rr(c, -66, -40 + 5, 132, 86, 12, 'rgba(0,0,0,0.18)');
+      D.rr(c, -66, -40, 132, 86, 12, '#fff', '#bbb', 1.5);
+      thumb(c, m.id, -60, -34, 120, 56, false);
+      D.text(c, m.verb, 0, 34, 13, '#222', 'center', '900');
+    } else {
+      c.setLineDash([6, 5]); D.rr(c, -64, -38, 128, 82, 12, 'rgba(0,0,0,0.03)', '#b8ab8a', 2); c.setLineDash([]);
+      D.text(c, '?', 0, -10, 26, '#c9bc9a', 'center', '900');
+      D.text(c, m.game.length > 20 ? m.game.slice(0, 19) + '…' : m.game, 0, 22, 11, '#9a8d6c', 'center', '700');
+    }
+    c.restore();
+    UI.push({ x, y, w: 140, h: 88, fn: () => { S.book.sel = m.id; } });
   });
-  button(c, 24, 352, 90, 38, '◀', () => { S.book.page = (p - 1 + pages) % pages; });
-  button(c, 526, 352, 90, 38, '▶', () => { S.book.page = (p + 1) % pages; });
-  button(c, 250, 352, 140, 38, 'MENU', () => { S.mode = 'title'; }, '#7ee0ff');
+  button(c, 28, 354, 80, 36, '◀', () => { S.book.page = (p - 1 + pages) % pages; }, '#ffffff');
+  button(c, 532, 354, 80, 36, '▶', () => { S.book.page = (p + 1) % pages; }, '#ffffff');
+  button(c, 250, 354, 140, 36, 'MENU', () => { S.mode = 'title'; }, '#7ee0ff');
+  D.text(c, 'page ' + (p + 1) + ' / ' + pages, 470, 372, 12, '#776', 'center', '800');
   if (S.book.sel) {
     const m = KF.byId[S.book.sel], got = !!SAVE.stickers[m.id];
-    c.fillStyle = '#000a'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#000b'; c.fillRect(0, 0, W, H);
     UI.length = 0;
-    D.rr(c, 120, 60, 400, 280, 16, '#fff', '#111', 4);
-    if (got) thumb(c, m.id, 140, 78, 360, 130, false); else D.text(c, '?', W / 2, 140, 60, '#ccc', 'center', '900');
-    D.text(c, m.verb, W / 2, 228, 26, '#111', 'center', '900');
-    D.text(c, 'from ' + m.game, W / 2, 256, 15, '#444', 'center', '700');
-    button(c, 140, 280, 110, 44, 'PRACTICE', () => { startRun('practice', m); }, '#ffd23d');
-    button(c, 262, 280, 130, 44, 'REAL GAME', () => { location.href = m.href; }, '#9cf08a');
-    button(c, 404, 280, 96, 44, 'CLOSE', () => { S.book.sel = null; });
+    D.rr(c, 110, 52 + 6, 420, 290, 18, '#0006');
+    D.rr(c, 110, 52, 420, 290, 18, '#fff8e6', '#111', 4);
+    if (got) thumb(c, m.id, 132, 70, 376, 140, false); else { c.setLineDash([8, 6]); D.rr(c, 132, 70, 376, 140, 12, null, '#c9bc9a', 3); c.setLineDash([]); D.text(c, '?', W / 2, 140, 60, '#c9bc9a', 'center', '900'); }
+    D.big(c, m.verb, W / 2, 236, 32, '#ffd23d', 6);
+    D.text(c, 'from ' + m.game, W / 2, 266, 15, '#444', 'center', '800');
+    button(c, 130, 284, 120, 44, 'PRACTICE', () => { startRun('practice', m); }, '#ffd23d');
+    button(c, 260, 284, 140, 44, 'REAL GAME', () => { location.href = m.href; }, '#9cf08a');
+    button(c, 410, 284, 100, 44, 'CLOSE', () => { S.book.sel = null; }, '#ffffff');
   }
 }
-// a sticker thumbnail: the microgame's first frame, drawn small
+// a sticker thumbnail: the microgame's opening frame, drawn small
 function thumb(c, id, x, y, w, h, round) {
   let im = S.thumbs[id];
   if (!im) {
@@ -484,7 +622,7 @@ function thumb(c, id, x, y, w, h, round) {
 // ------------------------------------------------------------------ main loop
 let last = performance.now();
 function resize() {
-  const s = Math.min(innerWidth / W, (innerHeight - 8) / H);
+  const s = Math.min((innerWidth - 36) / W, (innerHeight - 56) / H);
   const dpr = Math.min(2, devicePixelRatio || 1);
   cv.style.width = Math.floor(W * s) + 'px'; cv.style.height = Math.floor(H * s) + 'px';
   cv.width = Math.floor(W * s * dpr); cv.height = Math.floor(H * s * dpr);
@@ -508,11 +646,12 @@ function frame(now) {
   else if (mode === 'speedup') { drawSpeedup(ctx, S.t); if (S.t > 1.5) nextMicro(); }
   else if (mode === 'over') drawOver(ctx, S.t);
   if (mode !== 'play') handleUI();
-  if (S.toast) { S.toast.t -= dt; D.rr(ctx, W / 2 - 170, 6, 340, 30, 15, '#111c'); D.text(ctx, S.toast.text, W / 2, 21, 13, '#9cf08a', 'center', '800'); if (S.toast.t <= 0) S.toast = null; }
-  IN.kp = new Set(); IN.typed = ''; IN.wheel = 0;
+  if (S.toast) { S.toast.t -= dt; const k = Math.min(1, S.toast.t * 3, (2.2 - S.toast.t) * 5); ctx.save(); ctx.globalAlpha = Math.max(0, k); D.rr(ctx, W / 2 - 180, 6 - (1 - k) * 20, 360, 32, 16, '#111e', '#9cf08a', 2); D.text(ctx, '★ ' + S.toast.text, W / 2, 22 - (1 - k) * 20, 13, '#9cf08a', 'center', '900'); ctx.restore(); if (S.toast.t <= 0) S.toast = null; }
+  IN.kp = new Set(); IN.typed = ''; IN.wheel = 0; if (IN.tap && !IN.down) clickLatch = false; IN.tap = false;
   requestAnimationFrame(frame);
 }
 KF.start = () => requestAnimationFrame(frame);
+KF.debug = { startRun: (k, id) => startRun(k || 'marathon', id ? KF.byId[id] : undefined), S, save: SAVE, gameOver: () => gameOver(), speedup: () => { S.mode = 'speedup'; S.t = 0; } };
 document.getElementById('mute').onclick = () => { muted = !muted; localStorage.setItem('everything_mute', muted ? '1' : '0'); document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; };
 document.getElementById('mute').textContent = muted ? '🔇' : '🔊';
 })();
