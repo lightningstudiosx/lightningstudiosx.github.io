@@ -19,7 +19,9 @@
     { id: 'party', name: '150 party' },
     { id: 'threed', name: '3D' },
     { id: 'parallax', name: 'Parallax' },
-    { id: 'nogames', name: 'No games' }
+    { id: 'nogames', name: 'No games' },
+    { id: 'og', name: 'OG kai.fun' },
+    { id: 'veryog', name: 'VERY OG' }
   ];
 
   // ---- SVG filters for the crayon look: a slight wobble, then waxy speckles where the paper shows through
@@ -492,7 +494,56 @@
       };
       return function () { board.remove(); };
     },
+    // OG kai.fun: the old front page (kai-fun.html) - every game as a plain card with an emoji, a name and a line about it
+    og: function () { return retro('og'); },
+    // VERY OG kai.fun: "A collection of interactive games", pastel cards, nine at a time, and a "Next row of games" button
+    veryog: function () { return retro('veryog'); },
   };
+
+  // ---- the two retro front pages share this: they swap each picture tile for a text card
+  var EMO = [['chess', '♟️'], ['banana', '🍌'], ['monke', '🐒'], ['monkey', '🐒'], ['pizza', '🍕'], ['cat', '🐱'], ['dog', '🐶'], ['space', '🚀'], ['star', '⭐'], ['black hole', '🕳️'], ['planet', '🪐'],
+    ['water', '💧'], ['bottle', '🍼'], ['fish', '🐟'], ['music', '🎵'], ['piano', '🎹'], ['draw', '✏️'], ['paint', '🎨'], ['art', '🖼️'], ['word', '🔤'], ['type', '⌨️'], ['letter', '✉️'],
+    ['math', '➗'], ['number', '🔢'], ['card', '🃏'], ['dice', '🎲'], ['wiki', '📚'], ['book', '📖'], ['map', '🗺️'], ['world', '🌍'], ['flag', '🏳️'], ['car', '🏎️'], ['race', '🏁'],
+    ['ball', '⚽'], ['golf', '⛳'], ['pinball', '🎱'], ['pong', '🏓'], ['light', '🚦'], ['tower', '🗼'], ['build', '🧱'], ['block', '🧱'], ['robot', '🤖'], ['ai', '🤖'], ['zombie', '🧟'],
+    ['ghost', '👻'], ['snow', '⛄'], ['weather', '🌦️'], ['sun', '☀️'], ['fire', '🔥'], ['cheese', '🧀'], ['food', '🍔'], ['cook', '🍳'], ['toast', '🍞'], ['egg', '🥚'], ['time', '⏳'],
+    ['clock', '⏰'], ['loading', '⏳'], ['wait', '⏳'], ['puzzle', '🧩'], ['maze', '🌀'], ['secret', '🔐'], ['vault', '🔐'], ['money', '💰'], ['coin', '🪙'], ['dollar', '💵'], ['job', '💼'],
+    ['hire', '📋'], ['terminal', '💻'], ['code', '💻'], ['computer', '💻'], ['browser', '🕵️'], ['snitch', '🕵️'], ['fossil', '🦴'], ['dino', '🦖'], ['frog', '🐸'], ['bird', '🐦'], ['bee', '🐝'],
+    ['bug', '🐛'], ['penguin', '🐧'], ['duck', '🦆'], ['sword', '⚔️'], ['fight', '🥊'], ['boss', '👾'], ['war', '⚔️'], ['country', '🏛️'], ['lunch', '🥪'], ['sandwich', '🥪'], ['candy', '🍬'],
+    ['slide', '🛝'], ['jump', '🦘'], ['run', '🏃'], ['dance', '💃'], ['human', '🧍'], ['people', '👥'], ['face', '🙂'], ['eye', '👁️'], ['mirror', '🪞'], ['twin', '👯'], ['infinity', '♾️'], ['file', '📁']];
+  function emojiFor(text, i) {
+    var t = ' ' + text.toLowerCase() + ' ';
+    for (var k = 0; k < EMO.length; k++) if (t.indexOf(EMO[k][0]) >= 0) return EMO[k][1];
+    return ['🎮', '🕹️', '👾', '🎯', '🎲', '🏆', '⚡', '🌈'][i % 8];
+  }
+  function retro(kind) {
+    var made = [], grid = document.querySelector('main.games'), header = document.querySelector('header'), sub = document.querySelector('.subtitle'), word = document.querySelector('.wordmark');
+    var oldSub = sub ? sub.textContent : '';
+    var mark = document.createElement('span'); mark.className = 'kf-retromark'; mark.textContent = 'Kai.fun';
+    if (word) { word.appendChild(mark); made.push(mark); }
+    if (sub && kind === 'veryog') sub.textContent = 'A collection of interactive games';
+    var tiles = gameTiles().filter(function (t) { return !/workfor\./.test(t.getAttribute('href') || ''); });
+    tiles.forEach(function (t, i) {
+      if (!t.querySelector('img, iframe')) return;   // already a text card
+      var label = t.getAttribute('aria-label') || (t.querySelector('img') || {}).alt || 'A game', parts = label.split(':'), title = parts[0].trim(), desc = parts.slice(1).join(':').trim();
+      var card = document.createElement('span'); card.className = 'kf-retro';
+      card.innerHTML = '<span class="emoji"></span><span class="t"></span><span class="d"></span>';
+      card.querySelector('.emoji').textContent = emojiFor(label, i);
+      card.querySelector('.t').textContent = title;
+      card.querySelector('.d').textContent = desc ? desc.charAt(0).toLowerCase() + desc.slice(1) : '';
+      t.appendChild(card); made.push(card);
+    });
+    var cleanup = function () {};
+    if (kind === 'veryog') {
+      // nine at a time; the button moves along one row of three
+      var start = 0, btn = document.createElement('button'); btn.type = 'button'; btn.id = 'kfNextRow'; btn.textContent = 'Next row of games →';
+      if (header) header.appendChild(btn); made.push(btn);
+      var show = function () { tiles.forEach(function (t, i) { var k = (i - start + tiles.length) % tiles.length; t.classList.toggle('kf-off', k >= 9); t.style.order = k < 9 ? k : ''; }); dispatchEvent(new Event('resize')); };
+      btn.onclick = function () { start = (start + 3) % tiles.length; show(); };
+      show();
+      cleanup = function () { tiles.forEach(function (t) { t.classList.remove('kf-off'); t.style.order = ''; }); };
+    }
+    return function () { cleanup(); made.forEach(function (m) { m.remove(); }); if (sub) sub.textContent = oldSub; dispatchEvent(new Event('resize')); };
+  }
 
   window.KFLooks = { setLook: setLook, made: made, grav: function () { return grav; } };
   var start = currentLook();
