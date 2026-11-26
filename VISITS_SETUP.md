@@ -49,7 +49,7 @@ No email addresses or other personal details are stored here. Everything under `
 ## 2. Turn on the newsletter signup (Buttondown)
 
 1. Make a free account at <https://buttondown.com> (free up to 100 subscribers), and pick a username, e.g. `kaifun`.
-2. In `visitors.html`, set `const BUTTONDOWN = 'your-username';`.
+2. In `visitors.html`, set `const BUTTONDOWN = 'your-username';` (it's `lightningstudiosx`).
 
 Signups go straight to Buttondown, which sends each person a confirm email and puts an unsubscribe link in every
 email. kai.fun never sees the addresses.
