@@ -16,7 +16,10 @@
     { id: 'kai', name: 'Kai mode' },
     { id: 'candle', name: 'Dark' },
     { id: 'deleted', name: 'Deleted.Fun' },
-    { id: 'party', name: '150 party' }
+    { id: 'party', name: '150 party' },
+    { id: 'threed', name: '3D' },
+    { id: 'parallax', name: 'Parallax' },
+    { id: 'nogames', name: 'No games' }
   ];
 
   // ---- SVG filters for the crayon look: a slight wobble, then waxy speckles where the paper shows through
@@ -326,9 +329,9 @@
         var f = document.createElement('span'); f.className = 'kf-kaiface'; f.setAttribute('aria-hidden', 'true');
         f.innerHTML = '<i><b></b></i><i><b></b></i><u></u>'; t.appendChild(f); return f;
       });
-      var mx = innerWidth / 2, my = innerHeight / 3, raf = 0;
+      var mx = innerWidth / 2, my = innerHeight / 3, raf = 0, dead = false;
       function look() {
-        raf = 0;
+        raf = 0; if (dead) return;
         faces.forEach(function (f) {
           var r = f.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) return;
           [].forEach.call(f.querySelectorAll('b'), function (p) {
@@ -340,7 +343,7 @@
       function move(e) { mx = e.clientX; my = e.clientY; if (!raf) raf = requestAnimationFrame(look); }
       function scroll() { if (!raf) raf = requestAnimationFrame(look); }
       addEventListener('pointermove', move); addEventListener('scroll', scroll, { passive: true }); look();
-      return function () { removeEventListener('pointermove', move); removeEventListener('scroll', scroll); faces.forEach(function (f) { f.remove(); }); };
+      return function () { dead = true; cancelAnimationFrame(raf); removeEventListener('pointermove', move); removeEventListener('scroll', scroll); faces.forEach(function (f) { f.remove(); }); };
     },
     // the lights go out: only a flickering candle that follows you lights the page
     candle: function () {
@@ -406,6 +409,88 @@
         document.body.appendChild(b);
       }, 2600);
       return function () { cancelAnimationFrame(raf); clearInterval(bt); removeEventListener('resize', size); made.forEach(function (m) { m.remove(); }); [].forEach.call(document.querySelectorAll('.kf-balloon'), function (b) { b.remove(); }); };
+    },
+    // 3D: every tile is a thick card that tilts towards your mouse
+    threed: function () {
+      var raf = 0, mx = innerWidth / 2, my = innerHeight / 2, dead = false;
+      function apply() {
+        raf = 0; if (dead) return;
+        gameTiles().forEach(function (t) {
+          var r = t.getBoundingClientRect(); if (r.bottom < -150 || r.top > innerHeight + 150) return;
+          var dx = (mx - (r.left + r.width / 2)) / innerWidth, dy = (my - (r.top + r.height / 2)) / innerHeight;
+          t.style.setProperty('--rx', (-dy * 26).toFixed(2) + 'deg'); t.style.setProperty('--ry', (dx * 26).toFixed(2) + 'deg');
+        });
+      }
+      function move(e) { if (e.clientX != null) { mx = e.clientX; my = e.clientY; } if (!raf) raf = requestAnimationFrame(apply); }
+      addEventListener('pointermove', move); addEventListener('scroll', move, { passive: true }); apply();
+      return function () { dead = true; cancelAnimationFrame(raf); removeEventListener('pointermove', move); removeEventListener('scroll', move); gameTiles().forEach(function (t) { t.style.removeProperty('--rx'); t.style.removeProperty('--ry'); }); };
+    },
+    // parallax: tiles float at different depths and drift past each other; background layers move slower
+    parallax: function () {
+      var bg = document.createElement('div'); bg.id = 'kfPara'; bg.setAttribute('aria-hidden', 'true');
+      var shapes = ['●', '★', '▲', '◆', '✦', '■'], cols = ['#ff6b5e', '#4aa9d8', '#6fb85c', '#f5b829', '#9b7fd4', '#ff7ab6'];
+      var layers = [0.12, 0.3, 0.55].map(function (k, li) {
+        var L = document.createElement('div'); L.className = 'kf-layer'; L.dataset.k = k;
+        for (var i = 0; i < 16; i++) {
+          var s = document.createElement('span'); s.textContent = shapes[(i + li) % shapes.length];
+          s.style.left = ((i * 61 + li * 23) % 100) + 'vw'; s.style.top = ((i * 137 + li * 59) % 300) + 'vh';
+          s.style.fontSize = (22 + li * 22 + (i % 3) * 10) + 'px'; s.style.color = cols[(i + li * 2) % cols.length]; s.style.opacity = 0.22 + li * 0.14;
+          L.appendChild(s);
+        }
+        bg.appendChild(L); return L;
+      });
+      document.body.prepend(bg);
+      var tiles = gameTiles(), depth = tiles.map(function (t, i) { return 0.55 + ((i * 37) % 10) / 10; });   // 0.55 .. 1.45
+      tiles.forEach(function (t, i) { t.style.zIndex = Math.round(depth[i] * 10); });
+      var raf = 0, mx = 0, my = 0, dead = false;
+      function apply() {
+        raf = 0; if (dead) return; var sy = scrollY, mid = innerHeight / 2;
+        layers.forEach(function (L) { var k = +L.dataset.k; L.style.transform = 'translate(' + (mx * k * 40).toFixed(1) + 'px,' + (-sy * k).toFixed(1) + 'px)'; });
+        tiles.forEach(function (t, i) {
+          var r = t.getBoundingClientRect(), base = parseFloat(t.dataset.kfY || 0), top = r.top - base;
+          if (top > innerHeight + 300 || top + r.height < -300) return;
+          var d = depth[i] - 1, y = (top + r.height / 2 - mid) * d * 0.35, x = mx * d * 36;
+          t.dataset.kfY = y; t.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (0.94 + depth[i] * 0.06).toFixed(3) + ')';
+          t.style.filter = d < -0.25 ? 'blur(' + (-d * 2.2).toFixed(1) + 'px) saturate(.85)' : '';
+        });
+      }
+      function scroll() { if (!raf) raf = requestAnimationFrame(apply); }
+      function move(e) { mx = e.clientX / innerWidth - 0.5; my = e.clientY / innerHeight - 0.5; scroll(); }
+      addEventListener('scroll', scroll, { passive: true }); addEventListener('pointermove', move); addEventListener('resize', scroll); apply();
+      return function () {
+        dead = true; cancelAnimationFrame(raf);
+        removeEventListener('scroll', scroll); removeEventListener('pointermove', move); removeEventListener('resize', scroll); bg.remove();
+        tiles.forEach(function (t) { t.style.transform = ''; t.style.filter = ''; t.style.zIndex = ''; delete t.dataset.kfY; });
+      };
+    },
+    // no games: the games are gone. There is only homework.
+    nogames: function () {
+      var board = document.createElement('section'); board.id = 'kfBoard';
+      var lines = [['3x + 7 = 22   →   x = ?', '#1f5fd1'], ['a² + b² = c²', '#141414'], ['x = (−b ± √(b² − 4ac)) ÷ 2a', '#2f8a2a'], ['∫ 2x dx = x² + C', '#141414'],
+        ['sin²θ + cos²θ = 1', '#1f5fd1'], ['12 × 12 = 144', '#2f8a2a'], ['(x + 3)(x − 3) = x² − 9', '#141414'], ['E = mc²', '#1f5fd1']];
+      board.innerHTML = '<div class="wb"><div class="eqs">' + lines.map(function (l, i) { return '<div class="eq" style="color:' + l[1] + ';animation-delay:' + (i * 0.45).toFixed(2) + 's">' + l[0] + '</div>'; }).join('') + '</div>' +
+        '<div class="hw" style="animation-delay:' + (lines.length * 0.45 + 0.2).toFixed(2) + 's">DO YOUR HOMEWORK.</div>' +
+        '<div class="sign" style="animation-delay:' + (lines.length * 0.45 + 1.1).toFixed(2) + 's">No games until it’s done. – the management</div>' +
+        '<div class="tray"><i style="--c:#1f5fd1"></i><i style="--c:#c0281a"></i><i style="--c:#2f8a2a"></i><i style="--c:#141414"></i><b></b></div></div>' +
+        '<div class="done"><button type="button" id="kfHwBtn">✋ I finished my homework</button><div id="kfHwQ"></div></div>';
+      var games = document.querySelector('main.games');
+      if (games && games.parentNode) games.parentNode.insertBefore(board, games); else document.body.appendChild(board);
+      board.querySelector('#kfHwBtn').onclick = function () {
+        var a = 2 + Math.floor(Math.random() * 11), b = 2 + Math.floor(Math.random() * 11), c = 1 + Math.floor(Math.random() * 20), kind = Math.floor(Math.random() * 3), q, ans;
+        if (kind === 0) { q = a + ' × ' + b + ' = ?'; ans = a * b; }
+        else if (kind === 1) { q = a + ' + ' + b + ' × ' + c + ' = ?'; ans = a + b * c; }
+        else { q = a + 'x + ' + c + ' = ' + (a * b + c) + '   x = ?'; ans = b; }
+        var box = board.querySelector('#kfHwQ');
+        box.innerHTML = '<div class="q">Prove it: ' + q + '</div><input type="number" inputmode="numeric" id="kfHwIn" aria-label="Your answer"> <button type="button" id="kfHwGo">Check</button><div class="r" id="kfHwR"></div>';
+        var input = box.querySelector('#kfHwIn'); input.focus();
+        var check = function () {
+          if (+input.value === ans) { box.querySelector('#kfHwR').textContent = 'Fine. Go play. 🎮'; setTimeout(function () { setLook('normal'); }, 900); }
+          else { box.querySelector('#kfHwR').textContent = 'Nope. Keep working. ✏️'; input.select(); }
+        };
+        box.querySelector('#kfHwGo').onclick = check;
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      };
+      return function () { board.remove(); };
     },
   };
 
