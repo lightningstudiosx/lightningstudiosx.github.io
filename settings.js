@@ -21,7 +21,8 @@
     { id: 'parallax', name: 'Parallax' },
     { id: 'nogames', name: 'No games' },
     { id: 'og', name: 'OG kai.fun' },
-    { id: 'veryog', name: 'VERY OG' }, { id: 'underwater', name: 'Underwater' }
+    { id: 'veryog', name: 'VERY OG' }, { id: 'underwater', name: 'Underwater' },
+    { id: 'win98', name: 'Windows 98' }, { id: 'museum', name: 'Museum' }
   ];
 
   // ---- SVG filters for the crayon look: a slight wobble, then waxy speckles where the paper shows through
@@ -538,6 +539,212 @@
         made.forEach(function (m) { m.remove(); });
         [].forEach.call(document.querySelectorAll('.kf-fish, .kf-bubble'), function (x) { x.remove(); });
       };
+    },
+    // Windows 98: games are desktop icons (double-click to open), a Start menu, a taskbar clock and the odd error box
+    win98: function () {
+      var made = [], timers = [], header = document.querySelector('header'), grid = document.querySelector('main.games');
+      function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+      // the header becomes a window with a title bar
+      var tbar = el('div', 'kf-tbar', '<span class="tt">🌐 Kai.fun - Games and Stuff</span><span class="wb"><button type="button" data-w="min" aria-label="Minimize">_</button><button type="button" data-w="max" aria-label="Maximize">□</button><button type="button" data-w="x" aria-label="Close">×</button></span>');
+      if (header) { header.prepend(tbar); made.push(tbar); }
+      // every game becomes an icon
+      var tiles = gameTiles();
+      tiles.forEach(function (t, i) {
+        var label = t.getAttribute('aria-label') || (t.querySelector('img') || {}).alt || (t.querySelector('h2') || {}).textContent || 'Game', title = label.split(':')[0].trim();
+        var img = t.querySelector('img'), ico = el('span', 'kf-ico');
+        var pic = el('span', 'pic');
+        if (img) pic.style.backgroundImage = 'url("' + (img.dataset.orig || img.getAttribute('src')) + '")';
+        else pic.textContent = emojiFor(label, i);
+        if (!img) pic.classList.add('emo');
+        ico.appendChild(pic); ico.appendChild(el('span', 'lbl', esc(title)));
+        t.appendChild(ico); made.push(ico);
+      });
+      // single click selects, double click opens (taps and the keyboard open straight away)
+      var sel = null, lastT = 0, lastPtr = 'mouse';
+      function down(e) { lastPtr = e.pointerType || 'mouse'; }
+      function click(e) {
+        var t = e.target.closest('main.games > .game-tile');
+        if (!t) { if (sel && !e.target.closest('#kfStart, .kf-taskbar, .kf-dlg')) { sel.classList.remove('kf-sel'); sel = null; } return; }
+        if (e.detail === 0 || lastPtr === 'touch') return;
+        var now = performance.now();
+        if (sel === t && now - lastT < 550) return;   // second click of a double click: let it open
+        e.preventDefault();
+        if (sel) sel.classList.remove('kf-sel');
+        sel = t; t.classList.add('kf-sel'); lastT = now;
+      }
+      function dbl(e) { var t = e.target.closest('main.games > .game-tile'); if (t) location.href = t.href; }
+      addEventListener('pointerdown', down, true); document.addEventListener('click', click, true); if (grid) grid.addEventListener('dblclick', dbl);
+      // the taskbar
+      var bar = el('div', 'kf-taskbar', '<button type="button" class="start" aria-haspopup="true" aria-expanded="false"><span class="logo">😊</span>Start</button><span class="sep"></span>' +
+        '<button type="button" class="task on">🌐 Kai.fun - Games and Stuff</button><span class="tray"><span aria-hidden="true">🔊</span><span class="clock"></span></span>');
+      var start = el('div', '', '<div class="side"><b>Kai.fun</b>98</div><div class="items">' +
+        '<button type="button" data-a="rand"><i>🎲</i>Random game</button><button type="button" data-a="scr"><i>🔀</i>Scramble</button>' +
+        '<button type="button" data-a="top"><i>🏆</i>Top visitors</button><button type="button" data-a="news"><i>📰</i>Newsletter</button>' +
+        '<button type="button" data-a="make"><i>🛠️</i>Make your own game</button><button type="button" data-a="look"><i>🎨</i>Change look...</button>' +
+        '<hr><button type="button" data-a="off"><i>⏻</i>Shut Down...</button></div>');
+      start.id = 'kfStart'; start.hidden = true;
+      document.body.append(bar, start); made.push(bar, start);
+      var sb = bar.querySelector('.start'), task = bar.querySelector('.task'), clock = bar.querySelector('.clock');
+      function tick() { var d = new Date(), h = d.getHours(), m = d.getMinutes(); clock.textContent = ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + ' ' + (h < 12 ? 'AM' : 'PM'); }
+      tick(); timers.push(setInterval(tick, 5000));
+      function menu(show) { start.hidden = !show; sb.classList.toggle('on', show); sb.setAttribute('aria-expanded', show ? 'true' : 'false'); }
+      sb.onclick = function (e) { e.stopPropagation(); menu(start.hidden); };
+      function closeMenu(e) { if (!start.hidden && !e.target.closest('#kfStart')) menu(false); }
+      document.addEventListener('click', closeMenu);
+      function link(re) { var a = [].filter.call(document.querySelectorAll('#kfvBar a, footer a'), function (x) { return re.test(x.textContent + ' ' + x.getAttribute('href')); })[0]; return a && a.href; }
+      start.onclick = function (e) {
+        var b = e.target.closest('button[data-a]'); if (!b) return; e.stopPropagation(); menu(false);
+        var a = b.dataset.a;
+        if (a === 'rand') { var t = tiles[Math.floor(Math.random() * tiles.length)]; if (t) location.href = t.href; }
+        else if (a === 'scr') { var s = document.getElementById('scrambleBtn'); if (s) s.click(); }
+        else if (a === 'top') location.href = link(/visitor/i) || 'visitors.html';
+        else if (a === 'news') { var n = link(/newsletter/i); if (n) location.href = n; }
+        else if (a === 'make') location.href = 'maker.html';
+        else if (a === 'look') { var g = document.getElementById('kfSettingsBtn'); if (g) g.click(); }
+        else if (a === 'off') shutDown();
+      };
+      // window buttons
+      tbar.onclick = function (e) {
+        var b = e.target.closest('button[data-w]'); if (!b) return;
+        if (b.dataset.w === 'min') { header.classList.add('kf-min'); task.classList.remove('on'); }
+        else if (b.dataset.w === 'max') header.classList.toggle('kf-max');
+        else dialog('Kai.fun', '⛔', 'Kai.fun cannot be closed.<br>It is too fun.', ['OK']);
+      };
+      task.onclick = function () { var m = header.classList.toggle('kf-min'); task.classList.toggle('on', !m); };
+      // error boxes
+      var dlgs = [];
+      function dialog(title, icon, text, buttons, details) {
+        var d = el('div', 'kf-dlg', '<div class="kf-tbar"><span class="tt">' + esc(title) + '</span><span class="wb"><button type="button" data-x aria-label="Close">×</button></span></div>' +
+          '<div class="body"><span class="ic">' + icon + '</span><div class="msg">' + text + '</div></div>' +
+          (details ? '<pre class="det" hidden>' + esc(details) + '</pre>' : '') +
+          '<div class="btns">' + buttons.map(function (b) { return '<button type="button">' + esc(b) + '</button>'; }).join('') + (details ? '<button type="button" data-d>Details &gt;&gt;</button>' : '') + '</div>');
+        d.setAttribute('role', 'alertdialog');
+        d.style.left = Math.max(8, innerWidth / 2 - 180 + (Math.random() * 160 - 80)) + 'px';
+        d.style.top = Math.max(8, innerHeight / 2 - 110 + (Math.random() * 120 - 60)) + 'px';
+        d.onclick = function (e) {
+          var b = e.target.closest('button'); if (!b) return; e.stopPropagation();
+          if (b.hasAttribute('data-d')) { var p = d.querySelector('.det'); p.hidden = !p.hidden; b.innerHTML = p.hidden ? 'Details &gt;&gt;' : '&lt;&lt; Details'; return; }
+          d.remove(); dlgs.splice(dlgs.indexOf(d), 1);
+        };
+        // drag it by the title bar
+        var tb = d.querySelector('.kf-tbar');
+        tb.addEventListener('pointerdown', function (e) {
+          if (e.target.closest('button')) return;
+          var ox = e.clientX - d.offsetLeft, oy = e.clientY - d.offsetTop; tb.setPointerCapture(e.pointerId);
+          function mv(ev) { d.style.left = (ev.clientX - ox) + 'px'; d.style.top = Math.max(0, ev.clientY - oy) + 'px'; }
+          function up() { tb.removeEventListener('pointermove', mv); tb.removeEventListener('pointerup', up); }
+          tb.addEventListener('pointermove', mv); tb.addEventListener('pointerup', up);
+        });
+        document.body.appendChild(d); dlgs.push(d);
+        var first = d.querySelector('.btns button'); if (first) first.focus({ preventScroll: true });
+        return d;
+      }
+      var ERRS = [
+        ['Kai.fun', '❌', 'Kai.fun has performed an illegal operation and will be shut down.<br><br>If the problem persists, play more games.', ['Close'], 'KAIFUN caused an invalid page fault in\nmodule FUN.DLL at 0137:bff7a3c2.\nRegisters:\nEAX=00000150 CS=0137 EIP=bff7a3c2\nBANANAS=00000000  FUN=FFFFFFFF\nBytes at CS:EIP:\n4b 41 49 2e 46 55 4e 21 21 21'],
+        ['Kai.exe', '⚠️', 'Kai.exe is not responding.<br><br>Kai is probably making another game.', ['End Task', 'Wait']],
+        ['Low on fun', '⚠️', 'Your computer is running low on fun.<br><br>Close some homework and try again.', ['OK']],
+        ['Kai.fun', '❓', 'You have been playing games for a long time.<br><br>Do you want to keep playing?', ['Yes', 'Yes']],
+        ['System', 'ℹ️', 'A fatal exception 0E has occurred at 0028:C0011E36.<br><br>Just kidding. Everything is fine.', ['OK']],
+        ['Banana.sys', '🍌', 'The banana driver could not be found.<br><br>The monkeys have been notified.', ['OK', 'Cancel']],
+        ['Kai.fun Update', '💾', 'Kai.fun found 1 new game.<br><br>(There is always a new game.)', ['Install', 'Later']]
+      ], ek = Math.floor(Math.random() * ERRS.length);
+      function errBox() {
+        if (document.hidden || dlgs.length || !start.hidden) return;
+        var r = ERRS[ek++ % ERRS.length]; dialog(r[0], r[1], r[2], r[3], r[4]);
+      }
+      timers.push(setTimeout(function () { errBox(); timers.push(setInterval(errBox, 75000)); }, 22000));
+      // shutting down
+      var off = null;
+      function shutDown() {
+        off = el('div', 'kf-off', '<p>It\'s now safe to turn off<br>your computer.</p><small>(click anywhere to turn it back on)</small>');
+        off.onclick = function () { off.classList.add('boot'); off.innerHTML = '<p class="b">Starting Kai.fun 98...</p>'; setTimeout(function () { if (off) { off.remove(); off = null; } }, 1300); };
+        document.body.appendChild(off);
+      }
+      return function () {
+        timers.forEach(function (t) { clearInterval(t); clearTimeout(t); });
+        removeEventListener('pointerdown', down, true); document.removeEventListener('click', click, true); document.removeEventListener('click', closeMenu);
+        if (grid) grid.removeEventListener('dblclick', dbl);
+        made.forEach(function (m) { m.remove(); }); dlgs.forEach(function (d) { d.remove(); }); if (off) off.remove();
+        if (sel) sel.classList.remove('kf-sel'); if (header) header.classList.remove('kf-min', 'kf-max');
+      };
+    },
+    // Museum: every game is a framed painting with a spotlight and a plaque, and wall panels introduce each gallery
+    museum: function () {
+      var made = [], grid = document.querySelector('main.games'), sub = document.querySelector('.subtitle'), word = document.querySelector('.wordmark');
+      var oldSub = sub ? sub.textContent : '';
+      function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+      var the = el('div', 'kf-mthe', 'The'); if (word && word.parentNode) { word.parentNode.insertBefore(the, word); made.push(the); }
+      if (sub) sub.textContent = 'Museum of Games and Stuff · Admission free · Est. 2025';
+      var tiles = gameTiles();
+      var MED = ['HTML, CSS and JavaScript', 'Pixels on glass', 'Mixed media: code, emoji and hope', 'JavaScript on canvas', 'Code and snacks', 'Digital fun on a screen', 'Ones and zeros, mostly ones'];
+      var NOTE = [
+        function (t, d) { return '“' + t + '” is widely regarded as a masterpiece of the form. The artist’s statement reads, in full: “' + d + '.”'; },
+        function (t) { return 'Here Kai explores the tension between fun and even more fun. Visitors have been known to stand before “' + t + '” for hours.'; },
+        function () { return 'Donated anonymously. Scholars still argue about what it means; children understand it at once.'; },
+        function (t, d) { return 'A bold piece. Note the pixels: every one placed with love, or at least with JavaScript. ' + cap(d) + '.'; },
+        function (t, d) { return 'Please do not lick the painting. (This has happened.) ' + cap(d) + '.'; },
+        function () { return 'On loan from the artist’s laptop. Insured for one (1) banana.'; },
+        function () { return 'One of the museum’s most-visited works. Some say it is better than the Mona Lisa. The Mona Lisa has not commented.'; },
+        function (t) { return 'Early critics dismissed “' + t + '” as “just a game”. They were right, and that is the point.'; },
+        function (t, d) { return 'The artist was asked what this work means. The answer: “' + d + '.” Then the artist went to get a snack.'; },
+        function () { return 'Restored in 2026 after a visitor pressed it too hard. Please click gently.'; }
+      ];
+      function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+      function hash(s) { var h = 7; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+      tiles.forEach(function (t, i) {
+        var label = t.getAttribute('aria-label') || (t.querySelector('img') || {}).alt || (t.querySelector('h2') || {}).textContent || 'Untitled', parts = label.split(':');
+        var title = parts[0].trim(), desc = parts.slice(1).join(':').trim().replace(/[.!]+$/, ''), h = hash(title);
+        var d = desc ? desc.charAt(0).toLowerCase() + desc.slice(1) : 'it is a game';
+        var p = el('span', 'kf-plaque', '<b>' + esc(title) + '</b><span class="by">Kai, ' + (i < 45 ? '2026' : '2025') + '</span><span class="med">' + MED[h % MED.length] + '</span><span class="note">' + esc(NOTE[(h >>> 3) % NOTE.length](title, d)) + '</span>');
+        p.setAttribute('aria-hidden', 'true');
+        t.appendChild(p); made.push(p);
+      });
+      // the wall panels: one at the entrance, one for each gallery, and the gift shop at the end
+      var G = [
+        ['New Acquisitions', 'The museum’s newest works, still warm from the artist’s keyboard. Some of them may still have bugs. The bugs are part of the art.'],
+        ['The Permanent Collection', 'These works have hung here long enough to be called classics. Several were made on a school night.'],
+        ['The Hall of Small Joys', 'Tiny games about tiny things. The curators recommend clicking all of them, in any order, as fast as possible.'],
+        ['The Physics Wing', 'Things fall, bounce, wobble and roll in this gallery. Gravity was not consulted.'],
+        ['The Gallery of Questionable Decisions', 'Every work in this room began with the words “what if”. Most of them should not exist. We are glad they do.'],
+        ['The Brain Room', 'Puzzles, words and numbers. Thinking is allowed in this gallery, but not required.'],
+        ['The Hall of Loud Colours', 'Sunglasses are available at the front desk. They are not.'],
+        ['The Quiet Room', 'Please keep your voice down in this gallery. Some of the works are very loud anyway.'],
+        ['The Basement Archive', 'Older pieces, rescued from the depths of the artist’s files. Handle with care. Or don’t; they are games.'],
+        ['The Experimental Wing', 'In this wing the artist tried things. Some of the things worked.'],
+        ['The Snack Gallery', 'A celebration of food in games. Do not eat the exhibits.'],
+        ['The Hall of Things That Shouldn’t Work', 'Engineers have studied these pieces for years. Nobody knows how they run.'],
+        ['The Long Corridor', 'You are now very deep inside the museum. Leave a trail of breadcrumbs.'],
+        ['The Final Rooms', 'Almost the end of the collection. The artist is already making more, so it is never really the end.']
+      ];
+      var ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+      var EVERY = 12, panels = [];
+      function panel(cls, html) { var p = el('section', 'kf-panel ' + cls, html); panels.push(p); made.push(p); return p; }
+      if (grid && tiles.length) {
+        grid.insertBefore(panel('entry', '<div class="k">Welcome</div><h3>The Kai.fun Museum of Games and Stuff</h3><p>The permanent collection holds <b>every game Kai has ever made</b>, all by a single artist. Every piece in this building is a game, and every game can be played. Please do not touch the art. (You may click the art.)</p><div class="f">Galleries I–' + ROMAN[Math.min(ROMAN.length, Math.ceil(tiles.length / EVERY)) - 1] + ' · Gift shop at the exit · Photography allowed</div>'), tiles[0]);
+        for (var k = 0; k * EVERY < tiles.length; k++) {
+          var g = G[Math.min(k, G.length - 1)], from = k * EVERY + 1, to = Math.min(tiles.length, (k + 1) * EVERY);
+          grid.insertBefore(panel('g' + (k % 3), '<div class="k">Gallery ' + (ROMAN[k] || k + 1) + '</div><h3>' + g[0] + '</h3><p>' + g[1] + '</p><div class="f">Works ' + from + '–' + to + ' · Please do not touch the art</div>'), tiles[k * EVERY]);
+        }
+        var last = tiles[tiles.length - 1];
+        var shop = panel('shop', '<div class="k">Exit</div><h3>🛍️ Exit through the gift shop</h3><p>Thank you for visiting. Everything in the gift shop is free.</p><div class="shopl"><a href="maker.html">🛠️ Make your own game</a><a href="visitors.html">🏆 Top visitors</a><a href="#" data-n>📰 Newsletter</a></div>');
+        var nl = [].filter.call(document.querySelectorAll('#kfvBar a'), function (x) { return /newsletter/i.test(x.textContent); })[0];
+        var na = shop.querySelector('[data-n]'); if (nl) na.href = nl.href; else na.remove();
+        last.parentNode.insertBefore(shop, last.nextSibling);
+      }
+      // the floor and the velvet rope along the bottom of the screen
+      var floor = el('div', ''); floor.id = 'kfMuseum'; floor.setAttribute('aria-hidden', 'true'); document.body.appendChild(floor); made.push(floor);
+      function rope() {
+        var w = innerWidth, n = Math.max(2, Math.round(w / 230)), step = w / n, s = '<svg width="' + w + '" height="64" viewBox="0 0 ' + w + ' 64">';
+        function px(j) { return Math.min(w - 9, Math.max(9, j * step)); }
+        for (var i = 0; i < n; i++) { var a = px(i), b = px(i + 1), m = (a + b) / 2; s += '<path d="M' + a + ' 16 Q' + m + ' 40 ' + b + ' 16" stroke="#8e1b25" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M' + a + ' 14 Q' + m + ' 37 ' + b + ' 14" stroke="#c0394a" stroke-width="2" fill="none" opacity=".7"/>'; }
+        for (var j = 0; j <= n; j++) { var x = px(j); s += '<rect x="' + (x - 3) + '" y="10" width="6" height="44" rx="2" fill="#b8913d"/><circle cx="' + x + '" cy="10" r="7" fill="#e3c46e" stroke="#8a6a24"/><ellipse cx="' + x + '" cy="56" rx="15" ry="5" fill="#8a6a24"/>'; }
+        floor.innerHTML = s + '</svg>';
+      }
+      rope(); addEventListener('resize', rope);
+      dispatchEvent(new Event('resize'));
+      return function () { removeEventListener('resize', rope); made.forEach(function (m) { m.remove(); }); if (sub) sub.textContent = oldSub; dispatchEvent(new Event('resize')); };
     },
   };
 
