@@ -229,3 +229,11 @@ function arm() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();
+
+/* the visitor counter (visits.js) rides along on every page too, loaded from right next to this file */
+(function () {
+  if (window.KFV || document.querySelector('script[data-kfv]')) return;
+  var me = document.currentScript, s = document.createElement('script');
+  s.src = (me && me.src ? me.src.replace(/bdp\.js(\?.*)?$/, '') : '') + 'visits.js'; s.defer = true; s.setAttribute('data-kfv', '1');
+  (document.head || document.documentElement).appendChild(s);
+})();
