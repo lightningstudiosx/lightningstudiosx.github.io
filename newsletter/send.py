@@ -97,6 +97,14 @@ def write_email(rng):
     return rng.choice(SUBJECTS), body
 
 
+def clean_key(k):
+    """The API key, without the bits that sneak in when it's copied: spaces, quotes, a leading 'Token'."""
+    k = (k or '').strip().strip('"\'').strip()
+    if k.lower().startswith('token '):
+        k = k[6:].strip()
+    return k
+
+
 def send(subject, body, key, draft=False):
     headers = {'Authorization': 'Token ' + key, 'Content-Type': 'application/json'}
     if not draft:
@@ -114,6 +122,8 @@ def send(subject, body, key, draft=False):
                 print('SENT to every subscriber (id %s).' % eid)
     except urllib.error.HTTPError as e:
         print('Buttondown said', e.code, e.read().decode(errors='replace')[:500])
+        if e.code == 401:
+            print('-> The BUTTONDOWN_API_KEY secret is not a valid key. Copy it again from Buttondown (Settings -> API) and paste only the key into the GitHub secret.')
         sys.exit(1)
 
 
@@ -129,7 +139,9 @@ def write_your_own(rng):
         gs = games()
         if gs:
             href, title, blurb = rng.choice(gs)
-            body += '\n\n---\n\n## 🎲 Random game of the day: [%s](%s%s)\n\n%s' % (title, SITE, href, (blurb[:1].upper() + blurb[1:]) if blurb else '')
+            body += '\n\n---\n\n## 🎲 Random game of the day: [%s](%s%s)' % (title, SITE, href)
+            if blurb:
+                body += '\n\n' + blurb[:1].upper() + blurb[1:]
     body += '\n\n---\n\nSee you at [kai.fun](%s)! 🍌' % SITE
     return subject[:150], body
 
@@ -139,7 +151,7 @@ def main():
     if os.environ.get('MODE') == 'custom':
         subject, body = write_your_own(rng)
         print('SUBJECT:', subject, '\n\n' + body + '\n')
-        key = os.environ.get('BUTTONDOWN_API_KEY', '').strip()
+        key = clean_key(os.environ.get('BUTTONDOWN_API_KEY'))
         if not key:
             print('No BUTTONDOWN_API_KEY secret, so nothing was sent.')
             sys.exit(1)
@@ -153,7 +165,7 @@ def main():
     if dry:
         print('SUBJECT:', subject, '\n\n' + body)
         return
-    key = os.environ.get('BUTTONDOWN_API_KEY', '').strip()
+    key = clean_key(os.environ.get('BUTTONDOWN_API_KEY'))
     if not key:
         print('No BUTTONDOWN_API_KEY secret yet, so nothing was sent.')
         return
