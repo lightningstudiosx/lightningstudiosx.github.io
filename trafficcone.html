@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="icon" href="favicon.png" sizes="64x64"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Traffic Cone</title>
+<meta name="description" content="You are a traffic cone. You can only move when nobody is looking. Scoot across the whole city without getting caught.">
+<meta name="theme-color" content="#ff7a1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#22180f; --or:#ff7a1a; --or2:#d9530a; --cream:#fff6e6; --title:"Bowlby One","Arial Black",Impact,sans-serif; --ui:"Nunito","Trebuchet MS","Segoe UI",system-ui,sans-serif }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html,body { margin:0; height:100%; overflow:hidden; background:#3d6b35; color:var(--ink); font:800 16px/1.3 var(--ui); user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent }
+button { font:inherit; color:inherit }
+#cv { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:3px solid var(--ink); border-radius:14px; padding:10px 18px; font:900 17px var(--ui);
+  background:#fff; box-shadow:0 5px 0 var(--ink); cursor:pointer; white-space:nowrap; text-decoration:none; color:var(--ink); transition:transform .06s, box-shadow .06s }
+.btn:active { transform:translateY(3px); box-shadow:0 2px 0 var(--ink) }
+.btn.o { background:var(--or); color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.25) }
+.btn.big { font:400 26px var(--title); padding:12px 30px; border-radius:18px }
+.btn.sm { font-size:14px; padding:6px 11px; border-radius:11px; box-shadow:0 4px 0 var(--ink) }
+#topL { position:fixed; left:10px; top:10px; z-index:30; display:flex; gap:8px }
+#topR { position:fixed; right:10px; top:10px; z-index:30; display:flex; gap:8px }
+#hud { position:fixed; left:50%; top:10px; transform:translateX(-50%); z-index:20; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none }
+#look { font:900 15px var(--ui); padding:7px 16px; border:3px solid var(--ink); border-radius:999px; background:#c9f7b5; box-shadow:0 4px 0 var(--ink); transition:background .15s, transform .15s; white-space:nowrap }
+#look.seen { background:#ffd84a; transform:scale(1.06) }
+#look.danger { background:#ff6a5a; color:#fff; transform:scale(1.12) }
+#stats { font:800 13px var(--ui); color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.45); white-space:nowrap }
+#tip { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:20; max-width:min(560px, calc(100vw - 24px)); text-align:center; background:var(--cream); border:3px solid var(--ink);
+  border-radius:14px; box-shadow:0 5px 0 var(--ink); padding:9px 16px; font:800 15px var(--ui); pointer-events:none; transition:opacity .4s }
+#tip.off { opacity:0 }
+.scr { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:20px; background:rgba(34,24,15,.55); overflow:auto }
+.card { width:min(560px, 100%); background:var(--cream); border:4px solid var(--ink); border-radius:22px; box-shadow:0 8px 0 var(--ink); padding:24px 24px 22px; text-align:center }
+.card h1 { font:400 clamp(40px, 9vw, 66px)/0.95 var(--title); margin:6px 0 10px; color:var(--or); text-shadow:3px 3px 0 var(--ink); letter-spacing:.01em }
+.card h2 { font:400 clamp(26px, 6vw, 38px)/1 var(--title); margin:4px 0 10px }
+.card p { margin:8px 0; font-weight:800 }
+.card .k { font:900 13px var(--ui); letter-spacing:.18em; text-transform:uppercase; color:var(--or2) }
+.card .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px }
+.lv { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:16px }
+.lv button { border:3px solid var(--ink); border-radius:14px; background:#fff; box-shadow:0 4px 0 var(--ink); padding:10px 6px; cursor:pointer; font:900 14px var(--ui); display:flex; flex-direction:column; gap:3px; align-items:center }
+.lv button b { font:400 22px var(--title) }
+.lv button:disabled { opacity:.4; cursor:default }
+.lv button .st { color:#e0a100; letter-spacing:2px }
+.how { text-align:left; display:grid; gap:6px; margin:12px auto 0; max-width:430px; font-size:15px }
+.how div { display:flex; gap:10px; align-items:flex-start }
+.how i { font-style:normal; font-size:20px; width:26px; text-align:center; flex:0 0 auto }
+.big-cone { font-size:64px; line-height:1; display:inline-block; animation:wob 1.6s ease-in-out infinite }
+@keyframes wob { 0%,100% { transform:rotate(-6deg) } 50% { transform:rotate(6deg) } }
+.stars { font-size:40px; letter-spacing:6px; color:#e0a100; text-shadow:0 3px 0 var(--ink) }
+.dim { color:#7b6a58; font-size:14px }
+@media (max-width:560px) { #stats { font-size:12px } #look { font-size:13px; padding:6px 12px } .lv { grid-template-columns:repeat(2, 1fr) } }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="Traffic Cone game"></canvas>
+<div id="topL"><a class="btn sm" href="index.html">← kai.fun</a></div>
+<div id="topR"><button class="btn sm" id="sndBtn" type="button" aria-label="Sound on or off">🔊</button><button class="btn sm" id="pauseBtn" type="button" hidden>⏸</button></div>
+<div id="hud" hidden><div id="look">✓ Nobody's looking</div><div id="stats"></div></div>
+<div id="tip" class="off"></div>
+
+<div class="scr" id="menu">
+  <div class="card">
+    <div class="big-cone" aria-hidden="true">🚧</div>
+    <h1>TRAFFIC CONE</h1>
+    <p>You are a traffic cone. You have always wanted to see the city.<br>There is one rule: <b>cones don't move.</b> So never let anyone see you do it.</p>
+    <div class="how">
+      <div><i>⬆️</i><span><b>Arrows / WASD</b> (or drag on a phone) to scoot. Cones are slow.</span></div>
+      <div><i>👀</i><span>The <b>yellow areas</b> are where people are looking. Standing still in them is fine. Moving in them is not.</span></div>
+      <div><i>❓</i><span>Get seen moving and they get suspicious. Fill the <b>?</b> and you are caught and carried back.</span></div>
+      <div><i>🌳</i><span>Hide behind buildings, inside bushes, or next to other cones (people notice you less).</span></div>
+      <div><i>🚗</i><span>Cars knock you flying. That doesn't count as moving. Use it.</span></div>
+    </div>
+    <div class="lv" id="lvGrid"></div>
+  </div>
+</div>
+
+<div class="scr" id="intro" hidden>
+  <div class="card">
+    <div class="k" id="inK">Level 1</div>
+    <h2 id="inT">The Roadworks</h2>
+    <p id="inD"></p>
+    <div class="row"><button class="btn o big" id="goBtn" type="button">Scoot!</button></div>
+  </div>
+</div>
+
+<div class="scr" id="pause" hidden>
+  <div class="card">
+    <h2>Paused</h2>
+    <p class="dim">You are standing very still. Very normal. Very cone.</p>
+    <div class="row"><button class="btn o" id="resBtn" type="button">▶ Keep going</button><button class="btn" id="rstBtn" type="button">↺ Restart level</button><button class="btn" id="menuBtn" type="button">☰ Levels</button></div>
+  </div>
+</div>
+
+<div class="scr" id="done" hidden>
+  <div class="card">
+    <div class="k" id="dnK">Level complete</div>
+    <h2 id="dnT">You made it!</h2>
+    <div class="stars" id="dnS">★★★</div>
+    <p id="dnD"></p>
+    <p class="dim" id="dnB"></p>
+    <div class="row"><button class="btn o big" id="nextBtn" type="button">Next ▶</button><button class="btn" id="againBtn" type="button">↺ Again</button><button class="btn" id="lvBtn" type="button">☰ Levels</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+var cv = document.getElementById('cv'), cx = cv.getContext('2d');
+var W = 0, H = 0, DPR = 1;
+function size() { DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; }
+addEventListener('resize', size); size();
+function $(id) { return document.getElementById(id); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function angDiff(a, b) { var d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; }
+var D2R = Math.PI / 180;
+
+// ------------------------------------------------------------------ sound (tiny synth, no files)
+var AC = null, muted = false;
+try { muted = localStorage.getItem('kaifun_cone_mute') === '1'; } catch (e) {}
+$('sndBtn').textContent = muted ? '🔇' : '🔊';
+$('sndBtn').onclick = function () { muted = !muted; $('sndBtn').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('kaifun_cone_mute', muted ? '1' : '0'); } catch (e) {} };
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (AC.state === 'suspended') AC.resume(); return AC; }
+function tone(f, d, type, vol, slide) {
+  if (muted) return; var a = ac(); if (!a) return; var t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(vol || 0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02);
+}
+function scrape() {
+  if (muted) return; var a = ac(); if (!a) return; var t = a.currentTime, n = Math.floor(a.sampleRate * 0.09), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+  for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  var s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = b; f.type = 'bandpass'; f.frequency.value = rnd(500, 900); f.Q.value = 1.2; g.gain.value = 0.07;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start(t);
+}
+var SFX = {
+  bonk: function () { tone(220, 0.18, 'square', 0.12, 90); tone(660, 0.08, 'triangle', 0.08); },
+  hm: function () { tone(330, 0.12, 'sine', 0.08, 360); },
+  caught: function () { tone(520, 0.12, 'square', 0.1); setTimeout(function () { tone(390, 0.12, 'square', 0.1); }, 120); setTimeout(function () { tone(260, 0.3, 'square', 0.1, 180); }, 240); },
+  win: function () { [523, 659, 784, 1046].forEach(function (f, i) { setTimeout(function () { tone(f, 0.18, 'triangle', 0.12); }, i * 110); }); },
+  woof: function () { tone(180, 0.09, 'sawtooth', 0.1, 120); setTimeout(function () { tone(170, 0.1, 'sawtooth', 0.1, 110); }, 140); }
+};
+
+// ------------------------------------------------------------------ levels
+// rect kinds: road, walk (pavement), grass2, water, bld (blocks moving and seeing), wall, bush (hides you), zone (the goal)
+// watchers: worker (stands and turns), ped (walks a path), cop, kid (sees you, nobody believes them), dog (barks so people look), cam (sweeps)
+function R(k, x, y, w, h, o) { var r = { k: k, x: x, y: y, w: w, h: h }; if (o) for (var p in o) r[p] = o[p]; return r; }
+function coneLine(x1, y1, x2, y2, n) { var a = []; for (var i = 0; i < n; i++) { var t = n === 1 ? 0 : i / (n - 1); a.push([x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]); } return a; }
+function coneBox(x, y, w, h, step) { var a = []; for (var i = x; i <= x + w; i += step) { a.push([i, y]); a.push([i, y + h]); } for (var j = y + step; j < y + h; j += step) { a.push([x, j]); a.push([x + w, j]); } return a; }
+var LEVELS = [
+  { name: 'The Roadworks', w: 1300, h: 800, par: 75,
+    intro: 'The workers are on a very long lunch break. Mostly. Get to the bus stop on the other side of the street.',
+    tips: [[0, 'Move when nobody is looking at you. The yellow areas are where people are looking.'], [9, 'Standing still in the yellow is fine. You are just a cone.'], [20, 'Next to other cones, people notice you less.']],
+    start: [150, 365],
+    rects: [R('walk', 0, 250, 1300, 50), R('road', 0, 300, 1300, 130, { lanes: 'h' }), R('walk', 0, 430, 1300, 50),
+      R('bld', 380, 500, 190, 220, { c: '#c9785a', name: 'BAKERY' }), R('bld', 600, 60, 210, 170, { c: '#7e9cc4', name: 'FLATS' }), R('bld', 120, 40, 200, 170, { c: '#b9a27a' }),
+      R('bld', 900, 510, 170, 210, { c: '#9a86b8', name: 'SHOP' }), R('bush', 610, 440, 80, 55), R('bush', 860, 238, 70, 50), R('bush', 1120, 470, 70, 60),
+      R('zone', 1190, 245, 100, 240, { label: 'BUS STOP' })],
+    cones: coneBox(80, 315, 170, 100, 34).concat(coneLine(470, 330, 470, 400, 3)),
+    watchers: [{ t: 'worker', x: 330, y: 232, turns: [90, 0, 200], hold: [2.5, 4] }, { t: 'worker', x: 700, y: 365, turns: [180, 270, 0, 90], hold: [2, 3.5] },
+      { t: 'worker', x: 1010, y: 460, turns: [270, 180, 300], hold: [2.5, 4] }] },
+  { name: 'Quiet Street', w: 1600, h: 880, par: 100,
+    intro: 'A sleepy street of houses. People walk their dogs and look at their phones. Get to the corner shop.',
+    tips: [[0, 'People on their phones 📱 cannot see anything.'], [10, 'Kids can see you. Nobody believes kids.'], [22, 'Dogs see all around them and bark, so everyone turns to look.']],
+    start: [50, 420],
+    rects: [R('walk', 0, 300, 1600, 60), R('road', 0, 360, 1600, 120, { lanes: 'h' }), R('walk', 0, 480, 1600, 60),
+      R('bld', 100, 70, 200, 190, { c: '#d98f6e', roof: 1 }), R('bld', 390, 90, 180, 170, { c: '#88b0d8', roof: 1 }), R('bld', 670, 70, 200, 190, { c: '#e0c26a', roof: 1 }), R('bld', 960, 90, 180, 170, { c: '#a3c98a', roof: 1 }), R('bld', 1230, 70, 200, 190, { c: '#d98fb4', roof: 1 }),
+      R('bld', 150, 590, 200, 190, { c: '#a3c98a', roof: 1 }), R('bld', 450, 600, 180, 170, { c: '#d98f6e', roof: 1 }), R('bld', 740, 590, 200, 190, { c: '#88b0d8', roof: 1 }), R('bld', 1050, 600, 180, 170, { c: '#e0c26a', roof: 1 }),
+      R('bush', 320, 190, 60, 90), R('bush', 600, 200, 60, 80), R('bush', 890, 190, 60, 90), R('bush', 1160, 200, 60, 80), R('bush', 380, 560, 60, 100), R('bush', 660, 560, 70, 90), R('bush', 960, 560, 70, 90),
+      R('zone', 1480, 300, 120, 240, { label: 'CORNER SHOP' })],
+    cones: coneLine(1300, 560, 1440, 560, 4),
+    watchers: [{ t: 'ped', x: 60, y: 330, path: [[60, 330], [1540, 330]], speed: 38, phone: 1 }, { t: 'ped', x: 1540, y: 510, path: [[1540, 510], [60, 510]], speed: 34 },
+      { t: 'kid', x: 700, y: 545, turns: [270, 180, 0], hold: [1.5, 3] }, { t: 'dog', x: 1100, y: 280, path: [[1100, 280], [1180, 520], [1300, 300]], speed: 30 },
+      { t: 'ped', x: 1260, y: 290, path: [[1260, 290], [1260, 520], [1360, 520], [1360, 290]], speed: 28 }] },
+  { name: 'Rush Hour', w: 1400, h: 1000, par: 90,
+    intro: 'A busy crossroads. Cars knock cones flying, and flying does not count as moving. Get to the car park at the top.',
+    tips: [[0, 'Get hit by a car to fly a long way. Pick the lane that throws you where you want to go.'], [12, 'The traffic warden turns slowly. Watch the yellow.']],
+    start: [40, 495],
+    rects: [R('walk', 0, 380, 1400, 40), R('road', 0, 420, 1400, 150, { lanes: 'h' }), R('walk', 0, 570, 1400, 40), R('walk', 580, 0, 40, 1000), R('road', 620, 0, 150, 1000, { lanes: 'v' }), R('walk', 770, 0, 40, 1000),
+      R('bld', 30, 30, 520, 320, { c: '#8aa0b8', name: 'OFFICES' }), R('bld', 840, 30, 530, 320, { c: '#c48a6a', name: 'HOTEL' }), R('bld', 30, 640, 520, 330, { c: '#b9a27a', name: 'BANK' }), R('bld', 840, 640, 530, 330, { c: '#9ab89a', name: 'MARKET' }),
+      R('zone', 620, 0, 150, 110, { label: 'CAR PARK' })],
+    cones: coneLine(860, 600, 1000, 600, 4),
+    cars: [{ a: [-60, 532], b: [1460, 532], gap: [2.2, 4], speed: 230 }, { a: [1460, 458], b: [-60, 458], gap: [2.5, 4.5], speed: 210 },
+      { a: [735, 1060], b: [735, -60], gap: [2.6, 4.2], speed: 220 }, { a: [655, -60], b: [655, 1060], gap: [3, 5], speed: 200 }],
+    watchers: [{ t: 'cop', x: 800, y: 395, turns: [180, 225, 270, 135, 90], hold: [2, 3.5], turnSpeed: 70 }, { t: 'ped', x: 20, y: 590, path: [[20, 590], [560, 590]], speed: 40 },
+      { t: 'ped', x: 600, y: 980, path: [[600, 980], [600, 20]], speed: 42, phone: 1 }, { t: 'worker', x: 300, y: 400, turns: [90, 0, 180], hold: [3, 5] }] },
+  { name: 'The Park', w: 1700, h: 1100, par: 120,
+    intro: 'Joggers, dogs, trees and a duck pond. Trees block the view. Get to the park gate in the top corner.',
+    tips: [[0, 'Trees and bushes are your friends.'], [14, 'Joggers are fast. Let them run past.']],
+    start: [70, 1040],
+    rects: [R('grass2', 0, 0, 1700, 1100), R('walk', 0, 980, 1700, 50), R('walk', 140, 0, 50, 1100), R('walk', 190, 150, 1510, 50), R('walk', 560, 330, 50, 500), R('walk', 560, 780, 620, 50), R('walk', 1130, 330, 50, 500), R('walk', 560, 330, 620, 50),
+      R('water', 680, 440, 380, 280), R('bush', 260, 860, 120, 70), R('bush', 380, 560, 90, 120), R('bush', 300, 300, 110, 70), R('bush', 820, 860, 140, 60), R('bush', 1250, 560, 90, 130), R('bush', 1300, 260, 120, 60), R('bush', 1500, 420, 90, 110), R('bush', 860, 240, 120, 55),
+      R('zone', 1580, 0, 120, 140, { label: 'GATE' })],
+    trees: [[300, 700], [460, 420], [470, 900], [700, 250], [1000, 900], [1260, 820], [1420, 640], [1420, 300], [1050, 260], [300, 120], [900, 70], [1240, 70], [380, 1060], [760, 1060]],
+    cones: [],
+    watchers: [{ t: 'ped', x: 585, y: 355, path: [[585, 355], [1155, 355], [1155, 805], [585, 805]], speed: 85, jog: 1 }, { t: 'dog', x: 330, y: 780, path: [[330, 780], [480, 640], [260, 560], [400, 800]], speed: 40 },
+      { t: 'ped', x: 760, y: 410, turns: [90, 60, 120], hold: [3, 6], phone: 1, bench: 1 }, { t: 'kid', x: 1000, y: 760, turns: [270, 0, 180], hold: [1.5, 3] },
+      { t: 'dog', x: 1350, y: 480, path: [[1350, 480], [1500, 700], [1300, 760]], speed: 45 }, { t: 'ped', x: 165, y: 1050, path: [[165, 1050], [165, 175], [1650, 175], [165, 175]], speed: 40 },
+      { t: 'worker', x: 1480, y: 175, turns: [180, 90, 270], hold: [2.5, 4], gardener: 1 }] },
+  { name: 'The Police Station', w: 1600, h: 1000, par: 120,
+    intro: 'Cameras. Police. A car park full of cones you can hide among. Sneak through to the exit.',
+    tips: [[0, 'Cameras sweep back and forth. Police notice faster.'], [12, 'The cones in the car park are great cover.']],
+    start: [60, 950],
+    rects: [R('walk', 0, 0, 1600, 1000, { c: '#9a9a96' }), R('bld', 520, 300, 560, 340, { c: '#4f6d9a', name: 'POLICE' }), R('wall', 0, 160, 380, 14), R('wall', 1240, 160, 360, 14), 
+      R('bush', 120, 420, 110, 80), R('bush', 1340, 440, 110, 80), R('bush', 260, 640, 80, 80), R('zone', 1480, 0, 120, 150, { label: 'EXIT' })],
+    cones: coneLine(420, 720, 1200, 720, 14).concat(coneLine(420, 860, 1200, 860, 14)).concat(coneLine(400, 240, 400, 560, 6)).concat(coneLine(1190, 240, 1190, 560, 6)),
+    cars: [{ a: [-60, 790], b: [1660, 790], gap: [5, 8], speed: 160, police: 1 }],
+    watchers: [{ t: 'cam', x: 520, y: 640, sweep: [100, 200], period: 7 }, { t: 'cam', x: 1080, y: 640, sweep: [-20, 80], period: 6 }, { t: 'cam', x: 800, y: 300, sweep: [200, 340], period: 8 },
+      { t: 'cop', x: 470, y: 260, path: [[470, 260], [1130, 260], [1130, 690], [470, 690]], speed: 36 }, { t: 'cop', x: 1300, y: 100, turns: [180, 90, 270], hold: [2, 3.5] },
+      { t: 'cop', x: 200, y: 100, path: [[200, 100], [200, 600], [60, 600], [60, 100]], speed: 30 }, { t: 'cop', x: 300, y: 800, turns: [0, 270, 200], hold: [2, 3.5] },
+      { t: 'cam', x: 520, y: 300, sweep: [180, 280], period: 7 }] },
+  { name: 'The Depot', w: 1500, h: 1100, par: 140,
+    intro: 'The cone depot, where all cones come from. Get to the Great Cone Pile and you are home.',
+    tips: [[0, 'Last level. Forklifts knock you around like cars.'], [12, 'Hide among the cone stacks.']],
+    start: [80, 1050],
+    rects: [R('walk', 0, 0, 1500, 1100, { c: '#b7aa94' }), R('bld', 40, 40, 300, 240, { c: '#8a6a4a', name: 'SHED' }), R('bld', 1160, 40, 300, 240, { c: '#8a6a4a', name: 'OFFICE' }), R('bld', 300, 520, 260, 160, { c: '#7c8a96', name: 'STORE' }), R('bld', 940, 520, 260, 160, { c: '#7c8a96', name: 'STORE' }),
+      R('wall', 600, 360, 300, 14), R('wall', 640, 820, 220, 14), R('bush', 1300, 760, 100, 120), R('bush', 100, 520, 100, 90), R('zone', 600, 70, 300, 190, { label: 'THE GREAT CONE PILE' })],
+    cones: coneBox(160, 760, 180, 140, 36).concat(coneBox(1000, 760, 180, 140, 36)).concat(coneLine(600, 420, 600, 690, 7)).concat(coneLine(900, 420, 900, 690, 7)).concat(coneBox(630, 95, 240, 140, 30)),
+    cars: [{ a: [-60, 330], b: [1560, 330], gap: [4, 6.5], speed: 150, fork: 1 }, { a: [1560, 728], b: [-60, 728], gap: [4.5, 7], speed: 140, fork: 1 }],
+    watchers: [{ t: 'worker', x: 450, y: 960, turns: [0, 270, 180], hold: [2, 3.5] }, { t: 'worker', x: 1100, y: 960, turns: [180, 270, 0], hold: [2, 3.5] }, { t: 'worker', x: 750, y: 600, turns: [90, 270, 0, 180], hold: [1.8, 3] },
+      { t: 'ped', x: 380, y: 430, path: [[380, 430], [1120, 430]], speed: 40, vest: 1 }, { t: 'cam', x: 750, y: 220, sweep: [45, 135], period: 6 }, { t: 'worker', x: 1300, y: 420, turns: [180, 90], hold: [3, 5] },
+      { t: 'dog', x: 200, y: 400, path: [[200, 400], [420, 330], [200, 300]], speed: 35 }, { t: 'worker', x: 480, y: 790, turns: [300, 0, 270], hold: [1.8, 3] },
+      { t: 'worker', x: 760, y: 285, turns: [180, 90, 0], hold: [2, 3.2] }] }
+];
+var KIND = { worker: { fov: 70, range: 240, rate: 1.5, turn: 90 }, ped: { fov: 80, range: 220, rate: 1.4, turn: 150 }, cop: { fov: 70, range: 300, rate: 2.2, turn: 120 },
+  kid: { fov: 100, range: 240, rate: 1.6, turn: 160 }, dog: { fov: 300, range: 130, rate: 2.5, turn: 220 }, cam: { fov: 50, range: 280, rate: 1.9, turn: 60 } };
+
+// ------------------------------------------------------------------ saved progress
+var save = { open: 1, best: {} };
+try { var sv = JSON.parse(localStorage.getItem('kaifun_cone') || 'null'); if (sv && sv.open) save = sv; } catch (e) {}
+function store() { try { localStorage.setItem('kaifun_cone', JSON.stringify(save)); } catch (e) {} }
+
+// ------------------------------------------------------------------ game state
+var L = null, li = 0, cone, watchers, cars, bubbles, state = 'menu', time = 0, caught = 0, tipI = 0, tipT = 0, catchT = 0, catcher = null, keys = {}, joy = null, cam = { x: 0, y: 0, s: 1 }, scrapeT = 0, carT = [];
+var blockers = [], botDir = null;
+function build(i) {
+  li = i; L = LEVELS[i];
+  cone = { x: L.start[0], y: L.start[1], vx: 0, vy: 0, kx: 0, ky: 0, face: 0, wob: 0, moving: false, hid: false, r: 11 };
+  blockers = L.rects.filter(function (r) { return r.k === 'bld' || r.k === 'wall'; }).concat((L.trees || []).map(function (t) { return { k: 'tree', x: t[0] - 16, y: t[1] - 16, w: 32, h: 32, tx: t[0], ty: t[1] }; }));
+  watchers = L.watchers.map(function (o) {
+    var k = KIND[o.t], w = { t: o.t, x: o.x, y: o.y, o: o, fov: k.fov * D2R, range: k.range, rate: k.rate, turnSpeed: (o.turnSpeed || k.turn) * D2R, sus: 0, pi: 1, pause: 0, phone: 0, phoneT: rnd(3, 7), look: null, lookT: 0, said: false, hm: false, seen: false, shirt: ['#3f7fd1', '#d14f4f', '#57a34a', '#9b59b6', '#e0a100', '#2a9d8f'][Math.floor(Math.random() * 6)], hair: ['#2b1d10', '#6b4423', '#e8c26a', '#111', '#a0522d'][Math.floor(Math.random() * 5)] };
+    if (o.turns) { w.dir = o.turns[0] * D2R; w.target = w.dir; w.holdT = rnd(o.hold[0], o.hold[1]); }
+    else if (o.sweep) { w.dir = o.sweep[0] * D2R; w.ph = Math.random() * 6; }
+    else if (o.path) { var p = o.path[1]; w.dir = Math.atan2(p[1] - o.y, p[0] - o.x); w.target = w.dir; w.pauseT = rnd(4, 8); }
+    else w.dir = 0;
+    return w;
+  });
+  cars = []; carT = (L.cars || []).map(function (c) { return rnd(0.2, c.gap[1]); });
+  bubbles = []; time = 0; caught = 0; tipI = 0; tipT = 0; catcher = null;
+  $('tip').classList.add('off');
+}
+
+// ------------------------------------------------------------------ geometry
+function rayRect(ox, oy, dx, dy, r) {
+  var t0 = 0, t1 = 1e9, p = [[-dx, ox - r.x], [dx, r.x + r.w - ox], [-dy, oy - r.y], [dy, r.y + r.h - oy]];
+  for (var i = 0; i < 4; i++) { var pp = p[i][0], q = p[i][1]; if (pp === 0) { if (q < 0) return 1e9; } else { var t = q / pp; if (pp < 0) { if (t > t1) return 1e9; if (t > t0) t0 = t; } else { if (t < t0) return 1e9; if (t < t1) t1 = t; } } }
+  return t0 > 0 ? t0 : 1e9;
+}
+function castLen(ox, oy, a, max) {
+  var dx = Math.cos(a), dy = Math.sin(a), best = max;
+  for (var i = 0; i < blockers.length; i++) { var t = rayRect(ox, oy, dx, dy, blockers[i]); if (t < best) best = t; }
+  return best;
+}
+function inRect(x, y, r, pad) { pad = pad || 0; return x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad; }
+function canSee(w, x, y) {
+  if (w.phone > 0) return false;
+  var dx = x - w.x, dy = y - w.y, d = Math.hypot(dx, dy);
+  if (d > w.range + cone.r) return false;
+  if (w.fov < Math.PI * 1.9 && Math.abs(angDiff(w.dir, Math.atan2(dy, dx))) > w.fov / 2 + 0.05) return false;
+  if (cone.hid) return false;
+  return castLen(w.x, w.y, Math.atan2(dy, dx), d) >= d - 2;
+}
+function disguised() { var n = 0; for (var i = 0; i < L.cones.length; i++) if (Math.hypot(L.cones[i][0] - cone.x, L.cones[i][1] - cone.y) < 46) n++; return n >= 2; }
+function collide(o) {
+  for (var i = 0; i < L.rects.length + blockers.length; i++) {
+    var r = i < L.rects.length ? L.rects[i] : blockers[i - L.rects.length];
+    if (r.k !== 'bld' && r.k !== 'wall' && r.k !== 'water' && r.k !== 'tree') continue;
+    var nx = clamp(o.x, r.x, r.x + r.w), ny = clamp(o.y, r.y, r.y + r.h), dx = o.x - nx, dy = o.y - ny, d = Math.hypot(dx, dy);
+    if (d < o.r) {
+      if (d === 0) { var l = o.x - r.x, rr = r.x + r.w - o.x, t = o.y - r.y, b = r.y + r.h - o.y, m = Math.min(l, rr, t, b); if (m === l) o.x = r.x - o.r; else if (m === rr) o.x = r.x + r.w + o.r; else if (m === t) o.y = r.y - o.r; else o.y = r.y + r.h + o.r; o.kx = 0; o.ky = 0; continue; }
+      o.x = nx + dx / d * o.r; o.y = ny + dy / d * o.r;
+      if (Math.abs(dx) > Math.abs(dy)) o.kx *= -0.4; else o.ky *= -0.4;
+    }
+  }
+  o.x = clamp(o.x, o.r, L.w - o.r); o.y = clamp(o.y, o.r, L.h - o.r);
+}
+function say(w, text, dur) { bubbles = bubbles.filter(function (b) { return b.w !== w; }); bubbles.push({ w: w, text: text, t: dur || 2 }); }
+
+// ------------------------------------------------------------------ input
+addEventListener('keydown', function (e) {
+  var k = e.key.toLowerCase(); keys[k] = true;
+  if (/^arrow/.test(k) || k === ' ') e.preventDefault();
+  if (k === 'escape' || k === 'p') { if (state === 'play') pauseGame(); else if (state === 'paused') resume(); }
+  if (k === 'r' && state === 'play') { build(li); startPlay(); }
+  if (k === 'enter') { if (!$('intro').hidden) $('goBtn').click(); else if (!$('done').hidden) $('nextBtn').click(); }
+});
+addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', function () { keys = {}; joy = null; });
+cv.addEventListener('pointerdown', function (e) { if (state !== 'play') return; ac(); joy = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0 }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', function (e) { if (joy && e.pointerId === joy.id) { joy.dx = e.clientX - joy.x; joy.dy = e.clientY - joy.y; } });
+function endJoy(e) { if (joy && e.pointerId === joy.id) joy = null; }
+cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
+function inputDir() {
+  var x = 0, y = 0;
+  if (keys.arrowleft || keys.a) x -= 1; if (keys.arrowright || keys.d) x += 1; if (keys.arrowup || keys.w) y -= 1; if (keys.arrowdown || keys.s) y += 1;
+  if (joy) { var m = Math.hypot(joy.dx, joy.dy); if (m > 12) { x = joy.dx / m; y = joy.dy / m; } }
+  if (botDir) { x = botDir[0]; y = botDir[1]; }
+  var n = Math.hypot(x, y); return n ? [x / n, y / n] : [0, 0];
+}
+
+// ------------------------------------------------------------------ update
+var SPEED = 56;
+function update(dt) {
+  time += dt;
+  // tips
+  if (L.tips && tipI < L.tips.length && time >= L.tips[tipI][0]) { $('tip').textContent = L.tips[tipI][1]; $('tip').classList.remove('off'); tipT = 6; tipI++; }
+  if (tipT > 0) { tipT -= dt; if (tipT <= 0) $('tip').classList.add('off'); }
+  // cars and forklifts
+  (L.cars || []).forEach(function (c, i) {
+    carT[i] -= dt;
+    if (carT[i] <= 0) { carT[i] = rnd(c.gap[0], c.gap[1]); var dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], d = Math.hypot(dx, dy); cars.push({ x: c.a[0], y: c.a[1], ux: dx / d, uy: dy / d, sp: c.speed * rnd(0.9, 1.1), left: d, c: c.police ? '#22324f' : c.fork ? '#f2b705' : ['#d64545', '#3a78c9', '#f0f0f0', '#2f9e5b', '#7a52b3', '#222'][Math.floor(Math.random() * 6)], fork: c.fork, police: c.police }); }
+  });
+  cars = cars.filter(function (c) { var s = c.sp * dt; c.x += c.ux * s; c.y += c.uy * s; c.left -= s; return c.left > 0; });
+  if (state === 'caught') {
+    catchT -= dt;
+    if (catchT <= 0) { var cp = L.start; cone.x = cp[0]; cone.y = cp[1]; cone.kx = cone.ky = 0; watchers.forEach(function (w) { w.sus = 0; w.hm = false; }); state = 'play'; catcher = null; }
+    stepWatchers(dt); return;
+  }
+  // moving the cone
+  var d = inputDir(), was = { x: cone.x, y: cone.y };
+  cone.x += d[0] * SPEED * dt; cone.y += d[1] * SPEED * dt;
+  if (d[0] || d[1]) cone.face = Math.atan2(d[1], d[0]);
+  collide(cone);
+  var moved = Math.hypot(cone.x - was.x, cone.y - was.y) > SPEED * dt * 0.25;
+  cone.moving = moved;
+  if (moved) { cone.wob += dt * 18; scrapeT -= dt; if (scrapeT <= 0) { scrape(); scrapeT = 0.22; } } else cone.wob *= 0.85;
+  // knocked by a car: sliding doesn't count as moving
+  if (cone.kx || cone.ky) { cone.x += cone.kx * dt; cone.y += cone.ky * dt; var f = Math.pow(0.12, dt); cone.kx *= f; cone.ky *= f; if (Math.hypot(cone.kx, cone.ky) < 8) cone.kx = cone.ky = 0; cone.spin = (cone.spin || 0) + dt * 14; collide(cone); }
+  cars.forEach(function (c) {
+    var hw = c.fork ? 22 : 26, hh = c.fork ? 16 : 14, ax = Math.abs(c.ux) > 0.5 ? hw : hh, ay = Math.abs(c.ux) > 0.5 ? hh : hw;
+    if (Math.abs(cone.x - c.x) < ax + cone.r && Math.abs(cone.y - c.y) < ay + cone.r && !c.hit) {
+      c.hit = true; var side = (Math.abs(c.ux) > 0.5 ? Math.sign(cone.y - c.y) : Math.sign(cone.x - c.x)) || 1, push = c.sp * 1.7;
+      cone.kx = c.ux * push + (Math.abs(c.ux) > 0.5 ? 0 : side * 60); cone.ky = c.uy * push + (Math.abs(c.ux) > 0.5 ? side * 60 : 0); SFX.bonk();
+      bubbles.push({ x: cone.x, y: cone.y - 20, text: 'BONK!', t: 0.9 });
+    }
+  });
+  cone.hid = L.rects.some(function (r) { return r.k === 'bush' && inRect(cone.x, cone.y, r, -4); });
+  // goal
+  var goal = L.rects.filter(function (r) { return r.k === 'zone'; })[0];
+  if (goal && inRect(cone.x, cone.y, goal)) { win(); return; }
+  stepWatchers(dt);
+  // suspicion
+  var dis = disguised(), anySee = false, top = 0;
+  watchers.forEach(function (w) {
+    w.seen = canSee(w, cone.x, cone.y);
+    if (w.seen && w.t !== 'dog') anySee = true;
+    if (w.seen && cone.moving) {
+      var dist = Math.hypot(cone.x - w.x, cone.y - w.y), near = 1.4 - 0.8 * clamp(dist / w.range, 0, 1);
+      w.sus += w.rate * near * (dis ? 0.35 : 1) * dt;
+      if (w.t === 'dog' && !w.barkT) { w.barkT = 2.2; say(w, 'WOOF! WOOF!', 1.6); SFX.woof(); watchers.forEach(function (h) { if (h !== w && h.t !== 'cam' && h.t !== 'dog' && Math.hypot(h.x - w.x, h.y - w.y) < 320) { h.look = Math.atan2(cone.y - h.y, cone.x - h.x); h.lookT = 2.2; h.phone = 0; } }); }
+      if (!w.hm && w.sus > 0.45 && w.t !== 'dog' && w.t !== 'cam') { w.hm = true; say(w, w.t === 'kid' ? '👀 ...' : ['Hm?', 'Huh?', 'Wait...', '...was that cone there before?'][Math.floor(Math.random() * 4)], 1.6); SFX.hm(); }
+    } else w.sus = Math.max(0, w.sus - 0.16 * dt);
+    if (w.barkT) { w.barkT -= dt; if (w.barkT <= 0) w.barkT = 0; }
+    if (w.t === 'dog') w.sus = Math.min(w.sus, 0.9);
+    if (w.sus >= 1) {
+      if (w.t === 'kid') {
+        w.sus = 0; w.hm = false; say(w, 'MOM! THE CONE MOVED!', 2.2);
+        var adult = watchers.filter(function (h) { return h.t === 'ped' || h.t === 'worker' || h.t === 'cop'; })[0];
+        if (adult) setTimeout(function () { if (state === 'play') say(adult, ['Cones don\'t move, sweetie.', 'Sure it did, buddy.', 'Nice try, kid.'][Math.floor(Math.random() * 3)], 2.2); }, 1300);
+      } else { catchMe(w); }
+    }
+    if (w.t !== 'kid' && w.t !== 'dog') top = Math.max(top, w.sus);
+  });
+  var lk = $('look');
+  if (top > 0.45) { lk.className = 'danger'; lk.textContent = '❗ They saw something!'; }
+  else if (anySee) { lk.className = 'seen'; lk.textContent = cone.moving ? '👀 Someone is looking! Freeze!' : '👀 Someone is looking. Freeze.'; }
+  else { lk.className = ''; lk.textContent = cone.hid ? '🌳 Hidden in a bush' : dis ? '🚧 Blending in with the cones' : '✓ Nobody\'s looking'; }
+  $('stats').textContent = L.name + '  ·  ' + fmt(time) + '  ·  caught ' + caught + '×';
+}
+function stepWatchers(dt) {
+  bubbles.forEach(function (b) { b.t -= dt; }); bubbles = bubbles.filter(function (b) { return b.t > 0; });
+  watchers.forEach(function (w) {
+    var o = w.o;
+    if (w === catcher) return;
+    if (o.phone && w.t !== 'cam') { w.phoneT -= dt; if (w.phoneT <= 0) { if (w.phone > 0) { w.phone = 0; w.phoneT = rnd(4, 8); } else { w.phone = 1; w.phoneT = rnd(2.5, 4.5); } } }
+    if (w.lookT > 0) { w.lookT -= dt; turnTo(w, w.look, dt * 1.5); return; }
+    if (o.sweep) { w.ph += dt * Math.PI * 2 / o.period; var a = o.sweep[0] * D2R, b = o.sweep[1] * D2R; w.dir = a + (b - a) * (0.5 - 0.5 * Math.cos(w.ph)); return; }
+    if (o.turns) { if (Math.abs(angDiff(w.dir, w.target)) < 0.02) { w.holdT -= dt; if (w.holdT <= 0) { var nt; do { nt = o.turns[Math.floor(Math.random() * o.turns.length)] * D2R; } while (o.turns.length > 1 && Math.abs(angDiff(nt, w.target)) < 0.01); w.target = nt; w.holdT = rnd(o.hold[0], o.hold[1]); } } turnTo(w, w.target, dt); return; }
+    if (o.path) {
+      if (w.pause > 0) { w.pause -= dt; w.lookPh = (w.lookPh || 0) + dt * 1.6; w.dir = w.target + Math.sin(w.lookPh) * 1.1; return; }
+      var p = o.path[w.pi], dx = p[0] - w.x, dy = p[1] - w.y, d = Math.hypot(dx, dy), s = o.speed * dt;
+      if (d <= s) { w.x = p[0]; w.y = p[1]; w.pi = (w.pi + 1) % o.path.length; } else { w.x += dx / d * s; w.y += dy / d * s; w.target = Math.atan2(dy, dx); }
+      turnTo(w, w.target, dt);
+      if (!o.jog) { w.pauseT -= dt; if (w.pauseT <= 0) { w.pauseT = rnd(5, 9); w.pause = rnd(1.5, 3); w.lookPh = 0; } }
+    }
+  });
+}
+function turnTo(w, a, dt) { var d = angDiff(w.dir, a), m = w.turnSpeed * dt; w.dir += Math.abs(d) <= m ? d : Math.sign(d) * m; }
+function catchMe(w) {
+  state = 'caught'; catchT = 2.2; caught++; catcher = w; w.sus = 0;
+  say(w, w.t === 'cam' ? '📷 *BEEP* MOVING CONE DETECTED' : ['That cone MOVED.', 'Hey! Cones don\'t walk!', 'Who keeps moving this cone?!', 'I SAW that.'][Math.floor(Math.random() * 4)], 2.2);
+  SFX.caught(); keys = {}; joy = null;
+  var lk = $('look'); lk.className = 'danger'; lk.textContent = '🚨 CAUGHT! Back to the start...';
+}
+function fmt(t) { var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
+
+// ------------------------------------------------------------------ drawing
+function drawCone(x, y, r, opt) {
+  opt = opt || {};
+  cx.save(); cx.translate(x, y);
+  if (opt.rot) cx.rotate(opt.rot);
+  cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath(); cx.ellipse(3, 4, r * 1.25, r * 1.1, 0, 0, 7); cx.fill();
+  cx.fillStyle = '#2b2b2b'; cx.fillRect(-r * 1.25, -r * 1.25, r * 2.5, r * 2.5);
+  cx.fillStyle = '#ff7a1a'; cx.beginPath(); cx.arc(0, 0, r, 0, 7); cx.fill();
+  cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(0, 0, r * 0.68, 0, 7); cx.fill();
+  cx.fillStyle = '#ff7a1a'; cx.beginPath(); cx.arc(0, 0, r * 0.45, 0, 7); cx.fill();
+  cx.fillStyle = '#c9500c'; cx.beginPath(); cx.arc(0, 0, r * 0.2, 0, 7); cx.fill();
+  cx.restore();
+  if (opt.eyes) {
+    var ex = Math.cos(opt.face) * 2.2, ey = Math.sin(opt.face) * 2.2;
+    [-1, 1].forEach(function (s) {
+      var px = x + s * r * 0.55, py = y - r * 0.95;
+      cx.fillStyle = '#fff'; cx.strokeStyle = '#22180f'; cx.lineWidth = 1.4; cx.beginPath(); cx.arc(px, py, 4.2, 0, 7); cx.fill(); cx.stroke();
+      if (opt.closed) { cx.beginPath(); cx.moveTo(px - 3, py); cx.lineTo(px + 3, py); cx.stroke(); }
+      else { cx.fillStyle = '#22180f'; cx.beginPath(); cx.arc(px + ex, py + ey, 2, 0, 7); cx.fill(); }
+    });
+  }
+}
+function person(w) {
+  var x = w.x, y = w.y, a = w.dir, t = w.t;
+  cx.save(); cx.translate(x, y);
+  cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(3, 4, 15, 12, 0, 0, 7); cx.fill();
+  if (t === 'cam') {
+    cx.rotate(a); cx.fillStyle = '#3a3a3a'; cx.fillRect(-8, -7, 22, 14); cx.fillStyle = '#111'; cx.fillRect(12, -5, 6, 10); cx.fillStyle = (time % 1 < 0.5) ? '#ff3030' : '#661010'; cx.beginPath(); cx.arc(-3, 0, 2.5, 0, 7); cx.fill();
+    cx.restore(); return;
+  }
+  if (t === 'dog') {
+    cx.rotate(a); cx.fillStyle = '#a0703c'; cx.beginPath(); cx.ellipse(-2, 0, 13, 8, 0, 0, 7); cx.fill(); cx.beginPath(); cx.arc(12, 0, 7, 0, 7); cx.fill();
+    cx.fillStyle = '#6b4423'; cx.beginPath(); cx.ellipse(11, -6, 3, 5, 0.4, 0, 7); cx.fill(); cx.beginPath(); cx.ellipse(11, 6, 3, 5, -0.4, 0, 7); cx.fill();
+    cx.fillStyle = '#22180f'; cx.beginPath(); cx.arc(19, 0, 2, 0, 7); cx.fill(); cx.strokeStyle = '#a0703c'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(-14, 0); cx.lineTo(-20, Math.sin(time * 18) * 5); cx.stroke();
+    cx.restore(); return;
+  }
+  var sc = t === 'kid' ? 0.72 : 1; cx.scale(sc, sc); cx.rotate(a);
+  var body = t === 'worker' || w.o.vest ? '#ff8c1a' : t === 'cop' ? '#23345c' : w.o.jog ? '#e8435a' : w.o.gardener ? '#4c8a3c' : w.shirt;
+  cx.fillStyle = body; cx.strokeStyle = '#22180f'; cx.lineWidth = 2; cx.beginPath(); cx.ellipse(0, 0, 9, 15, 0, 0, 7); cx.fill(); cx.stroke();
+  if (t === 'worker' || w.o.vest) { cx.strokeStyle = '#fff3a0'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(-3, -13); cx.lineTo(-3, 13); cx.moveTo(3, -13); cx.lineTo(3, 13); cx.stroke(); }
+  var head = t === 'worker' ? '#ffd400' : t === 'cop' ? '#1a2540' : w.hair;
+  cx.fillStyle = '#f1c7a0'; cx.beginPath(); cx.arc(4, 0, 7.5, 0, 7); cx.fill();
+  cx.fillStyle = head; cx.beginPath(); cx.arc(1.5, 0, 8, Math.PI * 0.5, Math.PI * 1.5); cx.fill(); cx.beginPath(); cx.arc(2, 0, 8, 0, 7); cx.globalAlpha = t === 'worker' || t === 'cop' ? 1 : 0; cx.fill(); cx.globalAlpha = 1;
+  if (t === 'cop') { cx.fillStyle = '#ffd400'; cx.fillRect(4, -2, 4, 4); }
+  cx.fillStyle = '#e0a878'; cx.beginPath(); cx.arc(11, 0, 2.2, 0, 7); cx.fill();
+  if (w.phone > 0) { cx.fillStyle = '#222'; cx.fillRect(14, -5, 4, 10); cx.fillStyle = '#7fd4ff'; cx.fillRect(14.5, -4, 3, 8); }
+  cx.restore();
+}
+function visionPoly(w) {
+  var n = Math.max(10, Math.round(w.fov / D2R / 4)), pts = [[w.x, w.y]];
+  for (var i = 0; i <= n; i++) { var a = w.dir - w.fov / 2 + w.fov * i / n, d = castLen(w.x, w.y, a, w.range); pts.push([w.x + Math.cos(a) * d, w.y + Math.sin(a) * d]); }
+  return pts;
+}
+function roundRect(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
+function draw() {
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cx.fillStyle = '#3d6b35'; cx.fillRect(0, 0, W, H);
+  if (!L) return;
+  // camera
+  cam.s = clamp(Math.max(Math.min(W / 900, H / 620), Math.min(W, H) / 520), 0.55, 1.7);   // phones zoom in a bit
+  if (location.hash === '#map') cam.s = Math.min(W / L.w, H / L.h);   // whole level, for checking the layout
+  var vw = W / cam.s, vh = H / cam.s;
+  var px = 50 / cam.s, pt = 84 / cam.s, pb = 70 / cam.s;   // room for the buttons at the top and the tips at the bottom
+  var tx = L.w + px * 2 <= vw ? L.w / 2 : clamp(cone.x, vw / 2 - px, L.w - vw / 2 + px), ty = L.h + pt + pb <= vh ? L.h / 2 + (pb - pt) / 2 : clamp(cone.y, vh / 2 - pt, L.h - vh / 2 + pb);
+  cam.x += (tx - cam.x) * 0.12; cam.y += (ty - cam.y) * 0.12;
+  if (state === 'snap') { cam.x = tx; cam.y = ty; }
+  cx.setTransform(DPR * cam.s, 0, 0, DPR * cam.s, DPR * (W / 2 - cam.x * cam.s), DPR * (H / 2 - cam.y * cam.s));
+  // ground
+  cx.fillStyle = '#7cc05a'; cx.fillRect(0, 0, L.w, L.h);
+  cx.fillStyle = 'rgba(255,255,255,.06)'; for (var gx = 0; gx < L.w; gx += 60) for (var gy = (gx / 60 % 2) * 30; gy < L.h; gy += 60) cx.fillRect(gx + 12, gy + 10, 3, 6);
+  L.rects.forEach(function (r) {
+    if (r.k === 'grass2') { cx.fillStyle = '#86c962'; cx.fillRect(r.x, r.y, r.w, r.h); }
+    else if (r.k === 'walk') { cx.fillStyle = r.c || '#d8d2c4'; cx.fillRect(r.x, r.y, r.w, r.h); if (!r.c) { cx.strokeStyle = 'rgba(0,0,0,.08)'; cx.lineWidth = 1; for (var i = r.x; i < r.x + r.w; i += 40) { cx.beginPath(); cx.moveTo(i, r.y); cx.lineTo(i, r.y + r.h); cx.stroke(); } } }
+    else if (r.k === 'road') {
+      cx.fillStyle = '#5a6068'; cx.fillRect(r.x, r.y, r.w, r.h); cx.strokeStyle = '#f5d24a'; cx.lineWidth = 3; cx.setLineDash([22, 18]); cx.beginPath();
+      if (r.lanes === 'v') { cx.moveTo(r.x + r.w / 2, r.y); cx.lineTo(r.x + r.w / 2, r.y + r.h); } else { cx.moveTo(r.x, r.y + r.h / 2); cx.lineTo(r.x + r.w, r.y + r.h / 2); }
+      cx.stroke(); cx.setLineDash([]);
+    }
+    else if (r.k === 'water') { cx.fillStyle = '#4aa3d8'; roundRect(r.x, r.y, r.w, r.h, 60); cx.fill(); cx.strokeStyle = '#2f7fb0'; cx.lineWidth = 4; cx.stroke(); cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 2; for (var k = 0; k < 6; k++) { var wx = r.x + 60 + (k * 97) % (r.w - 120), wy = r.y + 50 + (k * 61) % (r.h - 100); cx.beginPath(); cx.arc(wx, wy + Math.sin(time * 2 + k) * 2, 10, Math.PI * 1.1, Math.PI * 1.9); cx.stroke(); } cx.font = '22px serif'; cx.fillText('🦆', r.x + r.w * 0.5 + Math.sin(time * 0.4) * 80, r.y + r.h * 0.45); }
+    else if (r.k === 'zone') { var p = 0.5 + 0.5 * Math.sin(time * 4); cx.fillStyle = 'rgba(255,214,0,' + (0.18 + p * 0.14) + ')'; cx.fillRect(r.x, r.y, r.w, r.h); cx.strokeStyle = '#ffd400'; cx.lineWidth = 4; cx.setLineDash([12, 8]); cx.strokeRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4); cx.setLineDash([]);
+      cx.fillStyle = '#22180f'; cx.font = '900 ' + Math.min(16, Math.floor((r.w - 10) / ((r.label.length + 3) * 0.62))) + 'px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillText('🏁 ' + r.label, r.x + r.w / 2, r.y + r.h / 2 + 5); cx.textAlign = 'left'; }
+  });
+  // vision
+  watchers.forEach(function (w) {
+    if (w.phone > 0) return;
+    var pts = visionPoly(w); cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) cx.lineTo(pts[i][0], pts[i][1]); cx.closePath();
+    var hot = w.seen && cone.moving && state === 'play';
+    cx.fillStyle = w.t === 'kid' ? 'rgba(170,220,255,.22)' : w.t === 'dog' ? 'rgba(255,200,120,.14)' : hot ? 'rgba(255,90,60,.32)' : 'rgba(255,236,90,.27)'; cx.fill();
+    cx.strokeStyle = hot ? 'rgba(255,60,40,.6)' : 'rgba(230,190,0,.45)'; cx.lineWidth = 1.5; cx.stroke();
+  });
+  // decorative cones
+  L.cones.forEach(function (c) { drawCone(c[0], c[1], 10); });
+  // walls and buildings
+  L.rects.forEach(function (r) {
+    if (r.k === 'wall') { cx.fillStyle = '#7d7d7d'; cx.fillRect(r.x, r.y, r.w, r.h); cx.fillStyle = 'rgba(255,255,255,.25)'; cx.fillRect(r.x, r.y, r.w, 3); }
+    if (r.k === 'bld') {
+      cx.fillStyle = 'rgba(0,0,0,.22)'; cx.fillRect(r.x + 8, r.y + 10, r.w, r.h);
+      cx.fillStyle = r.c; cx.fillRect(r.x, r.y, r.w, r.h); cx.strokeStyle = '#22180f'; cx.lineWidth = 3; cx.strokeRect(r.x, r.y, r.w, r.h);
+      if (r.roof) { cx.strokeStyle = 'rgba(0,0,0,.25)'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(r.x, r.y); cx.lineTo(r.x + r.w / 2, r.y + r.h / 2); cx.lineTo(r.x + r.w, r.y); cx.moveTo(r.x, r.y + r.h); cx.lineTo(r.x + r.w / 2, r.y + r.h / 2); cx.lineTo(r.x + r.w, r.y + r.h); cx.stroke(); cx.fillStyle = '#8a4a3a'; cx.fillRect(r.x + r.w * 0.7, r.y + r.h * 0.18, 18, 18); }
+      else { cx.fillStyle = 'rgba(255,255,255,.18)'; for (var i = r.x + 18; i < r.x + r.w - 20; i += 46) for (var j = r.y + 18; j < r.y + r.h - 20; j += 46) cx.fillRect(i, j, 24, 24); }
+      if (r.name) { cx.font = '400 ' + Math.min(26, r.w / r.name.length * 1.3) + 'px "Bowlby One", Impact, sans-serif'; cx.textAlign = 'center'; cx.fillStyle = 'rgba(255,255,255,.9)'; cx.strokeStyle = '#22180f'; cx.lineWidth = 4; cx.strokeText(r.name, r.x + r.w / 2, r.y + r.h / 2 + 9); cx.fillText(r.name, r.x + r.w / 2, r.y + r.h / 2 + 9); cx.textAlign = 'left'; }
+    }
+  });
+  // cars
+  cars.forEach(function (c) {
+    cx.save(); cx.translate(c.x, c.y); cx.rotate(Math.atan2(c.uy, c.ux));
+    cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(-24, -11, 52, 28);
+    if (c.fork) { cx.fillStyle = c.c; roundRect(-22, -16, 34, 32, 5); cx.fill(); cx.strokeStyle = '#22180f'; cx.lineWidth = 2; cx.stroke(); cx.fillStyle = '#333'; cx.fillRect(12, -12, 14, 4); cx.fillRect(12, 8, 14, 4); cx.fillStyle = '#22180f'; cx.fillRect(-14, -9, 14, 18); }
+    else { cx.fillStyle = c.c; roundRect(-26, -14, 52, 28, 8); cx.fill(); cx.strokeStyle = '#22180f'; cx.lineWidth = 2; cx.stroke(); cx.fillStyle = 'rgba(160,210,240,.9)'; cx.fillRect(4, -11, 10, 22); cx.fillRect(-18, -10, 7, 20);
+      if (c.police) { cx.fillStyle = (time * 4 % 2 < 1) ? '#ff3030' : '#3060ff'; cx.fillRect(-6, -9, 6, 18); } }
+    cx.restore();
+  });
+  // the player
+  var seenNow = watchers.some(function (w) { return w.seen && w.t !== 'dog'; });
+  if (!cone.hid) drawCone(cone.x, cone.y, cone.r, { eyes: true, face: cone.face, closed: seenNow && !cone.moving && state === 'play', rot: (cone.kx || cone.ky ? cone.spin : Math.sin(cone.wob) * 0.12) });
+  // people
+  watchers.forEach(person);
+  // trees and bushes on top
+  (L.trees || []).forEach(function (t) { cx.fillStyle = 'rgba(0,0,0,.2)'; cx.beginPath(); cx.arc(t[0] + 6, t[1] + 8, 34, 0, 7); cx.fill(); cx.fillStyle = '#2f7d3a'; cx.beginPath(); cx.arc(t[0], t[1], 34, 0, 7); cx.fill(); cx.fillStyle = '#3f9a48'; cx.beginPath(); cx.arc(t[0] - 8, t[1] - 8, 20, 0, 7); cx.fill(); });
+  L.rects.forEach(function (r) {
+    if (r.k !== 'bush') return;
+    var inside = cone.hid && inRect(cone.x, cone.y, r, -4);
+    cx.fillStyle = inside ? 'rgba(46,125,58,.72)' : '#2e7d3a'; roundRect(r.x, r.y, r.w, r.h, 22); cx.fill();
+    cx.fillStyle = inside ? 'rgba(70,160,80,.6)' : '#46a050'; for (var i = 0; i < 4; i++) { cx.beginPath(); cx.arc(r.x + r.w * (0.22 + i * 0.19), r.y + r.h * (0.35 + (i % 2) * 0.3), Math.min(r.w, r.h) * 0.24, 0, 7); cx.fill(); }
+    if (inside) { cx.globalAlpha = 0.85; drawCone(cone.x, cone.y, cone.r, { eyes: true, face: cone.face }); cx.globalAlpha = 1; }
+  });
+  // suspicion marks and speech
+  watchers.forEach(function (w) {
+    if (w.sus > 0.04 && w.t !== 'dog') {
+      var bx = w.x, by = w.y - 34; cx.fillStyle = '#fff'; cx.strokeStyle = '#22180f'; cx.lineWidth = 2.5; cx.beginPath(); cx.arc(bx, by, 12, 0, 7); cx.fill(); cx.stroke();
+      cx.fillStyle = w.t === 'kid' ? '#5ab0ff' : '#ff5a3c'; cx.beginPath(); cx.moveTo(bx, by); cx.arc(bx, by, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, w.sus)); cx.closePath(); cx.fill();
+      cx.fillStyle = '#22180f'; cx.font = '900 15px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillText(w.sus > 0.7 ? '!' : '?', bx, by + 5); cx.textAlign = 'left';
+    }
+    if (w.phone > 0 && w.t !== 'cam') { cx.font = '15px serif'; cx.fillText('📱', w.x + 10, w.y - 18); }
+  });
+  bubbles.forEach(function (b) {
+    var x = b.w ? b.w.x : b.x, y = (b.w ? b.w.y : b.y) - 56;
+    cx.font = '900 15px Nunito, sans-serif'; var tw = cx.measureText(b.text).width + 20;
+    cx.globalAlpha = Math.min(1, b.t * 3); cx.fillStyle = '#fff'; cx.strokeStyle = '#22180f'; cx.lineWidth = 2.5; roundRect(x - tw / 2, y - 16, tw, 28, 10); cx.fill(); cx.stroke();
+    cx.beginPath(); cx.moveTo(x - 6, y + 12); cx.lineTo(x, y + 22); cx.lineTo(x + 6, y + 12); cx.fill();
+    cx.fillStyle = '#22180f'; cx.textAlign = 'center'; cx.fillText(b.text, x, y + 4); cx.textAlign = 'left'; cx.globalAlpha = 1;
+  });
+  // where the goal is, when it's off screen
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var goal = L.rects.filter(function (r) { return r.k === 'zone'; })[0];
+  if (goal) {
+    var gx2 = (goal.x + goal.w / 2 - cam.x) * cam.s + W / 2, gy2 = (goal.y + goal.h / 2 - cam.y) * cam.s + H / 2;
+    if (gx2 < 0 || gx2 > W || gy2 < 0 || gy2 > H) {
+      var ang = Math.atan2(gy2 - H / 2, gx2 - W / 2), ex = clamp(gx2, 40, W - 40), ey = clamp(gy2, 90, H - 70);
+      cx.save(); cx.translate(ex, ey); cx.rotate(ang); cx.fillStyle = '#ffd400'; cx.strokeStyle = '#22180f'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(18, 0); cx.lineTo(-10, -13); cx.lineTo(-4, 0); cx.lineTo(-10, 13); cx.closePath(); cx.fill(); cx.stroke(); cx.restore();
+    }
+  }
+  if (joy) { var m = Math.min(50, Math.hypot(joy.dx, joy.dy)), a2 = Math.atan2(joy.dy, joy.dx); cx.strokeStyle = 'rgba(255,255,255,.7)'; cx.lineWidth = 3; cx.beginPath(); cx.arc(joy.x, joy.y, 50, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(255,255,255,.6)'; cx.beginPath(); cx.arc(joy.x + Math.cos(a2) * m, joy.y + Math.sin(a2) * m, 20, 0, 7); cx.fill(); }
+  if (state === 'caught') { cx.fillStyle = 'rgba(255,60,40,' + (0.18 * Math.min(1, catchT)) + ')'; cx.fillRect(0, 0, W, H); }
+}
+
+// ------------------------------------------------------------------ screens
+function show(id) { ['menu', 'intro', 'pause', 'done'].forEach(function (s) { $(s).hidden = s !== id; }); }
+function menu() {
+  state = 'menu'; $('hud').hidden = true; $('pauseBtn').hidden = true; $('tip').classList.add('off');
+  var g = $('lvGrid'); g.innerHTML = '';
+  LEVELS.forEach(function (lv, i) {
+    var b = document.createElement('button'), best = save.best[i]; b.type = 'button'; b.disabled = i + 1 > save.open;
+    b.innerHTML = '<b>' + (i + 1) + '</b>' + lv.name + '<span class="st">' + (best ? '★★★'.slice(0, best.stars) + '☆☆☆'.slice(0, 3 - best.stars) : (i + 1 > save.open ? '🔒' : '·')) + '</span>';
+    b.onclick = function () { ac(); intro(i); }; g.appendChild(b);
+  });
+  if (!L) build(0);
+  show('menu');
+}
+function intro(i) { build(i); state = 'intro'; $('inK').textContent = 'Level ' + (i + 1) + ' of ' + LEVELS.length; $('inT').textContent = L.name; $('inD').textContent = L.intro; show('intro'); cam.x = cone.x; cam.y = cone.y; }
+function startPlay() { show(null); state = 'play'; $('hud').hidden = false; $('pauseBtn').hidden = false; last = performance.now(); }
+function pauseGame() { state = 'paused'; show('pause'); keys = {}; joy = null; }
+function resume() { show(null); state = 'play'; last = performance.now(); }
+function win() {
+  state = 'won'; SFX.win(); $('hud').hidden = true; $('pauseBtn').hidden = true; $('tip').classList.add('off');
+  var stars = caught === 0 && time <= L.par ? 3 : caught <= 1 ? 2 : 1, prev = save.best[li];
+  if (!prev || stars > prev.stars || (stars === prev.stars && time < prev.t)) save.best[li] = { stars: stars, t: Math.round(time * 10) / 10, c: caught };
+  save.open = Math.max(save.open, Math.min(LEVELS.length, li + 2)); store();
+  var last = li === LEVELS.length - 1;
+  $('dnK').textContent = last ? 'You did it' : 'Level ' + (li + 1) + ' complete';
+  $('dnT').textContent = last ? '🏠 Home at last!' : ['Nobody suspects a thing.', 'Smooth. Very cone.', 'Totally normal cone behaviour.', 'You are a legend among cones.', 'The police have no idea.'][li] || 'You made it!';
+  $('dnS').textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(0, 3 - stars);
+  $('dnD').textContent = last ? 'You scooted all the way across the city to the Great Cone Pile. The other cones accept you. They have so many questions.' : 'Time ' + fmt(time) + ' · caught ' + caught + (caught === 1 ? ' time' : ' times');
+  $('dnB').textContent = (last ? 'Time ' + fmt(time) + ' · caught ' + caught + '×  ·  ' : '') + '3 stars: never caught and under ' + fmt(L.par) + '.';
+  $('nextBtn').hidden = last; show('done');
+}
+$('goBtn').onclick = function () { ac(); startPlay(); };
+$('pauseBtn').onclick = function () { if (state === 'play') pauseGame(); };
+$('resBtn').onclick = resume;
+$('rstBtn').onclick = function () { build(li); startPlay(); };
+$('menuBtn').onclick = menu; $('lvBtn').onclick = menu;
+$('againBtn').onclick = function () { intro(li); };
+$('nextBtn').onclick = function () { if (li + 1 < LEVELS.length) intro(li + 1); else menu(); };
+document.addEventListener('visibilitychange', function () { if (document.hidden && state === 'play') pauseGame(); });
+
+// ------------------------------------------------------------------ loop
+var last = performance.now();
+function frame(now) {
+  var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (state === 'play' || state === 'caught') update(dt);
+  else if (L && (state === 'menu' || state === 'intro')) { time += dt; stepWatchers(dt); }
+  draw();
+  requestAnimationFrame(frame);
+}
+window.KFCone = { levels: LEVELS, build: build, intro: intro, start: startPlay, get: function () { return { state: state, cone: cone, watchers: watchers, li: li, caught: caught, time: time }; }, step: function (dt) { update(dt); }, steer: function (d) { botDir = d; }, seenBy: function () { return watchers.filter(function (w) { return w.t !== 'kid' && w.t !== 'dog' && canSee(w, cone.x, cone.y); }).length; } };
+menu();
+requestAnimationFrame(frame);
+})();
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
