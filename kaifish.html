@@ -148,6 +148,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 .seg button:last-child { border-radius: 0 10px 10px 0; }
 .seg button.on { background: var(--teal); border-color: var(--teal); color: #04110f; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.row select { width: 100%; font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.row select:focus { outline: 2px solid var(--teal); }
+.modebox { background: var(--panel); border: 1px solid var(--teal); border-radius: var(--r); padding: 10px 12px; }
+.modebox .elo { font-weight: 800; font-size: 22px; color: var(--teal-hi); font-variant-numeric: tabular-nums; }
+.modebox .elo.hit { animation: eloHit .6s ease-out; }
+@keyframes eloHit { 0% { color: #ff5a5a; transform: scale(1.15); } 100% { transform: none; } }
+.modebox .small { margin-top: 2px; }
 .line { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; font-size: 14px; }
 .line b { display: block; color: var(--ink2); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
 .line div { overflow-wrap: anywhere; min-height: 1.5em; }
@@ -233,7 +240,14 @@ pre.gpl { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 var(--
         <div class="status" id="pStatus">Choose a colour and a level, then press New game.</div>
         <div class="row"><label>Play as</label>
           <div class="seg" id="pColor"><button data-c="w">White</button><button data-c="r">Random</button><button data-c="b">Black</button></div></div>
-        <div class="row"><label for="pLevel">Strength</label><input type="range" id="pLevel" min="0" max="7" step="1" value="2"><output id="pLevelOut"></output></div>
+        <div class="row"><label for="pMode">Mode</label><select id="pMode">
+          <option value="normal">Normal</option>
+          <option value="melt">Melting: −50 Elo every move</option>
+          <option value="check">Check = half Elo</option>
+          <option value="even">Perfect 50/50</option>
+        </select></div>
+        <div class="row" id="pLevelRow"><label for="pLevel">Strength</label><input type="range" id="pLevel" min="0" max="7" step="1" value="2"><output id="pLevelOut"></output></div>
+        <div class="modebox" id="pModeBox" hidden><div class="elo" id="pElo">-</div><div class="small" id="pEloNote"></div></div>
         <div class="btns">
           <button class="big" id="pNew">New game</button>
           <button id="pBack" title="Take back your last move">Takeback</button>
@@ -1612,10 +1626,14 @@ KF.Chess.colorOf = colorOf;
       const run = async () => {
         const pos = 'position ' + (o.fen ? 'fen ' + o.fen : 'startpos') + (o.moves && o.moves.length ? ' moves ' + o.moves.join(' ') : '');
         let info = null;
+        const multi = {};   // MultiPV: latest line for each rank
         const onInfo = (l) => {
           if (!l.startsWith('info ') || l.indexOf(' pv ') < 0) return;
           const i = Engine.parseInfo(l);
-          if (i && (!i.bound || !info)) { info = i; if (o.onInfo) o.onInfo(i); }
+          if (!i) return;
+          if (i.multipv && (!i.bound || !multi[i.multipv])) multi[i.multipv] = i;
+          if (i.multipv > 1) return;
+          if (!i.bound || !info) { info = i; if (o.onInfo) o.onInfo(i); }
         };
         this.subs.push(onInfo);
         this.send(pos);
@@ -1623,7 +1641,10 @@ KF.Chess.colorOf = colorOf;
         try {
           const l = await this.wait((x) => x.startsWith('bestmove'), 0);
           const p = l.split(/\s+/);
-          return { best: p[1], ponder: p[3] || null, info };
+          // one entry per move: a stopped search can leave the same move at two ranks from different depths
+          const byMove = {};
+          for (const i of Object.values(multi)) { const k = i.pv && i.pv[0]; if (k && (!byMove[k] || i.depth > byMove[k].depth)) byMove[k] = i; }
+          return { best: p[1], ponder: p[3] || null, info, multi: Object.values(byMove) };
         } finally { this.subs = this.subs.filter((x) => x !== onInfo); }
       };
       const r = this.queue.then(run, run);
@@ -1640,6 +1661,7 @@ KF.Chess.colorOf = colorOf;
         const k = t[i];
         if (k === 'depth' || k === 'seldepth' || k === 'nodes' || k === 'nps' || k === 'time') r[k] = +t[++i];
         else if (k === 'score') { r.kind = t[++i]; r.score = +t[++i]; if (t[i + 1] === 'lowerbound' || t[i + 1] === 'upperbound') r.bound = t[++i]; }
+        else if (k === 'multipv') r.multipv = +t[++i];
         else if (k === 'pv') { r.pv = t.slice(i + 1); break; }
       }
       return r.kind ? r : null;
@@ -1847,11 +1869,59 @@ KF.Chess.colorOf = colorOf;
     return P.eng;
   };
 
+  // Special modes search at full strength with every move ranked (MultiPV), then pick a move by the mode's rule.
   const applyLevel = async (e) => {
-    if (P.applied === P.level) return;
-    const [, skill, elo] = LEVELS[P.level];
-    await e.options(elo ? { UCI_LimitStrength: true, UCI_Elo: elo } : { UCI_LimitStrength: false, 'Skill Level': skill });
-    P.applied = P.level;
+    const key = P.mode === 'normal' ? 'L' + P.level : 'full';
+    if (P.applied === key) return;
+    if (key === 'full') await e.options({ UCI_LimitStrength: false, 'Skill Level': 20, MultiPV: 64 });
+    else {
+      const [, skill, elo] = LEVELS[P.level];
+      await e.options(Object.assign({ MultiPV: 1 }, elo ? { UCI_LimitStrength: true, UCI_Elo: elo } : { UCI_LimitStrength: false, 'Skill Level': skill }));
+    }
+    P.applied = key;
+  };
+
+  // Move quality scale: a move that loses c centipawns against the best move is played at about TOP·e^(−c/K) Elo.
+  const TOP = 3200, K = 90;
+  const lossOfElo = (e) => (e >= TOP ? 0 : e <= 0 ? Infinity : K * Math.log(TOP / e));
+  const cpOf = (i) => (i.kind === 'mate' ? (i.score > 0 ? 1500 : -1500) : Math.max(-1500, Math.min(1500, i.score)));
+  const evenOf = (i) => (i.kind === 'mate' ? (i.score > 0 ? 1 : -1) * (20000 - Math.abs(i.score)) : i.score);
+  P.MODES = {
+    normal: { name: 'Normal' },
+    melt: { name: 'Melting', start: TOP, note: 'Loses 50 Elo after every move it plays. Below 0 Elo it starts trying to lose.' },
+    check: { name: 'Check = half Elo', start: TOP, note: 'Every time you put Kaifish in check, its Elo is cut in half.' },
+    even: { name: 'Perfect 50/50', note: 'Kaifish picks whichever move keeps the game closest to dead even. Winning? It throws. Losing? It fights back.' },
+  };
+  P.mode = 'normal'; P.pickMode = 'normal'; P.elo = TOP; P.checks = 0; P.balance = null;
+
+  // lines: MultiPV results, scored from Kaifish's side. Returns the chosen line.
+  P.choose = (multi) => {
+    const L = multi.filter((i) => i.pv && i.pv.length).map((i) => ({ uci: i.pv[0], cp: cpOf(i), even: evenOf(i), raw: i }));
+    if (!L.length) return null;
+    const best = Math.max(...L.map((l) => l.cp));
+    L.forEach((l) => { l.loss = best - l.cp; });
+    const closest = (key, target) => {   // nearest to target; near-ties (within 6 cp) picked at random
+      const d0 = Math.min(...L.map((l) => Math.abs(l[key] - target)));
+      const pool = L.filter((l) => Math.abs(l[key] - target) <= d0 + 6);
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
+    if (P.mode === 'even') return closest('even', 0);
+    // melt / check: errors are random, averaging the loss that fits the current Elo
+    if (P.elo <= 0) return L.reduce((a, b) => (b.cp < a.cp ? b : a));
+    const mean = lossOfElo(P.elo);
+    return closest('loss', -mean * Math.log(1 - Math.random()));
+  };
+
+  P.renderMode = (hit) => {
+    const shown = P.pickMode, md = P.MODES[shown], box = KF.$('pModeBox'), elo = KF.$('pElo');
+    KF.$('pLevelRow').hidden = shown !== 'normal';
+    box.hidden = shown === 'normal';
+    if (shown === 'normal') return;
+    const live = P.mode === shown;
+    if (shown === 'even') elo.textContent = 'Balance: ' + (live && P.balance != null ? KF.scoreText(P.balance) : '0.00');
+    else elo.textContent = 'Kaifish: ' + (live ? P.elo : md.start) + ' Elo';
+    KF.$('pEloNote').textContent = md.note + (shown === 'check' && live && P.checks ? ' Checks so far: ' + P.checks + '.' : '') + (live ? '' : ' Press New game to start.');
+    if (hit) { elo.classList.remove('hit'); void elo.offsetWidth; elo.classList.add('hit'); }
   };
 
   P.newGame = async () => {
@@ -1859,6 +1929,8 @@ KF.Chess.colorOf = colorOf;
     if (P.eng) P.eng.stop();
     P.color = P.pick === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : P.pick;
     P.game.reset(); P.over = null; P.thinking = false; P.lastInfo = null;
+    P.mode = P.pickMode; P.elo = P.MODES[P.mode].start || TOP; P.checks = 0; P.balance = null;
+    P.renderMode();
     P.board.flipped = P.color === 'b'; P.board.layout();
     P.show(null, false);
     KF.evalBar(KF.$('pEval'), null); KF.$('pPv').textContent = '-';
@@ -1877,6 +1949,10 @@ KF.Chess.colorOf = colorOf;
     const m = P.game.move({ from, to, promo });
     if (!m) return;
     P.show(m, true);
+    if (P.mode === 'check' && P.game.now.inCheck()) {
+      P.checks++; P.elo = Math.round(P.elo / 2);
+      KF.toast('Check! Kaifish drops to ' + P.elo + ' Elo'); P.renderMode(true);
+    }
     if (!P.end()) P.think();
   };
 
@@ -1886,14 +1962,22 @@ KF.Chess.colorOf = colorOf;
     P.thinking = true; P.status('Kaifish is thinking…');
     await applyLevel(e);
     const turn = P.game.turn, root = P.game.now;
+    const special = P.mode !== 'normal';
     let r;
     try {
-      r = await e.go({ moves: P.game.moves.map((m) => m.uci), movetime: LEVELS[P.level][3], onInfo: (i) => g === P.gen && P.info(i, turn, root) });
+      r = await e.go({ moves: P.game.moves.map((m) => m.uci), movetime: special ? 900 : LEVELS[P.level][3], onInfo: (i) => g === P.gen && P.info(i, turn, root) });
     } catch (err) { if (g === P.gen) { P.thinking = false; P.status('Kaifish error: ' + err.message); } return; }
     if (g !== P.gen) return;
     P.thinking = false;
-    const m = P.game.move(r.best);
+    let uci = r.best, pickLine = null;
+    if (special && r.multi && r.multi.length) { pickLine = P.choose(r.multi); if (pickLine) uci = pickLine.uci; }
+    const m = P.game.move(uci) || P.game.move(r.best);
     if (!m) { P.status('Kaifish sent an illegal move (' + r.best + ')'); return; }
+    if (special) {
+      if (pickLine) P.balance = KF.whiteScore(pickLine.raw, turn);
+      if (P.mode === 'melt') P.elo -= 50;
+      P.renderMode(P.mode === 'melt');
+    }
     P.show(m, true);
     if (!P.end()) P.status('Your move.');
   };
@@ -1936,10 +2020,10 @@ KF.Chess.colorOf = colorOf;
     P.renderMoves();
   };
 
-  P.pgn = () => P.game.pgn({
-    Event: 'Kaifish on kai.fun', White: P.color === 'w' ? 'You' : 'Kaifish 1 (' + LEVELS[P.level][0] + ')',
-    Black: P.color === 'b' ? 'You' : 'Kaifish 1 (' + LEVELS[P.level][0] + ')',
-  }, P.over ? P.over.result : '*');
+  P.pgn = () => {
+    const kf = 'Kaifish 1 (' + (P.mode === 'normal' ? LEVELS[P.level][0] : P.MODES[P.mode].name) + ')';
+    return P.game.pgn({ Event: 'Kaifish on kai.fun', White: P.color === 'w' ? 'You' : kf, Black: P.color === 'b' ? 'You' : kf }, P.over ? P.over.result : '*');
+  };
 })();
 
 }
@@ -2002,6 +2086,15 @@ KF.Chess.colorOf = colorOf;
     lv.oninput = () => {
       P.level = +lv.value; showLv();
       try { localStorage.setItem('kaifish.level', P.level); } catch (e) { /* ignore */ }
+    };
+    const mode = $('pMode');
+    try { P.pickMode = localStorage.getItem('kaifish.mode') || 'normal'; } catch (e) { /* ignore */ }
+    if (!P.MODES[P.pickMode]) P.pickMode = 'normal';
+    mode.value = P.pickMode; P.renderMode();
+    mode.onchange = () => {
+      P.pickMode = mode.value; P.renderMode();
+      try { localStorage.setItem('kaifish.mode', P.pickMode); } catch (e) { /* ignore */ }
+      if (P.pickMode !== P.mode) P.status('Press New game to play ' + P.MODES[P.pickMode].name + '.');
     };
     const seg = $('pColor');
     const pick = (c) => { P.pick = c; seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.c === c)); };
