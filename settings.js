@@ -1,4 +1,5 @@
-// ⚙️ Settings for kai.fun: pick a look (Normal, Cardboard, Crayon, Chalkboard, Inverted, Gravity) and switch kid-friendly mode.
+// ⚙️ Settings for kai.fun: pick a look (Normal, Cardboard, Crayon, Chalkboard, Inverted, Gravity, Kai mode, Dark, Deleted.Fun,
+// 150 party) and switch kid-friendly mode.
 // Cardboard, Crayon and Chalkboard also redraw every game picture in that style (restyle() below);
 // Gravity drops every game tile into a heap with a little physics engine.
 // The saved choices are applied before the page paints by a tiny script in <head>; this file builds
@@ -11,7 +12,11 @@
     { id: 'crayon', name: 'Crayon' },
     { id: 'chalkboard', name: 'Chalkboard' },
     { id: 'inverted', name: 'Inverted' },
-    { id: 'gravity', name: 'Gravity' }
+    { id: 'gravity', name: 'Gravity' },
+    { id: 'kai', name: 'Kai mode' },
+    { id: 'candle', name: 'Dark' },
+    { id: 'deleted', name: 'Deleted.Fun' },
+    { id: 'party', name: '150 party' }
   ];
 
   // ---- SVG filters for the crayon look: a slight wobble, then waxy speckles where the paper shows through
@@ -76,6 +81,7 @@
     dispatchEvent(new Event('resize'));          // lets the SCRAMBLE button re-seat itself
     restyle(id);
     if (id === 'gravity') gravityOn(); else gravityOff();
+    fxSwitch(id);
   }
   function setKid(on) {
     root.classList.toggle('kid-mode', on);
@@ -303,8 +309,109 @@
     if (currentLook() !== 'gravity' || innerWidth === lastW) return;           // phones fire resize when scrolling
     lastW = innerWidth; clearTimeout(gravTimer); gravTimer = setTimeout(gravityOn, 350);
   });
+
+  // ================================================================================================
+  // LIVE EFFECTS for Kai mode, Dark (a candle), Deleted.Fun and the 150 games party
+  // ================================================================================================
+  var fxStop = null;
+  function fxSwitch(id) {
+    if (fxStop) { try { fxStop(); } catch (e) { /* ignore */ } fxStop = null; }
+    if (FXL[id]) fxStop = FXL[id]();
+  }
+  var gameTiles = function () { return [].slice.call(document.querySelectorAll('main.games > .game-tile')); };
+  var FXL = {
+    // every tile gets a little Kai face whose googly eyes follow your mouse
+    kai: function () {
+      var faces = gameTiles().map(function (t) {
+        var f = document.createElement('span'); f.className = 'kf-kaiface'; f.setAttribute('aria-hidden', 'true');
+        f.innerHTML = '<i><b></b></i><i><b></b></i><u></u>'; t.appendChild(f); return f;
+      });
+      var mx = innerWidth / 2, my = innerHeight / 3, raf = 0;
+      function look() {
+        raf = 0;
+        faces.forEach(function (f) {
+          var r = f.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) return;
+          [].forEach.call(f.querySelectorAll('b'), function (p) {
+            var e = p.parentNode.getBoundingClientRect(), dx = mx - (e.left + e.width / 2), dy = my - (e.top + e.height / 2), d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 90) * 4.5;
+            p.style.transform = 'translate(' + (dx / d * k).toFixed(1) + 'px,' + (dy / d * k).toFixed(1) + 'px)';
+          });
+        });
+      }
+      function move(e) { mx = e.clientX; my = e.clientY; if (!raf) raf = requestAnimationFrame(look); }
+      function scroll() { if (!raf) raf = requestAnimationFrame(look); }
+      addEventListener('pointermove', move); addEventListener('scroll', scroll, { passive: true }); look();
+      return function () { removeEventListener('pointermove', move); removeEventListener('scroll', scroll); faces.forEach(function (f) { f.remove(); }); };
+    },
+    // the lights go out: only a flickering candle that follows you lights the page
+    candle: function () {
+      var dark = document.createElement('div'); dark.id = 'kfDark';
+      var c = document.createElement('div'); c.id = 'kfCandle'; c.setAttribute('aria-hidden', 'true'); c.innerHTML = '<span class="glow"></span><span class="flame"></span><span class="wick"></span><span class="wax"></span>';
+      document.body.append(dark, c);
+      var x = innerWidth / 2, y = innerHeight * 0.45, raf = 0;
+      function put(e) { x = e.clientX; y = e.clientY; }
+      function tick(now) {
+        var fl = 1 + Math.sin(now / 83) * 0.035 + Math.sin(now / 31) * 0.02 + (Math.random() - 0.5) * 0.04;
+        var R = (Math.min(innerWidth, innerHeight) * 0.2 + 80) * fl;
+        dark.style.background = 'radial-gradient(circle ' + R.toFixed(0) + 'px at ' + x + 'px ' + (y - 34) + 'px, rgba(255,170,60,.10) 0%, rgba(20,8,0,.45) 42%, rgba(0,0,0,.93) 78%, #000 100%)';
+        c.style.transform = 'translate(' + (x - 13) + 'px,' + (y - 50) + 'px)';
+        raf = requestAnimationFrame(tick);
+      }
+      addEventListener('pointermove', put); addEventListener('pointerdown', put); raf = requestAnimationFrame(tick);
+      return function () { cancelAnimationFrame(raf); removeEventListener('pointermove', put); removeEventListener('pointerdown', put); dark.remove(); c.remove(); };
+    },
+    // Deleted.Fun: dust drifting through a forgotten website
+    deleted: function () {
+      var bits = [];
+      for (var i = 0; i < 28; i++) {
+        var d = document.createElement('span'); d.className = 'kf-dust';
+        d.style.left = (Math.random() * 100).toFixed(1) + 'vw';
+        d.style.animationDuration = (14 + Math.random() * 18).toFixed(1) + 's';
+        d.style.animationDelay = (-Math.random() * 30).toFixed(1) + 's';
+        document.body.appendChild(d); bits.push(d);
+      }
+      ['tl', 'br'].forEach(function (k) { var w = document.createElement('span'); w.className = 'kf-web ' + k; document.body.appendChild(w); bits.push(w); });
+      return function () { bits.forEach(function (b) { b.remove(); }); };
+    },
+    // 150 games party: a banner, confetti raining down and balloons you can pop
+    party: function () {
+      var made = [];
+      var count = document.getElementById('gameCount');
+      var banner = document.createElement('div'); banner.id = 'kfParty';
+      banner.innerHTML = '<div class="flags" aria-hidden="true"></div><div class="big">🎉 150 GAMES! 🎉</div><div class="small">Thanks for playing every single one.</div>';
+      if (count && count.parentNode) count.parentNode.insertBefore(banner, count.nextSibling); made.push(banner);
+      var cv = document.createElement('canvas'); cv.id = 'kfConfetti'; document.body.appendChild(cv); made.push(cv);
+      var x = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1), P = [], raf = 0, last = performance.now();
+      var COLS = ['#ff5a4a', '#ffd23d', '#4aa9d8', '#6fb85c', '#9b7fd4', '#ff7ab6', '#ff9f1c'];
+      function size() { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+      size(); addEventListener('resize', size);
+      for (var i = 0; i < 110; i++) P.push({ x: Math.random() * innerWidth, y: Math.random() * innerHeight - innerHeight, v: 40 + Math.random() * 70, s: 5 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - 0.5) * 6, c: COLS[i % COLS.length], w: Math.random() * 6 });
+      function tick(now) {
+        var dt = Math.min(0.05, (now - last) / 1000); last = now;
+        x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, innerWidth, innerHeight);
+        P.forEach(function (p) {
+          p.y += p.v * dt; p.x += Math.sin(now / 700 + p.w) * 25 * dt; p.r += p.vr * dt;
+          if (p.y > innerHeight + 20) { p.y = -20; p.x = Math.random() * innerWidth; }
+          x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2 * (0.4 + 0.6 * Math.abs(Math.sin(p.r * 2)))); x.restore();
+        });
+        raf = requestAnimationFrame(tick);
+      }
+      raf = requestAnimationFrame(tick);
+      var bt = setInterval(function () {
+        if (document.hidden) return;
+        var b = document.createElement('button'); b.className = 'kf-balloon'; b.type = 'button'; b.setAttribute('aria-label', 'Pop the balloon');
+        b.style.left = (5 + Math.random() * 85).toFixed(1) + 'vw'; b.style.setProperty('--c', COLS[Math.floor(Math.random() * COLS.length)]);
+        b.style.animationDuration = (9 + Math.random() * 5).toFixed(1) + 's';
+        b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); b.classList.add('pop'); setTimeout(function () { b.remove(); }, 260); };
+        b.addEventListener('animationend', function (e) { if (e.animationName === 'kfFloat') b.remove(); });
+        document.body.appendChild(b);
+      }, 2600);
+      return function () { cancelAnimationFrame(raf); clearInterval(bt); removeEventListener('resize', size); made.forEach(function (m) { m.remove(); }); [].forEach.call(document.querySelectorAll('.kf-balloon'), function (b) { b.remove(); }); };
+    },
+  };
+
   window.KFLooks = { setLook: setLook, made: made, grav: function () { return grav; } };
   var start = currentLook();
   restyle(start);
+  fxSwitch(start);
   if (start === 'gravity') { if (document.readyState === 'complete') gravityOn(); else addEventListener('load', function () { setTimeout(gravityOn, 200); }); }
 })();
