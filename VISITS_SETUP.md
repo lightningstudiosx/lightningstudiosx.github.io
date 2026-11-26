@@ -67,3 +67,14 @@ email. kai.fun never sees the addresses.
    one random email (a random game, a weird fact, a terrible joke…).
    - To send one straight away: **Actions → Random newsletter → Run workflow**.
    - To preview locally without sending: `DRY_RUN=1 python newsletter/send.py`.
+
+## 4. Write your own email
+
+On GitHub: **Actions → Send an email → Run workflow**. Fill in a subject and a message:
+
+- Type `
+` for a new line.
+- `**bold**` and links like `[kai.fun](https://kaifun.fun)` work.
+- Tick "add a random game" if you want one at the bottom.
+
+By default it saves a **draft** in Buttondown, so you can check it at <https://buttondown.com/emails> and press send there. Tick **send now** to email every subscriber straight away.

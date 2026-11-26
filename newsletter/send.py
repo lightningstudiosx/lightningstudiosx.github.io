@@ -97,24 +97,54 @@ def write_email(rng):
     return rng.choice(SUBJECTS), body
 
 
-def send(subject, body, key):
+def send(subject, body, key, draft=False):
+    headers = {'Authorization': 'Token ' + key, 'Content-Type': 'application/json'}
+    if not draft:
+        headers['X-Buttondown-Live-Dangerously'] = 'true'   # Buttondown asks for this before an API call may email real subscribers
     req = urllib.request.Request(
         'https://api.buttondown.com/v1/emails',
-        data=json.dumps({'subject': subject, 'body': body, 'status': 'about_to_send'}).encode(),
-        headers={'Authorization': 'Token ' + key, 'Content-Type': 'application/json',
-                 # Buttondown asks for this once per key before an API call may send to real subscribers
-                 'X-Buttondown-Live-Dangerously': 'true'},
-        method='POST')
+        data=json.dumps({'subject': subject, 'body': body, 'status': 'draft' if draft else 'about_to_send'}).encode(),
+        headers=headers, method='POST')
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            print('sent:', r.status, json.loads(r.read() or b'{}').get('id'))
+            eid = json.loads(r.read() or b'{}').get('id')
+            if draft:
+                print('Saved as a DRAFT in Buttondown (id %s). Open https://buttondown.com/emails to preview and send it.' % eid)
+            else:
+                print('SENT to every subscriber (id %s).' % eid)
     except urllib.error.HTTPError as e:
         print('Buttondown said', e.code, e.read().decode(errors='replace')[:500])
         sys.exit(1)
 
 
+def write_your_own(rng):
+    """An email you wrote yourself, from the 'Send an email' workflow. Typing \\n in the message starts a new line."""
+    subject = os.environ.get('SUBJECT', '').strip()
+    message = os.environ.get('MESSAGE', '').replace('\\n', '\n').strip()
+    if not subject or not message:
+        print('An email needs a subject and a message.')
+        sys.exit(1)
+    body = message
+    if os.environ.get('ADD_GAME') == '1':
+        gs = games()
+        if gs:
+            href, title, blurb = rng.choice(gs)
+            body += '\n\n---\n\n## 🎲 Random game of the day: [%s](%s%s)\n\n%s' % (title, SITE, href, (blurb[:1].upper() + blurb[1:]) if blurb else '')
+    body += '\n\n---\n\nSee you at [kai.fun](%s)! 🍌' % SITE
+    return subject[:150], body
+
+
 def main():
     rng = random.Random()
+    if os.environ.get('MODE') == 'custom':
+        subject, body = write_your_own(rng)
+        print('SUBJECT:', subject, '\n\n' + body + '\n')
+        key = os.environ.get('BUTTONDOWN_API_KEY', '').strip()
+        if not key:
+            print('No BUTTONDOWN_API_KEY secret, so nothing was sent.')
+            sys.exit(1)
+        send(subject, body, key, draft=os.environ.get('SEND_NOW') != '1')
+        return
     force, dry = os.environ.get('FORCE') == '1', os.environ.get('DRY_RUN') == '1'
     if not force and not dry and rng.random() > CHANCE:
         print('Not today. (Random days only.)')
