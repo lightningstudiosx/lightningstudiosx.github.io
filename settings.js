@@ -21,7 +21,7 @@
     { id: 'parallax', name: 'Parallax' },
     { id: 'nogames', name: 'No games' },
     { id: 'og', name: 'OG kai.fun' },
-    { id: 'veryog', name: 'VERY OG' }
+    { id: 'veryog', name: 'VERY OG' }, { id: 'underwater', name: 'Underwater' }
   ];
 
   // ---- SVG filters for the crayon look: a slight wobble, then waxy speckles where the paper shows through
@@ -498,6 +498,47 @@
     og: function () { return retro('og'); },
     // VERY OG kai.fun: "A collection of interactive games", pastel cards, nine at a time, and a "Next row of games" button
     veryog: function () { return retro('veryog'); },
+    // underwater: light rays, seaweed, fish swimming past, bubbles rising (and trailing your cursor), floating tiles
+    underwater: function () {
+      var sea = document.createElement('div'); sea.id = 'kfSea'; sea.setAttribute('aria-hidden', 'true');
+      var html = '<div class="rays"></div>';
+      for (var i = 0; i < 14; i++) {
+        var h = 90 + ((i * 53) % 130), x = (i * 7.3 + (i % 3) * 2) % 100, col = ['#1f8a5a', '#2fae6a', '#16704a', '#3cbf7a'][i % 4];
+        html += '<svg class="weed" style="left:' + x.toFixed(1) + 'vw;height:' + h + 'px;animation-duration:' + (3 + (i % 4) * 0.7).toFixed(1) + 's;animation-delay:-' + (i * 0.37).toFixed(2) + 's" viewBox="0 0 40 200" preserveAspectRatio="none"><path d="M20 200 C 2 160, 38 130, 20 95 C 4 62, 34 36, 20 0" stroke="' + col + '" stroke-width="10" fill="none" stroke-linecap="round"/></svg>';
+      }
+      html += '<div class="sand"></div>';
+      sea.innerHTML = html; document.body.prepend(sea);
+      var made = [sea], timers = [];
+      var FISH = ['🐟', '🐠', '🐡', '🐟', '🐠', '🦈', '🐙', '🪼', '🐢', '🦑'];
+      function fish() {
+        if (document.hidden) return;
+        var f = document.createElement('span'), left = Math.random() < 0.5, kind = FISH[Math.floor(Math.random() * FISH.length)];
+        f.className = 'kf-fish'; f.textContent = kind; f.setAttribute('aria-hidden', 'true');
+        f.style.top = (8 + Math.random() * 80).toFixed(1) + 'vh'; f.style.fontSize = (kind === '🦈' ? 70 : 26 + Math.random() * 26).toFixed(0) + 'px';
+        f.style.animationName = left ? 'kfSwimR' : 'kfSwimL'; f.style.animationDuration = (kind === '🦈' ? 9 : 12 + Math.random() * 12).toFixed(1) + 's';
+        if (!left) f.style.setProperty('--flip', '1'); else f.style.setProperty('--flip', '-1');   // the emoji face left; turn them to face where they swim
+        f.addEventListener('animationend', function () { f.remove(); });
+        document.body.appendChild(f);
+      }
+      function bubble(x, y, size, slow) {
+        var b = document.createElement('span'); b.className = 'kf-bubble'; b.setAttribute('aria-hidden', 'true');
+        b.style.left = x + 'px'; b.style.top = y + 'px'; b.style.width = b.style.height = size + 'px';
+        b.style.animationDuration = (slow ? 6 + Math.random() * 6 : 2 + Math.random() * 1.5).toFixed(1) + 's';
+        b.addEventListener('animationend', function () { b.remove(); });
+        document.body.appendChild(b);
+      }
+      timers.push(setInterval(fish, 2300));
+      timers.push(setInterval(function () { if (!document.hidden) bubble(Math.random() * innerWidth, innerHeight + 10, 6 + Math.random() * 14, true); }, 450));
+      fish(); setTimeout(fish, 900);
+      var lastB = 0;
+      function trail(e) { var now = performance.now(); if (now - lastB < 70) return; lastB = now; bubble(e.clientX - 4 + Math.random() * 8, e.clientY - 6, 5 + Math.random() * 7, false); }
+      addEventListener('pointermove', trail);
+      return function () {
+        timers.forEach(clearInterval); removeEventListener('pointermove', trail);
+        made.forEach(function (m) { m.remove(); });
+        [].forEach.call(document.querySelectorAll('.kf-fish, .kf-bubble'), function (x) { x.remove(); });
+      };
+    },
   };
 
   // ---- the two retro front pages share this: they swap each picture tile for a text card
