@@ -29,6 +29,9 @@ The counter (`visits.js`, loaded on every page by `bdp.js`) saves its numbers in
     "$vid": {
       ".write": "$vid.matches(/^[a-z0-9]{10,24}$/) && newData.exists()",
       ".validate": "newData.hasChildren(['name', 'n', 'last']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('n').isNumber() && newData.child('last').isNumber() && ((newData.child('n').val() === (data.exists() ? data.child('n').val() : 0) + 1 && newData.child('last').val() === now && (!data.exists() || now - data.child('last').val() >= 1800000)) || (data.exists() && newData.child('n').val() === data.child('n').val() && newData.child('last').val() === data.child('last').val()))",
+      "name": { ".validate": "newData.isString()" },
+      "n": { ".validate": "newData.isNumber()" },
+      "last": { ".validate": "newData.isNumber()" },
       "$other": { ".validate": false }
     }
   }
