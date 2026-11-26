@@ -280,6 +280,9 @@ if(localStorage.getItem("kaifun_kidmode")==="1")r.classList.add("kid-mode");}cat
       <a class="game-tile tile-img" data-mature style="background:#cfc7b8;border-color:#141414;box-shadow:5px 5px 0 #b3261e;" href="https://workfor.kaifun.fun/" aria-label="We're hiring: apply to work for kai.fun">
         <img src="hiring.png" alt="We're hiring: a paper job application">
       </a>
+<a class="game-tile tile-img" style="background:#9b7fd4;border-color:#141414;box-shadow:5px 5px 0 #ffd23d;" href="maker.html" aria-label="Make your own kai.fun game: paste or import your game's code, make a thumbnail, put it on your kai.fun and submit it to Kai">
+  <img src="maker.jpg" alt="Make your own kai.fun game" loading="lazy">
+</a>
 <a class="game-tile tile-img" style="background:#9fdcff;border-color:#141414;box-shadow:5px 5px 0 #e8432e;" href="pizzaphysics.html" aria-label="Pizza Physics: toss the dough, pile on toppings that really wobble and roll, then deliver the tower on a scooter without dropping a single olive">
   <img src="pizzaphysics.jpg" alt="Pizza Physics" loading="lazy">
 </a>
@@ -976,6 +979,37 @@ const QT=["Every {n} was once a {a} {n2} that refused to give up.", "Be the {a} 
 <script src="bdp.js" defer></script>
 <script type="module" src="scramble.js"></script>
 <script src="settings.js"></script>
+<style>
+  .game-tile.kfmine{box-shadow:5px 5px 0 #6fb85c}
+  .kfmine-tag{position:absolute;left:10px;top:10px;z-index:5;background:#ffd23d;border:2px solid #141414;border-radius:999px;padding:2px 10px;font:900 12px "Trebuchet MS",sans-serif;color:#141414;box-shadow:2px 2px 0 #141414;pointer-events:none}
+</style>
+<script>
+/* games you made yourself with "Make your own kai.fun game" (maker.html): shown first on the homepage, only in your own browser.
+   They're kept in this browser's IndexedDB and played in a locked-down sandbox on maker.html. */
+(function(){
+  try{ if(localStorage.getItem("kfmaker_on")!=="1") return; }catch(e){ return; }
+  if(!window.indexedDB) return;
+  var r=indexedDB.open("kfmaker",1);
+  r.onupgradeneeded=function(){ r.result.createObjectStore("games",{keyPath:"id"}); };
+  r.onsuccess=function(){
+    var d=r.result; if(!d.objectStoreNames.contains("games")) return;
+    var q=d.transaction("games").objectStore("games").getAll();
+    q.onsuccess=function(){
+      var gs=(q.result||[]).filter(function(g){ return g && /^[a-z0-9]+$/.test(g.id) && /^data:image\//.test(g.thumb||""); }).sort(function(a,b){ return b.t-a.t; });
+      var grid=document.querySelector("main.games"); if(!grid||!gs.length) return;
+      var first=[].filter.call(grid.querySelectorAll(":scope > .game-tile"),function(t){ return !/workfor\./.test(t.getAttribute("href")||""); })[0];
+      gs.forEach(function(g){
+        var a=document.createElement("a"); a.className="game-tile tile-img kfmine"; a.href="maker.html#play="+g.id;
+        a.style.cssText="background:#fff;border-color:#141414;"; a.setAttribute("aria-label",String(g.title||"My game")+" (a game you made)");
+        var im=document.createElement("img"); im.src=g.thumb; im.alt=String(g.title||"My game"); a.appendChild(im);
+        var tag=document.createElement("span"); tag.className="kfmine-tag"; tag.textContent="⭐ YOUR GAME"; a.appendChild(tag);
+        grid.insertBefore(a, first||null);
+      });
+      dispatchEvent(new Event("resize"));
+    };
+  };
+})();
+</script>
 <script>
 /* the game counter under the title: counts the game tiles you can see (not the hiring tile), and counts up on load */
 (function(){
@@ -983,7 +1017,7 @@ const QT=["Every {n} was once a {a} {n2} that refused to give up.", "Be the {a} 
   var shown=-1, anim=0;
   function count(){
     return [].filter.call(document.querySelectorAll("main.games > .game-tile"),function(t){
-      return t.offsetParent!==null && !/workfor\./.test(t.getAttribute("href")||"");
+      return t.offsetParent!==null && !/workfor\./.test(t.getAttribute("href")||"") && !t.classList.contains("kfmine");
     }).length;
   }
   function render(n){ el.innerHTML="🎮 <b>"+n+"</b> games"; }

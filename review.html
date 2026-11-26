@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Submitted games · kai.fun</title>
+<style>
+:root { --ink:#141414; --fun:"Comic Sans MS","Trebuchet MS",sans-serif; --ui:"Trebuchet MS",system-ui,sans-serif }
+* { box-sizing:border-box; margin:0; padding:0 }
+[hidden] { display:none !important }
+body { font:16px/1.45 var(--ui); color:var(--ink); background:#fff; padding:16px 14px 60px }
+.wrap { max-width:1000px; margin:0 auto }
+.back { display:inline-block; font:800 14px var(--ui); text-decoration:none; color:inherit; border:2px solid var(--ink); border-radius:999px; padding:6px 14px; box-shadow:3px 3px 0 var(--ink) }
+h1 { font:900 clamp(32px,7vw,54px)/1 var(--fun); margin:18px 0 6px }
+.sub { color:#666; font:700 15px var(--ui) }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:18px }
+.card { border:2px solid var(--ink); border-radius:14px; overflow:hidden; box-shadow:4px 4px 0 var(--ink); background:#fff }
+.card img { width:100%; aspect-ratio:2/1; object-fit:cover; display:block; background:#eee }
+.card .in { padding:10px 12px }
+.card b { font:900 18px var(--fun) }
+.card .by { font:700 13px var(--ui); color:#777 }
+.card p { font:600 14px var(--ui); margin-top:4px; color:#333 }
+.row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px }
+.btn { font:800 14px var(--ui); border:2px solid var(--ink); border-radius:10px; padding:5px 11px; background:#fff; box-shadow:2px 2px 0 var(--ink); cursor:pointer; color:var(--ink); text-decoration:none }
+.btn.go { background:#6fb85c; color:#fff }
+.note { margin-top:16px; padding:10px 12px; border-radius:12px; background:#eef7ff; border:2px dashed #4aa9d8; font:700 14px var(--ui) }
+#play { position:fixed; inset:0; z-index:50; background:#111; display:flex; flex-direction:column }
+#play .bar { display:flex; gap:10px; align-items:center; padding:8px 10px; background:#fff; border-bottom:2px solid var(--ink) }
+#play .bar b { flex:1; font:900 18px var(--fun) }
+#play iframe { flex:1; border:0; width:100%; background:#fff }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← kai.fun</a>
+  <h1>Submitted games 📬</h1>
+  <p class="sub">Games people sent in with <a href="maker.html">Make your own kai.fun game</a>. Newest first.</p>
+  <div class="note">Every game here runs in a locked-down sandbox, so it can't touch the rest of kai.fun. Like one? Download it and ask Claude to add it to kai.fun properly. It gets checked, gets a tile and goes on the homepage for everyone.</div>
+  <div class="grid" id="grid"><p class="sub">Loading…</p></div>
+</div>
+<div id="play" hidden><div class="bar"><button class="btn" id="close">← Back</button><b id="ptitle"></b></div><iframe id="frame" title="Submitted game" sandbox="allow-scripts allow-pointer-lock"></iframe></div>
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DB = 'https://kaifun-wall-default-rtdb.firebaseio.com/submissions.json?orderBy=%22t%22&limitToLast=60';
+const SHIM = '<script>(function(){function S(){var d={};return{getItem:function(k){return k in d?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}' +
+  'try{window.localStorage.length}catch(e){try{Object.defineProperty(window,"localStorage",{value:S(),configurable:true})}catch(x){}}' +
+  'try{window.sessionStorage.length}catch(e){try{Object.defineProperty(window,"sessionStorage",{value:S(),configurable:true})}catch(x){}}})();<\/script>';
+const asPage = (code) => { code = String(code || ''); if (!/<(html|body|head|script|canvas|div|!doctype)/i.test(code)) code = '<!doctype html><html><body style="margin:0"><script>\n' + code + '\n<\/script></body></html>'; return /<head[^>]*>/i.test(code) ? code.replace(/<head[^>]*>/i, (m) => m + SHIM) : SHIM + code; };
+let subs = [];
+async function load() {
+  try {
+    const r = await fetch(DB, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status === 401 ? 'locked' : 'HTTP ' + r.status);
+    const d = await r.json() || {};
+    subs = Object.entries(d).map(([id, s]) => Object.assign({ id }, s)).filter((s) => s && typeof s.code === 'string').sort((a, b) => b.t - a.t);
+    $('#grid').innerHTML = subs.length ? subs.map((s, i) => '<div class="card">' + (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s.thumb || '') ? '<img alt="" src="' + s.thumb + '">' : '<img alt="">') +
+      '<div class="in"><b>' + esc(s.title) + '</b><div class="by">by ' + esc(s.by) + ' · ' + new Date(s.t).toLocaleString() + ' · ' + (s.code.length / 1000).toFixed(1) + ' KB</div>' +
+      (s.desc ? '<p>' + esc(s.desc) + '</p>' : '') + '<div class="row"><button class="btn go" data-play="' + i + '">▶ Play</button><button class="btn" data-get="' + i + '">⬇ Download</button></div></div></div>').join('')
+      : '<p class="sub">No submissions yet.</p>';
+  } catch (e) { $('#grid').innerHTML = '<p class="sub">' + (e.message === 'locked' ? 'Submissions aren’t switched on in the database yet.' : 'Could not load submissions right now.') + '</p>'; }
+}
+$('#grid').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const s = subs[+(b.dataset.play || b.dataset.get)]; if (!s) return;
+  if (b.dataset.play != null) { $('#ptitle').textContent = s.title + ' · by ' + s.by; $('#frame').srcdoc = asPage(s.code); $('#play').hidden = false; }
+  else { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s.code], { type: 'text/html' })); a.download = (String(s.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game') + '.html'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
+};
+$('#close').onclick = () => { $('#play').hidden = true; $('#frame').srcdoc = ''; };
+load();
+</script>
+</body>
+</html>
