@@ -10,6 +10,8 @@
 (function () {
   'use strict';
   if (window.KFV) return;
+  // don't count automated test browsers or copies of the site running on a local test server
+  if (navigator.webdriver || /^(localhost|127\.|0\.0\.0\.0|\[::1\]|$)/.test(location.hostname) || location.protocol === 'file:') return;
   const DB = 'https://kaifun-wall-default-rtdb.firebaseio.com/visits';
   const LIVE_MS = 75000, BEAT_MS = 30000, BOARD_GAP = 1800000;
   const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
