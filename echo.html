@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="icon" href="favicon.png" sizes="64x64"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Echo</title>
+<meta name="description" content="A pitch-black cave. Clap to see the walls, but every clap wakes whatever lives down there.">
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#e8f6ff; --cy:#7fe7ff; --dim:#5d7385; --ui:"Space Grotesk","Segoe UI",system-ui,sans-serif }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html,body { margin:0; height:100%; overflow:hidden; background:#000; color:var(--ink); font:600 16px/1.4 var(--ui); user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent }
+button { font:inherit; color:inherit }
+#cv { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1.5px solid rgba(127,231,255,.55); border-radius:999px; padding:9px 18px; background:rgba(0,0,0,.6);
+  color:var(--ink); font:700 15px var(--ui); cursor:pointer; text-decoration:none; transition:background .15s, border-color .15s }
+.btn:hover { background:rgba(127,231,255,.12); border-color:var(--cy) }
+.btn.big { font-size:20px; padding:12px 30px; border-color:var(--cy); box-shadow:0 0 22px rgba(127,231,255,.25) }
+.btn.sm { font-size:13px; padding:6px 12px }
+#topL { position:fixed; left:12px; top:12px; z-index:30; display:flex; gap:8px }
+#topR { position:fixed; right:12px; top:12px; z-index:30; display:flex; gap:8px }
+#hud { position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:20; text-align:center; pointer-events:none; font:600 13px var(--ui); color:var(--dim); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap }
+#hud b { color:var(--ink) }
+#tip { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:20; max-width:min(560px, calc(100vw - 24px)); text-align:center; color:var(--ink); font:600 15px var(--ui);
+  text-shadow:0 0 12px #000; pointer-events:none; transition:opacity .6s; opacity:.9 }
+#tip.off { opacity:0 }
+#clapBtn { position:fixed; right:22px; bottom:28px; z-index:25; width:92px; height:92px; border-radius:50%; border:2px solid var(--cy); background:rgba(0,0,0,.5); color:var(--cy); font:700 15px var(--ui);
+  box-shadow:0 0 30px rgba(127,231,255,.25); display:none }
+@media (pointer:coarse) { #clapBtn.on { display:block } }
+.scr { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.72); overflow:auto }
+.card { width:min(560px, 100%); text-align:center }
+.card h1 { font:700 clamp(64px, 16vw, 130px)/0.9 var(--ui); margin:0 0 6px; letter-spacing:.06em; color:#fff; text-shadow:0 0 30px rgba(127,231,255,.6) }
+.card h2 { font:700 clamp(30px, 7vw, 46px)/1 var(--ui); margin:4px 0 10px; color:#fff }
+.card p { margin:10px 0; color:#b9cad6 }
+.k { font:700 12px var(--ui); letter-spacing:.28em; text-transform:uppercase; color:var(--cy) }
+.row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px }
+.how { text-align:left; display:grid; gap:8px; margin:18px auto 0; max-width:440px; font-size:15px; color:#cfdde7 }
+.how div { display:flex; gap:12px } .how i { font-style:normal; width:24px; text-align:center; flex:0 0 auto }
+.lv { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:22px }
+.lv button { border:1.5px solid rgba(127,231,255,.4); border-radius:14px; background:rgba(0,0,0,.5); padding:12px 4px; cursor:pointer; font:700 13px var(--ui); color:#cfe; display:flex; flex-direction:column; gap:2px; align-items:center }
+.lv button b { font-size:24px; color:#fff }
+.lv button:hover:not(:disabled) { border-color:var(--cy); background:rgba(127,231,255,.1) }
+.lv button:disabled { opacity:.3; cursor:default }
+.lv .st { color:#ffd76a; letter-spacing:2px; font-size:12px }
+.stars { font-size:38px; letter-spacing:8px; color:#ffd76a; text-shadow:0 0 18px rgba(255,215,106,.5) }
+.dim { color:var(--dim); font-size:14px }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="Echo game"></canvas>
+<div id="topL"><a class="btn sm" href="index.html">← kai.fun</a></div>
+<div id="topR"><button class="btn sm" id="sndBtn" type="button" aria-label="Sound on or off">🔊</button><button class="btn sm" id="pauseBtn" type="button" hidden>❚❚</button></div>
+<div id="hud" hidden></div>
+<div id="tip" class="off"></div>
+<button id="clapBtn" type="button">CLAP</button>
+
+<div class="scr" id="menu">
+  <div class="card">
+    <div class="k">a game about listening</div>
+    <h1>ECHO</h1>
+    <p>You are in a cave with no light at all. The only way to see is to make a sound.<br>Something else down here is listening too.</p>
+    <div class="how">
+      <div><i>👏</i><span><b>Space</b> or <b>click</b> to clap. The sound bounces off the walls and you see them for a moment.</span></div>
+      <div><i>🕹️</i><span><b>WASD / arrows</b> to walk (on a phone: drag, and the CLAP button). Footsteps make small sounds.</span></div>
+      <div><i>🤫</i><span>Hold <b>Shift</b> to sneak. Silent, but you can't see a thing.</span></div>
+      <div><i>👂</i><span>The creatures are blind. They hunt sound. A clap wakes everything nearby.</span></div>
+      <div><i>💧</i><span>The exit drips. Follow the green ripples.</span></div>
+    </div>
+    <div class="lv" id="lvGrid"></div>
+    <p class="dim" style="margin-top:16px">Headphones make it better: you can hear which side things are on.</p>
+  </div>
+</div>
+<div class="scr" id="intro" hidden>
+  <div class="card"><div class="k" id="inK">Cave 1</div><h2 id="inT"></h2><p id="inD"></p><div class="row"><button class="btn big" id="goBtn" type="button">Enter the dark</button></div></div>
+</div>
+<div class="scr" id="pause" hidden>
+  <div class="card"><h2>Paused</h2><p class="dim">Holding your breath.</p>
+    <div class="row"><button class="btn big" id="resBtn" type="button">Keep going</button><button class="btn" id="rstBtn" type="button">Restart cave</button><button class="btn" id="menuBtn" type="button">Caves</button></div></div>
+</div>
+<div class="scr" id="dead" hidden>
+  <div class="card"><div class="k" style="color:#ff6a6a">it heard you</div><h2>Caught.</h2><p id="deadD"></p>
+    <div class="row"><button class="btn big" id="retryBtn" type="button">Try again</button><button class="btn" id="dMenuBtn" type="button">Caves</button></div></div>
+</div>
+<div class="scr" id="done" hidden>
+  <div class="card"><div class="k" id="dnK">Cave cleared</div><h2 id="dnT">Daylight.</h2><div class="stars" id="dnS"></div><p id="dnD"></p><p class="dim" id="dnB"></p>
+    <div class="row"><button class="btn big" id="nextBtn" type="button">Next cave</button><button class="btn" id="againBtn" type="button">Again</button><button class="btn" id="lvBtn" type="button">Caves</button></div></div>
+</div>
+
+<script>
+(function () {
+'use strict';
+var cv = document.getElementById('cv'), cx = cv.getContext('2d'), W = 0, H = 0, DPR = 1;
+function size() { DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; }
+addEventListener('resize', size); size();
+function $(id) { return document.getElementById(id); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+// ------------------------------------------------------------------ sound: everything you hear is placed left/right
+var AC = null, muted = false;
+try { muted = localStorage.getItem('kaifun_echo_mute') === '1'; } catch (e) {}
+$('sndBtn').textContent = muted ? '🔇' : '🔊';
+$('sndBtn').onclick = function () { muted = !muted; $('sndBtn').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('kaifun_echo_mute', muted ? '1' : '0'); } catch (e) {} };
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (AC.state === 'suspended') AC.resume(); return AC; }
+function noiseBuf(a, len) { var n = Math.floor(a.sampleRate * len), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return b; }
+function out(a, pan, vol) { var g = a.createGain(); g.gain.value = vol; var p = a.createStereoPanner ? a.createStereoPanner() : null; if (p) { p.pan.value = clamp(pan, -1, 1); g.connect(p); p.connect(a.destination); } else g.connect(a.destination); return g; }
+function placed(x, y, maxD) { var dx = x - P.x, dy = y - P.y, d = Math.hypot(dx, dy); return { pan: clamp(dx / 300, -1, 1), vol: Math.max(0, 1 - d / maxD) }; }
+var SND = {
+  clap: function () {
+    if (muted) return; var a = ac(); if (!a) return; var t = a.currentTime;
+    [0, 0.13, 0.27, 0.42].forEach(function (dl, i) {   // the clap and its echoes
+      var s = a.createBufferSource(), f = a.createBiquadFilter(), g = out(a, (i % 2 ? 0.3 : -0.3) * (i ? 1 : 0), 0.5 / (1 + i * 1.6));
+      s.buffer = noiseBuf(a, 0.08); f.type = 'bandpass'; f.frequency.value = 1500 - i * 250; f.Q.value = 0.9;
+      var e = a.createGain(); e.gain.setValueAtTime(1, t + dl); e.gain.exponentialRampToValueAtTime(0.001, t + dl + 0.08);
+      s.connect(f); f.connect(e); e.connect(g); s.start(t + dl);
+    });
+  },
+  step: function () {
+    if (muted) return; var a = ac(); if (!a) return; var t = a.currentTime, s = a.createBufferSource(), f = a.createBiquadFilter(), g = out(a, 0, 0.06);
+    s.buffer = noiseBuf(a, 0.05); f.type = 'lowpass'; f.frequency.value = 600; var e = a.createGain(); e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    s.connect(f); f.connect(e); e.connect(g); s.start(t);
+  },
+  drip: function (x, y) {
+    if (muted) return; var a = ac(); if (!a) return; var p = placed(x, y, 1400); if (p.vol <= 0) return;
+    var t = a.currentTime, o = a.createOscillator(), e = a.createGain(), g = out(a, p.pan, 0.25 * p.vol);
+    o.type = 'sine'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(500, t + 0.12); e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.connect(e); e.connect(g); o.start(t); o.stop(t + 0.3);
+  },
+  growl: function (x, y, hunting) {
+    if (muted) return; var a = ac(); if (!a) return; var p = placed(x, y, 900); if (p.vol <= 0) return;
+    var t = a.currentTime, o = a.createOscillator(), o2 = a.createOscillator(), f = a.createBiquadFilter(), e = a.createGain(), g = out(a, p.pan, (hunting ? 0.32 : 0.16) * p.vol);
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(hunting ? 70 : 52, t); o.frequency.linearRampToValueAtTime(hunting ? 95 : 44, t + 0.6);
+    o2.type = 'square'; o2.frequency.value = hunting ? 73 : 55; f.type = 'lowpass'; f.frequency.value = 380;
+    e.gain.setValueAtTime(0.001, t); e.gain.linearRampToValueAtTime(1, t + 0.15); e.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    o.connect(f); o2.connect(f); f.connect(e); e.connect(g); o.start(t); o2.start(t); o.stop(t + 0.85); o2.stop(t + 0.85);
+  },
+  thud: function (x, y) {
+    if (muted) return; var a = ac(); if (!a) return; var p = placed(x, y, 700); if (p.vol <= 0) return;
+    var t = a.currentTime, o = a.createOscillator(), e = a.createGain(), g = out(a, p.pan, 0.22 * p.vol);
+    o.type = 'sine'; o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.connect(e); e.connect(g); o.start(t); o.stop(t + 0.2);
+  },
+  caught: function () { if (muted) return; var a = ac(); if (!a) return; var t = a.currentTime, s = a.createBufferSource(), f = a.createBiquadFilter(), e = a.createGain(), g = out(a, 0, 0.6);
+    s.buffer = noiseBuf(a, 0.9); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(100, t + 0.9); e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    s.connect(f); f.connect(e); e.connect(g); s.start(t); },
+  win: function () { if (muted) return; var a = ac(); if (!a) return; [392, 523, 659, 784].forEach(function (fq, i) { var t = a.currentTime + i * 0.12, o = a.createOscillator(), e = a.createGain(), g = out(a, 0, 0.12);
+    o.type = 'triangle'; o.frequency.value = fq; e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.6); o.connect(e); e.connect(g); o.start(t); o.stop(t + 0.65); }); }
+};
+
+// ------------------------------------------------------------------ caves
+var CS = 24;
+var LEVELS = [
+  { name: 'First Steps', gw: 40, gh: 26, fill: 0.44, monsters: 0, speed: 0, seed: 11, par: 12, text: 'Nothing lives in this one. Probably. Clap to see, then find the dripping exit.',
+    tips: [[0.5, 'Press Space (or click) to clap.'], [6, 'The green ripples are the exit dripping. Head towards them.'], [16, 'Walls you have seen stay faintly on your map.']] },
+  { name: 'Something Sleeping', gw: 46, gh: 30, fill: 0.45, monsters: 1, speed: 70, seed: 23, par: 14, text: 'There is something asleep down here. A clap close to it will wake it up.',
+    tips: [[0.5, 'Red ripples are the creature. It is blind, but it hears everything.'], [8, 'Hold Shift to sneak past. Silent, but blind.']] },
+  { name: 'Two of Them', gw: 50, gh: 32, fill: 0.45, monsters: 2, speed: 75, seed: 37, par: 16, text: 'Two creatures. When one is awake, it walks to the last sound it heard.',
+    tips: [[0.5, 'Clap, then move away from where you clapped. They go to the sound, not to you.']] },
+  { name: 'The Long Dark', gw: 58, gh: 36, fill: 0.46, monsters: 2, speed: 85, seed: 41, par: 20, text: 'A bigger cave, and they move faster now.', tips: [] },
+  { name: 'The Nest', gw: 60, gh: 38, fill: 0.45, monsters: 3, speed: 85, seed: 59, par: 22, text: 'Three of them, close together. Choose your claps carefully.', tips: [] },
+  { name: 'Hunters', gw: 64, gh: 40, fill: 0.46, monsters: 3, speed: 100, seed: 71, par: 24, text: 'These ones are quick. Footsteps are enough to bring them to you.', tips: [] },
+  { name: 'The Maze', gw: 70, gh: 44, fill: 0.47, monsters: 4, speed: 100, seed: 83, par: 28, text: 'Narrow tunnels everywhere. Four creatures.', tips: [] },
+  { name: 'The Deep', gw: 78, gh: 48, fill: 0.46, monsters: 5, speed: 110, seed: 97, par: 32, text: 'The deepest cave. Five of them. Daylight is somewhere on the other side.', tips: [] }
+];
+function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+var G, GW, GH;
+function wall(cx_, cy_) { return cx_ < 0 || cy_ < 0 || cx_ >= GW || cy_ >= GH || G[cy_ * GW + cx_] === 1; }
+function solidAt(x, y) { return wall(Math.floor(x / CS), Math.floor(y / CS)); }
+function genCave(lv) {
+  for (var attempt = 0; attempt < 30; attempt++) {
+    var R = rng(lv.seed * 101 + attempt); GW = lv.gw; GH = lv.gh; G = new Uint8Array(GW * GH);
+    for (var i = 0; i < GW * GH; i++) { var x = i % GW, y = (i - x) / GW; G[i] = (x === 0 || y === 0 || x === GW - 1 || y === GH - 1 || R() < lv.fill) ? 1 : 0; }
+    for (var it = 0; it < 5; it++) {
+      var N = new Uint8Array(GW * GH);
+      for (var y2 = 0; y2 < GH; y2++) for (var x2 = 0; x2 < GW; x2++) {
+        var c = 0; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) if ((dx || dy) && wall(x2 + dx, y2 + dy)) c++;
+        N[y2 * GW + x2] = (x2 === 0 || y2 === 0 || x2 === GW - 1 || y2 === GH - 1) ? 1 : c >= 5 ? 1 : c <= 3 ? 0 : G[y2 * GW + x2];
+      }
+      G = N;
+    }
+    // keep the biggest open area
+    var lab = new Int32Array(GW * GH).fill(-1), best = -1, bestN = 0, id = 0;
+    for (var s = 0; s < GW * GH; s++) if (!G[s] && lab[s] < 0) { var q = [s], n = 0; lab[s] = id; while (q.length) { var c2 = q.pop(); n++; var cx2 = c2 % GW, cy2 = (c2 - cx2) / GW; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = cx2 + d[0], ny = cy2 + d[1]; if (!wall(nx, ny) && lab[ny * GW + nx] < 0) { lab[ny * GW + nx] = id; q.push(ny * GW + nx); } }); } if (n > bestN) { bestN = n; best = id; } id++; }
+    for (var k = 0; k < GW * GH; k++) if (!G[k] && lab[k] !== best) G[k] = 1;
+    if (bestN < GW * GH * 0.33) continue;
+    // start: an open cell near the left; exit: the furthest cell you can walk to
+    var start = -1; for (var x3 = 1; x3 < GW && start < 0; x3++) for (var y3 = 1; y3 < GH; y3++) { var c3 = y3 * GW + x3; if (!G[c3] && open3(x3, y3)) { start = c3; break; } }
+    if (start < 0) continue;
+    var dist = bfs(start), far = start; for (var m = 0; m < GW * GH; m++) if (dist[m] > dist[far] && open3(m % GW, (m - m % GW) / GW)) far = m;
+    var mons = [], tries = 0;
+    while (mons.length < lv.monsters && tries++ < 4000) {
+      var c4 = Math.floor(R() * GW * GH); if (G[c4] || dist[c4] < 0 || dist[c4] < 16 || !open3(c4 % GW, (c4 - c4 % GW) / GW)) continue;
+      var near = mons.some(function (o) { return Math.abs(o % GW - c4 % GW) + Math.abs(Math.floor(o / GW) - Math.floor(c4 / GW)) < 9; });
+      var exitNear = Math.abs(far % GW - c4 % GW) + Math.abs(Math.floor(far / GW) - Math.floor(c4 / GW)) < 5;
+      if (!near && !exitNear) mons.push(c4);
+    }
+    if (mons.length < lv.monsters) continue;
+    return { start: start, exit: far, mons: mons, len: dist[far] };
+  }
+  throw new Error('cave');
+}
+function open3(x, y) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) if (wall(x + dx, y + dy)) return false; return true; }
+function bfs(from) {
+  var d = new Int32Array(GW * GH).fill(-1), q = [from]; d[from] = 0;
+  for (var h = 0; h < q.length; h++) { var c = q[h], x = c % GW, y = (c - x) / GW; for (var k = 0; k < 4; k++) { var nx = x + [1, -1, 0, 0][k], ny = y + [0, 0, 1, -1][k]; if (!wall(nx, ny) && d[ny * GW + nx] < 0) { d[ny * GW + nx] = d[c] + 1; q.push(ny * GW + nx); } } }
+  return d;
+}
+function centre(c) { var x = c % GW; return [x * CS + CS / 2, (c - x) / GW * CS + CS / 2]; }
+function cellOf(x, y) { return clamp(Math.floor(y / CS), 0, GH - 1) * GW + clamp(Math.floor(x / CS), 0, GW - 1); }
+
+// ray through the grid: how far until a wall
+function cast(x, y, dx, dy, max) {
+  var cxg = Math.floor(x / CS), cyg = Math.floor(y / CS), sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+  var tdx = Math.abs(CS / (dx || 1e-9)), tdy = Math.abs(CS / (dy || 1e-9));
+  var tx = ((dx > 0 ? (cxg + 1) * CS - x : x - cxg * CS)) / Math.abs(dx || 1e-9), ty = ((dy > 0 ? (cyg + 1) * CS - y : y - cyg * CS)) / Math.abs(dy || 1e-9), t = 0;
+  while (t < max) {
+    if (tx < ty) { t = tx; tx += tdx; cxg += sx; } else { t = ty; ty += tdy; cyg += sy; }
+    if (wall(cxg, cyg)) return Math.min(t, max);
+  }
+  return max;
+}
+
+// ------------------------------------------------------------------ state
+var save = { open: 1, best: {} };
+try { var sv = JSON.parse(localStorage.getItem('kaifun_echo') || 'null'); if (sv && sv.open) save = sv; } catch (e) {}
+function store() { try { localStorage.setItem('kaifun_echo', JSON.stringify(save)); } catch (e) {} }
+var li = 0, L, cave, P, EXIT, MON, waves, mem, memCx, state = 'menu', time = 0, claps = 0, keys = {}, joy = null, stepT = 0, dripT = 0, tipI = 0, tipT = 0, deadT = 0, cam = { x: 0, y: 0 }, botDir = null, sneakBot = false;
+function build(i) {
+  li = i; L = LEVELS[i]; cave = genCave(L);
+  var s = centre(cave.start), e = centre(cave.exit);
+  P = { x: s[0], y: s[1], r: 7, face: 0 }; EXIT = { x: e[0], y: e[1] };
+  MON = cave.mons.map(function (c) { var m = centre(c); return { x: m[0], y: m[1], hx: m[0], hy: m[1], state: 'sleep', tx: 0, ty: 0, path: null, pathT: 0, growlT: 2 + Math.random() * 4, calmT: 0, seen: -9, r: 11, speed: L.speed }; });
+  waves = []; time = 0; claps = 0; tipI = 0; tipT = 0; stepT = 0; dripT = 1.2;
+  mem = document.createElement('canvas'); mem.width = GW * CS; mem.height = GH * CS; memCx = mem.getContext('2d');
+  cam.x = P.x; cam.y = P.y; $('tip').classList.add('off');
+}
+// a sound: rays go out, light up the walls they hit, and wake things up
+function sound(x, y, kind) {
+  var big = kind === 'clap', n = big ? 360 : kind === 'step' ? 90 : 120, R = big ? 520 : kind === 'step' ? 70 : kind === 'drip' ? 150 : 90;
+  var rays = [];
+  for (var i = 0; i < n; i++) { var a = i / n * Math.PI * 2, dx = Math.cos(a), dy = Math.sin(a); rays.push({ dx: dx, dy: dy, d: cast(x, y, dx, dy, R) }); }
+  var w = { x: x, y: y, t0: time, R: R, rays: rays, kind: kind, speed: big ? 430 : 260, fade: big ? 2.4 : kind === 'step' ? 0.7 : 1.3, mons: [] };
+  if (kind === 'clap' || kind === 'step') MON.forEach(function (m) { var dd = Math.hypot(m.x - x, m.y - y); if (dd < R && cast(x, y, (m.x - x) / dd, (m.y - y) / dd, dd) >= dd - 2) w.mons.push({ m: m, d: dd, x: m.x, y: m.y }); });
+  if (kind === 'exit' || kind === 'drip') { var ed = Math.hypot(EXIT.x - x, EXIT.y - y); w.exitD = ed < R ? ed : -1; }
+  waves.push(w);
+  // remember the walls (faintly)
+  if (kind !== 'growl') {
+    memCx.fillStyle = kind === 'drip' ? 'rgba(120,255,170,1)' : 'rgba(127,231,255,1)';
+    rays.forEach(function (r) { if (r.d < R) memCx.fillRect(x + r.dx * r.d - 1.5, y + r.dy * r.d - 1.5, 3, 3); });
+  }
+  // who heard it
+  if (kind === 'clap' || kind === 'step') {
+    MON.forEach(function (m) {
+      var d = Math.hypot(m.x - x, m.y - y), hear = kind === 'clap' ? 430 : (m.state === 'sleep' ? 60 : 170);
+      if (d < hear) { if (m.state === 'sleep') SND.growl(m.x, m.y, true); m.state = 'hunt'; m.tx = x; m.ty = y; m.path = null; m.calmT = 9; }
+    });
+  }
+}
+function clap() { if (state !== 'play') return; ac(); claps++; SND.clap(); sound(P.x, P.y, 'clap'); }
+
+// ------------------------------------------------------------------ input
+addEventListener('keydown', function (e) {
+  var k = e.key.toLowerCase(); if (/^arrow/.test(k) || k === ' ') e.preventDefault();
+  if (k === ' ' && !keys[' ']) clap();
+  keys[k] = true;
+  if ((k === 'escape' || k === 'p') && (state === 'play' || state === 'paused')) state === 'play' ? pauseGame() : resume();
+  if (k === 'enter') { if (!$('intro').hidden) $('goBtn').click(); else if (!$('done').hidden) $('nextBtn').click(); else if (!$('dead').hidden) $('retryBtn').click(); }
+});
+addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', function () { keys = {}; joy = null; });
+var touchMode = false;
+cv.addEventListener('pointerdown', function (e) {
+  if (state !== 'play') return; ac();
+  if (e.pointerType === 'touch') { touchMode = true; $('clapBtn').classList.add('on'); joy = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0 }; cv.setPointerCapture(e.pointerId); }
+  else clap();
+});
+cv.addEventListener('pointermove', function (e) { if (joy && e.pointerId === joy.id) { joy.dx = e.clientX - joy.x; joy.dy = e.clientY - joy.y; } });
+function endJoy(e) { if (joy && e.pointerId === joy.id) joy = null; }
+cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
+$('clapBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); clap(); });
+
+// ------------------------------------------------------------------ update
+function moveCircle(o, dx, dy) {
+  var nx = o.x + dx; if (!hits(nx, o.y, o.r)) o.x = nx;
+  var ny = o.y + dy; if (!hits(o.x, ny, o.r)) o.y = ny;
+}
+function hits(x, y, r) { return solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r); }
+function update(dt) {
+  time += dt;
+  if (L.tips && tipI < L.tips.length && time >= L.tips[tipI][0]) { $('tip').textContent = L.tips[tipI][1]; $('tip').classList.remove('off'); tipT = 6; tipI++; }
+  if (tipT > 0) { tipT -= dt; if (tipT <= 0) $('tip').classList.add('off'); }
+  var x = 0, y = 0;
+  if (keys.arrowleft || keys.a) x -= 1; if (keys.arrowright || keys.d) x += 1; if (keys.arrowup || keys.w) y -= 1; if (keys.arrowdown || keys.s) y += 1;
+  if (joy) { var jm = Math.hypot(joy.dx, joy.dy); if (jm > 12) { x = joy.dx / jm; y = joy.dy / jm; } }
+  if (botDir) { x = botDir[0]; y = botDir[1]; }
+  var sneak = keys.shift || sneakBot || (joy && Math.hypot(joy.dx, joy.dy) < 45 && Math.hypot(joy.dx, joy.dy) > 12);
+  var n = Math.hypot(x, y);
+  if (n) {
+    var sp = sneak ? 42 : 95; x /= n; y /= n; P.face = Math.atan2(y, x);
+    var bx = P.x, by = P.y; moveCircle(P, x * sp * dt, y * sp * dt);
+    if (!sneak && Math.hypot(P.x - bx, P.y - by) > 0.5) { stepT -= dt; if (stepT <= 0) { stepT = 0.42; SND.step(); sound(P.x, P.y, 'step'); } }
+  }
+  // the exit drips every few seconds
+  dripT -= dt; if (dripT <= 0) { dripT = 3.2; sound(EXIT.x, EXIT.y, 'drip'); SND.drip(EXIT.x, EXIT.y); }
+  if (Math.hypot(P.x - EXIT.x, P.y - EXIT.y) < 18) { win(); return; }
+  // creatures
+  MON.forEach(function (m) {
+    m.growlT -= dt;
+    if (m.growlT <= 0) { m.growlT = m.state === 'sleep' ? 5 + Math.random() * 5 : 2 + Math.random() * 2; SND.growl(m.x, m.y, m.state !== 'sleep'); sound(m.x, m.y, 'growl'); }
+    if (m.state === 'sleep') return;
+    m.calmT -= dt;
+    if (m.calmT <= 0) { m.state = 'sleep'; return; }
+    m.pathT -= dt;
+    if (!m.path || m.pathT <= 0) { m.path = route(cellOf(m.x, m.y), cellOf(m.tx, m.ty)); m.pathT = 0.6; }
+    var tgt = m.path && m.path.length ? centre(m.path[0]) : [m.tx, m.ty];
+    var dx = tgt[0] - m.x, dy = tgt[1] - m.y, d = Math.hypot(dx, dy), s = m.speed * (m.state === 'hunt' ? 1 : 0.5) * dt;
+    if (d < 4 && m.path && m.path.length) m.path.shift();
+    else if (d > 0.5) { m.x += dx / d * Math.min(s, d); m.y += dy / d * Math.min(s, d); m.stepT = (m.stepT || 0) - dt; if (m.stepT <= 0) { m.stepT = 0.5; SND.thud(m.x, m.y); } }
+    if (Math.hypot(m.x - m.tx, m.y - m.ty) < 10) { m.state = 'search'; var c = randomNear(m.x, m.y); m.tx = c[0]; m.ty = c[1]; m.path = null; }
+    if (Math.hypot(m.x - P.x, m.y - P.y) < m.r + P.r + 2) caught(m);
+  });
+  waves = waves.filter(function (w) { return time - w.t0 < w.R / w.speed + w.fade; });
+}
+function route(a, b) {
+  if (wall(b % GW, Math.floor(b / GW))) return null;
+  var prev = new Int32Array(GW * GH).fill(-2), q = [a]; prev[a] = -1;
+  for (var h = 0; h < q.length; h++) {
+    var c = q[h]; if (c === b) break; var x = c % GW, y = (c - x) / GW;
+    for (var k = 0; k < 4; k++) { var nx = x + [1, -1, 0, 0][k], ny = y + [0, 0, 1, -1][k], nn = ny * GW + nx; if (!wall(nx, ny) && prev[nn] === -2) { prev[nn] = c; q.push(nn); } }
+  }
+  if (prev[b] === -2) return null;
+  var p = []; for (var c2 = b; c2 !== a && c2 >= 0; c2 = prev[c2]) p.push(c2); return p.reverse();
+}
+function randomNear(x, y) { for (var i = 0; i < 40; i++) { var nx = x + (Math.random() - 0.5) * 300, ny = y + (Math.random() - 0.5) * 300; if (!solidAt(nx, ny)) return [nx, ny]; } return [x, y]; }
+function caught(m) {
+  state = 'deadanim'; deadT = 1.2; SND.caught(); keys = {}; joy = null;
+  sound(m.x, m.y, 'growl');
+}
+
+// ------------------------------------------------------------------ drawing
+function draw() {
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+  if (!L) return;
+  var s = clamp(Math.min(W / 760, H / 520), 0.7, 1.8); if (location.hash === '#map') s = Math.min(W / (GW * CS), H / (GH * CS));
+  cam.x += (P.x - cam.x) * 0.1; cam.y += (P.y - cam.y) * 0.1; if (location.hash === '#map') { cam.x = GW * CS / 2; cam.y = GH * CS / 2; }
+  cx.setTransform(DPR * s, 0, 0, DPR * s, DPR * (W / 2 - cam.x * s), DPR * (H / 2 - cam.y * s));
+  // the faint memory of walls you have seen
+  cx.globalAlpha = location.hash === '#map' ? 1 : 0.13; cx.drawImage(mem, 0, 0); cx.globalAlpha = 1;
+  if (location.hash === '#map') { cx.fillStyle = 'rgba(127,231,255,.25)'; for (var i = 0; i < GW * GH; i++) if (G[i]) cx.fillRect(i % GW * CS, Math.floor(i / GW) * CS, CS, CS); MON.forEach(function (m) { cx.fillStyle = '#f44'; cx.beginPath(); cx.arc(m.x, m.y, 10, 0, 7); cx.fill(); }); cx.fillStyle = '#4f8'; cx.beginPath(); cx.arc(EXIT.x, EXIT.y, 12, 0, 7); cx.fill(); }
+  waves.forEach(function (w) {
+    var e = time - w.t0, r = e * w.speed, col = w.kind === 'drip' ? '120,255,170' : w.kind === 'growl' ? '255,70,70' : '127,231,255', n = w.rays.length;
+    // the ring travelling out
+    if (r < w.R) {
+      var ra = (1 - r / w.R) * (w.kind === 'clap' ? 0.55 : 0.4);
+      cx.strokeStyle = 'rgba(' + col + ',' + ra.toFixed(3) + ')'; cx.lineWidth = w.kind === 'clap' ? 2 : 1.2; cx.beginPath();
+      for (var i = 0; i <= n; i++) { var ry = w.rays[i % n]; if (r < ry.d) { var px = w.x + ry.dx * r, py = w.y + ry.dy * r; if (i && r < w.rays[(i - 1) % n].d) cx.lineTo(px, py); else cx.moveTo(px, py); } }
+      cx.stroke();
+    }
+    // walls lighting up where the sound hit them
+    if (w.kind !== 'growl') {
+      cx.lineWidth = w.kind === 'clap' ? 2.4 : 1.6; cx.lineCap = 'round';
+      for (var j = 0; j < n; j++) {
+        var a = w.rays[j], b = w.rays[(j + 1) % n]; if (a.d >= w.R) continue;
+        var ta = e - a.d / w.speed; if (ta < 0) continue; var al = Math.max(0, 1 - ta / w.fade) * (w.kind === 'step' ? 0.55 : 0.95); if (al <= 0) continue;
+        var ax = w.x + a.dx * a.d, ay = w.y + a.dy * a.d, bx = w.x + b.dx * b.d, by = w.y + b.dy * b.d;
+        cx.strokeStyle = 'rgba(' + col + ',' + al.toFixed(3) + ')';
+        if (b.d < w.R && Math.hypot(ax - bx, ay - by) < CS * 1.2) { cx.beginPath(); cx.moveTo(ax, ay); cx.lineTo(bx, by); cx.stroke(); }
+        else { cx.fillStyle = cx.strokeStyle; cx.fillRect(ax - 1.2, ay - 1.2, 2.4, 2.4); }
+      }
+    }
+    // a creature caught in the echo
+    w.mons.forEach(function (o) { var ta = e - o.d / w.speed; if (ta < 0) return; var al = Math.max(0, 1 - ta / (w.fade * 0.8)); if (al <= 0) return; drawMon(o.x, o.y, al, o.m.state !== 'sleep'); });
+    // the exit, when a sound reaches it
+    if (w.exitD != null && w.exitD >= 0) { var te = e - w.exitD / w.speed; if (te >= 0) { var ae = Math.max(0, 1 - te / 2); if (ae > 0) drawExit(ae); } }
+  });
+  if (Math.hypot(P.x - EXIT.x, P.y - EXIT.y) < 90) drawExit(0.6);
+  // you: a tiny glow
+  var g = cx.createRadialGradient(P.x, P.y, 0, P.x, P.y, 26); g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  cx.fillStyle = g; cx.beginPath(); cx.arc(P.x, P.y, 26, 0, 7); cx.fill();
+  cx.fillStyle = state === 'deadanim' ? '#f55' : '#fff'; cx.beginPath(); cx.arc(P.x, P.y, 4.5, 0, 7); cx.fill();
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (joy) { var m = Math.min(50, Math.hypot(joy.dx, joy.dy)), an = Math.atan2(joy.dy, joy.dx); cx.strokeStyle = 'rgba(127,231,255,.4)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(joy.x, joy.y, 50, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(127,231,255,.35)'; cx.beginPath(); cx.arc(joy.x + Math.cos(an) * m, joy.y + Math.sin(an) * m, 18, 0, 7); cx.fill(); }
+  if (state === 'deadanim') { cx.fillStyle = 'rgba(160,0,0,' + (0.5 * (1 - deadT / 1.2)) + ')'; cx.fillRect(0, 0, W, H); }
+}
+function drawMon(x, y, a, awake) {
+  cx.save(); cx.translate(x, y); cx.globalAlpha = a;
+  cx.strokeStyle = awake ? '#ff4a4a' : '#ff9a9a'; cx.lineWidth = 2; cx.fillStyle = 'rgba(255,40,40,.18)';
+  cx.beginPath(); for (var i = 0; i <= 14; i++) { var an = i / 14 * Math.PI * 2, rr = 12 + (i % 2 ? 4 : -1) + Math.sin(time * 6 + i) * 1.5; cx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } cx.closePath(); cx.fill(); cx.stroke();
+  if (awake) { cx.fillStyle = '#ff4a4a'; cx.beginPath(); cx.arc(-4, -2, 1.8, 0, 7); cx.arc(4, -2, 1.8, 0, 7); cx.fill(); }
+  else { cx.strokeStyle = '#ff9a9a'; cx.beginPath(); cx.moveTo(-6, -2); cx.lineTo(-2, -2); cx.moveTo(2, -2); cx.lineTo(6, -2); cx.stroke(); cx.fillStyle = '#ff9a9a'; cx.font = '700 10px sans-serif'; cx.fillText('z', 10, -12); }
+  cx.restore();
+}
+function drawExit(a) {
+  cx.save(); cx.globalAlpha = a; var g = cx.createRadialGradient(EXIT.x, EXIT.y, 0, EXIT.x, EXIT.y, 34); g.addColorStop(0, 'rgba(150,255,190,.9)'); g.addColorStop(1, 'rgba(150,255,190,0)');
+  cx.fillStyle = g; cx.beginPath(); cx.arc(EXIT.x, EXIT.y, 34, 0, 7); cx.fill(); cx.strokeStyle = '#9dffc0'; cx.lineWidth = 2; cx.beginPath(); cx.arc(EXIT.x, EXIT.y, 9, 0, 7); cx.stroke(); cx.restore();
+}
+
+// ------------------------------------------------------------------ screens
+function show(id) { ['menu', 'intro', 'pause', 'dead', 'done'].forEach(function (s) { $(s).hidden = s !== id; }); }
+function menu() {
+  state = 'menu'; $('hud').hidden = true; $('pauseBtn').hidden = true; $('tip').classList.add('off');
+  var g = $('lvGrid'); g.innerHTML = '';
+  LEVELS.forEach(function (lv, i) {
+    var b = document.createElement('button'), best = save.best[i]; b.type = 'button'; b.disabled = i + 1 > save.open;
+    b.innerHTML = '<b>' + (i + 1) + '</b>' + lv.name + '<span class="st">' + (best ? '★★★'.slice(0, best.stars) + '☆☆☆'.slice(0, 3 - best.stars) : i + 1 > save.open ? '🔒' : '&nbsp;') + '</span>';
+    b.onclick = function () { ac(); intro(i); }; g.appendChild(b);
+  });
+  show('menu');
+}
+function intro(i) { build(i); state = 'intro'; $('inK').textContent = 'Cave ' + (i + 1) + ' of ' + LEVELS.length; $('inT').textContent = L.name; $('inD').textContent = L.text; show('intro'); }
+function startPlay() { show(null); state = 'play'; $('hud').hidden = false; $('pauseBtn').hidden = false; last = performance.now(); if (touchMode) $('clapBtn').classList.add('on'); }
+function pauseGame() { state = 'paused'; show('pause'); keys = {}; joy = null; }
+function resume() { show(null); state = 'play'; last = performance.now(); }
+function dead() { state = 'dead'; $('hud').hidden = true; $('pauseBtn').hidden = true; $('clapBtn').classList.remove('on'); $('deadD').textContent = ['It followed the sound of your footsteps.', 'You clapped too close to it.', 'It was waiting in the dark.'][Math.floor(Math.random() * 3)]; show('dead'); }
+function win() {
+  state = 'won'; SND.win(); $('hud').hidden = true; $('pauseBtn').hidden = true; $('clapBtn').classList.remove('on'); $('tip').classList.add('off');
+  var stars = claps <= L.par ? 3 : claps <= L.par * 1.6 ? 2 : 1, prev = save.best[li];
+  if (!prev || stars > prev.stars || (stars === prev.stars && claps < prev.claps)) save.best[li] = { stars: stars, claps: claps, t: Math.round(time) };
+  save.open = Math.max(save.open, Math.min(LEVELS.length, li + 2)); store();
+  var lastLv = li === LEVELS.length - 1;
+  $('dnK').textContent = lastLv ? 'You escaped' : 'Cave ' + (li + 1) + ' cleared';
+  $('dnT').textContent = lastLv ? 'Daylight. Finally.' : ['A breath of air.', 'It never woke up. Or did it?', 'Quiet as a mouse.', 'Out of the long dark.', 'You left the nest alone.', 'Faster than the hunters.', 'Through the maze.'][li] || 'Out.';
+  $('dnS').textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(0, 3 - stars);
+  $('dnD').textContent = claps + (claps === 1 ? ' clap' : ' claps') + ' · ' + Math.floor(time / 60) + ':' + ('0' + Math.floor(time % 60)).slice(-2);
+  $('dnB').textContent = '3 stars: ' + L.par + ' claps or fewer.' + (lastLv ? ' You beat every cave.' : '');
+  $('nextBtn').hidden = lastLv; show('done');
+}
+$('goBtn').onclick = function () { ac(); startPlay(); };
+$('pauseBtn').onclick = function () { if (state === 'play') pauseGame(); };
+$('resBtn').onclick = resume;
+$('rstBtn').onclick = function () { build(li); startPlay(); };
+$('retryBtn').onclick = function () { build(li); startPlay(); };
+$('menuBtn').onclick = menu; $('dMenuBtn').onclick = menu; $('lvBtn').onclick = menu;
+$('againBtn').onclick = function () { intro(li); };
+$('nextBtn').onclick = function () { if (li + 1 < LEVELS.length) intro(li + 1); else menu(); };
+document.addEventListener('visibilitychange', function () { if (document.hidden && state === 'play') pauseGame(); });
+
+var last = performance.now();
+function frame(now) {
+  var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (state === 'play') update(dt);
+  else if (state === 'deadanim') { time += dt; deadT -= dt; waves = waves.filter(function (w) { return time - w.t0 < w.R / w.speed + w.fade; }); if (deadT <= 0) dead(); }
+  if (state === 'play') $('hud').innerHTML = L.name + ' &nbsp;·&nbsp; <b>' + claps + '</b> claps';
+  draw();
+  requestAnimationFrame(frame);
+}
+window.KFEcho = { levels: LEVELS, intro: intro, start: startPlay, step: function (dt) { update(dt); }, get: function () { return { state: state, P: P, EXIT: EXIT, MON: MON, claps: claps, time: time, GW: GW, GH: GH, CS: CS, G: G }; },
+  steer: function (d, sn) { botDir = d; sneakBot = !!sn; }, clap: clap, route: function (a, b) { return route(a, b); }, cellOf: cellOf, centre: centre };
+menu();
+requestAnimationFrame(frame);
+})();
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>

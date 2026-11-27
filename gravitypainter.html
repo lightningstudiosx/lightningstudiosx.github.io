@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="icon" href="favicon.png" sizes="64x64"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Gravity Painter</title>
+<meta name="description" content="No brushes. Pour the paint, then tilt the canvas and let gravity do the painting. Copy the picture as best you can.">
+<meta name="theme-color" content="#f4efe6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#23201c; --paper:#fffdf8; --bg:#efe7da; --ui:"Nunito","Trebuchet MS",system-ui,sans-serif; --title:"Fraunces",Georgia,serif }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html,body { margin:0; min-height:100%; background:var(--bg); color:var(--ink); font:800 15px/1.35 var(--ui); user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent }
+body { background:radial-gradient(circle at 30% 20%, #f7f1e7, #e9dfcf 70%); min-height:100vh }
+button { font:inherit; color:inherit }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:2.5px solid var(--ink); border-radius:12px; padding:9px 15px; background:#fff; box-shadow:0 4px 0 var(--ink);
+  font:900 15px var(--ui); cursor:pointer; text-decoration:none; color:var(--ink); white-space:nowrap }
+.btn:active { transform:translateY(3px); box-shadow:0 1px 0 var(--ink) }
+.btn.go { background:#ffd34d } .btn.sm { font-size:13px; padding:5px 10px; box-shadow:0 3px 0 var(--ink) }
+.btn:disabled { opacity:.45 }
+#top { display:flex; align-items:center; justify-content:space-between; padding:12px 14px 0; gap:10px }
+#top h1 { font:900 clamp(22px, 4vw, 34px) var(--title); margin:0; letter-spacing:-.01em }
+#top h1 span { color:#e4572e }
+main { display:flex; gap:26px; justify-content:center; align-items:flex-start; padding:14px 14px 30px; flex-wrap:wrap }
+#stage { perspective:1100px; padding:12px }
+#paperWrap { position:relative; width:var(--S); height:var(--S); transition:transform .08s linear; transform-style:preserve-3d; border-radius:6px;
+  box-shadow:0 18px 40px rgba(60,40,20,.28), 0 0 0 10px #8a6a48, 0 0 0 13px #5d4530; touch-action:none; cursor:crosshair }
+#paper, #wet { position:absolute; inset:0; width:100%; height:100%; border-radius:4px }
+#paper { background:var(--paper) }
+#side { width:min(300px, 100%); display:flex; flex-direction:column; gap:14px }
+.panel { background:#fffaf2; border:2.5px solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); padding:12px 14px }
+.panel h3 { margin:0 0 6px; font:900 13px var(--ui); letter-spacing:.14em; text-transform:uppercase; color:#8c7a66 }
+#targetName { font:900 20px var(--title); margin:0 0 8px }
+#target { width:100%; aspect-ratio:1; border-radius:6px; border:2px solid var(--ink); background:#fff; display:block }
+#pal { display:flex; flex-wrap:wrap; gap:8px }
+.pot { width:52px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:none; border:0; padding:0 }
+.pot i { width:44px; height:44px; border-radius:50%; border:3px solid var(--ink); display:block; box-shadow:inset -4px -5px 0 rgba(0,0,0,.18) }
+.pot[aria-pressed="true"] i { outline:4px solid #ffd34d; outline-offset:2px }
+.pot b { width:44px; height:6px; border-radius:3px; background:#ddd; overflow:hidden; display:block } .pot b u { display:block; height:100%; background:var(--ink) }
+#pad { width:150px; height:150px; border-radius:50%; border:2.5px solid var(--ink); background:radial-gradient(circle, #fff 0 30%, #f3ead9 31%); position:relative; margin:4px auto 0; touch-action:none; cursor:grab }
+#knob { position:absolute; width:46px; height:46px; border-radius:50%; background:#e4572e; border:3px solid var(--ink); left:50%; top:50%; transform:translate(-50%, -50%); box-shadow:0 3px 0 var(--ink) }
+.hint { font:700 13px var(--ui); color:#7a6a58; text-align:center; margin-top:6px }
+.row { display:flex; gap:8px; flex-wrap:wrap }
+.scr { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:18px; background:rgba(35,32,28,.5); overflow:auto }
+.card { width:min(620px, 100%); background:#fffaf2; border:3px solid var(--ink); border-radius:22px; box-shadow:0 8px 0 var(--ink); padding:22px; text-align:center }
+.card h2 { font:900 clamp(30px, 6vw, 46px)/1 var(--title); margin:4px 0 10px }
+.card .big { font:900 clamp(46px, 10vw, 74px)/1 var(--title); margin:6px 0 }
+.cmp { display:flex; gap:14px; justify-content:center; margin:12px 0 }
+.cmp div { display:flex; flex-direction:column; gap:4px; font:800 13px var(--ui); color:#7a6a58 }
+.cmp canvas { width:min(200px, 38vw); aspect-ratio:1; border:2px solid var(--ink); border-radius:6px; background:#fff }
+.stars { font-size:36px; letter-spacing:6px; color:#e0a100 }
+.lv { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:14px }
+.lv button { border:2.5px solid var(--ink); border-radius:14px; background:#fff; box-shadow:0 4px 0 var(--ink); padding:8px 6px 10px; cursor:pointer; font:900 13px var(--ui); display:flex; flex-direction:column; gap:5px; align-items:center }
+.lv button canvas { width:72px; height:72px; border:1.5px solid #bbb; border-radius:4px; background:#fff }
+.lv button:disabled { opacity:.4; cursor:default }
+.lv .st { color:#e0a100; letter-spacing:2px }
+.lead { font:800 16px var(--ui); color:#5d5246; margin:6px 0 }
+@media (max-width:760px) { main { gap:14px } #side { width:100% } }
+</style>
+</head>
+<body>
+<div id="top"><a class="btn sm" href="index.html">← kai.fun</a><h1>Gravity <span>Painter</span></h1><button class="btn sm" id="menuBtn" type="button">☰ Pictures</button></div>
+<main>
+  <div id="stage"><div id="paperWrap"><canvas id="paper" width="600" height="600"></canvas><canvas id="wet" width="600" height="600"></canvas></div>
+    <div class="hint" id="howTo" style="margin-top:26px">Click (or hold) on the paper to pour. Tilt with the arrow keys, WASD or the pad.</div></div>
+  <div id="side">
+    <div class="panel" id="tPanel"><h3>Copy this</h3><div id="targetName"></div><canvas id="target" width="300" height="300"></canvas></div>
+    <div class="panel"><h3>Paint</h3><div id="pal"></div></div>
+    <div class="panel"><h3>Tilt</h3><div id="pad"><div id="knob"></div></div><div class="hint" id="tiltHint">Drag the pad, or use the arrow keys.</div>
+      <div class="row" style="justify-content:center;margin-top:8px"><button class="btn sm" id="phoneTilt" type="button" hidden>📱 Use phone tilt</button></div></div>
+    <div class="row"><button class="btn go" id="doneBtn" type="button">✓ I'm done</button><button class="btn" id="clearBtn" type="button">↺ Start over</button><button class="btn" id="saveBtn" type="button" hidden>💾 Save picture</button></div>
+  </div>
+</main>
+
+<div class="scr" id="menu">
+  <div class="card">
+    <h2>Gravity Painter</h2>
+    <p class="lead">There are no brushes. You pour the paint, then <b>tilt the canvas</b> and let it run.<br>Copy each picture as closely as you can.</p>
+    <div class="lv" id="lvGrid"></div>
+  </div>
+</div>
+<div class="scr" id="result" hidden>
+  <div class="card">
+    <div class="lead" id="rName"></div>
+    <div class="big" id="rScore">0%</div>
+    <div class="stars" id="rStars"></div>
+    <div class="cmp"><div>The picture<canvas id="rT" width="200" height="200"></canvas></div><div>Yours<canvas id="rY" width="200" height="200"></canvas></div></div>
+    <p class="lead" id="rMsg"></p>
+    <div class="row" style="justify-content:center"><button class="btn go" id="nextBtn" type="button">Next picture ▶</button><button class="btn" id="retryBtn" type="button">↺ Try again</button><button class="btn" id="keepBtn" type="button">Keep painting</button><button class="btn" id="rMenuBtn" type="button">☰ Pictures</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+function $(id) { return document.getElementById(id); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+var paper = $('paper'), pc = paper.getContext('2d'), wet = $('wet'), wc = wet.getContext('2d'), wrap = $('paperWrap');
+var N = 600;
+function sizePaper() { var s = Math.min(innerWidth - 60, innerHeight - 140, 600); if (innerWidth <= 760) s = Math.min(innerWidth - 50, 600); wrap.style.setProperty('--S', Math.max(240, s) + 'px'); }
+addEventListener('resize', sizePaper); sizePaper();
+
+var C = { red: '#e23b2e', orange: '#f28c28', yellow: '#f6c90e', green: '#2e9e4f', blue: '#2563c9', sky: '#7cc6f2', purple: '#7b3fb8', black: '#1d1b19', pink: '#f07ab0', brown: '#8a5a32' };
+// each picture: what it looks like, which paints you get and how much
+var PICS = [
+  { name: 'A Red Line', pal: { red: 90 }, draw: function (g, s) { g.fillStyle = C.red; g.fillRect(0, s * 0.42, s, s * 0.16); } },
+  { name: 'Waterfall', pal: { blue: 110, green: 90 }, draw: function (g, s) { g.fillStyle = C.blue; g.fillRect(s * 0.4, 0, s * 0.2, s); g.fillStyle = C.green; g.fillRect(0, s * 0.75, s * 0.4, s * 0.25); g.fillRect(s * 0.6, s * 0.75, s * 0.4, s * 0.25); } },
+  { name: 'Sea and Sky', pal: { sky: 120, blue: 120 }, draw: function (g, s) { g.fillStyle = C.sky; g.fillRect(0, 0, s, s * 0.3); g.fillStyle = C.blue; g.fillRect(0, s * 0.6, s, s * 0.4); } },
+  { name: 'The Flag', pal: { green: 110, red: 110 }, draw: function (g, s) { g.fillStyle = C.green; g.fillRect(0, 0, s / 3, s); g.fillStyle = C.red; g.fillRect(s * 2 / 3, 0, s / 3, s); } },
+  { name: 'Sunrise', pal: { yellow: 110, orange: 130 }, draw: function (g, s) { g.fillStyle = C.orange; g.fillRect(0, s * 0.72, s, s * 0.28); g.fillStyle = C.yellow; g.beginPath(); g.arc(s / 2, s * 0.72, s * 0.24, Math.PI, 0); g.fill(); } },
+  { name: 'Big X', pal: { black: 120 }, draw: function (g, s) { g.strokeStyle = C.black; g.lineWidth = s * 0.12; g.lineCap = 'butt'; g.beginPath(); g.moveTo(0, 0); g.lineTo(s, s); g.moveTo(s, 0); g.lineTo(0, s); g.stroke(); } },
+  { name: 'Picture Frame', pal: { purple: 170 }, draw: function (g, s) { g.fillStyle = C.purple; var b = s * 0.12; g.fillRect(0, 0, s, b); g.fillRect(0, s - b, s, b); g.fillRect(0, 0, b, s); g.fillRect(s - b, 0, b, s); } },
+  { name: 'Four Squares', pal: { red: 110, blue: 110 }, draw: function (g, s) { g.fillStyle = C.red; g.fillRect(0, 0, s / 2, s / 2); g.fillRect(s / 2, s / 2, s / 2, s / 2); g.fillStyle = C.blue; g.fillRect(s / 2, 0, s / 2, s / 2); g.fillRect(0, s / 2, s / 2, s / 2); } },
+  { name: 'Free Paint', free: true, pal: { red: 1e9, orange: 1e9, yellow: 1e9, green: 1e9, blue: 1e9, sky: 1e9, purple: 1e9, pink: 1e9, brown: 1e9, black: 1e9 }, draw: function (g, s) {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, s, s); var cols = ['red', 'orange', 'yellow', 'green', 'blue', 'purple']; cols.forEach(function (c, i) { g.fillStyle = C[c]; g.beginPath(); g.arc(s * (0.2 + (i % 3) * 0.3), s * (0.33 + Math.floor(i / 3) * 0.34), s * 0.1, 0, 7); g.fill(); }); } }
+];
+var save = { best: {} };
+try { var sv = JSON.parse(localStorage.getItem('kaifun_gpaint') || 'null'); if (sv && sv.best) save = sv; } catch (e) {}
+function store() { try { localStorage.setItem('kaifun_gpaint', JSON.stringify(save)); } catch (e) {} }
+
+var pi = 0, pic, supply = {}, color = null, parts = [], tilt = { x: 0, y: 0 }, tiltT = { x: 0, y: 0 }, keys = {}, pad = null, phone = null, pouring = null, pourT = 0, painting = false;
+function paint(c) { return C[c]; }
+function load(i) {
+  pi = i; pic = PICS[i]; parts = []; supply = {}; for (var k in pic.pal) supply[k] = pic.pal[k];
+  color = Object.keys(pic.pal)[0];
+  pc.fillStyle = '#fffdf8'; pc.fillRect(0, 0, N, N); wc.clearRect(0, 0, N, N);
+  var t = $('target').getContext('2d'); t.fillStyle = '#fff'; t.fillRect(0, 0, 300, 300); pic.draw(t, 300);
+  $('targetName').textContent = pic.name; $('tPanel').hidden = !!pic.free; $('doneBtn').hidden = !!pic.free; $('saveBtn').hidden = !pic.free;
+  buildPal(); painting = true; show(null);
+}
+function buildPal() {
+  var p = $('pal'); p.innerHTML = '';
+  Object.keys(pic.pal).forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'pot'; b.dataset.c = k; b.setAttribute('aria-label', k + ' paint');
+    b.innerHTML = '<i style="background:' + C[k] + '"></i>' + (pic.free ? '' : '<b><u></u></b>');
+    b.onclick = function () { color = k; syncPal(); }; p.appendChild(b);
+  });
+  syncPal();
+}
+function syncPal() { [].forEach.call($('pal').children, function (b) { b.setAttribute('aria-pressed', b.dataset.c === color ? 'true' : 'false'); var u = b.querySelector('u'); if (u) u.style.width = Math.max(0, supply[b.dataset.c] / pic.pal[b.dataset.c] * 100) + '%'; }); }
+
+// ------------------------------------------------------------------ pouring
+function toPaper(e) { var r = wrap.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * N, y: (e.clientY - r.top) / r.height * N }; }
+wrap.addEventListener('pointerdown', function (e) { if (!painting) return; e.preventDefault(); wrap.setPointerCapture(e.pointerId); pouring = toPaper(e); pourT = 0; pour(); });
+wrap.addEventListener('pointermove', function (e) { if (pouring) pouring = toPaper(e); });
+function stopPour() { pouring = null; }
+wrap.addEventListener('pointerup', stopPour); wrap.addEventListener('pointercancel', stopPour);
+function pour() {
+  if (!pouring || supply[color] <= 0) return;
+  var n = Math.min(4, supply[color]); supply[color] -= n;
+  for (var i = 0; i < n; i++) {
+    var a = Math.random() * 7, r = Math.random() * 9;
+    parts.push({ x: pouring.x + Math.cos(a) * r, y: pouring.y + Math.sin(a) * r, vx: 0, vy: 0, m: 7 + Math.random() * 4, c: C[color], fr: 0.6 + Math.random() * 0.8 });
+  }
+  pc.fillStyle = C[color]; pc.beginPath(); pc.arc(pouring.x, pouring.y, 11, 0, 7); pc.fill();
+  syncPal();
+}
+
+// ------------------------------------------------------------------ tilting
+var PAD = $('pad'), KNOB = $('knob');
+function padAt(e) { var r = PAD.getBoundingClientRect(), x = (e.clientX - r.left - r.width / 2) / (r.width / 2 - 23), y = (e.clientY - r.top - r.height / 2) / (r.height / 2 - 23), m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } pad = { x: x, y: y }; }
+PAD.addEventListener('pointerdown', function (e) { e.preventDefault(); PAD.setPointerCapture(e.pointerId); padAt(e); });
+PAD.addEventListener('pointermove', function (e) { if (pad) padAt(e); });
+function padUp() { pad = null; } PAD.addEventListener('pointerup', padUp); PAD.addEventListener('pointercancel', padUp);
+addEventListener('keydown', function (e) { var k = e.key.toLowerCase(); if (/^arrow/.test(k)) e.preventDefault(); keys[k] = true; });
+addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', function () { keys = {}; pad = null; pouring = null; });
+if (window.DeviceOrientationEvent && ('ontouchstart' in window)) $('phoneTilt').hidden = false;
+$('phoneTilt').onclick = function () {
+  function on() { addEventListener('deviceorientation', function (e) { if (e.gamma == null) return; phone = { x: clamp(e.gamma / 35, -1, 1), y: clamp((e.beta - 30) / 35, -1, 1) }; }); $('phoneTilt').textContent = '📱 Phone tilt on'; $('tiltHint').textContent = 'Tilt your phone to tilt the paper.'; }
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().then(function (s) { if (s === 'granted') on(); }).catch(function () {});
+  else on();
+};
+
+// ------------------------------------------------------------------ simulation
+var last = performance.now(), botTilt = null;
+function step(dt) {
+  var kx = (keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0), ky = (keys.arrowdown || keys.s ? 1 : 0) - (keys.arrowup || keys.w ? 1 : 0);
+  if (botTilt) { tiltT.x = botTilt[0]; tiltT.y = botTilt[1]; }
+  else if (pad) { tiltT.x = pad.x; tiltT.y = pad.y; }
+  else if (phone) { tiltT.x = phone.x; tiltT.y = phone.y; }
+  else { tiltT.x = kx; tiltT.y = ky; }
+  var k = 1 - Math.exp(-dt * 6); tilt.x += (tiltT.x - tilt.x) * k; tilt.y += (tiltT.y - tilt.y) * k;
+  if (pouring) { pourT -= dt; if (pourT <= 0) { pourT = 0.06; pour(); } }
+  var g = Math.hypot(tilt.x, tilt.y), flowing = g > 0.14;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var p = parts[i];
+    if (flowing) { p.vx += tilt.x * 520 * p.fr * dt; p.vy += tilt.y * 520 * p.fr * dt; p.vx += (Math.random() - 0.5) * 900 * dt * g; p.vy += (Math.random() - 0.5) * 900 * dt * g; p.vx *= Math.exp(-2.6 * dt); p.vy *= Math.exp(-2.6 * dt); }
+    else { p.vx *= Math.exp(-14 * dt); p.vy *= Math.exp(-14 * dt); }
+    var ox = p.x, oy = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
+    var d = Math.hypot(p.x - ox, p.y - oy);
+    if (d > 0.05) {
+      var r = 2.2 + Math.sqrt(p.m) * 1.9;
+      pc.strokeStyle = p.c; pc.lineWidth = r * 2; pc.lineCap = 'round'; pc.beginPath(); pc.moveTo(ox, oy); pc.lineTo(p.x, p.y); pc.stroke();
+      p.m -= d * 0.018;
+    }
+    if (p.m <= 0.4 || p.x < -20 || p.y < -20 || p.x > N + 20 || p.y > N + 20) parts.splice(i, 1);
+  }
+  // the wet paint on top, shiny
+  wc.clearRect(0, 0, N, N);
+  parts.forEach(function (p) { var r = 2.2 + Math.sqrt(p.m) * 1.9; wc.fillStyle = p.c; wc.beginPath(); wc.arc(p.x, p.y, r, 0, 7); wc.fill(); wc.fillStyle = 'rgba(255,255,255,.45)'; wc.beginPath(); wc.arc(p.x - r * 0.3, p.y - r * 0.35, r * 0.3, 0, 7); wc.fill(); });
+  wrap.style.transform = 'rotateX(' + (-tilt.y * 16).toFixed(2) + 'deg) rotateY(' + (tilt.x * 16).toFixed(2) + 'deg)';
+  KNOB.style.left = (50 + tilt.x * 34) + '%'; KNOB.style.top = (50 + tilt.y * 34) + '%';
+}
+function frame(now) { var dt = Math.min(0.04, (now - last) / 1000); last = now; if (painting) step(dt); requestAnimationFrame(frame); }
+
+// ------------------------------------------------------------------ scoring: how close is it to the picture
+function grid(src, n) { var c = document.createElement('canvas'); c.width = c.height = n; var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, n, n); g.drawImage(src, 0, 0, n, n); return g.getImageData(0, 0, n, n).data; }
+function score() {
+  var n = 50, t = document.createElement('canvas'); t.width = t.height = n; var tg = t.getContext('2d'); tg.fillStyle = '#fff'; tg.fillRect(0, 0, n, n); pic.draw(tg, n);
+  var T = tg.getImageData(0, 0, n, n).data, Y = grid(paper, n), simSum = 0, colored = 0, spill = 0, blank = 0;
+  for (var i = 0; i < n * n * 4; i += 4) {
+    var tw = T[i] > 235 && T[i + 1] > 235 && T[i + 2] > 235, yw = Y[i] > 225 && Y[i + 1] > 222 && Y[i + 2] > 210;
+    if (tw) { blank++; if (!yw) spill++; }
+    else { colored++; var d = Math.hypot(T[i] - Y[i], T[i + 1] - Y[i + 1], T[i + 2] - Y[i + 2]); simSum += Math.max(0, 1 - d / 260); }
+  }
+  var s = (colored ? simSum / colored : 0) - (blank ? spill / blank : 0) * 0.7;
+  return Math.round(clamp(s, 0, 1) * 100);
+}
+$('doneBtn').onclick = function () {
+  var s = score(), stars = s >= 72 ? 3 : s >= 55 ? 2 : s >= 35 ? 1 : 0;
+  var prev = save.best[pi]; if (!prev || s > prev.s) { save.best[pi] = { s: s, stars: stars }; store(); }
+  $('rName').textContent = pic.name; $('rScore').textContent = s + '%'; $('rStars').textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(0, 3 - stars);
+  $('rMsg').textContent = s >= 85 ? 'A masterpiece. Gravity is your brush.' : s >= 72 ? 'Gallery-worthy!' : s >= 55 ? 'Pretty good! Pour less, tilt more.' : s >= 35 ? 'It is... modern art.' : 'Gravity won this one. Try again!';
+  var rt = $('rT').getContext('2d'); rt.fillStyle = '#fff'; rt.fillRect(0, 0, 200, 200); pic.draw(rt, 200);
+  var ry = $('rY').getContext('2d'); ry.drawImage(paper, 0, 0, 200, 200);
+  $('nextBtn').hidden = pi >= PICS.length - 2; painting = false; show('result');
+};
+$('clearBtn').onclick = function () { load(pi); };
+$('saveBtn').onclick = function () { var a = document.createElement('a'); a.download = 'gravity-painting.png'; a.href = paper.toDataURL('image/png'); a.click(); };
+$('nextBtn').onclick = function () { load(Math.min(pi + 1, PICS.length - 1)); };
+$('retryBtn').onclick = function () { load(pi); };
+$('keepBtn').onclick = function () { painting = true; show(null); };
+$('rMenuBtn').onclick = menu; $('menuBtn').onclick = menu;
+function show(id) { ['menu', 'result'].forEach(function (s) { $(s).hidden = s !== id; }); }
+function menu() {
+  painting = false; var g = $('lvGrid'); g.innerHTML = '';
+  PICS.forEach(function (p, i) {
+    var b = document.createElement('button'), best = save.best[i]; b.type = 'button';
+    var c = document.createElement('canvas'); c.width = c.height = 72; var cg = c.getContext('2d'); cg.fillStyle = '#fff'; cg.fillRect(0, 0, 72, 72); p.draw(cg, 72);
+    b.appendChild(c); b.insertAdjacentHTML('beforeend', '<span>' + p.name + '</span><span class="st">' + (p.free ? '🎨' : best ? '★★★'.slice(0, best.stars) + '☆☆☆'.slice(0, 3 - best.stars) + ' ' + best.s + '%' : '·') + '</span>');
+    b.onclick = function () { load(i); }; g.appendChild(b);
+  });
+  show('menu');
+}
+window.KFPaint = { load: load, step: function (dt) { step(dt); }, tilt: function (t) { botTilt = t; }, pourAt: function (x, y, c, n) { if (c) color = c; pouring = { x: x, y: y }; for (var i = 0; i < (n || 1); i++) pour(); pouring = null; }, score: score, parts: function () { return parts.length; } };
+menu();
+requestAnimationFrame(frame);
+})();
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
