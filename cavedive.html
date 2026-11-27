@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Barlow:wght@500;700&display=swap" rel="stylesheet">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three-mesh-bvh":"https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.3/build/index.module.js"}}</script>
 <style>
 :root { --ink:#e6f7f5; --aq:#5fe0d0; --warn:#ff7a5c; --dim:#6f9a98; --ui:"Barlow","Segoe UI",system-ui,sans-serif; --cond:"Barlow Condensed","Arial Narrow",sans-serif }
 * { box-sizing:border-box }
@@ -61,13 +61,21 @@ body.touch .hb.on { display:block } body.touch #gauges { bottom:auto; top:58px }
 .lv button:disabled { opacity:.3; cursor:default }
 .lv .st { color:#ffd76a; font-size:12px; letter-spacing:0; text-transform:none }
 .dim { color:var(--dim); font-size:14px }
+.sbx { margin-top:22px; padding:16px; border:1.5px solid rgba(95,224,208,.45); border-radius:14px; background:rgba(0,20,24,.55); display:grid; gap:10px; justify-items:center }
+#heat { position:fixed; inset:0; z-index:12; pointer-events:none; opacity:0; transition:opacity .4s; background:radial-gradient(circle, rgba(255,120,40,0) 40%, rgba(255,90,20,.55)) }
+#journal { position:fixed; inset:0; z-index:45; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.78) }
+#journal .jc { width:min(560px, 100%); text-align:center }
+#journal h2 { font:800 44px var(--cond); text-transform:uppercase; margin:4px 0 }
+#jList { display:grid; gap:8px; margin:14px 0 }
+.jr { display:grid; grid-template-columns:120px 1fr 90px; gap:10px; align-items:center; text-align:left; background:rgba(0,20,24,.7); border:1px solid rgba(95,224,208,.3); border-radius:10px; padding:8px 10px; font:700 17px var(--cond); letter-spacing:.04em }
+.jr .chip { color:#111; border-radius:6px; padding:3px 6px; text-align:center; font-size:13px; text-transform:uppercase }
 @media (max-width:620px) { .lv { grid-template-columns:repeat(3, 1fr) } #tip { max-width:calc(100vw - 24px); bottom:220px } }
 </style>
 </head>
 <body>
 <canvas id="cv" aria-label="Cave Dive game"></canvas>
 <div id="topL"><a class="btn sm" href="index.html">← kai.fun</a></div>
-<div id="topR"><button class="btn sm" id="sndBtn" type="button" aria-label="Sound on or off">🔊</button><button class="btn sm" id="pauseBtn" type="button" hidden>❚❚</button></div>
+<div id="topR"><button class="btn sm" id="sndBtn" type="button" aria-label="Sound on or off">🔊</button><button class="btn sm" id="jBtn" type="button" hidden>📓 J</button><button class="btn sm" id="pauseBtn" type="button" hidden>❚❚</button></div>
 <div id="hud" hidden></div>
 <div id="cross" hidden></div>
 <div id="gauges" hidden>
@@ -79,6 +87,10 @@ body.touch .hb.on { display:block } body.touch #gauges { bottom:auto; top:58px }
 <div id="msg" class="off"></div>
 <div id="lockMsg" hidden>Click to start using your hands</div>
 <div id="fade"></div>
+<div id="heat"></div>
+<div id="journal" hidden><div class="jc"><div class="k">Journal</div><h2>The Big Cave</h2><p class="dim" id="jSum"></p><div id="jList"></div>
+  <p class="dim">Blue holds are slippery: move fast. Orange holds are hot: let go quickly. Falls over 3 m hurt, over 11 m knock you out. Resting on the ground gets your energy back.</p>
+  <div class="row"><button class="btn big" id="jClose" type="button">Back to the cave</button><button class="btn" id="jCamp" type="button">Back to camp</button><button class="btn" id="jMenu" type="button">Leave the cave</button></div></div></div>
 <button class="hb" id="hL" type="button">LEFT ✋</button><button class="hb" id="hR" type="button">RIGHT ✋</button>
 
 <div class="scr" id="menu">
@@ -94,6 +106,8 @@ body.touch .hb.on { display:block } body.touch #gauges { bottom:auto; top:58px }
       <div><i>🧵</i><span>Follow the white <b>guideline</b>. It leads to the air.</span></div>
       <div><i>⌨️</i><span>Keyboard: <b>Q / E</b> grab, <b>W</b> pull, arrows look. Phone: hold the hand buttons and drag down.</span></div>
     </div>
+    <div class="sbx"><button class="btn big" id="sbBtn" type="button">🗺️ Explore the Big Cave</button><div class="dim">Sandbox: dry tunnels, a flooded lake, hot springs and 6 climbs rated Piece of Cake to Insatiable. <span id="sbStat"></span></div></div>
+    <div class="k" style="margin-top:22px">or take a dive</div>
     <div class="lv" id="lvGrid"></div>
   </div>
 </div>
@@ -115,6 +129,8 @@ body.touch .hb.on { display:block } body.touch #gauges { bottom:auto; top:58px }
 
 <script type="module">
 import * as THREE from 'three';
+import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree; THREE.Mesh.prototype.raycast = acceleratedRaycast;   // fast 'what is my hand touching'
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -180,7 +196,7 @@ function fbm(x, y, z) { return vnoise(x, y, z) * 0.6 + vnoise(x * 2.1, y * 2.1, 
 const cv = $('cv'), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
-const scene = new THREE.Scene(), WATER = new THREE.Color(0x021a1f), AIRC = new THREE.Color(0x0c0f10), DRYC = new THREE.Color(0x0b0907);
+const scene = new THREE.Scene(), WATER = new THREE.Color(0x021a1f), AIRC = new THREE.Color(0x0c0f10), DRYC = new THREE.Color(0x0b0907), HOTC = new THREE.Color(0x2a1206);
 scene.background = WATER.clone(); scene.fog = new THREE.FogExp2(WATER.clone(), 0.1);
 const camera = new THREE.PerspectiveCamera(75, 1, 0.02, 120); scene.add(camera);
 function size() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
@@ -246,7 +262,9 @@ function carve(meshes, samples) {
   }
 }
 function buildWorld(lv) {
-  if (world) { world.objs.forEach(o => { scene.remove(o); if (o.geometry) o.geometry.dispose(); }); }
+  if (world) { world.objs.forEach(o => { scene.remove(o); if (o.geometry) o.geometry.dispose(); }); world = null; }
+  if (lv.net) return buildNet(lv);
+  SB = null;
   const meshes = [], samples = [], surfaces = [], objs = [];
   const P0 = lv.pts.map(p => V(p[0], p[1], p[2])), last = P0[P0.length - 1].clone();
   P0.push(last.clone().add(V(0, 3, -1)), last.clone().add(V(0, 6.5, -1.2)));   // the end of the tunnel rises into the air bell
@@ -272,7 +290,7 @@ function buildWorld(lv) {
       arrow.position.copy(pts[pts.length - 1]); arrow.quaternion.setFromUnitVectors(V(0, 1, 0), tan); scene.add(arrow); objs.push(arrow); }
   }
   addLine(pts);
-  carve(meshes, samples);
+  carve(meshes, samples); meshes.forEach(m => m.geometry.computeBoundsTree());
   world = { main: M, meshes, samples, surfaces, objs: objs.concat(meshes) };
 }
 
@@ -382,7 +400,7 @@ let save = { open: 1, best: {} };
 try { const sv = JSON.parse(localStorage.getItem('kaifun_dive') || 'null'); if (sv && sv.open) save = sv; } catch (e) {}
 function store() { try { localStorage.setItem('kaifun_dive', JSON.stringify(save)); } catch (e) {} }
 let state = 'menu', time = 0, air = 1, P = V(0, 0, 0), vel = V(0, 0, 0), yaw = 0, pitch = 0, keys = {}, locked = false, pullAcc = 0, breathT = 0, breathPhase = 0, tipI = 0, tipT = 0, msgT = 0, exert = 0, beatT = 0, inAir = false, winT = 0;
-let botPull = 0;
+let botPull = 0, botWalk = null, joyMove = null;
 function look() { const cp = Math.cos(pitch); return V(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp); }
 function build(i) {
   li = i; L = LEVELS[i]; buildWorld(L);
@@ -397,23 +415,30 @@ function build(i) {
   camera.position.copy(P); camera.rotation.set(pitch, yaw, 0, 'YXZ'); camera.updateMatrixWorld();
 }
 function say(t, s) { $('msg').textContent = t; $('msg').classList.remove('off'); msgT = s || 3; }
-const ray = new THREE.Raycaster(); const REACH = 1.85;
+const ray = new THREE.Raycaster(); ray.firstHitOnly = true; const REACH = 1.85;
 function aimHit(side) {
   const d = look(), r = V(Math.cos(yaw), 0, -Math.sin(yaw)); d.addScaledVector(r, side * 0.07).normalize();
-  ray.set(camera.position, d); ray.far = REACH; const hit = ray.intersectObjects(world.meshes.filter(m => m.isMesh), false)[0];
+  ray.set(camera.position, d); ray.far = REACH;
+  if (SB && L && L.net) {   // of the handholds the ray passes near, take the one closest to where you are aiming
+    let best = null, bd = 1e9; for (const hz of ray.intersectObjects(SB.colliders, false)) { const c = hz.object.position, off = c.clone().sub(camera.position), along = off.dot(d), perp = off.addScaledVector(d, -along).length(); if (perp < bd) { bd = perp; best = hz; } }
+    if (best) { const hm = best.object.userData.holdMesh; return { point: hm.position.clone().addScaledVector(d, -0.08), object: hm, distance: best.distance }; } }
+  const hit = ray.intersectObjects(world.meshes.filter(m => m.isMesh), false)[0];
   return hit || null;
 }
 function grab(i, on) {
   const h = HANDS[i];
   if (!on) { if (h.state === 'grip' || h.state === 'reach') h.state = 'release'; return; }
   if (state !== 'play' || h.state === 'grip' || h.state === 'reach' || h.state === 'stroke') return;
+  if (L.net && noGripT > 0) { say('Your arms need a rest.', 1); return; }
   ac(); SND.ambient();
   const hit = aimHit(h.side);
+  if (hit && hit.object.userData.smooth) { say('Too smooth. Use the handholds.', 1.4); h.state = 'stroke'; h.t = 0; return; }
   if (hit) {
+    h.hold = hit.object.userData.hold || null; h.gripT = 0; if (h.hold && h.hold.type === 'hot') say('Hot!', 0.8);
     h.anchor.copy(hit.point); h.normal.copy(camera.position).sub(hit.point).normalize(); h.state = 'reach'; h.k = Math.max(h.k, 0.05);
     // the floor is silt
-    const near = nearest(hit.point); if (near && hit.point.y < near.p.y - near.r * 0.35) stirSilt(hit.point, L.silt);
-  } else { h.state = 'stroke'; h.t = 0; vel.addScaledVector(look(), L.dry ? 0.3 : 1.1); exert += 0.4; if (!L.dry) SND.stroke(); }
+    const near = nearest(hit.point); if (!h.hold && near && hit.point.y < near.p.y - near.r * 0.35) stirSilt(hit.point, L.net ? (inWater ? 1.4 : 0.25) : L.silt);
+  } else { h.state = 'stroke'; h.t = 0; vel.addScaledVector(look(), L.net ? (inWater ? 1.1 : 0) : L.dry ? 0.3 : 1.1); exert += 0.4; if (!L.dry) SND.stroke(); }
 }
 function nearest(p, mainOnly) { let best = null, bd = 1e9; for (const s of world.samples) { if (mainOnly && !s.main) continue; const d = s.p.distanceToSquared(p); if (d < bd) { bd = d; best = s; } } return best; }
 // stay inside the rock
@@ -434,7 +459,9 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); if (/^arrow/.test(k) || k === ' ') e.preventDefault();
   if (!keys[k]) { if (k === 'q') grab(0, true); if (k === 'e') grab(1, true); }
   keys[k] = true;
-  if ((k === 'escape' || k === 'p') && state === 'play') pauseGame(); else if (k === 'p' && state === 'paused') resume();
+  if (k === 'j' && L && L.net && (state === 'play' || state === 'journal')) journal();
+  else if (k === 'escape' && state === 'journal') journal(false);
+  else if ((k === 'escape' || k === 'p') && state === 'play') pauseGame(); else if (k === 'p' && state === 'paused') resume();
   if (k === 'enter') { if (!$('intro').hidden) $('goBtn').click(); else if (!$('done').hidden) $('nextBtn').click(); else if (!$('dead').hidden) $('retryBtn').click(); }
 });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; if (k === 'q') grab(0, false); if (k === 'e') grab(1, false); });
@@ -461,12 +488,13 @@ const touches = {};
   b.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; touches[t.identifier] = { hand: i, y: t.clientY }; grab(i, true); }, { passive: false });
 });
 addEventListener('touchmove', e => { for (const t of e.changedTouches) { const o = touches[t.identifier]; if (!o) continue;
-  if (o.hand != null) { pullAcc += Math.max(0, t.clientY - o.y) * 0.006; o.y = t.clientY; } else { yaw -= (t.clientX - o.x) * 0.006; pitch = clamp(pitch - (t.clientY - o.y) * 0.006, -1.45, 1.45); o.x = t.clientX; o.y = t.clientY; } } }, { passive: false });
-cv.addEventListener('touchstart', e => { if (state !== 'play') return; ac(); SND.ambient(); for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY }; e.preventDefault(); }, { passive: false });
-addEventListener('touchend', e => { for (const t of e.changedTouches) { const o = touches[t.identifier]; if (o && o.hand != null) grab(o.hand, false); delete touches[t.identifier]; } });
+  if (o.hand != null) { pullAcc += Math.max(0, t.clientY - o.y) * 0.006; o.y = t.clientY; } else if (o.move) { const dx = t.clientX - o.x0, dy = t.clientY - o.y0, m = Math.hypot(dx, dy); joyMove = m > 14 ? { f: -dy / Math.max(m, 60), s: dx / Math.max(m, 60) } : null; } else { yaw -= (t.clientX - o.x) * 0.006; pitch = clamp(pitch - (t.clientY - o.y) * 0.006, -1.45, 1.45); o.x = t.clientX; o.y = t.clientY; } } }, { passive: false });
+cv.addEventListener('touchstart', e => { if (state !== 'play') return; ac(); SND.ambient(); for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY, move: L.net && t.clientX < innerWidth * 0.33, x0: t.clientX, y0: t.clientY }; e.preventDefault(); }, { passive: false });
+addEventListener('touchend', e => { for (const t of e.changedTouches) { const o = touches[t.identifier]; if (o && o.move) joyMove = null; if (o && o.hand != null) grab(o.hand, false); delete touches[t.identifier]; } });
 
 // ------------------------------------------------------------------ update
 function update(dt) {
+  if (L.net) return updateSandbox(dt);
   time += dt;
   if (L.tips && tipI < L.tips.length && time >= L.tips[tipI][0]) { $('tip').textContent = L.tips[tipI][1]; $('tip').classList.remove('off'); tipT = 7; tipI++; }
   if (tipT > 0) { tipT -= dt; if (tipT <= 0) $('tip').classList.add('off'); }
@@ -506,7 +534,7 @@ function update(dt) {
   $('airV').textContent = Math.round(air * (L.dry ? 100 : 200)); $('airBar').style.width = (air * 100).toFixed(1) + '%'; $('air').classList.toggle('low', air < 0.25);
   $('depV').textContent = Math.max(0, (-P.y + 0.3)).toFixed(1);
   const ns = nearest(P, true); $('lineV').textContent = ns ? Math.max(0, Math.round((1 - ns.t) * world.main.len)) : '—';
-  const hit = !gripping() && aimHit(0); $('cross').classList.toggle('reach', !!hit);
+  if ((crossT -= dt) <= 0) { crossT = 0.12; const hit = !gripping() && aimHit(0); $('cross').classList.toggle('reach', !!hit); }
 }
 function drown() { state = 'drowning'; HANDS.forEach(h => grab(HANDS.indexOf(h), false)); $('fade').style.opacity = 1; if (document.pointerLockElement) document.exitPointerLock(); setTimeout(dead, 1300); }
 
@@ -524,17 +552,231 @@ function render(dt) {
   siltGeo.attributes.position.needsUpdate = true; siltAmount = Math.max(0, siltAmount - dt * 0.07);
   for (let i = 0; i < BUB_N; i++) { if (bubLife[i] <= 0) continue; bubLife[i] -= dt; const k = i * 3; bubPos[k + 1] += dt * (0.6 + (i % 5) * 0.08); bubPos[k] += Math.sin(time * 6 + i) * 0.002; if (bubLife[i] <= 0) bubPos[k + 1] = -999; }
   bubGeo.attributes.position.needsUpdate = true;
-  const fogD = L && L.dry ? 0.06 + siltAmount * 0.4 : inAir ? 0.025 : 0.1 + siltAmount * 0.55, fogC = L && L.dry ? DRYC : inAir ? AIRC : WATER;
+  steamTick(dt);
+  const fogD = L && L.net ? (headUnder ? 0.1 + siltAmount * 0.55 : 0.03 + siltAmount * 0.3) : L && L.dry ? 0.06 + siltAmount * 0.4 : inAir ? 0.025 : 0.1 + siltAmount * 0.55,
+    fogC = L && L.net ? (headUnder ? (hotNow ? HOTC : WATER) : DRYC) : L && L.dry ? DRYC : inAir ? AIRC : WATER;
   scene.fog.density += (fogD - scene.fog.density) * Math.min(1, dt * 3); scene.fog.color.lerp(fogC, Math.min(1, dt * 3)); scene.background.copy(scene.fog.color);
   if (world) world.surfaces.forEach(s => { s.mesh.position.y = s.y + Math.sin(time * 1.7) * 0.015; s.mesh.rotation.y += dt * 0.05; });
   renderer.render(scene, camera);
 }
 
+// ================================================================== THE BIG CAVE: a cave system to explore freely
+const RATINGS = [
+  { name: 'Piece of Cake', col: '#5fd16a', gap: 0.5, slip: 0, hot: 0, slipT: 2 },
+  { name: 'Easy', col: '#b6e05a', gap: 0.68, slip: 0, hot: 0, slipT: 2 },
+  { name: 'Medium', col: '#ffd84a', gap: 0.85, slip: 0.25, hot: 0, slipT: 1.6 },
+  { name: 'Hard', col: '#ff9a3c', gap: 1.0, slip: 0.3, hot: 0.2, slipT: 1.25 },
+  { name: 'Brutal', col: '#ff5a4a', gap: 1.12, slip: 0.4, hot: 0.2, slipT: 1.0 },
+  { name: 'Insatiable', col: '#c77dff', gap: 1.24, slip: 0.5, hot: 0.3, slipT: 0.8 }
+];
+const SANDBOX = { name: 'The Big Cave', net: true, flat: 0.8, silt: 0.5,
+  nodes: { A: { p: [0, 0, 0], r: 4, name: 'Entrance', camp: true, sky: true }, B: { p: [0, -5, -22], r: 6, name: 'Main Gallery' }, F: { p: [-3, 7, -24], r: 3, name: 'The Balcony' },
+    C: { p: [18, -12, -28], r: 6, name: 'Lake Room' }, G: { p: [20, 4, -30], r: 4, name: 'Crystal Room', camp: true, crystals: true }, E: { p: [38, -10, -52], r: 4, name: 'Hidden Chamber' },
+    L: { p: [40, 6, -55], r: 3, name: 'Moon Room' }, H: { p: [-16, -8, -44], r: 5, name: 'Echo Hall' }, J: { p: [-17, 6, -46], r: 3, name: "Owl's Ledge" },
+    I: { p: [8, -6, -58], r: 5, name: 'Hot Springs' }, K: { p: [9, 10, -60], r: 3, name: 'Vent Top', camp: true }, M: { p: [-4, -22, -70], r: 5, name: 'The Abyss' }, N: { p: [-4, 0, -72], r: 3.5, name: 'The Summit' } },
+  tunnels: [['A', 'B', [[0, -2, -10]], 1.6], ['B', 'C', [[9, -9, -24]], 1.8], ['B', 'H', [[-8, -7, -34]], 1.5], ['C', 'E', [[28, -17, -38], [34, -17, -46]], 1.3], ['H', 'I', [[-6, -7, -52]], 1.4],
+    ['I', 'M', [[2, -14, -64]], 1.3], ['G', 'K', [[16, 8, -45]], 1.4], ['F', 'J', [[-10, 8, -35]], 1.2], ['N', 'K', [[3, 6, -68]], 1.2], ['L', 'G', [[32, 8, -42]], 1.3]],
+  climbs: [{ name: "Kid's Chimney", from: 'B', to: 'F', rating: 0 }, { name: 'Stairway Shaft', from: 'C', to: 'G', rating: 1 }, { name: 'The Wet Wall', from: 'H', to: 'J', rating: 2 },
+    { name: 'Steam Vent', from: 'I', to: 'K', rating: 3 }, { name: 'The Overhang', from: 'E', to: 'L', rating: 4, lean: [2.2, 0, 0] }, { name: 'The Throat', from: 'M', to: 'N', rating: 5 }],
+  water: [{ x: 20, z: -30, r: 9, y: -14 }, { x: 31, z: -43, r: 8, y: -14 }, { x: 8, z: -58, r: 5.5, y: -7.5, hot: true }, { x: -4, z: -70, r: 6, y: -20, hot: true }],
+  tips: [[0.6, 'The Big Cave. Walk with WASD, jump with Space. Grab with the mouse buttons to climb and crawl.'], [8, 'Each climb has a sign with its difficulty, from Piece of Cake to Insatiable. Press J for your journal.'], [18, 'On a climb the rock is too smooth: only the handholds work. Blue holds are slippery. Orange holds are HOT.']]
+};
+let SB = null, sbSave = { climbed: {}, found: {} };
+try { const v = JSON.parse(localStorage.getItem('kaifun_bigcave') || 'null'); if (v && v.climbed) sbSave = v; } catch (e) {}
+function sbStore() { try { localStorage.setItem('kaifun_bigcave', JSON.stringify(sbSave)); } catch (e) {} }
+let crossT = 0, energy = 1, grounded = false, maxY = 0, placeName = '', campAt = null, noGripT = 0, inWater = false, headUnder = false, hotNow = false, koT = 0, jumpLatch = false;
+const smoothMat = new THREE.MeshStandardMaterial({ map: rockTex, vertexColors: true, roughness: 0.35, metalness: 0.05, side: THREE.BackSide, color: 0x9a9aa0 });
+const HOLD_ZONE = new THREE.SphereGeometry(0.22, 8, 6), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
+const HOLD_MAT = { normal: new THREE.MeshStandardMaterial({ color: 0xe6dcc4, roughness: 0.9 }),
+  slippery: new THREE.MeshStandardMaterial({ color: 0x2f7f8f, roughness: 0.05, metalness: 0.4, emissive: 0x06262c }),
+  hot: new THREE.MeshStandardMaterial({ color: 0xff7a2a, roughness: 0.5, emissive: 0xc43a00, emissiveIntensity: 0.9 }) };
+function seeded(s) { return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
+function textSprite(lines, col) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 160; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, 512, 160); g.strokeStyle = col; g.lineWidth = 6; g.strokeRect(3, 3, 506, 154);
+  g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = '800 56px "Barlow Condensed", sans-serif'; g.fillText(lines[0].toUpperCase(), 256, 70);
+  g.fillStyle = col; g.font = '800 42px "Barlow Condensed", sans-serif'; g.fillText(lines[1].toUpperCase(), 256, 130);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, fog: true })); s.scale.set(2.4, 0.75, 1); return s;
+}
+function buildNet(lv) {
+  const meshes = [], samples = [], objs = [], R = seeded(97);
+  const nodes = {}; for (const k in lv.nodes) { const n = lv.nodes[k]; nodes[k] = Object.assign({}, n, { p: V(n.p[0], n.p[1], n.p[2]), key: k }); }
+  // each climb is a straight-up shaft from the floor at the side of one chamber to the floor of the chamber above
+  const climbs = lv.climbs.map((c, i) => {
+    const A = nodes[c.from], B = nodes[c.to], dh = V(B.p.x - A.p.x, 0, B.p.z - A.p.z); if (dh.lengthSq() < 0.01) dh.set(1, 0, 0); dh.normalize();
+    const col = A.p.clone().addScaledVector(dh, A.r * 0.8); B.p.x = col.x; B.p.z = col.z;
+    const bot = V(col.x, A.p.y - A.r * 0.45, col.z), top = V(col.x, B.p.y - B.r * 0.35, col.z);
+    return { name: c.name, rating: c.rating, A, B, dh, bot, top, lean: c.lean ? V(c.lean[0], c.lean[1], c.lean[2]) : V(0, 0, 0), idx: i };
+  });
+  for (const k in nodes) cap(nodes[k].p, nodes[k].r, meshes, samples);
+  lv.tunnels.forEach((t, i) => { const pts = [nodes[t[0]].p.clone()].concat(t[2].map(q => V(q[0], q[1], q[2])), [nodes[t[1]].p.clone()]); tube(new THREE.CatmullRomCurve3(pts), () => t[3], lv.flat, 11 + i * 3.3, meshes, samples); });
+  climbs.forEach((c, i) => {
+    const mid = c.bot.clone().lerp(c.top, 0.5).add(c.lean), curve = new THREE.CatmullRomCurve3([c.bot.clone(), c.bot.clone().lerp(c.top, 0.25).addScaledVector(c.lean, 0.6), mid, c.bot.clone().lerp(c.top, 0.75).addScaledVector(c.lean, 0.6), c.top.clone()]);
+    tube(curve, () => 1.15, 1, 40 + i * 5.1, meshes, samples); const m = meshes[meshes.length - 1]; m.material = smoothMat; m.userData.smooth = true; c.curve = curve;
+  });
+  // daylight above the entrance
+  const A = nodes.A; tube(new THREE.CatmullRomCurve3([A.p.clone(), A.p.clone().add(V(0.4, 8, 0.2)), A.p.clone().add(V(0, 16, 0))]), () => 2.3, 1, 70, meshes, samples);
+  meshes[meshes.length - 1].material = smoothMat; meshes[meshes.length - 1].userData.smooth = true; cap(A.p.clone().add(V(0, 16, 0)), 2.4, meshes, samples);
+  const sky = new THREE.Mesh(new THREE.CircleGeometry(2.2, 32), new THREE.MeshBasicMaterial({ color: 0xeaf6ff, fog: false })); sky.position.copy(A.p).add(V(0, 15.2, 0)); sky.rotation.x = Math.PI / 2; scene.add(sky); objs.push(sky);
+  const sun = new THREE.PointLight(0xdfeeff, 40, 30, 1.2); sun.position.copy(A.p).add(V(0, 9, 0)); scene.add(sun); objs.push(sun);
+  carve(meshes, samples); meshes.forEach(m => m.geometry.computeBoundsTree());
+  const rock = meshes.slice();
+  // handholds, found by feeling outwards from the middle of the shaft for the rock
+  const holds = [], colliders = [];
+  climbs.forEach(c => {
+    const rt = RATINGS[c.rating], base = Math.atan2(c.dh.z, c.dh.x); let y = c.bot.y + 0.55, side = 1, run = 0, n = 0;
+    const H = c.top.y - c.bot.y;
+    while (y < c.top.y + 0.4) {
+      const u = clamp((y - c.bot.y) / H, 0, 1), ctr = c.curve.getPointAt(u); ctr.y = y;
+      const ang = base + side * (0.18 + R() * 0.3) + (R() - 0.5) * 0.25, dir = V(Math.cos(ang), 0.05, Math.sin(ang)).normalize();
+      ray.set(ctr, dir); ray.far = 3; const hit = ray.intersectObjects(rock, false)[0];
+      if (hit) {
+        let type = 'normal'; const roll = R();
+        if (n > 1 && y < c.top.y - 0.6 && run < 2) { if (roll < rt.hot) type = 'hot'; else if (roll < rt.hot + rt.slip) type = 'slippery'; }
+        run = type === 'normal' ? 0 : run + 1;
+        const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.1 + R() * 0.035, 0), HOLD_MAT[type]); m.scale.set(1.2, 0.75, 1); m.position.copy(hit.point).addScaledVector(dir, -0.05);
+        m.lookAt(ctr); m.userData.hold = { type, slipT: rt.slipT * (0.85 + R() * 0.3), climb: c.idx }; scene.add(m); objs.push(m);
+        const zone = new THREE.Mesh(HOLD_ZONE, HIDDEN); zone.position.copy(m.position); zone.userData.holdMesh = m; zone.updateMatrixWorld(); colliders.push(zone);
+        holds.push({ mesh: m, type, p: m.position.clone(), climb: c.idx }); n++;
+      }
+      y += rt.gap * (0.9 + R() * 0.2); side = -side;
+    }
+    // the sign at the bottom and the crystal at the top
+    const sign = textSprite([c.name, rt.name], rt.col); sign.position.copy(c.bot).add(V(0, 2.4, 0)).addScaledVector(c.dh, -1.6); scene.add(sign); objs.push(sign);
+    const perp = V(-c.dh.z, 0, c.dh.x), cp = c.B.p.clone().addScaledVector(perp, c.B.r * 0.42); cp.y = c.B.p.y - c.B.r * 0.55;
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshStandardMaterial({ color: rt.col, emissive: rt.col, emissiveIntensity: 0.8, roughness: 0.2 })); cr.position.copy(cp); scene.add(cr); objs.push(cr);
+    const cl = new THREE.PointLight(new THREE.Color(rt.col), 3, 6, 1.5); cl.position.copy(cp).add(V(0, 0.5, 0)); scene.add(cl); objs.push(cl); c.crystal = cr;
+  });
+  // camps: a lantern you can come back to
+  const camps = [];
+  for (const k in nodes) { const n = nodes[k]; if (!n.camp) continue; const p = n.p.clone().add(V(n.r * 0.3, -n.r * 0.55, n.r * 0.2));
+    const lan = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.25, 10), new THREE.MeshStandardMaterial({ color: 0xffc46a, emissive: 0xff9a2a, emissiveIntensity: 1.2 })); lan.position.copy(p).add(V(0.6, -0.9, 0)); scene.add(lan); objs.push(lan);
+    const ll = new THREE.PointLight(0xffb86a, 6, 12, 1.4); ll.position.copy(lan.position).add(V(0, 0.4, 0)); scene.add(ll); objs.push(ll);
+    camps.push({ node: n, p }); }
+  // crystals in the Crystal Room
+  for (const k in nodes) { const n = nodes[k]; if (!n.crystals) continue; for (let i = 0; i < 14; i++) { const a = R() * 6.28, el = -0.2 - R() * 0.9, d = V(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el));
+    ray.set(n.p, d); ray.far = n.r * 2; const h = ray.intersectObjects(rock, false)[0]; if (!h) continue;
+    const cm = new THREE.Mesh(new THREE.ConeGeometry(0.08 + R() * 0.1, 0.4 + R() * 0.7, 6), new THREE.MeshStandardMaterial({ color: [0x9ff0ff, 0xd49bff, 0xfff0a0][i % 3], emissive: [0x2a8090, 0x6a2a90, 0x806a20][i % 3], roughness: 0.15 }));
+    cm.position.copy(h.point); cm.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().negate()); cm.rotateX((R() - 0.5) * 0.6); scene.add(cm); objs.push(cm); }
+    const gl = new THREE.PointLight(0x9fdcff, 4, 10, 1.4); gl.position.copy(n.p); scene.add(gl); objs.push(gl); }
+  // water: a lake, a flooded passage and two hot springs
+  const zones = lv.water.map(z => { const sm = new THREE.Mesh(new THREE.CircleGeometry(z.r, 48), new THREE.MeshStandardMaterial({ color: z.hot ? 0x8a7a5a : 0x3f8f8a, transparent: true, opacity: z.hot ? 0.7 : 0.55, roughness: 0.1, metalness: 0.3, emissive: z.hot ? 0x3a1400 : 0x001a18, side: THREE.DoubleSide }));
+    sm.rotation.x = -Math.PI / 2; sm.position.set(z.x, z.y, z.z); scene.add(sm); objs.push(sm); return Object.assign({ mesh: sm }, z); });
+  world = { main: null, meshes, samples, surfaces: [], objs: objs.concat(rock) };
+  SB = { nodes, climbs, holds, camps, zones, rock, colliders };
+}
+function zoneAt(p) { for (const z of SB.zones) if (Math.hypot(p.x - z.x, p.z - z.z) < z.r && p.y < z.y + 0.3) return z; return null; }
+function startSandbox() {
+  L = SANDBOX; li = -1; buildWorld(L);
+  campAt = SB.camps.find(c => c.node.key === 'A'); $('lineV').parentElement.parentElement.style.display = 'none'; P = campAt.p.clone(); vel.set(0, 0, 0); yaw = 0; pitch = -0.1; maxY = P.y;
+  energy = 1; air = 1; time = 0; tipI = 0; tipT = 0; siltAmount = 0; noGripT = 0; koT = 0; for (let k = 0; k < SILT_N; k++) siltPos[k * 3 + 1] = -999;
+  HANDS.forEach(h => { h.state = 'rest'; h.k = 0; h.hold = null; });
+  scene.background.copy(DRYC); scene.fog.color.copy(DRYC); snow.material.color.setHex(0x9c8a74); snow.material.opacity = 0.3; silt.material.color.setHex(0x7a6a58);
+  document.querySelector('#air .l').textContent = 'Energy'; document.querySelector('#air .v small').textContent = '%';
+  document.querySelectorAll('.g .l')[2].textContent = 'Air'; $('tip').classList.add('off'); $('msg').classList.add('off'); $('fade').style.opacity = 0;
+  camera.position.copy(P); camera.rotation.set(pitch, yaw, 0, 'YXZ'); camera.updateMatrixWorld();
+  startPlay();
+}
+function knockOut(msg) {
+  if (state !== 'play') return; state = 'ko'; koT = 1.5; HANDS.forEach((h, i) => grab(i, false)); $('fade').style.opacity = 1; SND.caught && SND.caught();
+  setTimeout(() => { P.copy(campAt.p); vel.set(0, 0, 0); maxY = P.y; energy = 0.7; air = 1; state = 'play'; $('fade').style.opacity = 0; say(msg + ' You wake up at camp.', 4); }, 1500);
+}
+function updateSandbox(dt) {
+  time += dt;
+  if (L.tips && tipI < L.tips.length && time >= L.tips[tipI][0]) { $('tip').textContent = L.tips[tipI][1]; $('tip').classList.remove('off'); tipT = 8; tipI++; }
+  if (tipT > 0) { tipT -= dt; if (tipT <= 0) $('tip').classList.add('off'); }
+  if (msgT > 0) { msgT -= dt; if (msgT <= 0) $('msg').classList.add('off'); }
+  if (keys.arrowleft) yaw += 1.8 * dt; if (keys.arrowright) yaw -= 1.8 * dt; if (keys.arrowup) pitch = clamp(pitch + 1.4 * dt, -1.45, 1.45); if (keys.arrowdown) pitch = clamp(pitch - 1.4 * dt, -1.45, 1.45);
+  if (noGripT > 0) noGripT -= dt;
+  const z = zoneAt(P); inWater = !!z && P.y < z.y + 0.1; headUnder = !!z && P.y < z.y - 0.12; hotNow = inWater && z.hot;
+  // slippery and hot holds
+  HANDS.forEach((h, i) => { if (h.state !== 'grip' || !h.hold) return; h.gripT += dt;
+    if (h.hold.type === 'slippery' && h.gripT > h.hold.slipT) { grab(i, false); say('Slipped!', 1.2); SND.grab(); }
+    if (h.hold.type === 'hot') { energy -= 0.28 * dt; if (h.gripT > 0.9) { grab(i, false); say('Too hot!', 1.2); } } });
+  const held = HANDS.filter(h => h.state === 'grip');
+  if (held.length && (keys.w || keys[' '])) pullAcc += 1.5 * dt;
+  pullAcc += botPull * dt;
+  if (held.length && pullAcc > 0) {
+    const Aa = V(0, 0, 0); held.forEach(h => Aa.add(h.anchor)); Aa.multiplyScalar(1 / held.length);
+    const d = Aa.clone().sub(P), dist = d.length(), room = dist - 0.42;
+    if (room > 0) { const mv = Math.min(pullAcc, room, 2.6 * dt); d.normalize(); P.addScaledVector(d, mv); vel.copy(d).multiplyScalar(mv / dt * 0.5); energy -= mv * 0.006; }
+  }
+  pullAcc = 0;
+  if (!held.length) {
+    let fx = 0, sx = 0; if (keys.w) fx += 1; if (keys.s) fx -= 1; if (keys.a) sx -= 1; if (keys.d) sx += 1;
+    if (joyMove) { fx = joyMove.f; sx = joyMove.s; }
+    if (botWalk) { fx = botWalk[0]; sx = botWalk[1]; }
+    if (inWater) {
+      const lk = look(); if (fx || sx) { vel.addScaledVector(lk, fx * 2.2 * dt); vel.addScaledVector(V(Math.cos(yaw), 0, -Math.sin(yaw)), sx * 2.2 * dt); }
+      vel.multiplyScalar(Math.exp(-1.6 * dt)); vel.y += (headUnder ? 0.18 : -0.6) * dt; if (!headUnder && keys[' ']) vel.y = Math.max(vel.y, 0.6);
+      P.addScaledVector(vel, dt);
+    } else {
+      const sp = keys.shift ? 1.0 : 2.4, mx = (-Math.sin(yaw) * fx + Math.cos(yaw) * sx) * sp, mz = (-Math.cos(yaw) * fx - Math.sin(yaw) * sx) * sp;
+      if (grounded) { vel.x += (mx - vel.x) * Math.min(1, dt * 10); vel.z += (mz - vel.z) * Math.min(1, dt * 10); if (keys[' '] && !jumpLatch) { vel.y = 3.4; jumpLatch = true; } }
+      else { vel.x *= Math.exp(-0.4 * dt); vel.z *= Math.exp(-0.4 * dt); }
+      if (!keys[' ']) jumpLatch = false;
+      vel.y -= 9 * dt; P.addScaledVector(vel, dt);
+    }
+  } else vel.multiplyScalar(Math.exp(-6 * dt));
+  const y0 = P.y, hitWall = confine(P); grounded = hitWall && P.y > y0 + 1e-5 && !inWater && !held.length;
+  if (grounded && vel.y < 0) vel.y = 0; else if (hitWall && !held.length) { vel.x *= 0.7; vel.z *= 0.7; if (P.y < y0 && vel.y > 0) vel.y = 0; }
+  // falling
+  if (held.length || inWater) maxY = P.y;
+  else if (!grounded) maxY = Math.max(maxY, P.y);
+  else { const drop = maxY - P.y; maxY = P.y;
+    if (drop > 3.2) { if (drop > 11) { knockOut('You fell ' + Math.round(drop) + ' metres.'); return; } energy -= (drop - 3.2) * 0.07; say('Ouch! A ' + drop.toFixed(1) + ' m fall.', 1.8); SND.grab(); } }
+  // energy and air
+  if (held.length && !inWater) energy -= dt * (held.length === 1 ? 0.012 : 0.007);
+  if (grounded && !held.length) energy = Math.min(1, energy + dt * 0.12);
+  if (inWater && !hotNow && !held.length) energy = Math.min(1, energy + dt * 0.03);
+  if (hotNow) { energy -= dt * 0.2; if (Math.random() < dt * 2) say('Scalding water!', 1); }
+  $('heat').style.opacity = hotNow ? 0.55 : 0;
+  if (energy <= 0) { energy = 0; if (hotNow) { knockOut('The hot water was too much.'); return; } if (held.length) { HANDS.forEach((h, i) => grab(i, false)); say('Your arms gave out!', 2); noGripT = 2.5; } }
+  if (headUnder) air -= dt / 150; else air = Math.min(1, air + dt * 0.3);
+  if (air <= 0) { knockOut('You ran out of air.'); return; }
+  breathT -= dt; if (breathT <= 0) { breathPhase = 1 - breathPhase; breathT = breathPhase ? 1.6 : 2.2; if (headUnder) { if (breathPhase) SND.inhale(); else { SND.exhale(); exhaleBubbles(); } } }
+  if (energy < 0.25) { beatT -= dt; if (beatT <= 0) { beatT = 0.5 + energy * 2; SND.beat(); } }
+  // where am I
+  placeName = '';
+  for (const c of SB.climbs) if (Math.hypot(P.x - c.bot.x, P.z - c.bot.z) < 1.6 && P.y > c.bot.y - 0.5 && P.y < c.top.y) placeName = c.name + ' · ' + RATINGS[c.rating].name;
+  for (const k in SB.nodes) { const n = SB.nodes[k]; if (P.distanceTo(n.p) < n.r + 0.5) { if (!placeName) placeName = n.name;
+    if (!sbSave.found[k]) { sbSave.found[k] = 1; sbStore(); say('Discovered: ' + n.name, 2.5); }
+    const cmp = SB.camps.find(c => c.node === n); if (cmp && campAt !== cmp) { campAt = cmp; say('Camp: ' + n.name + '. You will come back here.', 2.5); } } }
+  for (const c of SB.climbs) if (P.distanceTo(c.crystal.position) < 1.7 && !sbSave.climbed[c.name]) { sbSave.climbed[c.name] = Date.now(); sbStore(); SND.surface(); say('Topped out! ' + c.name + ' · ' + RATINGS[c.rating].name, 4); }
+  SB.climbs.forEach(c => { c.crystal.rotation.y += dt; });
+  // HUD
+  $('airV').textContent = Math.round(energy * 100); $('airBar').style.width = (energy * 100).toFixed(1) + '%'; $('air').classList.toggle('low', energy < 0.25);
+  $('depV').textContent = Math.max(0, -P.y).toFixed(1); $('lineV').textContent = Math.round(air * 100); $('lineV').nextElementSibling.textContent = '%'; $('lineV').parentElement.parentElement.style.display = headUnder || air < 0.99 ? '' : 'none';
+  if ((crossT -= dt) <= 0) { crossT = 0.12; const hit = !held.length && aimHit(0), ok = hit && !hit.object.userData.smooth; $('cross').classList.toggle('reach', !!ok); }
+}
+// steam over the hot springs
+const STEAM_N = 500, steamGeo = new THREE.BufferGeometry(), steamPos = new Float32Array(STEAM_N * 3), steamLife = new Float32Array(STEAM_N); let steamHead = 0;
+for (let i = 0; i < STEAM_N; i++) steamPos[i * 3 + 1] = -999;
+steamGeo.setAttribute('position', new THREE.BufferAttribute(steamPos, 3));
+const steam = new THREE.Points(steamGeo, new THREE.PointsMaterial({ map: siltTex, size: 1.1, transparent: true, opacity: 0.35, depthWrite: false, color: 0xe8e2d8 })); steam.frustumCulled = false; scene.add(steam);
+function steamTick(dt) {
+  if (!SB || !L || !L.net) return;
+  for (const z of SB.zones) { if (!z.hot || Math.hypot(P.x - z.x, P.z - z.z) > 30) continue;
+    for (let i = 0; i < 3; i++) { const k = steamHead; steamHead = (steamHead + 1) % STEAM_N; const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * z.r * 0.8; steamPos[k * 3] = z.x + Math.cos(a) * r; steamPos[k * 3 + 1] = z.y + 0.1; steamPos[k * 3 + 2] = z.z + Math.sin(a) * r; steamLife[k] = 3; } }
+  for (const h of SB.holds) { if (h.type !== 'hot' || h.p.distanceToSquared(P) > 200 || Math.random() > dt * 3) continue; const k = steamHead; steamHead = (steamHead + 1) % STEAM_N; steamPos[k * 3] = h.p.x; steamPos[k * 3 + 1] = h.p.y; steamPos[k * 3 + 2] = h.p.z; steamLife[k] = 2; }
+  for (let i = 0; i < STEAM_N; i++) { if (steamLife[i] <= 0) continue; steamLife[i] -= dt; steamPos[i * 3 + 1] += dt * 0.7; steamPos[i * 3] += Math.sin(time + i) * dt * 0.1; if (steamLife[i] <= 0) steamPos[i * 3 + 1] = -999; }
+  steamGeo.attributes.position.needsUpdate = true;
+}
+function journal(show) {
+  const j = $('journal'); if (show === undefined) show = j.hidden; j.hidden = !show;
+  if (!show) { if (state === 'journal') { state = 'play'; last = performance.now(); if (!isTouch && cv.requestPointerLock) { try { cv.requestPointerLock(); } catch (e) {} } } return; }
+  state = 'journal'; if (document.pointerLockElement) document.exitPointerLock(); keys = {}; HANDS.forEach((h, i) => grab(i, false));
+  const done = SANDBOX.climbs.filter(c => sbSave.climbed[c.name]).length, found = Object.keys(SANDBOX.nodes).filter(k => sbSave.found[k]).length;
+  $('jList').innerHTML = SANDBOX.climbs.map(c => { const r = RATINGS[c.rating]; return '<div class="jr"><span class="chip" style="background:' + r.col + '">' + r.name + '</span><b>' + c.name + '</b><span>' + (sbSave.climbed[c.name] ? '✓ climbed' : '—') + '</span></div>'; }).join('');
+  $('jSum').textContent = done + ' of ' + SANDBOX.climbs.length + ' climbs · ' + found + ' of ' + Object.keys(SANDBOX.nodes).length + ' places found';
+}
+
 // ------------------------------------------------------------------ screens
 function show(id) { ['menu', 'intro', 'pause', 'dead', 'done'].forEach(s => { $(s).hidden = s !== id; }); }
-function playing(on) { $('hud').hidden = !on; $('pauseBtn').hidden = !on; $('cross').hidden = !on; $('gauges').hidden = !on; $('lockMsg').hidden = !on || locked || isTouch; document.querySelectorAll('.hb').forEach(b => b.classList.toggle('on', on)); }
+function playing(on) { $('jBtn').hidden = !(on && L && L.net); $('hud').hidden = !on; $('pauseBtn').hidden = !on; $('cross').hidden = !on; $('gauges').hidden = !on; $('lockMsg').hidden = !on || locked || isTouch; document.querySelectorAll('.hb').forEach(b => b.classList.toggle('on', on)); }
 function fmt(t) { return Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2); }
 function menu() {
+  $('heat').style.opacity = 0; $('sbStat').textContent = SANDBOX.climbs.filter(c => sbSave.climbed[c.name]).length + ' of ' + SANDBOX.climbs.length + ' climbs done';
   state = 'menu'; playing(false); $('tip').classList.add('off'); if (document.pointerLockElement) document.exitPointerLock();
   const g = $('lvGrid'); g.innerHTML = '';
   LEVELS.forEach((lv, i) => { const b = document.createElement('button'), best = save.best[i]; b.type = 'button'; b.disabled = i + 1 > save.open;
@@ -559,9 +801,12 @@ function win() {
   $('nextBtn').hidden = lastLv; show('done');
 }
 $('goBtn').onclick = startPlay;
+$('sbBtn').onclick = () => { ac(); startSandbox(); };
+$('jBtn').onclick = () => journal(); $('jClose').onclick = () => journal(false);
+$('jCamp').onclick = () => { journal(false); knockOut('Back to camp.'); }; $('jMenu').onclick = () => { $('journal').hidden = true; menu(); };
 $('pauseBtn').onclick = () => { if (state === 'play') pauseGame(); };
 $('resBtn').onclick = resume;
-$('rstBtn').onclick = () => { build(li); startPlay(); };
+$('rstBtn').onclick = () => { if (L.net) { show(null); state = 'play'; playing(true); knockOut('Back to camp.'); return; } build(li); startPlay(); };
 $('retryBtn').onclick = () => { build(li); startPlay(); };
 $('menuBtn').onclick = menu; $('dMenuBtn').onclick = menu; $('lvBtn').onclick = menu;
 $('againBtn').onclick = () => intro(li);
@@ -571,12 +816,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state === 'play') { update(dt); $('hud').textContent = L.name; }
+  if (state === 'play') { update(dt); $('hud').textContent = L.net ? placeName : L.name; }
   if (world) render(dt); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
-window.KFDive = { levels: LEVELS, intro, start: startPlay, step: dt => update(dt), render: () => render(1 / 30), grab, pull: v => { botPull = v; },
-  look: (y, p) => { yaw = y; pitch = p; }, get: () => ({ state, P, air, time, yaw, pitch, hands: HANDS.map(h => h.state), anchors: HANDS.map(h => h.anchor.toArray()), siltAmount, inAir, len: world && world.main.len }),
+window.KFDive = { tick: dt => { camera.position.copy(P); camera.rotation.set(pitch, yaw, 0, 'YXZ'); camera.updateMatrixWorld(); poseHands(dt); }, sandbox: startSandbox, sb: () => SB, sbGet: () => ({ energy, grounded, inWater, headUnder, hotNow, placeName, climbed: sbSave.climbed, noGripT }), walk: w => { botWalk = w; }, teleport: (x, y, z) => { P.set(x, y, z); vel.set(0, 0, 0); maxY = y; }, levels: LEVELS, intro, start: startPlay, step: dt => update(dt), render: () => render(1 / 30), grab, pull: v => { botPull = v; },
+  look: (y, p) => { yaw = y; pitch = p; }, setEnergy: e => { energy = e; }, get: () => ({ state, P, air, time, yaw, pitch, hands: HANDS.map(h => h.state), anchors: HANDS.map(h => h.anchor.toArray()), siltAmount, inAir, len: world && world.main && world.main.len }),
   curve: () => world.main.curve, nearestT: () => { const n = nearest(P, true); return n ? n.t : -1; }, aim: () => !!aimHit(0) };
 build(0); menu();
 requestAnimationFrame(frame);
