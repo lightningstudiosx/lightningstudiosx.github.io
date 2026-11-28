@@ -82,7 +82,7 @@ input[type=text], input[type=number], select { font:600 14px var(--ui); border:2
       <textarea id="code" spellcheck="false"></textarea>
       <div id="codeErr"></div>
       <div class="row"><button class="btn" id="codeRun">▶ Run code</button><span style="font:600 12px var(--ui);opacity:.7">Each line: <code>time: part.axis=degrees …</code></span></div>
-      <div style="font:600 12px/1.45 var(--mono);opacity:.75;margin-top:6px">parts: head.x head.y head.z · body.x body.y body.z<br>armL.x armL.z armR.x armR.z · legL.x legL.z legR.x legR.z<br>hop (height) · spin (degrees around)<br>x = forward/back · z = out to the side · y = twist</div>
+      <div style="font:600 12px/1.45 var(--mono);opacity:.75;margin-top:6px">parts: head.x head.y head.z · body.x body.y body.z<br>armL.x armL.z armL.y armL.bend · armR.x armR.z armR.y armR.bend<br>legL.x legL.z legL.y legL.bend · legR.x legR.z legR.y legR.bend<br>hop (height) · spin (degrees around)<br>x = forward/back · z = out to the side · y = twist<br>arm y = turn the elbow in · leg y = turn the knee out<br>bend = elbow / knee (feet stay on the floor)</div>
     </div>
     <div id="tabLib" hidden><div class="row"><button class="btn sm" id="libNew">+ New emote</button></div><div class="lib" id="lib"></div></div>
     <div class="row" style="margin-top:12px;border-top:2px dashed #bbb;padding-top:10px"><label>Put on key</label><select id="mkSlot"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select><button class="btn on" id="mkSave">💾 Save emote</button></div>
@@ -105,8 +105,8 @@ const rad = d => d * Math.PI / 180, clamp = (v, a, b) => Math.max(a, Math.min(b,
 function toast(t, ms) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => e.style.opacity = 0, ms || 1800); }
 
 // ================================================================= emotes: data, code, playback
-const CH = ['head.x', 'head.y', 'head.z', 'body.x', 'body.y', 'body.z', 'armL.x', 'armL.z', 'armR.x', 'armR.z', 'legL.x', 'legL.z', 'legR.x', 'legR.z', 'hop', 'spin'];
-const RANGE = { hop: [0, 3, 0.05], spin: [-720, 720, 5] };
+const CH = ['head.x', 'head.y', 'head.z', 'body.x', 'body.y', 'body.z', 'armL.x', 'armL.z', 'armL.y', 'armL.bend', 'armR.x', 'armR.z', 'armR.y', 'armR.bend', 'legL.x', 'legL.z', 'legL.y', 'legL.bend', 'legR.x', 'legR.z', 'legR.y', 'legR.bend', 'hop', 'spin'];
+const RANGE = { hop: [0, 3, 0.05], spin: [-720, 720, 5], 'armL.bend': [-30, 170, 1], 'armR.bend': [-30, 170, 1], 'legL.bend': [0, 160, 1], 'legR.bend': [0, 160, 1] };
 function parseCode(src) {
   const em = { name: 'My Dance', len: 1, loop: true, keys: [] };
   const lines = src.split('\n');
@@ -119,7 +119,7 @@ function parseCode(src) {
     if ((m = /^([\d.]+)\s*:\s*(.*)$/.exec(raw))) {
       const t = +m[1], p = {};
       for (const tok of m[2].split(/[\s,]+/).filter(Boolean)) {
-        const q = /^([a-zA-Z]+(?:\.[xyz])?)=(-?[\d.]+)$/.exec(tok);
+        const q = /^([a-zA-Z]+(?:\.(?:[xyz]|bend))?)=(-?[\d.]+)$/.exec(tok);
         if (!q) throw new Error('Line ' + (n + 1) + ': I don\'t understand "' + tok + '"');
         if (!CH.includes(q[1])) throw new Error('Line ' + (n + 1) + ': there is no part called "' + q[1] + '"');
         p[q[1]] = +q[2];
@@ -190,10 +190,33 @@ loop: yes
 0: armL.x=70 armR.x=70 armL.z=-25 armR.z=-25
 0.2: armL.x=70 armR.x=70 armL.z=12 armR.z=12`,
 ];
+PRESET_CODE.push(`name: Orange Justice
+length: 1.96
+loop: yes
+# keyed frame by frame from Orange_Justice_2.gif (Wikimedia Commons)
+0: legR.z=58 legR.y=85 legR.x=8 legR.bend=72 legL.z=44 legL.y=20 legL.x=4 legL.bend=6 body.z=6 armR.z=45 armR.x=20 armR.y=-90 armR.bend=50 armL.z=15 armL.x=28 armL.y=70 armL.bend=105 body.y=-15 body.x=10 head.x=20 head.z=8
+0.16: legR.z=64 legR.y=88 legR.x=10 legR.bend=90 legL.z=52 legL.y=20 legL.x=4 legL.bend=4 body.z=9 armL.z=6 armL.x=48 armL.y=80 armL.bend=80 armR.z=22 armR.x=-8 armR.bend=22 body.y=-25 body.x=22 head.x=26 head.z=6
+0.32: legL.z=58 legL.y=85 legL.x=8 legL.bend=62 legR.z=58 legR.y=85 legR.x=8 legR.bend=62 armL.z=85 armL.x=15 armL.y=90 armL.bend=100 armR.z=85 armR.x=15 armR.y=90 armR.bend=100 head.x=12
+0.48: legL.z=58 legL.y=85 legL.x=8 legL.bend=72 legR.z=44 legR.y=20 legR.x=4 legR.bend=6 body.z=-6 armL.z=36 armL.x=8 armL.bend=12 armR.z=36 armR.x=8 armR.bend=12 head.x=10 head.z=-8
+0.64: legL.z=58 legL.y=85 legL.x=8 legL.bend=62 legR.z=58 legR.y=85 legR.x=8 legR.bend=62 armL.z=85 armL.x=15 armL.y=90 armL.bend=100 armR.z=85 armR.x=15 armR.y=90 armR.bend=100 head.x=10
+0.72: legR.z=58 legR.y=85 legR.x=8 legR.bend=72 legL.z=44 legL.y=20 legL.x=4 legL.bend=6 body.z=6 armL.z=100 armL.y=-90 armL.bend=82 armR.z=100 armR.y=-90 armR.bend=82 head.x=8
+0.8: legR.z=64 legR.y=88 legR.x=10 legR.bend=90 legL.z=52 legL.y=20 legL.x=4 legL.bend=4 body.z=9 armR.z=72 armR.bend=6 armL.z=76 armL.y=-60 armL.bend=25 body.y=-20 head.z=6
+0.96: legR.z=58 legR.y=85 legR.x=8 legR.bend=72 legL.z=44 legL.y=20 legL.x=4 legL.bend=6 body.z=6 armR.z=112 armR.y=-90 armR.bend=60 armL.z=86 armL.y=-90 armL.bend=92 head.x=6
+1.04: legL.z=58 legL.y=85 legL.x=8 legL.bend=62 legR.z=58 legR.y=85 legR.x=8 legR.bend=62 armR.z=118 armR.y=-90 armR.bend=66 armL.z=75 armL.y=90 armL.bend=100 head.x=6
+1.12: legL.z=64 legL.y=88 legL.x=10 legL.bend=90 legR.z=52 legR.y=20 legR.x=4 legR.bend=4 body.z=-6 armR.z=36 armR.x=8 armR.bend=12 armL.z=36 armL.x=8 armL.bend=12 body.y=10 head.z=-12 head.x=16
+1.2: legL.z=58 legL.y=85 legL.x=8 legL.bend=72 legR.z=44 legR.y=20 legR.x=4 legR.bend=6 body.z=-6 armL.z=45 armL.x=20 armL.y=-90 armL.bend=50 armR.z=15 armR.x=28 armR.y=70 armR.bend=105 body.y=15 body.x=10 head.x=16 head.z=-8
+1.28: legL.z=58 legL.y=85 legL.x=8 legL.bend=72 legR.z=44 legR.y=20 legR.x=4 legR.bend=6 body.z=-6 armR.z=6 armR.x=48 armR.y=80 armR.bend=80 armL.z=55 armL.x=15 armL.bend=100 body.y=25 body.x=22 head.x=26 head.z=-6 armL.y=90
+1.36: legL.z=58 legL.y=85 legL.x=8 legL.bend=62 legR.z=58 legR.y=85 legR.x=8 legR.bend=62 armL.z=38 armL.x=28 armL.y=-60 armL.bend=128 armR.z=38 armR.x=28 armR.y=-60 armR.bend=128 head.x=8
+1.44: legL.z=64 legL.y=88 legL.x=10 legL.bend=80 legR.z=64 legR.y=88 legR.x=10 legR.bend=80 armL.z=100 armL.y=-90 armL.bend=82 armR.z=100 armR.y=-90 armR.bend=82 head.x=4
+1.52: legL.z=64 legL.y=88 legL.x=10 legL.bend=80 legR.z=64 legR.y=88 legR.x=10 legR.bend=80 armL.z=140 armL.y=-90 armL.bend=45 armR.z=140 armR.y=-90 armR.bend=45 body.y=-15 body.z=6 head.x=10
+1.6: legL.z=64 legL.y=88 legL.x=10 legL.bend=80 legR.z=64 legR.y=88 legR.x=10 legR.bend=80 armL.z=126 armL.y=-90 armL.bend=128 armR.z=126 armR.y=-90 armR.bend=128 body.y=10 head.x=16
+1.68: legL.z=58 legL.y=85 legL.x=8 legL.bend=62 legR.z=58 legR.y=85 legR.x=8 legR.bend=62 armL.z=85 armL.x=15 armL.y=90 armL.bend=100 armR.z=85 armR.x=15 armR.y=90 armR.bend=100 head.x=12
+1.84: legL.z=58 legL.y=85 legL.x=8 legL.bend=72 legR.z=44 legR.y=20 legR.x=4 legR.bend=6 body.z=-6 armR.z=36 armR.x=8 armR.bend=50 armL.z=36 armL.x=8 armL.bend=12 armR.y=70 head.x=12 head.z=-6`);
 const PRESETS = PRESET_CODE.map(c => Object.assign(parseCode(c), { preset: true }));
 const allEmotes = () => PRESETS.concat(SV.emotes);
 const findEmote = name => allEmotes().find(e => e.name === name);
-if (!SV.slots) SV.slots = ['Wave', 'Robot', 'Jumping Jacks', 'Spin', 'Swing Swing', 'Headbang', 'Disco Point', 'Chicken', 'Victory'];
+if (!SV.slots) SV.slots = ['Wave', 'Robot', 'Jumping Jacks', 'Spin', 'Swing Swing', 'Headbang', 'Disco Point', 'Chicken', 'Orange Justice'];
+if (!SV.oj) { SV.oj = 1; if (!SV.slots.includes('Orange Justice')) { const k = SV.slots.indexOf('Victory'); SV.slots[k >= 0 ? k : 8] = 'Orange Justice'; } }
 const ease = t => t * t * (3 - 2 * t);
 function sample(em, t) {
   const K = em.keys, out = {};
@@ -248,22 +271,33 @@ function faceMat(text) {
 function makePerson(faceText) {
   const root = new THREE.Group(), P = {};
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; root.add(shadow);
-  const legL = new THREE.Group(); legL.position.set(0.2, 1.1, 0); const lL = box(0.3, 1.1, 0.3); lL.position.y = -0.55; legL.add(lL); root.add(legL);
-  const legR = new THREE.Group(); legR.position.set(-0.2, 0.98, 0); const lR = box(0.3, 0.98, 0.3); lR.position.y = -0.49; legR.add(lR); root.add(legR);
+  const leg = (x, len) => { const g = new THREE.Group(); g.position.set(x, len, 0); const half = len / 2; const th = box(0.3, half + 0.02, 0.3); th.position.y = -half / 2; g.add(th);
+    const knee = new THREE.Group(); knee.position.y = -half; g.add(knee); const sh = box(0.3, half, 0.3); sh.position.y = -half / 2; knee.add(sh); const foot = new THREE.Object3D(); foot.position.y = -half; knee.add(foot); g.rotation.order = 'XZY'; root.add(g); g.userData = { knee, foot }; return g; };
+  const legL = leg(0.2, 1.1), legR = leg(-0.2, 0.98);
   const body = new THREE.Group(); body.position.y = 1.1; const bm = box(0.78, 1.75, 0.44); bm.position.y = 0.875; body.add(bm); root.add(body);
   const neck = new THREE.Group(); neck.position.y = 1.75; body.add(neck);
   const fm = faceMat(faceText); const head = ball(0.62, fm, 32); head.position.y = 0.66; head.rotation.y = 0; neck.add(head);
-  const arm = side => { const g = new THREE.Group(); g.position.set(0.82 * side, 1.62, 0); const cap = outlined(new THREE.CapsuleGeometry(0.15, 0.95, 6, 14), WHITE, (0.15 + T) / 0.15, (1.25 + 2 * T) / 1.25, (0.15 + T) / 0.15); cap.position.y = -0.72; g.add(cap); body.add(g); return g; };
+  const pill = () => outlined(new THREE.CapsuleGeometry(0.15, 0.36, 6, 14), WHITE, (0.15 + T) / 0.15, (0.66 + 2 * T) / 0.66, (0.15 + T) / 0.15);
+  const arm = side => { const g = new THREE.Group(); g.position.set(0.82 * side, 1.62, 0); const up = pill(); up.position.y = -0.38; g.add(up);
+    const elbow = new THREE.Group(); elbow.position.y = -0.68; g.add(elbow); const lo = pill(); lo.position.y = -0.31; elbow.add(lo); g.rotation.order = 'XZY'; body.add(g); g.userData = { elbow }; return g; };
   const armL = arm(1), armR = arm(-1);
-  Object.assign(P, { root, legL, legR, body, neck, head, armL, armR, faceMat: fm, pose: Object.fromEntries(CH.map(c => [c, 0])) });
+  Object.assign(P, { root, legL, legR, body, neck, head, armL, armR, shadow, faceMat: fm, pose: Object.fromEntries(CH.map(c => [c, 0])) });
   return P;
 }
 function setFace(P, text) { const old = P.faceMat.map; P.faceMat.map = faceMat(text).map; P.faceMat.needsUpdate = true; if (old) old.dispose(); }
 function applyPose(P, q) {
   P.neck.rotation.set(rad(q['head.x']), rad(q['head.y']), rad(q['head.z']));
   P.body.rotation.set(rad(q['body.x']), rad(q['body.y']), rad(q['body.z']));
-  P.armL.rotation.set(-rad(q['armL.x']), 0, rad(q['armL.z'])); P.armR.rotation.set(-rad(q['armR.x']), 0, -rad(q['armR.z']));
-  P.legL.rotation.set(-rad(q['legL.x']), 0, rad(q['legL.z'])); P.legR.rotation.set(-rad(q['legR.x']), 0, -rad(q['legR.z']));
+  P.armL.rotation.set(-rad(q['armL.x']), -rad(q['armL.y'] || 0), rad(q['armL.z'])); P.armR.rotation.set(-rad(q['armR.x']), rad(q['armR.y'] || 0), -rad(q['armR.z']));
+  P.legL.rotation.set(-rad(q['legL.x']), rad(q['legL.y'] || 0), rad(q['legL.z'])); P.legR.rotation.set(-rad(q['legR.x']), -rad(q['legR.y'] || 0), -rad(q['legR.z']));
+  P.armL.userData.elbow.rotation.x = -rad(q['armL.bend'] || 0); P.armR.userData.elbow.rotation.x = -rad(q['armR.bend'] || 0);
+  P.legL.userData.knee.rotation.x = rad(q['legL.bend'] || 0); P.legR.userData.knee.rotation.x = rad(q['legR.bend'] || 0);
+}
+const _v = new THREE.Vector3();
+function place(P, x, ground, z, yaw) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, yaw, 0); P.root.updateMatrixWorld(true);
+  let lo = Infinity; for (const L of [P.legL, P.legR]) { L.userData.foot.getWorldPosition(_v); lo = Math.min(lo, _v.y); }
+  const y = ground + (P.pose.hop || 0) - lo; P.root.position.set(x, y, z); P.shadow.position.y = ground - y + 0.02;
 }
 function blendPose(P, target, k) { for (const c of CH) { const v = target[c] || 0; P.pose[c] += (v - P.pose[c]) * k; } }
 
@@ -497,11 +531,11 @@ function startKeyDrag(e, i) {
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 $('track').addEventListener('pointerdown', e => { const r = $('track').getBoundingClientRect(); edT = clamp((e.clientX - r.left) / r.width, 0, 1) * ED.len; edPlay = false; const near = ED.keys.findIndex(k => Math.abs(k.t - edT) < ED.len * 0.03); if (near >= 0) selKey = near; renderMaker(); });
-const GROUPS = [['Head', ['head.x', 'head.y', 'head.z']], ['Body', ['body.x', 'body.y', 'body.z']], ['Left arm', ['armL.x', 'armL.z']], ['Right arm', ['armR.x', 'armR.z']], ['Left leg', ['legL.x', 'legL.z']], ['Right leg', ['legR.x', 'legR.z']], ['Jump & spin', ['hop', 'spin']]];
+const GROUPS = [['Head', ['head.x', 'head.y', 'head.z']], ['Body', ['body.x', 'body.y', 'body.z']], ['Left arm', ['armL.x', 'armL.z', 'armL.y', 'armL.bend']], ['Right arm', ['armR.x', 'armR.z', 'armR.y', 'armR.bend']], ['Left leg', ['legL.x', 'legL.z', 'legL.y', 'legL.bend']], ['Right leg', ['legR.x', 'legR.z', 'legR.y', 'legR.bend']], ['Jump & spin', ['hop', 'spin']]];
 function renderPose() {
   const k = ED.keys[selKey];
   $('tabPose').innerHTML = (k ? '<div style="font:700 13px var(--ui)">Editing the key at <b>' + k.t.toFixed(2) + 's</b> (yellow diamond). Drag diamonds to move them.</div>' : '<div>No keys yet. Press + Key.</div>') +
-    GROUPS.map(([g, cs]) => '<div class="grp"><b>' + g + '</b>' + cs.map(c => { const r = RANGE[c] || [-180, 180, 1], v = k ? (k.p[c] || 0) : 0; return '<div class="sl"><span style="text-align:left">' + c.split('.').pop().replace('hop', 'hop').replace('spin', 'spin') + '</span><input type="range" min="' + r[0] + '" max="' + r[1] + '" step="' + r[2] + '" value="' + v + '" data-c="' + c + '"' + (k ? '' : ' disabled') + '><span>' + (+v).toFixed(c === 'hop' ? 2 : 0) + '</span></div>'; }).join('') + '</div>').join('');
+    GROUPS.map(([g, cs]) => '<div class="grp"><b>' + g + '</b>' + cs.map(c => { const r = RANGE[c] || [-180, 180, 1], v = k ? (k.p[c] || 0) : 0; return '<div class="sl"><span style="text-align:left">' + c.split('.').pop() + '</span><input type="range" min="' + r[0] + '" max="' + r[1] + '" step="' + r[2] + '" value="' + v + '" data-c="' + c + '"' + (k ? '' : ' disabled') + '><span>' + (+v).toFixed(c === 'hop' ? 2 : 0) + '</span></div>'; }).join('') + '</div>').join('');
   $('tabPose').querySelectorAll('input[type=range]').forEach(inp => inp.oninput = () => { const k2 = ED.keys[selKey]; if (!k2) return; k2.p[inp.dataset.c] = +inp.value; inp.nextSibling.textContent = (+inp.value).toFixed(inp.dataset.c === 'hop' ? 2 : 0); edPlay = false; edT = k2.t; codeDirty = false; $('code').value = toCode(ED); });
 }
 $('mkName').oninput = () => { ED.name = $('mkName').value.slice(0, 24) || 'My Dance'; codeDirty = false; $('code').value = toCode(ED); };
@@ -555,7 +589,7 @@ function frame(now) {
   else if (PL.emote) { PL.et += dt; target = sample(PL.emote, PL.et); if (!PL.emote.loop && PL.et > PL.emote.len + 0.3) { PL.emote = null; renderBar(); } }
   else target = walkPose(PL, dt);
   blendPose(me, target, 1 - Math.exp(-dt * 18)); applyPose(me, me.pose);
-  me.root.position.set(PL.x, PL.y + (me.pose.hop || 0), PL.z); me.root.rotation.y = PL.yaw + rad(me.pose.spin || 0);
+  place(me, PL.x, PL.y, PL.z, PL.yaw + rad(me.pose.spin || 0));
   // ---- NPCs
   const dancing = PL.emote || (makerOpen && ED);
   for (const n of NPCS) {
@@ -574,7 +608,7 @@ function frame(now) {
       tgt = walkPose(n, dt);
     }
     blendPose(n, tgt, 1 - Math.exp(-dt * 14)); applyPose(n, n.pose);
-    n.root.position.set(n.x, groundH(n.x, n.z) + (n.pose.hop || 0), n.z); n.root.rotation.y = n.yaw + rad(n.pose.spin || 0);
+    place(n, n.x, groundH(n.x, n.z), n.z, n.yaw + rad(n.pose.spin || 0));
   }
   // ---- world animation
   if (AC) music();
@@ -594,7 +628,7 @@ function frame(now) {
 function walkPose(o, dt) {
   const s = o.speed || 0; o.walk = (o.walk || 0) + dt * (s > 0 ? s * 1.6 : 0); const a = Math.min(1, s / 6) * 38, w = o.walk;
   const idle = Math.sin(T0 * 2 + (o.x || 0)) * 2;
-  return { 'armL.x': Math.sin(w) * a, 'armR.x': -Math.sin(w) * a, 'legL.x': -Math.sin(w) * a, 'legR.x': Math.sin(w) * a, 'armL.z': 6 + idle, 'armR.z': 6 + idle, hop: Math.abs(Math.sin(w)) * 0.12 * Math.min(1, s / 6), 'head.z': idle };
+  return { 'armL.x': Math.sin(w) * a, 'armR.x': -Math.sin(w) * a, 'legL.x': -Math.sin(w) * a, 'legR.x': Math.sin(w) * a, 'legL.bend': Math.max(0, Math.sin(w)) * a * 1.1, 'legR.bend': Math.max(0, -Math.sin(w)) * a * 1.1, 'armL.bend': 12 + a * 0.4, 'armR.bend': 12 + a * 0.4, 'armL.z': 6 + idle, 'armR.z': 6 + idle, hop: Math.abs(Math.sin(w)) * 0.12 * Math.min(1, s / 6), 'head.z': idle };
 }
 $('goBtn').onclick = () => { $('intro').hidden = true; audioStart(); };
 renderBar(); requestAnimationFrame(frame);
