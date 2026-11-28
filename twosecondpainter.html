@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="icons/twosecondpainter.svg" type="image/svg+xml"><link rel="icon" href="icons/twosecondpainter.png" sizes="64x64"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Two-Second Painter · Kai.fun</title>
+<meta name="description" content="You get two seconds of ink per painting. Draw the prompt, then see if the Judge can tell what it is.">
+<meta name="theme-color" content="#f4ead8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#231a14; --ui:"Fredoka","Trebuchet MS",system-ui,sans-serif; --serif:"Playfair Display",Georgia,serif; --paper:#fffaf0; --wall:#f4ead8 }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html,body { margin:0; height:100%; overflow:hidden; background:var(--wall); color:var(--ink); font:600 16px/1.3 var(--ui); user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent }
+body { background:repeating-linear-gradient(90deg, #f4ead8 0 60px, #efe2cc 60px 62px) }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:3px solid var(--ink); border-radius:14px; padding:9px 18px; background:#fff; box-shadow:0 5px 0 var(--ink);
+  font:700 17px var(--ui); cursor:pointer; text-decoration:none; color:var(--ink); white-space:nowrap }
+.btn:active { transform:translateY(3px); box-shadow:0 2px 0 var(--ink) }
+.btn.go { background:#ffcf4a } .btn.big { font-size:22px; padding:12px 28px; border-radius:18px } .btn.sm { font-size:14px; padding:5px 11px; box-shadow:0 4px 0 var(--ink); border-radius:11px }
+.btn[disabled] { opacity:.4; cursor:default }
+#top { position:fixed; left:0; right:0; top:0; height:56px; display:flex; align-items:center; gap:10px; padding:0 12px; z-index:10 }
+#top .pill { background:#fff; border:3px solid var(--ink); border-radius:12px; padding:3px 12px; font:700 16px var(--ui) }
+#top .grow { flex:1 }
+#game { position:fixed; left:0; right:0; top:56px; bottom:0; display:flex; gap:22px; padding:10px 22px 18px; align-items:stretch; justify-content:center }
+#easel { flex:0 1 auto; display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0 }
+#prompt { font:700 34px/1 var(--ui); text-align:center; min-height:40px } #prompt small { display:block; font:600 14px var(--ui); color:#8a7a6a; letter-spacing:2px; text-transform:uppercase; margin-bottom:2px }
+#frame { position:relative; padding:14px; background:linear-gradient(135deg,#c8902a,#8a5a1a 50%,#c8902a); border:4px solid var(--ink); border-radius:8px; box-shadow:0 10px 0 rgba(0,0,0,.18) }
+#cv { display:block; background:var(--paper); touch-action:none; cursor:crosshair; border:3px solid var(--ink); border-radius:2px }
+#cv.locked { cursor:not-allowed }
+#inkRow { display:flex; align-items:center; gap:12px; width:100% }
+#inkBar { flex:1; height:26px; border:3px solid var(--ink); border-radius:14px; background:#fff; overflow:hidden; position:relative }
+#inkFill { position:absolute; left:0; top:0; bottom:0; width:100%; background:#231a14; transition:background .2s }
+#inkTxt { font:700 26px/1 var(--ui); width:96px; text-align:right; font-variant-numeric:tabular-nums }
+#side { flex:0 0 330px; display:flex; flex-direction:column; gap:12px; min-height:0 }
+#judgeBox { position:relative; background:#fff; border:3px solid var(--ink); border-radius:20px; padding:12px; box-shadow:0 6px 0 rgba(0,0,0,.15); flex:1; display:flex; flex-direction:column; min-height:0 }
+#judgeArt { width:150px; height:150px; margin:0 auto }
+#say { font:600 17px/1.25 var(--ui); text-align:center; min-height:46px; margin:4px 0 8px }
+#guesses { display:flex; flex-direction:column; gap:6px }
+.g { display:flex; align-items:center; gap:8px; font:700 15px var(--ui) } .g .n { width:110px } .g .b { flex:1; height:16px; border:2px solid var(--ink); border-radius:8px; background:#f2ead8; overflow:hidden } .g .b i { display:block; height:100%; width:0; background:#8ad06a; transition:width .6s cubic-bezier(.2,1.2,.4,1) } .g .p { width:44px; text-align:right; font-variant-numeric:tabular-nums }
+.g.hit .b i { background:#4ac85a } .g.miss .b i { background:#c8b8a8 } .g.top .n { color:#b3261e }
+#pts { text-align:center; font:700 28px var(--ui); color:#b3261e; min-height:34px }
+#ctl { display:flex; gap:10px; justify-content:center }
+.scr { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:16px; background:rgba(35,26,20,.55); overflow:auto }
+.panel { background:#fff8ea; border:4px solid var(--ink); border-radius:22px; box-shadow:0 8px 0 var(--ink); padding:22px 26px; width:100%; max-width:760px; text-align:center }
+.panel h1 { font:700 54px/1 var(--serif); margin:0; color:#b3261e } .panel h1 em { font-style:italic; color:#c8902a }
+.panel p { margin:8px 0 } .muted { color:#7a6a5a; font-weight:500 }
+.rowb { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:14px }
+#count { position:fixed; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none }
+#count b { font:700 160px/1 var(--ui); color:#b3261e; text-shadow:6px 6px 0 #ffcf4a, 10px 10px 0 var(--ink); animation:cnt .9s ease-out }
+@keyframes cnt { from { transform:scale(2); opacity:0 } 30% { transform:scale(1); opacity:1 } to { transform:scale(.8); opacity:0 } }
+#gal .panel { max-width:1100px }
+#galWall { display:grid; grid-template-columns:repeat(4, 1fr); gap:18px; margin:14px 0 }
+.art { display:flex; flex-direction:column; align-items:center; gap:6px }
+.art .fr { padding:8px; background:linear-gradient(135deg,#c8902a,#8a5a1a 50%,#c8902a); border:3px solid var(--ink); border-radius:4px; box-shadow:0 5px 0 rgba(0,0,0,.2) }
+.art img { display:block; width:100%; max-width:200px; background:var(--paper); border:2px solid var(--ink) }
+.art .pl { background:#fff; border:2px solid var(--ink); border-radius:6px; padding:3px 8px; font:600 12.5px/1.2 var(--ui); text-align:center }
+.art .pl b { font:700 italic 14px var(--serif); display:block }
+.stats { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin:8px 0 } .stats div { background:#fff; border:3px solid var(--ink); border-radius:12px; padding:6px 14px; font:700 14px var(--ui) } .stats span { display:block; font:700 28px var(--serif); color:#b3261e }
+.chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:8px } .chips span { background:#fff; border:2px solid var(--ink); border-radius:10px; padding:2px 9px; font:600 13px var(--ui) }
+@media (max-width:860px) {
+  #game { flex-direction:column; align-items:center; gap:10px; padding:6px 10px 10px; overflow:auto }
+  #side { flex:0 0 auto; width:100%; max-width:560px } #judgeBox { flex-direction:row; flex-wrap:wrap; gap:8px } #judgeArt { width:86px; height:86px; margin:0 } #say { flex:1; text-align:left; font-size:15px; min-height:0 } #guesses { width:100% }
+  #prompt { font-size:26px } .panel h1 { font-size:38px } #galWall { grid-template-columns:repeat(2,1fr) }
+}
+</style>
+</head>
+<body>
+<div id="top"><a class="btn sm" href="index.html">← kai.fun</a><div class="grow"></div><div class="pill" id="roundP">Round 1 / 8</div><div class="pill" id="scoreP">0 pts</div><button class="btn sm" id="muteBtn">🔊</button></div>
+<div id="game">
+  <div id="easel">
+    <div id="prompt"><small>Paint</small>a cat</div>
+    <div id="frame"><canvas id="cv"></canvas></div>
+    <div id="inkRow"><div id="inkBar"><div id="inkFill"></div></div><div id="inkTxt">2.00s</div></div>
+  </div>
+  <div id="side">
+    <div id="judgeBox"><div id="judgeArt"></div><div id="say">The Judge is waiting.</div><div id="guesses"></div><div id="pts"></div></div>
+    <div id="ctl"><button class="btn go big" id="doneBtn">Done!</button><button class="btn big go" id="nextBtn" hidden>Next ➜</button></div>
+  </div>
+</div>
+<div id="count" hidden></div>
+
+<div class="scr" id="title"><div class="panel">
+  <div id="tJudge" style="width:140px;height:140px;margin:0 auto"></div>
+  <h1>Two-Second <em>Painter</em></h1>
+  <p>Every painting gets exactly <b>two seconds of ink</b>. The clock only runs while your brush touches the paper.</p>
+  <p class="muted">Paint what the card says, then the Judge, a very serious art critic, guesses what it is. Get it right fast for big points. The Judge learns your style as you play.</p>
+  <div class="rowb"><button class="btn big go" id="playBtn">Paint 8 masterpieces</button><button class="btn big" id="freeBtn">Free paint</button></div>
+  <p class="muted" id="best" style="margin-top:12px"></p>
+  <div class="muted" style="font-size:13px;margin-top:8px">The Judge knows 22 things:</div><div class="chips" id="known"></div>
+</div></div>
+
+<div class="scr" id="gal" hidden><div class="panel">
+  <h1 id="gTitle" style="font-size:42px">Your Exhibition</h1>
+  <div class="stats" id="gStats"></div>
+  <div id="galWall"></div>
+  <div class="rowb"><button class="btn big go" id="againBtn">Paint again</button><button class="btn big" id="saveBtn">💾 Save the exhibition</button><button class="btn big" id="menuBtn">Menu</button></div>
+</div></div>
+
+<script>
+(function () {
+'use strict';
+const $ = id => document.getElementById(id), INK = '#231a14';
+const SAVE = 'kaifun_twosecondpainter';
+let SV = { best: 0, mine: {}, mute: false, played: 0 };
+try { Object.assign(SV, JSON.parse(localStorage.getItem(SAVE) || '{}')); } catch (e) {}
+const store = () => { try { localStorage.setItem(SAVE, JSON.stringify(SV)); } catch (e) {} };
+
+// ================================================================= the Judge's knowledge: drawings of 22 things
+const C = (cx, cy, r, a0, a1, ry) => { a0 = a0 == null ? 0 : a0; a1 = a1 == null ? 360 : a1; ry = ry || r; const o = [], n = Math.max(8, Math.round(Math.abs(a1 - a0) / 12)); for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; o.push([cx + Math.cos(a) * r, cy + Math.sin(a) * ry]); } return o; };
+const P = (...pts) => { const o = []; for (let i = 0; i < pts.length - 1; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], n = Math.max(2, Math.round(Math.hypot(x2 - x1, y2 - y1) / 6)); for (let k = 0; k < n; k++) o.push([x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n]); } o.push(pts[pts.length - 1]); return o; };
+const dot = (x, y) => C(x, y, 2.5);
+function starPts(cx, cy, ro, ri, skip) { const o = []; for (let k = 0; k <= 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? ri : ro; o.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } if (skip) { const q = []; for (let k = 0; k <= 5; k++) { const a = -Math.PI / 2 + (k * 2 % 5) * 2 * Math.PI / 5; q.push([cx + Math.cos(a) * ro, cy + Math.sin(a) * ro]); } return q; } return o; }
+const T = {
+  cat: [[C(50, 58, 28), P([28, 42], [30, 14], [45, 32]), P([55, 32], [70, 14], [72, 42]), dot(40, 54), dot(60, 54), P([20, 62], [38, 64]), P([62, 64], [80, 62])],
+        [C(50, 58, 28), P([28, 42], [30, 14], [45, 32]), P([55, 32], [70, 14], [72, 42])],
+        [C(30, 35, 15), P([18, 26], [18, 12], [27, 21]), P([33, 21], [42, 12], [42, 26]), C(58, 62, 28, 0, 360, 18), P([86, 60], [94, 40], [88, 28])]],
+  house: [[P([20, 50], [20, 90], [80, 90], [80, 50], [20, 50]), P([14, 52], [50, 16], [86, 52]), P([42, 90], [42, 68], [58, 68], [58, 90])],
+          [P([20, 90], [20, 50], [50, 18], [80, 50], [80, 90], [20, 90])],
+          [P([20, 50], [20, 90], [80, 90], [80, 50], [20, 50]), P([20, 50], [50, 20], [80, 50]), P([30, 60], [42, 60], [42, 72], [30, 72], [30, 60])]],
+  sun: [[C(50, 50, 20), ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => P([50 + Math.cos(a * Math.PI / 180) * 27, 50 + Math.sin(a * Math.PI / 180) * 27], [50 + Math.cos(a * Math.PI / 180) * 42, 50 + Math.sin(a * Math.PI / 180) * 42]))],
+        [C(50, 50, 16), ...[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(a => P([50 + Math.cos(a * Math.PI / 180) * 22, 50 + Math.sin(a * Math.PI / 180) * 22], [50 + Math.cos(a * Math.PI / 180) * 34, 50 + Math.sin(a * Math.PI / 180) * 34]))]],
+  fish: [[C(44, 50, 28, 0, 360, 16), P([70, 50], [92, 34], [92, 66], [70, 50]), dot(30, 46)],
+         [P([88, 30], [70, 50]).concat(C(45, 50, 26, -20, 340, 17)).concat(P([70, 50], [88, 70]))],
+         [C(44, 50, 28, 0, 360, 16), P([70, 50], [92, 34], [92, 66], [70, 50])]],
+  boat: [[P([12, 62], [88, 62], [74, 80], [26, 80], [12, 62]), P([50, 62], [50, 12]), P([50, 15], [80, 56], [50, 56])],
+         [P([12, 62], [88, 62], [74, 80], [26, 80], [12, 62]), P([50, 60], [50, 15], [78, 55], [50, 55])]],
+  tree: [[P([44, 92], [44, 60]), P([56, 92], [56, 60]), C(50, 38, 26)],
+         [P([50, 8], [80, 72], [20, 72], [50, 8]), P([45, 72], [45, 92], [55, 92], [55, 72])],
+         [P([46, 94], [46, 56], [54, 56], [54, 94]), P([46, 58], [26, 54], [18, 38], [26, 20], [42, 14], [58, 14], [74, 20], [82, 38], [74, 54], [54, 58])]],
+  star: [[P(...starPts(50, 52, 42, 17))], [P(...starPts(50, 52, 42, 17, true))], [P(...starPts(50, 54, 44, 22))]],
+  heart: [[P([50, 88], [16, 52], [12, 34], [20, 18], [36, 14], [50, 28], [64, 14], [80, 18], [88, 34], [84, 52], [50, 88])],
+          [C(32, 34, 18, 140, 330), C(68, 34, 18, 210, 400), P([16, 44], [50, 86], [84, 44])]],
+  car: [[P([8, 64], [8, 46], [28, 46], [36, 30], [66, 30], [76, 46], [92, 46], [92, 64], [8, 64]), C(28, 66, 10), C(72, 66, 10)],
+        [P([10, 40], [90, 40], [90, 64], [10, 64], [10, 40]), C(28, 68, 9), C(72, 68, 9)]],
+  flower: [[C(50, 34, 8), ...[0, 72, 144, 216, 288].map(a => C(50 + Math.cos(a * Math.PI / 180) * 17, 34 + Math.sin(a * Math.PI / 180) * 17, 9)), P([50, 52], [50, 94]), P([50, 76], [64, 66], [56, 80], [50, 80])],
+           [C(50, 34, 7), ...[0, 60, 120, 180, 240, 300].map(a => P([50 + Math.cos(a * Math.PI / 180) * 8, 34 + Math.sin(a * Math.PI / 180) * 8], [50 + Math.cos((a - 20) * Math.PI / 180) * 22, 34 + Math.sin((a - 20) * Math.PI / 180) * 22], [50 + Math.cos((a + 20) * Math.PI / 180) * 22, 34 + Math.sin((a + 20) * Math.PI / 180) * 22], [50 + Math.cos(a * Math.PI / 180) * 8, 34 + Math.sin(a * Math.PI / 180) * 8])), P([50, 42], [50, 94])]],
+  snowman: [[C(50, 72, 20), C(50, 40, 14), C(50, 17, 9)], [C(50, 68, 24), C(50, 30, 16), dot(45, 28), dot(55, 28)]],
+  moon: [[C(50, 50, 38, 70, 290).concat(C(66, 50, 30, 245, 115).reverse())], [C(50, 50, 36, 60, 300), C(70, 50, 30, 240, 120)]],
+  cloud: [[P([18, 70], [82, 70]).concat(C(84, 58, 12, 90, -90)).concat(C(68, 40, 16, 20, -160)).concat(C(44, 40, 18, 0, -180)).concat(C(22, 56, 14, -60, -270))],
+          [C(50, 50, 40, 0, 360, 20)]],
+  apple: [[C(50, 56, 32), P([50, 24], [52, 8]), P([52, 16], [66, 8], [72, 14], [58, 20], [52, 16])], [C(50, 56, 32), P([50, 24], [54, 10])]],
+  umbrella: [[C(50, 50, 38, 180, 360), P([12, 50], [88, 50]), P([50, 50], [50, 84]).concat(C(42, 84, 8, 0, 180))],
+             [C(50, 50, 38, 180, 360).concat(C(25, 50, 12.6, 0, 180, 6)).concat(C(50, 50, 12.6, 0, 180, 6)).concat(C(75, 50, 12.6, 0, 180, 6)), P([50, 50], [50, 86], [42, 90], [38, 82])]],
+  glasses: [[C(28, 50, 15), C(72, 50, 15), C(50, 50, 7, 200, 340), P([13, 46], [4, 38]), P([87, 46], [96, 38])], [C(28, 50, 16), C(72, 50, 16), P([44, 50], [56, 50])]],
+  mug: [[P([26, 26], [26, 84], [66, 84], [66, 26]), C(66, 55, 14, -80, 80)], [P([26, 26], [26, 84], [66, 84], [66, 26], [26, 26]), C(66, 55, 14, -80, 80), P([40, 16], [38, 6]), P([52, 16], [54, 6])]],
+  smiley: [[C(50, 50, 40), dot(36, 40), dot(64, 40), C(50, 52, 22, 20, 160)], [C(50, 50, 40), P([36, 34], [36, 46]), P([64, 34], [64, 46]), C(50, 50, 24, 25, 155)]],
+  icecream: [[P([32, 48], [50, 94], [68, 48], [32, 48]), C(50, 36, 18, 160, 380)], [P([32, 50], [50, 94], [68, 50]), C(50, 36, 18), P([40, 60], [60, 70]), P([60, 60], [40, 74])]],
+  lightning: [[P([62, 4], [32, 52], [54, 52], [38, 96], [72, 42], [50, 42], [62, 4])], [P([60, 6], [36, 50], [60, 50], [40, 94])]],
+  mountain: [[P([4, 86], [30, 34], [46, 58], [64, 18], [96, 86], [4, 86])], [P([4, 86], [36, 22], [68, 86]), P([50, 56], [70, 30], [96, 86]), P([26, 40], [36, 48], [46, 40])]],
+  rocket: [[P([50, 6], [66, 30], [66, 74], [34, 74], [34, 30], [50, 6]), P([34, 58], [20, 84], [34, 74]), P([66, 58], [80, 84], [66, 74]), C(50, 40, 7)],
+           [P([50, 6], [64, 30], [64, 76], [36, 76], [36, 30], [50, 6]), P([42, 80], [50, 96], [58, 80])]],
+  balloon: [[C(50, 34, 22, 0, 360, 27), P([50, 61], [46, 70], [54, 78], [46, 86], [50, 96])], [C(50, 36, 24, 0, 360, 28), P([50, 64], [50, 96])]],
+};
+const NAMES = { cat: 'a cat', house: 'a house', sun: 'the sun', fish: 'a fish', boat: 'a boat', tree: 'a tree', star: 'a star', heart: 'a heart', car: 'a car', flower: 'a flower', snowman: 'a snowman', moon: 'the moon', cloud: 'a cloud', apple: 'an apple', umbrella: 'an umbrella', glasses: 'glasses', mug: 'a mug', smiley: 'a smiley face', icecream: 'an ice cream', lightning: 'lightning', mountain: 'a mountain', rocket: 'a rocket', balloon: 'a balloon' };
+const SHORT = k => NAMES[k].replace(/^(a|an|the) /, '');
+const CLASSES = Object.keys(T);
+
+// $P point-cloud recognizer (multistroke, order and direction free)
+const NPTS = 32;
+function cloud(strokes) {
+  let pts = []; strokes.forEach((s, id) => s.forEach(p => pts.push({ x: p[0], y: p[1], id })));
+  if (pts.length < 2) return null;
+  pts = resample(pts, NPTS); scale(pts); center(pts); return pts;
+}
+function resample(pts, n) {
+  let L = 0; for (let i = 1; i < pts.length; i++) if (pts[i].id === pts[i - 1].id) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  const I = L / (n - 1); if (!(I > 0)) return Array.from({ length: n }, () => ({ x: pts[0].x, y: pts[0].y, id: 0 }));
+  let D = 0; const out = [{ ...pts[0] }]; pts = pts.map(p => ({ ...p }));
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].id !== pts[i - 1].id) continue;
+    const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (D + d >= I && d > 0) { const t = (I - D) / d, q = { x: pts[i - 1].x + t * (pts[i].x - pts[i - 1].x), y: pts[i - 1].y + t * (pts[i].y - pts[i - 1].y), id: pts[i].id }; out.push(q); pts.splice(i, 0, q); D = 0; }
+    else D += d;
+  }
+  while (out.length < n) out.push({ ...pts[pts.length - 1] });
+  return out.slice(0, n);
+}
+function scale(pts) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; pts.forEach(p => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); const s = Math.max(x1 - x0, y1 - y0) || 1; pts.forEach(p => { p.x = (p.x - x0) / s; p.y = (p.y - y0) / s; }); }
+function center(pts) { let cx = 0, cy = 0; pts.forEach(p => { cx += p.x; cy += p.y; }); cx /= pts.length; cy /= pts.length; pts.forEach(p => { p.x -= cx; p.y -= cy; }); }
+function cdist(a, b, start) {
+  const n = a.length, used = new Array(n).fill(false); let sum = 0, i = start;
+  do { let min = Infinity, idx = -1; for (let j = 0; j < n; j++) if (!used[j]) { const d = (a[i].x - b[j].x) ** 2 + (a[i].y - b[j].y) ** 2; if (d < min) { min = d; idx = j; } }
+    used[idx] = true; sum += (1 - ((i - start + n) % n) / n) * Math.sqrt(min); i = (i + 1) % n; } while (i !== start);
+  return sum;
+}
+function match(a, b) { const n = a.length, step = Math.floor(Math.pow(n, 0.5)); let min = Infinity; for (let i = 0; i < n; i += step) min = Math.min(min, cdist(a, b, i), cdist(b, a, i)); return min; }
+let LIB = [];
+function buildLib() {
+  LIB = [];
+  for (const k of CLASSES) {
+    T[k].forEach(st => { const c = cloud(st); if (c) LIB.push({ k, c }); });
+    (SV.mine[k] || []).forEach(c => LIB.push({ k, c: c.map(p => ({ x: p[0], y: p[1] })), mine: 1 }));
+  }
+}
+function recognise(strokes) {
+  const c = cloud(strokes); if (!c) return null;
+  const best = {}; for (const t of LIB) { const d = match(c, t.c); if (best[t.k] == null || d < best[t.k]) best[t.k] = d; }
+  const ks = CLASSES.slice().sort((a, b) => best[a] - best[b]);
+  const k = 2.6, ex = ks.map(x => Math.exp(-k * best[x])), tot = ex.reduce((a, b) => a + b, 0);
+  return { cloud: c, list: ks.map((x, i) => ({ k: x, d: best[x], p: ex[i] / tot })) };
+}
+function learn(k, c) { const a = SV.mine[k] || (SV.mine[k] = []); a.push(c.map(p => [+p.x.toFixed(3), +p.y.toFixed(3)])); while (a.length > 5) a.shift(); store(); buildLib(); }
+buildLib();
+
+// ================================================================= the Judge himself
+function judgeSVG(mood) {
+  const O = ' stroke="' + INK + '" stroke-width="3" stroke-linejoin="round"';
+  let eyes = '', mouth = '', brow = '';
+  const E = (x, y, px, py, r) => '<circle cx="' + x + '" cy="' + y + '" r="' + (r || 9) + '" fill="#fff"' + O + '/><circle cx="' + (x + px) + '" cy="' + (y + py) + '" r="4.2" fill="' + INK + '"/>';
+  if (mood === 'think') { eyes = E(40, 52, -3, -3) + E(62, 52, -3, -3); mouth = '<path d="M44 76 h14" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; brow = '<path d="M30 38 l18 4 M56 40 l16 -4" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; }
+  else if (mood === 'happy') { eyes = '<path d="M32 54 q8 -9 16 0 M54 54 q8 -9 16 0" fill="none" stroke="' + INK + '" stroke-width="3.4" stroke-linecap="round"/>'; mouth = '<path d="M38 72 q13 14 26 0Z" fill="' + INK + '"/>'; }
+  else if (mood === 'amazed') { eyes = E(40, 52, 0, 0, 11) + E(62, 52, 0, 0, 11); mouth = '<ellipse cx="51" cy="78" rx="6" ry="8" fill="' + INK + '"/>'; brow = '<path d="M30 34 l16 -4 M56 30 l16 4" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; }
+  else if (mood === 'confused') { eyes = E(40, 52, 2, 1, 7) + E(62, 52, 2, -1, 11); mouth = '<path d="M40 78 q6 -6 11 0 q6 6 11 0" fill="none" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; brow = '<path d="M30 40 l16 2 M56 34 l16 -6" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; }
+  else { eyes = E(40, 52, 1, 1) + E(62, 52, 1, 1); mouth = '<path d="M42 74 q9 6 18 0" fill="none" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>'; }
+  return '<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M8 100 Q12 84 50 84 Q88 84 92 100Z" fill="#7a2a3a"' + O + '/><path d="M44 84 L50 94 L56 84Z" fill="#fff"' + O + '/>' +
+    '<circle cx="51" cy="58" r="30" fill="#f1c7a0"' + O + '/><path d="M20 38 Q22 12 54 14 Q86 16 82 36 Q60 30 20 38Z" fill="#2a2a3a"' + O + '/><circle cx="56" cy="13" r="4" fill="#2a2a3a"' + O + '/>' +
+    brow + eyes + '<circle cx="62" cy="52" r="12.5" fill="none" stroke="#c8902a" stroke-width="3"/><path d="M74 54 Q82 70 76 86" fill="none" stroke="#c8902a" stroke-width="1.6"/>' +
+    '<path d="M51 64 C44 60 34 62 31 68 C38 66 44 68 51 69 C58 68 64 66 71 68 C68 62 58 60 51 64Z" fill="#5a3418"' + O.replace('3"', '2"') + '/>' + mouth + '</svg>';
+}
+const setJudge = m => { $('judgeArt').innerHTML = judgeSVG(m); };
+$('tJudge').innerHTML = judgeSVG('idle'); setJudge('idle');
+$('known').innerHTML = CLASSES.map(k => '<span>' + SHORT(k) + '</span>').join('');
+const pickLine = a => a[Math.floor(Math.random() * a.length)];
+const LINES = {
+  right: ['Ah. Clearly {g}. Magnificent.', 'That is {g}. I would know it anywhere.', 'Unmistakably {g}. Bravo!', '{G}! The brushwork speaks for itself.', 'I see {g}, and I see genius.', 'Without a doubt, {g}. Hang it in the Louvre.'],
+  close: ['Hmm... is it {g}? No, wait... {t}!', 'At first glance {g}, but I believe it is {t}.', 'My heart says {g}. My monocle says {t}.'],
+  wrong: ['That is {g}. Obviously. ...It was {t}? Bold.', 'I see {g}. A very confident {g}.', '{G}? Surely {g}. ...{T}?! I need a lie down.', 'This is {g}, and nobody can tell me otherwise.', 'Is that {g}? A brave, brave {g}.'],
+  blank: ['A blank canvas. Very modern. Very expensive.', 'Nothing. The silence of it. Zero points, but I wept.'],
+  free: ['I believe this is {g}.', 'That, my friend, is {g}.', 'Without question: {g}.', 'My eye says {g}.'],
+};
+const fill = (s, g, t) => s.replace(/\{g\}/g, NAMES[g]).replace(/\{G\}/g, NAMES[g][0].toUpperCase() + NAMES[g].slice(1)).replace(/\{t\}/g, t ? NAMES[t] : '').replace(/\{T\}/g, t ? NAMES[t][0].toUpperCase() + NAMES[t].slice(1) : '');
+
+// ================================================================= sound
+let AC = null;
+const ac = () => { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return AC; };
+function tone(f, d, type, vol, slide, delay) { if (SV.mute) return; const a = ac(); if (!a) return; const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain(); o.type = type || 'triangle'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d); }
+let brushNode = null;
+function brushSound(on) {
+  const a = ac(); if (!a || SV.mute) { if (brushNode) { brushNode.g.gain.value = 0; } return; }
+  if (!brushNode) { const n = a.sampleRate, b = a.createBuffer(1, n, n), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; const s = a.createBufferSource(); s.buffer = b; s.loop = true; const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.7; const g = a.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(a.destination); s.start(); brushNode = { g, f }; }
+  brushNode.g.gain.setTargetAtTime(on ? 0.05 : 0, a.currentTime, 0.02);
+}
+$('muteBtn').onclick = () => { SV.mute = !SV.mute; store(); $('muteBtn').textContent = SV.mute ? '🔇' : '🔊'; if (SV.mute) brushSound(false); };
+$('muteBtn').textContent = SV.mute ? '🔇' : '🔊';
+
+// ================================================================= painting
+const cv = $('cv'), cx = cv.getContext('2d');
+let CW = 600, CH = 480, DPR = 1;
+function fit() {
+  const small = innerWidth < 860;
+  const availW = small ? innerWidth - 60 : innerWidth - 330 - 22 * 3 - 40, availH = small ? innerHeight * 0.5 : innerHeight - 56 - 200;
+  const w = Math.max(240, Math.min(availW, availH * 1.25, 820)); CW = Math.round(w); CH = Math.round(w * 0.8);
+  DPR = Math.min(2, window.devicePixelRatio || 1); const keep = cv.width ? cv.toDataURL() : null;
+  cv.width = CW * DPR; cv.height = CH * DPR; cv.style.width = CW + 'px'; cv.style.height = CH + 'px'; cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  redraw();
+}
+addEventListener('resize', fit);
+const COLORS = ['#231a14', '#b3261e', '#1d5fbf', '#1d7a3a', '#7a2ab0', '#d9701a', '#c8306a', '#0f7a7a'];
+const G = { mode: 'menu', round: 0, rounds: [], ink: 2, strokes: [], cur: null, drawing: false, locked: true, color: INK, score: 0, results: [] };
+const INK_MAX = 2;
+function redraw() {
+  cx.clearRect(0, 0, CW, CH);
+  // paper grain
+  cx.fillStyle = '#fffaf0'; cx.fillRect(0, 0, CW, CH);
+  for (const s of G.strokes) paintStroke(s);
+}
+function paintStroke(s) {
+  const pts = s.pts; if (!pts.length) return;
+  cx.strokeStyle = s.color; cx.fillStyle = s.color; cx.lineCap = 'round'; cx.lineJoin = 'round';
+  if (pts.length === 1) { cx.beginPath(); cx.arc(pts[0].x * CW, pts[0].y * CH, pts[0].w * CW / 2, 0, 7); cx.fill(); return; }
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i]; cx.lineWidth = (a.w + b.w) / 2 * CW; cx.beginPath();
+    if (i >= 2) { const z = pts[i - 2]; cx.moveTo((z.x + a.x) / 2 * CW, (z.y + a.y) / 2 * CH); cx.quadraticCurveTo(a.x * CW, a.y * CH, (a.x + b.x) / 2 * CW, (a.y + b.y) / 2 * CH); }
+    else { cx.moveTo(a.x * CW, a.y * CH); cx.lineTo((a.x + b.x) / 2 * CW, (a.y + b.y) / 2 * CH); }
+    cx.stroke();
+  }
+}
+function evPos(e) { const r = cv.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) }; }
+cv.addEventListener('pointerdown', e => {
+  if (G.locked || G.ink <= 0) return; e.preventDefault(); ac(); cv.setPointerCapture(e.pointerId);
+  const p = evPos(e); G.cur = { color: G.color, pts: [{ x: p.x, y: p.y, w: 0.016 }] }; G.strokes.push(G.cur); G.drawing = true; G.lastMove = performance.now(); brushSound(true); redraw();
+});
+cv.addEventListener('pointermove', e => {
+  if (!G.drawing || !G.cur) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of evs) { const p = evPos(ev), l = G.cur.pts[G.cur.pts.length - 1], d = Math.hypot((p.x - l.x) * CW, (p.y - l.y) * CH); if (d < 1.5) continue;
+    const w = Math.max(0.006, Math.min(0.02, 0.022 - d / CW * 0.25)) * (0.55 + 0.45 * G.ink / INK_MAX); G.cur.pts.push({ x: p.x, y: p.y, w: l.w * 0.6 + w * 0.4 }); }
+  redraw();
+});
+const endStroke = () => { if (!G.drawing) return; G.drawing = false; G.cur = null; brushSound(false); };
+cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
+let lastT = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop); const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (G.drawing && !G.locked) {
+    G.ink = Math.max(0, G.ink - dt);
+    if (G.ink <= 0) { endStroke(); G.locked = true; cv.classList.add('locked'); tone(220, 0.25, 'square', 0.05); setTimeout(judge, 500); }
+  }
+  const f = G.ink / INK_MAX; $('inkFill').style.width = (f * 100) + '%'; $('inkFill').style.background = f < 0.25 ? '#b3261e' : G.color; $('inkTxt').textContent = G.ink.toFixed(2) + 's';
+}
+requestAnimationFrame(loop);
+
+// ================================================================= rounds
+function startGame(mode) {
+  ac(); G.mode = mode; G.score = 0; G.results = []; G.round = 0;
+  const pool = CLASSES.slice().sort(() => Math.random() - 0.5); G.rounds = mode === 'free' ? [] : pool.slice(0, 8);
+  $('title').hidden = true; $('gal').hidden = true; $('roundP').hidden = mode === 'free'; updateTop(); fit(); nextRound();
+}
+function updateTop() { $('roundP').textContent = 'Round ' + Math.min(G.round + 1, 8) + ' / 8'; $('scoreP').textContent = G.mode === 'free' ? 'Free paint' : G.score + ' pts'; }
+function nextRound() {
+  G.strokes = []; G.ink = INK_MAX; G.locked = true; G.color = COLORS[G.round % COLORS.length]; redraw();
+  $('guesses').innerHTML = ''; $('pts').textContent = ''; $('nextBtn').hidden = true; $('doneBtn').hidden = false; $('doneBtn').disabled = true; setJudge('idle');
+  const k = G.mode === 'free' ? null : G.rounds[G.round]; G.target = k;
+  $('prompt').innerHTML = k ? '<small>Paint</small>' + NAMES[k] : '<small>Free paint</small>anything you like';
+  $('say').textContent = k ? 'Two seconds of ink. Make them count.' : 'Paint any of the 22 things. I will tell you what it is.';
+  updateTop();
+  const cd = $('count'); cd.hidden = false; let n = 3;
+  const tick = () => { if (n === 0) { cd.hidden = true; G.locked = false; cv.classList.remove('locked'); $('doneBtn').disabled = false; tone(880, 0.12, 'triangle', 0.1); return; } cd.innerHTML = '<b>' + n + '</b>'; tone(440, 0.08, 'triangle', 0.08); n--; setTimeout(tick, 700); };
+  tick();
+}
+$('doneBtn').onclick = () => { if (G.locked) return; endStroke(); G.locked = true; cv.classList.add('locked'); judge(); };
+function judge() {
+  $('doneBtn').hidden = true; setJudge('think'); $('say').textContent = pickLine(['Hmm.', 'Let me see...', 'Fascinating...', 'Hmmmmm.']); tone(300, 0.5, 'sine', 0.06, 260);
+  const used = INK_MAX - G.ink, inked = G.strokes.reduce((a, s) => a + s.pts.length, 0);
+  setTimeout(() => {
+    const strokes = G.strokes.map(s => s.pts.map(p => [p.x * CW / CH * 100, p.y * 100]));
+    const r = inked > 3 ? recognise(strokes) : null, t = G.target, img = cv.toDataURL('image/png');
+    let pts = 0, rank = -1, line;
+    if (!r) { setJudge('confused'); line = pickLine(LINES.blank); $('guesses').innerHTML = ''; }
+    else {
+      const top = r.list.slice(0, 3), g = top[0].k;
+      rank = t ? r.list.findIndex(x => x.k === t) : 0;
+      $('guesses').innerHTML = top.map((x, i) => '<div class="g ' + (i === 0 ? 'top ' : '') + (t ? (x.k === t ? 'hit' : 'miss') : '') + '"><span class="n">' + SHORT(x.k) + '</span><span class="b"><i data-w="' + Math.max(3, Math.round(x.p * 100)) + '"></i></span><span class="p">' + Math.round(x.p * 100) + '%</span></div>').join('');
+      requestAnimationFrame(() => document.querySelectorAll('#guesses i').forEach(i => i.style.width = i.dataset.w + '%'));
+      if (!t) { setJudge('happy'); line = fill(pickLine(LINES.free), g); }
+      else if (rank === 0) { pts = 100 + Math.round(G.ink * 50); setJudge(G.ink > 0.8 ? 'amazed' : 'happy'); line = fill(pickLine(LINES.right), g, t); [523, 659, 784].forEach((f, i) => tone(f, 0.2, 'triangle', 0.1, 0, i * 0.08)); }
+      else if (rank < 3) { pts = rank === 1 ? 50 : 25; setJudge('think'); line = fill(pickLine(LINES.close), g, t); tone(500, 0.2, 'triangle', 0.08); }
+      else { setJudge('confused'); line = fill(pickLine(LINES.wrong), g, t); tone(200, 0.3, 'sawtooth', 0.05, 150); }
+      if (t && rank >= 0 && rank < 3 && used > 0.15) learn(t, r.cloud);
+    }
+    $('say').textContent = line; $('pts').textContent = t ? (pts ? '+' + pts + (rank === 0 && G.ink > 0.05 ? '  (' + G.ink.toFixed(2) + 's left!)' : '') : '0') : '';
+    G.score += pts; updateTop();
+    G.results.push({ t, guess: r ? r.list[0].k : null, rank, pts, img, used });
+    $('nextBtn').hidden = false; $('nextBtn').textContent = G.mode === 'free' ? 'Paint another ➜' : G.round >= 7 ? 'See the exhibition ➜' : 'Next ➜';
+  }, 900);
+}
+$('nextBtn').onclick = () => { if (G.mode === 'free') { G.round++; nextRound(); return; } G.round++; if (G.round >= 8) gallery(); else nextRound(); };
+function gallery() {
+  SV.played = (SV.played || 0) + 1; const isBest = G.score > SV.best; if (isBest) SV.best = G.score; store();
+  const right = G.results.filter(r => r.rank === 0).length, avgInk = G.results.reduce((a, r) => a + r.used, 0) / G.results.length;
+  const rank = G.score >= 1300 ? 'Old Master' : G.score >= 1000 ? 'Gallery Darling' : G.score >= 700 ? 'Rising Star' : G.score >= 400 ? 'Promising Student' : 'Starving Artist';
+  $('gTitle').textContent = rank;
+  $('gStats').innerHTML = '<div><span>' + G.score + '</span>points' + (isBest ? ' · best!' : '') + '</div><div><span>' + right + ' / 8</span>Judge got it</div><div><span>' + avgInk.toFixed(2) + 's</span>ink per painting</div>';
+  $('galWall').innerHTML = G.results.map((r, i) => '<div class="art"><div class="fr"><img src="' + r.img + '" alt=""></div><div class="pl"><b>"' + SHORT(r.t).replace(/^./, c => c.toUpperCase()) + '"</b>' + (r.rank === 0 ? '✓ The Judge saw ' + NAMES[r.guess] : r.guess ? 'The Judge saw ' + NAMES[r.guess] : 'A blank canvas') + ' · ' + r.used.toFixed(2) + 's</div></div>').join('');
+  $('gal').hidden = false;
+}
+$('saveBtn').onclick = () => {
+  const c = document.createElement('canvas'), w = 300, h = 240, pad = 30; c.width = 4 * (w + pad) + pad; c.height = 2 * (h + pad + 40) + pad + 60; const x = c.getContext('2d');
+  x.fillStyle = '#f4ead8'; x.fillRect(0, 0, c.width, c.height); x.fillStyle = INK; x.font = '700 34px Playfair Display, Georgia, serif'; x.textAlign = 'center'; x.fillText('Two-Second Painter · ' + G.score + ' pts', c.width / 2, 48);
+  let left = G.results.length;
+  G.results.forEach((r, i) => { const im = new Image(); im.onload = () => { const X = pad + (i % 4) * (w + pad), Y = 70 + Math.floor(i / 4) * (h + pad + 40); x.fillStyle = '#a8742a'; x.fillRect(X - 8, Y - 8, w + 16, h + 16); x.drawImage(im, X, Y, w, h); x.fillStyle = INK; x.font = '600 18px Fredoka, Arial'; x.fillText('"' + SHORT(r.t) + '"' + (r.rank === 0 ? ' ✓' : ''), X + w / 2, Y + h + 32);
+    if (--left === 0) { const a = document.createElement('a'); a.download = 'two-second-painter.png'; a.href = c.toDataURL('image/png'); a.click(); } }; im.src = r.img; });
+};
+$('playBtn').onclick = () => startGame('play'); $('freeBtn').onclick = () => startGame('free');
+$('againBtn').onclick = () => startGame('play'); $('menuBtn').onclick = showTitle;
+function showTitle() { G.mode = 'menu'; G.locked = true; $('gal').hidden = true; $('title').hidden = false; $('best').textContent = SV.best ? 'Best exhibition: ' + SV.best + ' points' : ''; }
+fit(); showTitle();
+window.TSP = { recognise, cloud, T, CLASSES, G, judge, buildLib, get SV() { return SV; } };
+})();
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
