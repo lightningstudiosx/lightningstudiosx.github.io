@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="icons/facemapped.svg" type="image/svg+xml"><link rel="icon" href="icons/facemapped.png" sizes="64x64"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Face Mapped Poorly · Kai.fun</title>
+<meta name="description" content="Walk around a 3D doodle world full of badly textured people, and code your own dance emotes in the Emote Maker.">
+<meta name="theme-color" content="#ffffff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#111; --ui:"Fredoka","Trebuchet MS",system-ui,sans-serif; --mono:"Space Mono",ui-monospace,monospace }
+* { box-sizing:border-box }
+[hidden] { display:none !important }
+html,body { margin:0; height:100%; overflow:hidden; background:#fff; color:var(--ink); font:600 15px/1.3 var(--ui); user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent }
+#cv { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:3px solid var(--ink); border-radius:12px; padding:6px 12px; background:#fff; box-shadow:3px 3px 0 var(--ink); font:700 15px var(--ui); cursor:pointer; text-decoration:none; color:var(--ink); white-space:nowrap }
+.btn:active { transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink) } .btn.on { background:#ffe14a } .btn.sm { font-size:13px; padding:3px 8px; box-shadow:2px 2px 0 var(--ink); border-radius:9px; border-width:2px }
+#tl { position:fixed; left:12px; top:12px; z-index:10; display:flex; gap:8px; align-items:center }
+#ttl { font:700 22px var(--ui); background:#fff; border:3px solid var(--ink); border-radius:12px; padding:2px 12px; box-shadow:3px 3px 0 var(--ink) }
+#tr { position:fixed; right:12px; top:12px; z-index:10; display:flex; gap:8px }
+#mini { position:fixed; right:12px; top:62px; z-index:9; width:170px; height:170px; border:3px solid var(--ink); border-radius:50%; background:#fff; box-shadow:3px 3px 0 var(--ink); cursor:pointer }
+#zone { position:fixed; left:50%; top:16px; transform:translateX(-50%); z-index:9; font:700 18px var(--ui); background:#fff; border:3px solid var(--ink); border-radius:999px; padding:3px 16px; box-shadow:3px 3px 0 var(--ink); transition:opacity .4s; pointer-events:none }
+#bar { position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:10; display:flex; gap:6px }
+.slot { width:84px; height:62px; border:3px solid var(--ink); border-radius:12px; background:#fff; box-shadow:3px 3px 0 var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2px; text-align:center }
+.slot b { font:700 18px var(--ui) } .slot span { font:600 11px/1.05 var(--ui); max-width:76px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.slot.on { background:#ffe14a } .slot.empty { opacity:.45 }
+#help { position:fixed; left:12px; bottom:14px; z-index:9; font:600 12.5px/1.4 var(--ui); background:#fff; border:2px solid var(--ink); border-radius:10px; padding:6px 10px; box-shadow:2px 2px 0 var(--ink) }
+#help b { display:inline-block; border:2px solid var(--ink); border-radius:5px; padding:0 4px; font-size:11px; margin:0 1px }
+#toast { position:fixed; left:50%; top:62px; transform:translateX(-50%); z-index:20; background:#111; color:#fff; padding:6px 14px; border-radius:10px; font:700 15px var(--ui); transition:opacity .3s; pointer-events:none }
+/* emote maker */
+#maker { position:fixed; right:0; top:0; bottom:0; width:420px; max-width:100vw; z-index:30; background:#fff; border-left:4px solid var(--ink); display:flex; flex-direction:column; box-shadow:-6px 0 0 rgba(0,0,0,.08) }
+#maker header { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:3px solid var(--ink) } #maker header h2 { margin:0; flex:1; font:700 22px var(--ui) }
+#mk { flex:1; overflow:auto; padding:10px 12px 14px }
+.row { display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap }
+.row label { font:700 13px var(--ui) }
+input[type=text], input[type=number], select { font:600 14px var(--ui); border:2px solid var(--ink); border-radius:8px; padding:4px 8px; background:#fff }
+#track { position:relative; height:46px; border:3px solid var(--ink); border-radius:10px; background:repeating-linear-gradient(90deg,#fff 0 9.9%,#eee 9.9% 10%); cursor:pointer; margin:6px 0 }
+#track .k { position:absolute; top:10px; width:18px; height:18px; margin-left:-9px; background:#fff; border:3px solid var(--ink); transform:rotate(45deg); cursor:pointer }
+#track .k.sel { background:#ffe14a }
+#track .ph { position:absolute; top:-4px; bottom:-4px; width:3px; margin-left:-1.5px; background:#e8413a }
+.tabs { display:flex; gap:6px; margin:10px 0 6px } .tab { flex:1; text-align:center; border:2px solid var(--ink); border-radius:9px; padding:4px; cursor:pointer; font:700 14px var(--ui) } .tab.on { background:#111; color:#fff }
+.grp { border:2px solid var(--ink); border-radius:10px; padding:4px 8px; margin:6px 0 } .grp b { font:700 13px var(--ui) }
+.sl { display:grid; grid-template-columns:52px 1fr 46px; gap:6px; align-items:center; font:600 12.5px var(--mono) } .sl input { width:100% } .sl span { text-align:right }
+#code { width:100%; height:300px; font:400 13px/1.45 var(--mono); border:3px solid var(--ink); border-radius:10px; padding:8px; resize:vertical; white-space:pre; overflow:auto }
+#codeErr { color:#c8201a; font:700 13px var(--ui); min-height:18px }
+.lib { display:flex; flex-direction:column; gap:4px; margin-top:6px } .lib div { display:flex; gap:6px; align-items:center; border:2px solid var(--ink); border-radius:8px; padding:3px 6px } .lib div span { flex:1; font:700 13px var(--ui) } .lib div i { font:600 11px var(--ui); opacity:.6; font-style:normal }
+.scr { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:16px; background:rgba(255,255,255,.75) }
+.panel { background:#fff; border:4px solid var(--ink); border-radius:20px; box-shadow:6px 6px 0 var(--ink); padding:18px 22px; max-width:640px; width:100%; text-align:center }
+.panel h1 { margin:0; font:700 44px/1 var(--ui) } .panel p { margin:8px 0 }
+#bigmap { width:min(80vmin,640px); height:min(80vmin,640px); border:3px solid var(--ink); border-radius:16px; display:block; margin:8px auto }
+#joy { position:fixed; left:20px; bottom:100px; width:120px; height:120px; border:3px solid var(--ink); border-radius:50%; background:rgba(255,255,255,.7); z-index:11; touch-action:none; display:none }
+#joy i { position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%; background:#111 }
+#jumpB { position:fixed; right:20px; bottom:110px; z-index:11; display:none }
+@media (pointer:coarse) { #joy { display:block } #jumpB { display:inline-flex } #help { display:none } .slot { width:56px; height:50px } .slot span { display:none } #mini { width:110px; height:110px } }
+@media (max-width:760px) { #maker { width:100vw; top:45vh; border-left:0; border-top:4px solid var(--ink) } #ttl { font-size:16px } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="tl"><a class="btn" href="index.html">← kai.fun</a><div id="ttl">face mapped poorly</div></div>
+<div id="tr"><button class="btn" id="mapBtn">🗺 Map</button><button class="btn" id="makerBtn">💃 Emote Maker</button><button class="btn" id="faceBtn">🙂 Face</button><button class="btn" id="muteBtn">🔊</button></div>
+<canvas id="mini" width="340" height="340"></canvas>
+<div id="zone">Plaza</div>
+<div id="bar"></div>
+<div id="help"><b>W</b><b>A</b><b>S</b><b>D</b> walk · <b>Shift</b> run · <b>Space</b> jump · drag to look · <b>1</b>–<b>9</b> dance · <b>E</b> emote maker · <b>M</b> map</div>
+<div id="toast" style="opacity:0"></div>
+<div id="joy"><i></i></div><button class="btn" id="jumpB">Jump</button>
+
+<div id="maker" hidden>
+  <header><h2>💃 Emote Maker</h2><button class="btn sm" id="mkClose">Done</button></header>
+  <div id="mk">
+    <div class="row"><label>Name</label><input type="text" id="mkName" maxlength="24" style="flex:1"><label>Length</label><input type="number" id="mkLen" min="0.2" max="10" step="0.1" style="width:70px"><label><input type="checkbox" id="mkLoop"> loop</label></div>
+    <div class="row"><button class="btn sm" id="mkPlay">⏸ Pause</button><span style="font:700 13px var(--mono)" id="mkTime">0.00s</span><span style="flex:1"></span><button class="btn sm" id="mkAdd">+ Key</button><button class="btn sm" id="mkDel">− Key</button></div>
+    <div id="track"></div>
+    <div class="row"><button class="btn sm" id="mkMirror">⇆ Mirror pose</button><button class="btn sm" id="mkCopy">Copy pose</button><button class="btn sm" id="mkPaste">Paste pose</button><button class="btn sm" id="mkZero">Reset pose</button></div>
+    <div class="tabs"><div class="tab on" data-tab="pose">🧍 Pose</div><div class="tab" data-tab="code">⌨ Code</div><div class="tab" data-tab="lib">📚 My emotes</div></div>
+    <div id="tabPose"></div>
+    <div id="tabCode" hidden>
+      <textarea id="code" spellcheck="false"></textarea>
+      <div id="codeErr"></div>
+      <div class="row"><button class="btn" id="codeRun">▶ Run code</button><span style="font:600 12px var(--ui);opacity:.7">Each line: <code>time: part.axis=degrees …</code></span></div>
+      <div style="font:600 12px/1.45 var(--mono);opacity:.75;margin-top:6px">parts: head.x head.y head.z · body.x body.y body.z<br>armL.x armL.z armR.x armR.z · legL.x legL.z legR.x legR.z<br>hop (height) · spin (degrees around)<br>x = forward/back · z = out to the side · y = twist</div>
+    </div>
+    <div id="tabLib" hidden><div class="row"><button class="btn sm" id="libNew">+ New emote</button></div><div class="lib" id="lib"></div></div>
+    <div class="row" style="margin-top:12px;border-top:2px dashed #bbb;padding-top:10px"><label>Put on key</label><select id="mkSlot"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select><button class="btn on" id="mkSave">💾 Save emote</button></div>
+  </div>
+</div>
+
+<div class="scr" id="mapScr" hidden><div class="panel" style="max-width:720px"><h1 style="font-size:32px">The Map</h1><canvas id="bigmap" width="1280" height="1280"></canvas><div class="row" style="justify-content:center"><button class="btn" id="mapClose">Close</button></div></div></div>
+<div class="scr" id="faceScr" hidden><div class="panel"><h1 style="font-size:32px">Your face</h1><p>Whatever you type gets mapped onto your head. Poorly.</p><input type="text" id="faceIn" maxlength="28" style="width:100%;font-size:20px"><div class="row" style="justify-content:center;margin-top:10px"><button class="btn on" id="faceOk">Map it</button></div></div></div>
+<div class="scr" id="intro"><div class="panel"><h1>face mapped poorly</h1><p>Walk around a doodle world full of people whose faces were textured by someone in a hurry.</p><p style="opacity:.75">Dance with <b>1</b>–<b>9</b>. Make your own dances in the <b>Emote Maker</b>: pose your arms, legs, head and body on a timeline, or write the dance as code. Dance near people and they'll copy you.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn on" id="goBtn" style="font-size:20px;padding:10px 26px">Walk in</button></div></div></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+const $ = id => document.getElementById(id);
+const SAVE = 'kaifun_facemapped';
+let SV = { emotes: [], slots: null, face: 'face mapped poorly', mute: false };
+try { Object.assign(SV, JSON.parse(localStorage.getItem(SAVE) || '{}')); } catch (e) {}
+const store = () => { try { localStorage.setItem(SAVE, JSON.stringify(SV)); } catch (e) {} };
+const rad = d => d * Math.PI / 180, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
+function toast(t, ms) { const e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => e.style.opacity = 0, ms || 1800); }
+
+// ================================================================= emotes: data, code, playback
+const CH = ['head.x', 'head.y', 'head.z', 'body.x', 'body.y', 'body.z', 'armL.x', 'armL.z', 'armR.x', 'armR.z', 'legL.x', 'legL.z', 'legR.x', 'legR.z', 'hop', 'spin'];
+const RANGE = { hop: [0, 3, 0.05], spin: [-720, 720, 5] };
+function parseCode(src) {
+  const em = { name: 'My Dance', len: 1, loop: true, keys: [] };
+  const lines = src.split('\n');
+  for (let n = 0; n < lines.length; n++) {
+    const raw = lines[n].replace(/#.*/, '').trim(); if (!raw) continue;
+    let m;
+    if ((m = /^name\s*:\s*(.+)$/i.exec(raw))) { em.name = m[1].trim().slice(0, 24); continue; }
+    if ((m = /^length\s*:\s*([\d.]+)$/i.exec(raw))) { em.len = clamp(+m[1], 0.2, 10); continue; }
+    if ((m = /^loop\s*:\s*(yes|no|true|false|on|off)$/i.exec(raw))) { em.loop = /yes|true|on/i.test(m[1]); continue; }
+    if ((m = /^([\d.]+)\s*:\s*(.*)$/.exec(raw))) {
+      const t = +m[1], p = {};
+      for (const tok of m[2].split(/[\s,]+/).filter(Boolean)) {
+        const q = /^([a-zA-Z]+(?:\.[xyz])?)=(-?[\d.]+)$/.exec(tok);
+        if (!q) throw new Error('Line ' + (n + 1) + ': I don\'t understand "' + tok + '"');
+        if (!CH.includes(q[1])) throw new Error('Line ' + (n + 1) + ': there is no part called "' + q[1] + '"');
+        p[q[1]] = +q[2];
+      }
+      em.keys.push({ t, p }); continue;
+    }
+    throw new Error('Line ' + (n + 1) + ': start lines with name:, length:, loop: or a time like 0.5:');
+  }
+  if (!em.keys.length) throw new Error('Add at least one line with a time, like  0: armL.z=90');
+  em.keys.sort((a, b) => a.t - b.t); em.keys.forEach(k => k.t = clamp(k.t, 0, em.len));
+  return em;
+}
+function toCode(em) {
+  const f = v => (Math.round(v * 100) / 100).toString();
+  return 'name: ' + em.name + '\nlength: ' + f(em.len) + '\nloop: ' + (em.loop ? 'yes' : 'no') + '\n' + em.keys.map(k => f(k.t) + ': ' + CH.filter(c => k.p[c]).map(c => c + '=' + f(k.p[c])).join(' ')).join('\n') + '\n';
+}
+const PRESET_CODE = [
+`name: Wave
+length: 0.6
+loop: yes
+0: armR.z=150 head.z=6
+0.3: armR.z=118 head.z=-4`,
+`name: Robot
+length: 1
+loop: yes
+0: armL.x=90 head.y=25 body.y=10 armR.z=10
+0.5: armR.x=90 head.y=-25 body.y=-10 armL.z=10`,
+`name: Jumping Jacks
+length: 0.7
+loop: yes
+0: hop=0
+0.35: armL.z=170 armR.z=170 legL.z=22 legR.z=22 hop=0.45`,
+`name: Spin
+length: 1
+loop: yes
+0: spin=0 armL.z=90 armR.z=90
+1: spin=360 armL.z=90 armR.z=90`,
+`name: Swing Swing
+length: 0.5
+loop: yes
+0: armL.x=-35 armL.z=30 armR.x=-35 armR.z=-10 body.z=-8 legL.z=6
+0.25: armL.x=35 armL.z=-10 armR.x=35 armR.z=30 body.z=8 legR.z=6`,
+`name: Headbang
+length: 0.4
+loop: yes
+0: head.x=35 body.x=18 armL.z=25 armR.z=25 armL.x=20 armR.x=20
+0.2: head.x=-25 armL.z=10 armR.z=10`,
+`name: Disco Point
+length: 1
+loop: yes
+0: armR.z=150 armR.x=25 body.z=-10 head.z=-12 armL.z=12 legR.z=10
+0.5: armR.z=10 armR.x=-30 body.z=8 armL.z=25 head.z=6 legL.z=10`,
+`name: Chicken
+length: 0.4
+loop: yes
+0: armL.z=65 armR.z=65 head.x=-20 armL.x=-20 armR.x=-20
+0.2: armL.z=15 armR.z=15 head.x=25 hop=0.15 body.x=10`,
+`name: Victory
+length: 1
+loop: yes
+0: armL.z=155 armR.z=155 hop=0
+0.3: armL.z=175 armR.z=175 hop=1.3 legL.x=45 legR.x=-30 spin=180
+0.6: armL.z=160 armR.z=160 hop=0 spin=360
+1: armL.z=155 armR.z=155 spin=360`,
+`name: Clap
+length: 0.4
+loop: yes
+0: armL.x=70 armR.x=70 armL.z=-25 armR.z=-25
+0.2: armL.x=70 armR.x=70 armL.z=12 armR.z=12`,
+];
+const PRESETS = PRESET_CODE.map(c => Object.assign(parseCode(c), { preset: true }));
+const allEmotes = () => PRESETS.concat(SV.emotes);
+const findEmote = name => allEmotes().find(e => e.name === name);
+if (!SV.slots) SV.slots = ['Wave', 'Robot', 'Jumping Jacks', 'Spin', 'Swing Swing', 'Headbang', 'Disco Point', 'Chicken', 'Victory'];
+const ease = t => t * t * (3 - 2 * t);
+function sample(em, t) {
+  const K = em.keys, out = {};
+  if (!K.length) return out;
+  t = em.loop ? ((t % em.len) + em.len) % em.len : Math.min(t, em.len);
+  let a = K[K.length - 1], b = K[0], ta = a.t - em.len, tb = b.t;
+  if (!em.loop) { a = K[0]; b = K[0]; ta = 0; tb = 1; }
+  for (let i = 0; i < K.length; i++) {
+    if (K[i].t <= t) { a = K[i]; ta = K[i].t; b = K[i + 1] || (em.loop ? K[0] : K[i]); tb = K[i + 1] ? K[i + 1].t : (em.loop ? K[0].t + em.len : K[i].t + 1); }
+  }
+  if (t < K[0].t && em.loop) { a = K[K.length - 1]; ta = a.t - em.len; b = K[0]; tb = K[0].t; }
+  const f = tb > ta ? ease(clamp((t - ta) / (tb - ta), 0, 1)) : 0;
+  for (const c of CH) { let va = a.p[c] || 0, vb = b.p[c] || 0; if (c === 'spin' && em.loop && b === K[0] && a !== K[0]) vb += Math.round((va - vb) / 360) * 360; out[c] = va + (vb - va) * f; }
+  return out;
+}
+
+// ================================================================= renderer and scene
+const cv = $('cv'), R = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+R.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); scene.fog = new THREE.Fog(0xffffff, 70, 190);
+const cam = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+function resize() { R.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+const WHITE = new THREE.MeshBasicMaterial({ color: 0xffffff }), INKM = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide });
+const GREYM = new THREE.MeshBasicMaterial({ color: 0xe9e7e1 });
+const T = 0.06;
+function outlined(geo, mat, sx, sy, sz) { const g = new THREE.Group(), m = new THREE.Mesh(geo, mat || WHITE), o = new THREE.Mesh(geo, INKM); o.scale.set(sx, sy, sz); g.add(o, m); g.userData.main = m; return g; }
+function box(w, h, d, mat) { return outlined(new THREE.BoxGeometry(w, h, d), mat, (w + 2 * T) / w, (h + 2 * T) / h, (d + 2 * T) / d); }
+function ball(r, mat, seg) { return outlined(new THREE.SphereGeometry(r, seg || 24, Math.round((seg || 24) * 0.7)), mat, (r + T) / r, (r + T) / r, (r + T) / r); }
+function cyl(rt, rb, h, mat, seg) { const r = Math.max(rt, rb); return outlined(new THREE.CylinderGeometry(rt, rb, h, seg || 20), mat, (r + T) / r, (h + 2 * T) / h, (r + T) / r); }
+function cone(r, h, mat) { return outlined(new THREE.ConeGeometry(r, h, 18), mat, (r + T) / r, (h + T * 2) / h, (r + T) / r); }
+function textTex(text, opts) {
+  opts = opts || {}; const c = document.createElement('canvas'); c.width = opts.w || 1024; c.height = opts.h || 512; const x = c.getContext('2d');
+  x.fillStyle = opts.bg || '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = opts.color || '#111'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let fs = opts.size || 150; x.font = '900 ' + fs + 'px "Arial Black", Arial, sans-serif';
+  while (x.measureText(text).width > c.width * (opts.fill || 0.98) && fs > 20) { fs -= 4; x.font = '900 ' + fs + 'px "Arial Black", Arial, sans-serif'; }
+  x.fillText(text, c.width / 2, c.height * (opts.y || 0.5));
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function label(text, scale) {
+  const tex = textTex(text, { w: 1024, h: 200, size: 120, bg: '#fff' }), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+  sp.scale.set(scale * 5.12, scale, 1); return sp;
+}
+
+// ================================================================= the people (exactly the drawing)
+function faceMat(text) {
+  // a thin band of text around the middle of the head: on the front you see a warped chunk of it
+  const tex = textTex(text, { w: 2048, h: 512, size: 240, fill: 0.44, y: 0.47 }); tex.wrapS = THREE.RepeatWrapping; tex.offset.x = 0.25;
+  return new THREE.MeshBasicMaterial({ map: tex });
+}
+function makePerson(faceText) {
+  const root = new THREE.Group(), P = {};
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; root.add(shadow);
+  const legL = new THREE.Group(); legL.position.set(0.2, 1.1, 0); const lL = box(0.3, 1.1, 0.3); lL.position.y = -0.55; legL.add(lL); root.add(legL);
+  const legR = new THREE.Group(); legR.position.set(-0.2, 0.98, 0); const lR = box(0.3, 0.98, 0.3); lR.position.y = -0.49; legR.add(lR); root.add(legR);
+  const body = new THREE.Group(); body.position.y = 1.1; const bm = box(0.78, 1.75, 0.44); bm.position.y = 0.875; body.add(bm); root.add(body);
+  const neck = new THREE.Group(); neck.position.y = 1.75; body.add(neck);
+  const fm = faceMat(faceText); const head = ball(0.62, fm, 32); head.position.y = 0.66; head.rotation.y = 0; neck.add(head);
+  const arm = side => { const g = new THREE.Group(); g.position.set(0.82 * side, 1.62, 0); const cap = outlined(new THREE.CapsuleGeometry(0.15, 0.95, 6, 14), WHITE, (0.15 + T) / 0.15, (1.25 + 2 * T) / 1.25, (0.15 + T) / 0.15); cap.position.y = -0.72; g.add(cap); body.add(g); return g; };
+  const armL = arm(1), armR = arm(-1);
+  Object.assign(P, { root, legL, legR, body, neck, head, armL, armR, faceMat: fm, pose: Object.fromEntries(CH.map(c => [c, 0])) });
+  return P;
+}
+function setFace(P, text) { const old = P.faceMat.map; P.faceMat.map = faceMat(text).map; P.faceMat.needsUpdate = true; if (old) old.dispose(); }
+function applyPose(P, q) {
+  P.neck.rotation.set(rad(q['head.x']), rad(q['head.y']), rad(q['head.z']));
+  P.body.rotation.set(rad(q['body.x']), rad(q['body.y']), rad(q['body.z']));
+  P.armL.rotation.set(-rad(q['armL.x']), 0, rad(q['armL.z'])); P.armR.rotation.set(-rad(q['armR.x']), 0, -rad(q['armR.z']));
+  P.legL.rotation.set(-rad(q['legL.x']), 0, rad(q['legL.z'])); P.legR.rotation.set(-rad(q['legR.x']), 0, -rad(q['legR.z']));
+}
+function blendPose(P, target, k) { for (const c of CH) { const v = target[c] || 0; P.pose[c] += (v - P.pose[c]) * k; } }
+
+// ================================================================= the world (a doodle map)
+const MAPR = 96;
+const HILL = { x: 30, z: -58, r: 30, h: 9 }, STAGE = { x: 44, z: 46, hx: 9, hz: 5, h: 0.6 }, FLOOR = { x: 0, z: 44, n: 8, s: 2.2 }, POND = { x: 58, z: -6, r: 8 }, MAZE = { x: -56, z: -56, n: 8, s: 4 };
+function groundH(x, z) {
+  let h = 0; const d = Math.hypot(x - HILL.x, z - HILL.z); if (d < HILL.r) h = HILL.h * (0.5 + 0.5 * Math.cos(Math.PI * d / HILL.r));
+  if (Math.abs(x - STAGE.x) < STAGE.hx && Math.abs(z - STAGE.z) < STAGE.hz) h = Math.max(h, STAGE.h);
+  return h;
+}
+const COL = [];   // colliders: {c:1,x,z,r} or {x,z,hx,hz}
+const ZONES = [{ n: 'Plaza', x: 0, z: 0, r: 16 }, { n: 'Dance Floor', x: 0, z: 46, r: 16 }, { n: 'The Stage', x: 44, z: 46, r: 16 }, { n: 'The Park', x: 52, z: 2, r: 24 }, { n: 'The Village', x: -52, z: 8, r: 24 }, { n: 'Hedge Maze', x: -56, z: -56, r: 22 }, { n: 'Lookout Hill', x: HILL.x, z: HILL.z, r: HILL.r }];
+(function buildWorld() {
+  // ground with the hill pushed up out of it
+  const g = new THREE.PlaneGeometry(260, 260, 130, 130); g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i), d = Math.hypot(x - HILL.x, z - HILL.z); if (d < HILL.r) pos.setY(i, HILL.h * (0.5 + 0.5 * Math.cos(Math.PI * d / HILL.r))); }
+  g.computeVertexNormals(); scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xfbfaf6 })));
+  // hill contour lines
+  const lm = new THREE.LineBasicMaterial({ color: 0x111111 });
+  for (const lv of [0.4, 2.5, 4.8, 7.2]) { const d = HILL.r / Math.PI * Math.acos(2 * lv / HILL.h - 1), pts = []; for (let a = 0; a <= 64; a++) { const t = a / 64 * Math.PI * 2, rr = d + Math.sin(t * 5) * 0.4; pts.push(new THREE.Vector3(HILL.x + Math.cos(t) * rr, lv + 0.05, HILL.z + Math.sin(t) * rr)); } scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lm)); }
+  // grass scribbles
+  const gs = []; for (let i = 0; i < 4500; i++) { const x = rnd(-MAPR, MAPR), z = rnd(-MAPR, MAPR); if (Math.hypot(x, z) < 16 || (Math.abs(x - FLOOR.x) < 10 && Math.abs(z - FLOOR.z) < 10)) continue; const y = groundH(x, z) + 0.03; gs.push(x - 0.25, y, z, x, y + 0.35, z + 0.05, x, y + 0.35, z + 0.05, x + 0.22, y, z - 0.03); }
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gs, 3)); scene.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.28 })));
+  // paths from the plaza to every zone
+  for (const zn of ZONES.slice(1)) { const dx = zn.x, dz = zn.z, L = Math.hypot(dx, dz) - zn.r * 0.6, ang = Math.atan2(dx, dz); const p = new THREE.Mesh(new THREE.PlaneGeometry(4, L), GREYM); p.rotation.x = -Math.PI / 2; p.rotation.z = -ang; p.position.set(Math.sin(ang) * L / 2, 0.015, Math.cos(ang) * L / 2); scene.add(p);
+    for (const sd of [-2, 2]) { const pts = []; for (let k = 8; k <= L; k += 2) pts.push(new THREE.Vector3(Math.sin(ang) * k + Math.cos(ang) * sd, 0.04, Math.cos(ang) * k - Math.sin(ang) * sd)); const ln = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), lm); scene.add(ln); } }
+  // plaza: paving circle + fountain
+  const pz = new THREE.Mesh(new THREE.CircleGeometry(14, 48), GREYM); pz.rotation.x = -Math.PI / 2; pz.position.y = 0.012; scene.add(pz);
+  const ring = []; for (let a = 0; a <= 64; a++) { const t = a / 64 * Math.PI * 2; ring.push(new THREE.Vector3(Math.cos(t) * 14, 0.04, Math.sin(t) * 14)); } scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lm));
+  const f1 = cyl(3.2, 3.4, 1, WHITE, 32); f1.position.y = 0.5; scene.add(f1); const water = new THREE.Mesh(new THREE.CircleGeometry(2.9, 32), new THREE.MeshBasicMaterial({ color: 0xbfe8ff })); water.rotation.x = -Math.PI / 2; water.position.y = 1.02; scene.add(water);
+  const f2 = cyl(0.4, 0.5, 2.4); f2.position.y = 1.9; scene.add(f2); const f3 = cyl(1.4, 0.6, 0.5); f3.position.y = 3.2; scene.add(f3);
+  COL.push({ c: 1, x: 0, z: 0, r: 3.5 });
+  const sign = label('PLAZA', 1.1); sign.position.set(0, 5.2, 0); scene.add(sign);
+  // signposts for each zone at the path ends
+  for (const zn of ZONES.slice(1)) { const ang = Math.atan2(zn.x, zn.z), d = 17, x = Math.sin(ang) * d + Math.cos(ang) * 3.4, z = Math.cos(ang) * d - Math.sin(ang) * 3.4; const post = cyl(0.12, 0.12, 2.6); post.position.set(x, 1.3, z); scene.add(post); const l = label(zn.n, 0.55); l.position.set(x, 2.9, z); scene.add(l); COL.push({ c: 1, x, z, r: 0.3 }); }
+  // DANCE FLOOR: tiles, DJ booth, speakers
+  window.TILES = [];
+  for (let i = 0; i < FLOOR.n; i++) for (let j = 0; j < FLOOR.n; j++) { const m = new THREE.MeshBasicMaterial({ color: 0xffffff }), t = new THREE.Mesh(new THREE.BoxGeometry(FLOOR.s - 0.08, 0.12, FLOOR.s - 0.08), m); t.position.set(FLOOR.x + (i - FLOOR.n / 2 + 0.5) * FLOOR.s, 0.06, FLOOR.z + (j - FLOOR.n / 2 + 0.5) * FLOOR.s); scene.add(t); TILES.push(m); }
+  const fo = []; const half = FLOOR.n * FLOOR.s / 2; for (const [a, b, c, d] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) fo.push(new THREE.Vector3(FLOOR.x + a * half, 0.14, FLOOR.z + b * half), new THREE.Vector3(FLOOR.x + c * half, 0.14, FLOOR.z + d * half));
+  for (let i = 1; i < FLOOR.n; i++) { const o = -half + i * FLOOR.s; fo.push(new THREE.Vector3(FLOOR.x + o, 0.13, FLOOR.z - half), new THREE.Vector3(FLOOR.x + o, 0.13, FLOOR.z + half), new THREE.Vector3(FLOOR.x - half, 0.13, FLOOR.z + o), new THREE.Vector3(FLOOR.x + half, 0.13, FLOOR.z + o)); }
+  scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(fo), lm));
+  const dj = box(6, 1.6, 1.6); dj.position.set(0, 0.8, 58); scene.add(dj); COL.push({ x: 0, z: 58, hx: 3.2, hz: 1 });
+  for (const sx of [-1, 1]) { const d1 = ball(0.55); d1.position.set(sx * 1.6, 1.9, 58); scene.add(d1); }
+  for (const sx of [-12, 12]) { const sp = box(2.2, 4, 2); sp.position.set(sx, 2, 56); scene.add(sp); for (const y of [1.2, 2.9]) { const cone1 = cyl(0.7, 0.7, 0.1); cone1.rotation.x = Math.PI / 2; cone1.position.set(sx, y, 54.94); scene.add(cone1); } COL.push({ x: sx, z: 56, hx: 1.2, hz: 1.1 }); }
+  const db = label('DANCE FLOOR', 1.2); db.position.set(0, 6, 58); scene.add(db);
+  const disco = ball(1.1); disco.position.set(0, 10, 44); scene.add(disco); window.DISCO = disco;
+  const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 11, 44), new THREE.Vector3(0, 20, 44)]), lm); scene.add(string);
+  // STAGE with lights and a curtain frame
+  const st = box(STAGE.hx * 2, STAGE.h, STAGE.hz * 2); st.position.set(STAGE.x, STAGE.h / 2, STAGE.z); scene.add(st);
+  for (const sx of [-1, 1]) { const pl = box(0.8, 8, 0.8); pl.position.set(STAGE.x + sx * STAGE.hx, 4, STAGE.z + STAGE.hz - 0.4); scene.add(pl); COL.push({ x: STAGE.x + sx * STAGE.hx, z: STAGE.z + STAGE.hz - 0.4, hx: 0.5, hz: 0.5 }); }
+  const top = box(STAGE.hx * 2 + 0.8, 1, 0.8); top.position.set(STAGE.x, 8.4, STAGE.z + STAGE.hz - 0.4); scene.add(top);
+  const back = box(STAGE.hx * 2, 7, 0.3); back.position.set(STAGE.x, 3.5 + STAGE.h, STAGE.z + STAGE.hz - 0.2); scene.add(back); COL.push({ x: STAGE.x, z: STAGE.z + STAGE.hz, hx: STAGE.hx, hz: 0.4 });
+  const sl = label('THE STAGE', 1); sl.position.set(STAGE.x, 10, STAGE.z + STAGE.hz - 0.4); scene.add(sl);
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(3, 9, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false })); beam.position.set(STAGE.x, 5, STAGE.z); scene.add(beam); window.BEAM = beam;
+  for (let i = 0; i < 3; i++) { const bn = box(8, 0.5, 1); bn.position.set(STAGE.x, 0.55, STAGE.z - 10 - i * 3); scene.add(bn); for (const lx of [-3.5, 3.5]) { const lg = box(0.3, 0.5, 0.8); lg.position.set(STAGE.x + lx, 0.25, STAGE.z - 10 - i * 3); scene.add(lg); } COL.push({ x: STAGE.x, z: STAGE.z - 10 - i * 3, hx: 4.1, hz: 0.6 }); }
+  // PARK: lollipop trees, pond, benches, ducks
+  for (let i = 0; i < 26; i++) { const x = 52 + rnd(-22, 22), z = 2 + rnd(-22, 22); if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 3 || Math.hypot(x, z) < 20) continue; tree(x, z); }
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 40), new THREE.MeshBasicMaterial({ color: 0xbfe8ff })); pond.rotation.x = -Math.PI / 2; pond.position.set(POND.x, 0.03, POND.z); scene.add(pond);
+  const pr = []; for (let a = 0; a <= 64; a++) { const t = a / 64 * Math.PI * 2, rr = POND.r + Math.sin(t * 4) * 0.4; pr.push(new THREE.Vector3(POND.x + Math.cos(t) * rr, 0.06, POND.z + Math.sin(t) * rr)); } scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pr), lm));
+  COL.push({ c: 1, x: POND.x, z: POND.z, r: POND.r });
+  window.DUCKS = []; for (let i = 0; i < 3; i++) { const d = new THREE.Group(), b1 = ball(0.45, new THREE.MeshBasicMaterial({ color: 0xffe14a })), h1 = ball(0.28, new THREE.MeshBasicMaterial({ color: 0xffe14a })); h1.position.set(0, 0.45, 0.35); d.add(b1, h1); scene.add(d); DUCKS.push({ g: d, a: i * 2, r: 3 + i * 1.4 }); }
+  for (const [x, z, ry] of [[44, 14, 0], [64, 12, 0.6], [40, -16, 2.5]]) { const bg = new THREE.Group(); const s1 = box(3, 0.25, 0.9); s1.position.y = 0.7; const s2 = box(3, 0.9, 0.2); s2.position.set(0, 1.2, -0.4); bg.add(s1, s2); for (const lx of [-1.2, 1.2]) { const l1 = box(0.2, 0.7, 0.7); l1.position.set(lx, 0.35, 0); bg.add(l1); } bg.position.set(x, 0, z); bg.rotation.y = ry; scene.add(bg); COL.push({ c: 1, x, z, r: 1.4 }); }
+  // VILLAGE: little houses with roofs, doors and fences
+  for (let i = 0; i < 6; i++) { const x = -64 + (i % 3) * 13, z = -4 + Math.floor(i / 3) * 18; house(x, z, i); }
+  for (let k = -70; k <= -32; k += 2) { const p1 = box(0.2, 1, 0.2); p1.position.set(k, 0.5, -14); scene.add(p1); }
+  const fr = box(38, 0.18, 0.12); fr.position.set(-51, 0.75, -14); scene.add(fr);
+  // HEDGE MAZE (a real maze, with a trophy in the middle)
+  maze();
+  // HILL: steps of a path and a flag at the top
+  const pole = cyl(0.12, 0.12, 6); pole.position.set(HILL.x, HILL.h + 3, HILL.z); scene.add(pole); COL.push({ c: 1, x: HILL.x, z: HILL.z, r: 0.4 });
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.8), new THREE.MeshBasicMaterial({ map: textTex('you made it', { w: 512, h: 300, size: 80, bg: '#ffe14a' }), side: THREE.DoubleSide })); flag.position.set(HILL.x + 1.6, HILL.h + 5, HILL.z); scene.add(flag); window.FLAG = flag;
+  // mountains around the edge (and an invisible wall)
+  for (let i = 0; i < 44; i++) { const a = i / 44 * Math.PI * 2, rr = 118 + rnd(-6, 10), h = rnd(18, 36), m = cone(rnd(12, 20), h); m.position.set(Math.cos(a) * rr, h / 2 - 1, Math.sin(a) * rr); scene.add(m); }
+  // doodle clouds and a sun
+  for (let i = 0; i < 9; i++) { const c = new THREE.Group(); for (let k = 0; k < 4; k++) { const b2 = ball(rnd(2.5, 4.5), WHITE, 16); b2.position.set(k * 3.2 - 5, rnd(-0.8, 0.8), rnd(-1, 1)); c.add(b2); } c.position.set(rnd(-90, 90), rnd(34, 46), rnd(-90, 90)); scene.add(c); }
+  const sun = ball(6, new THREE.MeshBasicMaterial({ color: 0xffe14a })); sun.position.set(-70, 70, -120); scene.add(sun);
+})();
+function tree(x, z) { const t = cyl(0.25, 0.3, 3); t.position.set(x, 1.5 + groundH(x, z), z); scene.add(t); const c = ball(rnd(1.6, 2.3), WHITE, 20); c.position.set(x, 4.2 + groundH(x, z), z); scene.add(c); COL.push({ c: 1, x, z, r: 0.5 }); }
+function house(x, z, i) {
+  const w = 7, d = 6, h = 4.5; const b = box(w, h, d); b.position.set(x, h / 2, z); scene.add(b);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(w * 0.75, 3, 4), WHITE); roof.rotation.y = Math.PI / 4; roof.position.set(x, h + 1.5, z); const ro = new THREE.Mesh(roof.geometry, INKM); ro.scale.set(1.04, 1.06, 1.04); ro.rotation.y = Math.PI / 4; ro.position.copy(roof.position); scene.add(ro, roof);
+  const door = box(1.3, 2.3, 0.1); door.position.set(x, 1.15, z + d / 2 + 0.06); scene.add(door);
+  for (const wx of [-2.2, 2.2]) { const win = box(1.2, 1.1, 0.1, new THREE.MeshBasicMaterial({ color: 0xbfe8ff })); win.position.set(x + wx, 2.7, z + d / 2 + 0.06); scene.add(win); }
+  const chim = box(0.8, 1.6, 0.8); chim.position.set(x + 2, h + 2.2, z - 1); scene.add(chim);
+  COL.push({ x, z, hx: w / 2 + 0.1, hz: d / 2 + 0.1 });
+}
+function maze() {
+  const n = MAZE.n, s = MAZE.s, ox = MAZE.x - n * s / 2, oz = MAZE.z - n * s / 2;
+  const cell = Array.from({ length: n * n }, () => ({ v: false, w: [1, 1, 1, 1] })); // N E S W
+  const idx = (i, j) => j * n + i, stack = [[0, 0]]; cell[0].v = true;
+  let seed = 11; const r = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  while (stack.length) { const [i, j] = stack[stack.length - 1]; const nb = [[0, -1, 0, 2], [1, 0, 1, 3], [0, 1, 2, 0], [-1, 0, 3, 1]].filter(([di, dj]) => { const a = i + di, b = j + dj; return a >= 0 && b >= 0 && a < n && b < n && !cell[idx(a, b)].v; });
+    if (!nb.length) { stack.pop(); continue; } const [di, dj, w1, w2] = nb[Math.floor(r() * nb.length)]; cell[idx(i, j)].w[w1] = 0; cell[idx(i + di, j + dj)].w[w2] = 0; cell[idx(i + di, j + dj)].v = true; stack.push([i + di, j + dj]); }
+  cell[idx(n / 2, n - 1)].w[2] = 0; // entrance on the plaza side
+  const hm = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const wall = (x, z, horiz) => { const b = box(horiz ? s + 0.4 : 0.6, 1.8, horiz ? 0.6 : s + 0.4, hm); b.position.set(x, 0.9, z); scene.add(b); COL.push({ x, z, hx: horiz ? s / 2 + 0.2 : 0.3, hz: horiz ? 0.3 : s / 2 + 0.2 }); };
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const c = cell[idx(i, j)], x = ox + i * s, z = oz + j * s;
+    if (c.w[0]) wall(x + s / 2, z, true); if (c.w[3]) wall(x, z + s / 2, false); if (j === n - 1 && c.w[2]) wall(x + s / 2, z + s, true); if (i === n - 1 && c.w[1]) wall(x + s, z + s / 2, false); }
+  const tr = new THREE.Group(), cup = cyl(0.7, 0.3, 1, new THREE.MeshBasicMaterial({ color: 0xffd23a })); cup.position.y = 1.6; const st = cyl(0.15, 0.15, 0.8, new THREE.MeshBasicMaterial({ color: 0xffd23a })); st.position.y = 0.8; const bs = box(1, 0.4, 1); bs.position.y = 0.2; tr.add(bs, st, cup);
+  tr.position.set(ox + s * 0.5, 0, oz + s * 0.5); scene.add(tr); window.TROPHY = tr;
+}
+
+// ================================================================= the player and the townsfolk
+const FACES = ['texture missing', 'uv unwrapped badly', '404 face not found', 'lorem ipsum', 'placeholder', 'TODO: add face', 'normal map lol', 'default cube', 'smile.png', 'hi mom', 'face_final_v2', 'low poly', 'beta face', 'nice', 'error', 'insert face here', 'face mapped poorly', 'mesh', 'NPC', 'ok'];
+const me = makePerson(SV.face); scene.add(me.root);
+const PL = { x: 0, z: 9, y: 0, vy: 0, yaw: Math.PI, onGround: true, emote: null, et: 0, walk: 0, speed: 0 };
+const NPCS = [];
+const SPOTS = [[0, 44, 'floor'], [3, 42, 'floor'], [-4, 47, 'floor'], [5, 49, 'floor'], [-3, 40, 'floor'], [STAGE.x - 3, STAGE.z - 10, 'aud'], [STAGE.x + 2, STAGE.z - 13, 'aud'], [STAGE.x - 1, STAGE.z - 16, 'aud']];
+for (let i = 0; i < 20; i++) {
+  const P = makePerson(FACES[i % FACES.length]); scene.add(P.root);
+  const s = SPOTS[i], home = s || [rnd(-80, 80), rnd(-80, 80), 'wander'];
+  Object.assign(P, { x: home[0], z: home[1], kind: home[2], tx: home[0], tz: home[1], yaw: rnd(0, 6.28), emote: null, et: rnd(0, 3), walk: 0, wait: rnd(0, 4), copyDelay: 0, stuck: 0 });
+  if (P.kind === 'floor') P.emote = pick(PRESETS.slice(0, 9));
+  NPCS.push(P);
+}
+
+// ================================================================= collisions and movement
+function collide(o, r) {
+  for (const c of COL) {
+    if (c.c) { const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz), m = c.r + r; if (d < m && d > 1e-4) { o.x = c.x + dx / d * m; o.z = c.z + dz / d * m; } }
+    else { const px = clamp(o.x, c.x - c.hx, c.x + c.hx), pz = clamp(o.z, c.z - c.hz, c.z + c.hz), dx = o.x - px, dz = o.z - pz, d = Math.hypot(dx, dz);
+      if (d < r) { if (d > 1e-4) { o.x = px + dx / d * r; o.z = pz + dz / d * r; } else { const ex = c.hx - Math.abs(o.x - c.x), ez = c.hz - Math.abs(o.z - c.z); if (ex < ez) o.x = c.x + Math.sign(o.x - c.x || 1) * (c.hx + r); else o.z = c.z + Math.sign(o.z - c.z || 1) * (c.hz + r); } } }
+  }
+  const d = Math.hypot(o.x, o.z); if (d > MAPR) { o.x *= MAPR / d; o.z *= MAPR / d; }
+}
+const keys = {}; let camYaw = Math.PI, camPitch = 0.32, camDist = 11, drag = null, joy = { x: 0, y: 0 };
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  keys[e.code] = true;
+  if (/^Digit[1-9]$/.test(e.code)) playSlot(+e.code.slice(5) - 1);
+  if (e.code === 'KeyE') toggleMaker(); if (e.code === 'KeyM') openMap(); if (e.code === 'Space') { e.preventDefault(); jump(); }
+  if (e.code === 'Escape') { if (!$('maker').hidden) toggleMaker(); $('mapScr').hidden = true; }
+});
+addEventListener('keyup', e => keys[e.code] = false);
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId); audioStart(); });
+cv.addEventListener('pointermove', e => { if (!drag || drag.id !== e.pointerId) return; camYaw -= (e.clientX - drag.x) * 0.006; camPitch = clamp(camPitch + (e.clientY - drag.y) * 0.004, -0.15, 1.25); drag.x = e.clientX; drag.y = e.clientY; });
+cv.addEventListener('pointerup', () => drag = null);
+cv.addEventListener('wheel', e => { camDist = clamp(camDist + e.deltaY * 0.01, 4, 26); }, { passive: true });
+// touch joystick
+(function () { const j = $('joy'), k = j.firstChild; let id = null; const mv = e => { const r = j.getBoundingClientRect(), dx = e.clientX - r.left - 60, dy = e.clientY - r.top - 60, d = Math.min(45, Math.hypot(dx, dy)), a = Math.atan2(dy, dx); joy.x = Math.cos(a) * d / 45; joy.y = Math.sin(a) * d / 45; k.style.transform = 'translate(' + joy.x * 35 + 'px,' + joy.y * 35 + 'px)'; };
+  j.addEventListener('pointerdown', e => { id = e.pointerId; j.setPointerCapture(id); mv(e); audioStart(); }); j.addEventListener('pointermove', e => { if (e.pointerId === id) mv(e); }); const end = () => { id = null; joy.x = joy.y = 0; k.style.transform = ''; }; j.addEventListener('pointerup', end); j.addEventListener('pointercancel', end); })();
+$('jumpB').onclick = () => jump();
+function jump() { if (PL.onGround) { PL.vy = 9; PL.onGround = false; } }
+
+// ================================================================= emote bar
+function renderBar() {
+  $('bar').innerHTML = SV.slots.map((n, i) => { const em = n && findEmote(n); return '<div class="slot' + (em ? '' : ' empty') + (PL.emote && em && PL.emote.name === em.name ? ' on' : '') + '" data-i="' + i + '"><b>' + (i + 1) + '</b><span>' + (em ? em.name : 'empty') + '</span></div>'; }).join('');
+  $('bar').querySelectorAll('.slot').forEach(s => s.onclick = () => playSlot(+s.dataset.i));
+}
+function playSlot(i) { const em = findEmote(SV.slots[i]); if (!em) { toast('Key ' + (i + 1) + ' is empty. Make an emote in the Emote Maker!'); return; } if (PL.emote && PL.emote.name === em.name && !makerOpen) { PL.emote = null; } else { PL.emote = em; PL.et = 0; } renderBar(); audioStart(); }
+
+// ================================================================= the map
+const W2M = (x, z, s) => [(x + 110) / 220 * s, (z + 110) / 220 * s];
+function drawMap(c, s, full) {
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, s, s); x.strokeStyle = '#111'; x.lineWidth = s / 300;
+  x.save(); x.beginPath(); x.arc(s / 2, s / 2, MAPR / 220 * s, 0, 7); x.stroke(); x.restore();
+  for (const zn of ZONES.slice(1)) { const [a, b] = W2M(0, 0, s), [c2, d2] = W2M(zn.x, zn.z, s); x.strokeStyle = '#ccc'; x.lineWidth = s / 70; x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d2); x.stroke(); }
+  x.lineWidth = s / 300; x.strokeStyle = '#111';
+  for (const c2 of COL) { if (c2.c) { const [a, b] = W2M(c2.x, c2.z, s); x.beginPath(); x.arc(a, b, Math.max(1, c2.r / 220 * s), 0, 7); x.stroke(); } else { const [a, b] = W2M(c2.x - c2.hx, c2.z - c2.hz, s); x.strokeRect(a, b, c2.hx * 2 / 220 * s, c2.hz * 2 / 220 * s); } }
+  for (let r = 0.4; r < 1; r += 0.25) { const [a, b] = W2M(HILL.x, HILL.z, s); x.beginPath(); x.arc(a, b, HILL.r * r / 220 * s, 0, 7); x.stroke(); }
+  { const [a, b] = W2M(FLOOR.x - 8.8, FLOOR.z - 8.8, s); x.fillStyle = '#ffe14a'; x.fillRect(a, b, 17.6 / 220 * s, 17.6 / 220 * s); }
+  { const [a, b] = W2M(POND.x, POND.z, s); x.fillStyle = '#bfe8ff'; x.beginPath(); x.arc(a, b, POND.r / 220 * s, 0, 7); x.fill(); x.stroke(); }
+  if (full) { x.fillStyle = '#111'; x.textAlign = 'center'; x.font = '700 ' + (s / 30) + 'px Fredoka, Arial'; for (const zn of ZONES) { const [a, b] = W2M(zn.x, zn.z, s); x.fillText(zn.n, a, b - zn.r / 220 * s * 0.75); } }
+}
+const MAPBG = document.createElement('canvas'); MAPBG.width = MAPBG.height = 340; drawMap(MAPBG, 340, false);
+function drawMini() {
+  const c = $('mini'), x = c.getContext('2d'), s = 340, k = 2.4, cx = s / 2, cy = s / 2;
+  x.save(); x.clearRect(0, 0, s, s); x.beginPath(); x.arc(cx, cy, s / 2, 0, 7); x.clip(); x.fillStyle = '#fff'; x.fillRect(0, 0, s, s);
+  const [px, py] = W2M(PL.x, PL.z, s); x.translate(cx, cy); x.scale(k, k); x.translate(-px, -py); x.drawImage(MAPBG, 0, 0);
+  for (const n of NPCS) { const [a, b] = W2M(n.x, n.z, s); x.fillStyle = n.emote ? '#ff5a8a' : '#888'; x.beginPath(); x.arc(a, b, 2.2, 0, 7); x.fill(); }
+  x.restore(); x.save(); x.translate(cx, cy); x.rotate(-PL.yaw + Math.PI); x.fillStyle = '#e8413a'; x.strokeStyle = '#111'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -16); x.lineTo(11, 12); x.lineTo(0, 6); x.lineTo(-11, 12); x.closePath(); x.fill(); x.stroke(); x.restore();
+}
+function openMap() { $('mapScr').hidden = false; const c = $('bigmap'); drawMap(c, 1280, true); const x = c.getContext('2d'), [a, b] = W2M(PL.x, PL.z, 1280); x.fillStyle = '#e8413a'; x.beginPath(); x.arc(a, b, 16, 0, 7); x.fill(); x.lineWidth = 5; x.stroke(); x.font = '700 34px Fredoka, Arial'; x.fillStyle = '#111'; x.fillText('you', a, b - 26); }
+$('mapBtn').onclick = openMap; $('mini').onclick = openMap; $('mapClose').onclick = () => $('mapScr').hidden = true;
+
+// ================================================================= dance floor music (procedural, only near the floor)
+let AC = null, musGain = null, nextBeat = 0, beatN = 0, lastBeatAt = -1;
+function audioStart() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  musGain = AC.createGain(); musGain.gain.value = 0; musGain.connect(AC.destination); nextBeat = AC.currentTime + 0.1;
+}
+const BPM = 118, SPB = 60 / BPM, BASS = [45, 45, 48, 50, 45, 45, 43, 43];
+function note(t, f, d, type, vol, slide) { const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(musGain); o.start(t); o.stop(t + d + 0.02); }
+let nb = null;
+function hat(t, v) { if (!nb) { nb = AC.createBuffer(1, AC.sampleRate * 0.1, AC.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = nb; f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06); s.connect(f); f.connect(g); g.connect(musGain); s.start(t); s.stop(t + 0.08); }
+function music() {
+  if (!AC) return;
+  const d = Math.hypot(PL.x - FLOOR.x, PL.z - FLOOR.z), v = SV.mute ? 0 : Math.pow(clamp(1 - (d - 8) / 45, 0, 1), 1.6) * 0.55;
+  musGain.gain.setTargetAtTime(v, AC.currentTime, 0.2);
+  while (nextBeat < AC.currentTime + 0.15) {
+    const t = nextBeat, b = beatN % 8;
+    note(t, 150, 0.18, 'sine', 0.9, 45); hat(t + SPB / 2, 0.25);
+    const m = BASS[b]; note(t + SPB / 2, 440 * Math.pow(2, (m - 69) / 12), SPB * 0.45, 'sawtooth', 0.18);
+    if (b % 2 === 1) [57, 60, 64].forEach(n => note(t + SPB / 2, 440 * Math.pow(2, (n + (b > 3 ? -2 : 0) - 69) / 12), 0.18, 'square', 0.035));
+    beatN++; nextBeat += SPB;
+  }
+}
+$('muteBtn').onclick = () => { SV.mute = !SV.mute; store(); $('muteBtn').textContent = SV.mute ? '🔇' : '🔊'; };
+$('muteBtn').textContent = SV.mute ? '🔇' : '🔊';
+
+// ================================================================= face
+$('faceBtn').onclick = () => { $('faceIn').value = SV.face; $('faceScr').hidden = false; setTimeout(() => $('faceIn').focus(), 50); };
+$('faceOk').onclick = () => { SV.face = ($('faceIn').value.trim() || 'face mapped poorly').slice(0, 28); store(); setFace(me, SV.face); $('faceScr').hidden = true; toast('Face mapped. Poorly.'); };
+$('faceIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('faceOk').click(); });
+
+// ================================================================= EMOTE MAKER
+let makerOpen = false, ED = null, edPlay = true, edT = 0, selKey = 0, clip = null, codeDirty = false;
+const deep = o => JSON.parse(JSON.stringify(o));
+function toggleMaker(open) {
+  makerOpen = open == null ? !makerOpen : open; $('maker').hidden = !makerOpen;
+  if (makerOpen) { const cur = PL.emote || findEmote(SV.slots[0]) || PRESETS[0]; editEmote(cur); }
+  else { PL.emote = null; renderBar(); }
+}
+$('makerBtn').onclick = () => toggleMaker(); $('mkClose').onclick = () => toggleMaker(false);
+function editEmote(em) { ED = deep(em); delete ED.preset; if (em.preset) ED.name = em.name + ' copy'; ED.from = em.preset ? null : em.name; selKey = 0; edT = 0; edPlay = true; renderMaker(); }
+function renderMaker() {
+  $('mkName').value = ED.name; $('mkLen').value = ED.len; $('mkLoop').checked = ED.loop; $('mkPlay').textContent = edPlay ? '⏸ Pause' : '▶ Play';
+  const slotOf = SV.slots.indexOf(ED.from || ''); $('mkSlot').value = slotOf >= 0 ? String(slotOf + 1) : '';
+  renderTrack(); renderPose(); if (!codeDirty) $('code').value = toCode(ED); renderLib();
+}
+function renderTrack() {
+  $('track').innerHTML = ED.keys.map((k, i) => '<div class="k' + (i === selKey ? ' sel' : '') + '" data-i="' + i + '" style="left:' + (k.t / ED.len * 100) + '%"></div>').join('') + '<div class="ph" id="ph"></div>';
+  $('track').querySelectorAll('.k').forEach(k => k.onpointerdown = e => { e.stopPropagation(); selKey = +k.dataset.i; edT = ED.keys[selKey].t; edPlay = false; renderMaker(); startKeyDrag(e, selKey); });
+}
+function startKeyDrag(e, i) {
+  const tr = $('track').getBoundingClientRect();
+  const mv = ev => { const t = clamp((ev.clientX - tr.left) / tr.width, 0, 1) * ED.len; ED.keys[i].t = Math.round(t * 20) / 20; edT = ED.keys[i].t; const k = ED.keys[i]; ED.keys.sort((a, b) => a.t - b.t); selKey = ED.keys.indexOf(k); renderTrack(); codeDirty = false; $('code').value = toCode(ED); };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+$('track').addEventListener('pointerdown', e => { const r = $('track').getBoundingClientRect(); edT = clamp((e.clientX - r.left) / r.width, 0, 1) * ED.len; edPlay = false; const near = ED.keys.findIndex(k => Math.abs(k.t - edT) < ED.len * 0.03); if (near >= 0) selKey = near; renderMaker(); });
+const GROUPS = [['Head', ['head.x', 'head.y', 'head.z']], ['Body', ['body.x', 'body.y', 'body.z']], ['Left arm', ['armL.x', 'armL.z']], ['Right arm', ['armR.x', 'armR.z']], ['Left leg', ['legL.x', 'legL.z']], ['Right leg', ['legR.x', 'legR.z']], ['Jump & spin', ['hop', 'spin']]];
+function renderPose() {
+  const k = ED.keys[selKey];
+  $('tabPose').innerHTML = (k ? '<div style="font:700 13px var(--ui)">Editing the key at <b>' + k.t.toFixed(2) + 's</b> (yellow diamond). Drag diamonds to move them.</div>' : '<div>No keys yet. Press + Key.</div>') +
+    GROUPS.map(([g, cs]) => '<div class="grp"><b>' + g + '</b>' + cs.map(c => { const r = RANGE[c] || [-180, 180, 1], v = k ? (k.p[c] || 0) : 0; return '<div class="sl"><span style="text-align:left">' + c.split('.').pop().replace('hop', 'hop').replace('spin', 'spin') + '</span><input type="range" min="' + r[0] + '" max="' + r[1] + '" step="' + r[2] + '" value="' + v + '" data-c="' + c + '"' + (k ? '' : ' disabled') + '><span>' + (+v).toFixed(c === 'hop' ? 2 : 0) + '</span></div>'; }).join('') + '</div>').join('');
+  $('tabPose').querySelectorAll('input[type=range]').forEach(inp => inp.oninput = () => { const k2 = ED.keys[selKey]; if (!k2) return; k2.p[inp.dataset.c] = +inp.value; inp.nextSibling.textContent = (+inp.value).toFixed(inp.dataset.c === 'hop' ? 2 : 0); edPlay = false; edT = k2.t; codeDirty = false; $('code').value = toCode(ED); });
+}
+$('mkName').oninput = () => { ED.name = $('mkName').value.slice(0, 24) || 'My Dance'; codeDirty = false; $('code').value = toCode(ED); };
+$('mkLen').onchange = () => { const old = ED.len; ED.len = clamp(+$('mkLen').value || 1, 0.2, 10); ED.keys.forEach(k => k.t = Math.round(k.t / old * ED.len * 100) / 100); renderMaker(); };
+$('mkLoop').onchange = () => { ED.loop = $('mkLoop').checked; codeDirty = false; renderMaker(); };
+$('mkPlay').onclick = () => { edPlay = !edPlay; renderMaker(); };
+$('mkAdd').onclick = () => { const p = sample(ED, edT), k = { t: Math.round(edT * 20) / 20, p: {} }; CH.forEach(c => { if (Math.abs(p[c]) > 0.01) k.p[c] = Math.round(p[c]); }); ED.keys = ED.keys.filter(x => Math.abs(x.t - k.t) > 0.01); ED.keys.push(k); ED.keys.sort((a, b) => a.t - b.t); selKey = ED.keys.indexOf(k); edPlay = false; codeDirty = false; renderMaker(); };
+$('mkDel').onclick = () => { if (ED.keys.length <= 1) { toast('An emote needs at least one key'); return; } ED.keys.splice(selKey, 1); selKey = Math.max(0, selKey - 1); codeDirty = false; renderMaker(); };
+$('mkMirror').onclick = () => { const k = ED.keys[selKey]; if (!k) return; const p = k.p, q = {}; for (const c in p) { let d = c.replace('L.', '#.').replace('R.', 'L.').replace('#.', 'R.'); let v = p[c]; if (/\.(y|z)$/.test(c) && /^(head|body)/.test(c)) v = -v; q[d] = v; } k.p = q; codeDirty = false; renderMaker(); };
+$('mkCopy').onclick = () => { const k = ED.keys[selKey]; if (k) { clip = deep(k.p); toast('Pose copied'); } };
+$('mkPaste').onclick = () => { const k = ED.keys[selKey]; if (k && clip) { k.p = deep(clip); codeDirty = false; renderMaker(); } };
+$('mkZero').onclick = () => { const k = ED.keys[selKey]; if (k) { k.p = {}; codeDirty = false; renderMaker(); } };
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t)); $('tabPose').hidden = t.dataset.tab !== 'pose'; $('tabCode').hidden = t.dataset.tab !== 'code'; $('tabLib').hidden = t.dataset.tab !== 'lib'; if (t.dataset.tab === 'code' && !codeDirty) $('code').value = toCode(ED); });
+$('code').addEventListener('input', () => { codeDirty = true; });
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('codeRun').click(); e.stopPropagation(); });
+$('codeRun').onclick = () => { try { const em = parseCode($('code').value); em.from = ED.from; ED = em; selKey = 0; edT = 0; edPlay = true; codeDirty = false; $('codeErr').textContent = ''; renderMaker(); toast('Code runs! Watch your doodle dance.'); } catch (err) { $('codeErr').textContent = '⚠ ' + err.message; } };
+$('mkSave').onclick = () => {
+  let name = (ED.name || 'My Dance').trim().slice(0, 24); if (PRESETS.some(p => p.name === name)) name = name + ' (mine)';
+  ED.name = name; const clean = { name, len: ED.len, loop: ED.loop, keys: deep(ED.keys) };
+  SV.emotes = SV.emotes.filter(e => e.name !== name && e.name !== ED.from); SV.emotes.push(clean);
+  SV.slots = SV.slots.map(s => s === ED.from ? name : s);
+  const sl = $('mkSlot').value; if (sl) SV.slots[+sl - 1] = name;
+  ED.from = name; store(); renderBar(); renderMaker(); toast('Saved "' + name + '"' + (sl ? ' on key ' + sl : ''));
+};
+$('libNew').onclick = () => { editEmote({ name: 'My Dance', len: 1, loop: true, keys: [{ t: 0, p: {} }, { t: 0.5, p: { 'armL.z': 120, 'armR.z': 120 } }] }); document.querySelector('.tab[data-tab=pose]').click(); };
+function renderLib() {
+  $('lib').innerHTML = allEmotes().map((e, i) => { const sl = SV.slots.indexOf(e.name); return '<div><span>' + e.name + (sl >= 0 ? ' <i>key ' + (sl + 1) + '</i>' : '') + (e.preset ? ' <i>built-in</i>' : '') + '</span><button class="btn sm" data-ed="' + i + '">Edit</button>' + (e.preset ? '' : '<button class="btn sm" data-del="' + i + '">✕</button>') + '</div>'; }).join('');
+  $('lib').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { editEmote(allEmotes()[+b.dataset.ed]); document.querySelector('.tab[data-tab=pose]').click(); });
+  $('lib').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const e = allEmotes()[+b.dataset.del]; SV.emotes = SV.emotes.filter(x => x !== e); SV.slots = SV.slots.map(s => s === e.name ? null : s); store(); renderBar(); renderLib(); });
+}
+
+// ================================================================= main loop
+let last = performance.now(), T0 = 0, zoneNow = '';
+function frame(now) {
+  requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; T0 += dt;
+  // ---- player
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x, iz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y;
+  const typing = document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName); if (typing) ix = iz = 0;
+  const mag = Math.min(1, Math.hypot(ix, iz)), run = keys.ShiftLeft || keys.ShiftRight;
+  if (mag > 0.1 && !makerOpen) {
+    const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = -fz, rz = fx, mx = (fx * iz - rx * ix), mz = (fz * iz - rz * ix), l = Math.hypot(mx, mz) || 1;
+    const sp = (run ? 11 : 6) * mag; PL.x += mx / l * sp * dt; PL.z += mz / l * sp * dt; let ty = Math.atan2(mx, mz), dy = ((ty - PL.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI; PL.yaw += dy * Math.min(1, dt * 12);
+    PL.speed = sp; if (PL.emote) { PL.emote = null; renderBar(); }
+  } else PL.speed = 0;
+  const gx0 = groundH(PL.x, PL.z); collide(PL, 0.55);
+  const gh = groundH(PL.x, PL.z); if (gh - PL.y > 0.7 && PL.onGround) { /* too tall a step: stay */ }
+  PL.vy -= 25 * dt; PL.y += PL.vy * dt; if (PL.y <= gh) { PL.y = gh; PL.vy = 0; PL.onGround = true; }
+  // ---- player pose: maker preview, emote, walk or idle
+  let target;
+  if (makerOpen && ED) { if (edPlay) edT = ED.loop ? (edT + dt) % ED.len : Math.min(ED.len, edT + dt); target = sample(ED, edT); const ph = $('ph'); if (ph) ph.style.left = (edT / ED.len * 100) + '%'; $('mkTime').textContent = edT.toFixed(2) + 's'; }
+  else if (PL.emote) { PL.et += dt; target = sample(PL.emote, PL.et); if (!PL.emote.loop && PL.et > PL.emote.len + 0.3) { PL.emote = null; renderBar(); } }
+  else target = walkPose(PL, dt);
+  blendPose(me, target, 1 - Math.exp(-dt * 18)); applyPose(me, me.pose);
+  me.root.position.set(PL.x, PL.y + (me.pose.hop || 0), PL.z); me.root.rotation.y = PL.yaw + rad(me.pose.spin || 0);
+  // ---- NPCs
+  const dancing = PL.emote || (makerOpen && ED);
+  for (const n of NPCS) {
+    const dp = Math.hypot(n.x - PL.x, n.z - PL.z);
+    if (dancing && dp < 10 && n.kind !== 'floor') { n.copyDelay -= dt; if (n.copyDelay <= 0 && (!n.emote || n.copying !== (PL.emote || ED))) { n.emote = PL.emote || ED; n.copying = n.emote; n.et = PL.et - rnd(0, 0.15); } n.yaw += (((Math.atan2(PL.x - n.x, PL.z - n.z) - n.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 4); }
+    else { if (n.copying) { n.copying = null; n.emote = null; } n.copyDelay = rnd(0.3, 1.4); }
+    let tgt;
+    if (n.emote) { n.et += dt; tgt = sample(n.emote, n.et); }
+    else if (n.kind === 'aud') { const onStage = Math.abs(PL.x - STAGE.x) < STAGE.hx && Math.abs(PL.z - STAGE.z) < STAGE.hz && PL.emote; n.yaw = Math.atan2(STAGE.x - n.x, STAGE.z - n.z); n.et += dt; tgt = onStage ? sample(PRESETS[9], n.et) : walkPose(n, dt); }
+    else {
+      n.wait -= dt;
+      if (n.wait <= 0) { const dx = n.tx - n.x, dz = n.tz - n.z, d = Math.hypot(dx, dz);
+        if (d < 1 || n.stuck > 2) { n.tx = clamp(n.x + rnd(-25, 25), -85, 85); n.tz = clamp(n.z + rnd(-25, 25), -85, 85); n.wait = rnd(1, 5); n.stuck = 0; if (Math.random() < 0.25) { n.emote = pick(PRESETS.slice(0, 9)); n.et = 0; setTimeout(() => { if (!n.copying) n.emote = null; }, rnd(3000, 7000)); } }
+        else { const ox = n.x, oz = n.z; n.x += dx / d * 3.2 * dt; n.z += dz / d * 3.2 * dt; collide(n, 0.55); const moved = Math.hypot(n.x - ox, n.z - oz); n.stuck = moved < 3.2 * dt * 0.3 ? n.stuck + dt : 0; n.speed = 3.2; n.yaw += (((Math.atan2(dx, dz) - n.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 6); } }
+      if (n.wait > 0) n.speed = 0;
+      tgt = walkPose(n, dt);
+    }
+    blendPose(n, tgt, 1 - Math.exp(-dt * 14)); applyPose(n, n.pose);
+    n.root.position.set(n.x, groundH(n.x, n.z) + (n.pose.hop || 0), n.z); n.root.rotation.y = n.yaw + rad(n.pose.spin || 0);
+  }
+  // ---- world animation
+  if (AC) music();
+  const bt = AC ? (AC.currentTime - (nextBeat - SPB)) / SPB : T0 * BPM / 60 % 1, near = Math.hypot(PL.x - FLOOR.x, PL.z - FLOOR.z) < 70;
+  const beatIdx = beatN; if (beatIdx !== lastBeatAt && near) { lastBeatAt = beatIdx; const pal = [0xff5a8a, 0xffd23a, 0x5ab0ff, 0x7be07b, 0xc98aff, 0xff8a2a]; TILES.forEach((m, i) => m.color.setHex(Math.random() < 0.45 ? pick(pal) : 0xffffff)); }
+  DISCO.rotation.y += dt; BEAM.rotation.y += dt * 0.5; FLAG.rotation.y = Math.sin(T0 * 2) * 0.15;
+  DUCKS.forEach(d => { d.a += dt * 0.3; d.g.position.set(POND.x + Math.cos(d.a) * d.r, 0.2, POND.z + Math.sin(d.a) * d.r); d.g.rotation.y = -d.a; });
+  TROPHY.rotation.y += dt; if (Math.hypot(PL.x - TROPHY.position.x, PL.z - TROPHY.position.z) < 1.8 && !PL.gotTrophy) { PL.gotTrophy = true; toast('🏆 You solved the hedge maze!', 3000); PL.emote = PRESETS[8]; PL.et = 0; renderBar(); }
+  // ---- zone name
+  const zn = ZONES.find(z => Math.hypot(PL.x - z.x, PL.z - z.z) < z.r); const zname = zn ? zn.n : 'The Fields'; if (zname !== zoneNow) { zoneNow = zname; $('zone').textContent = zname; }
+  // ---- camera
+  if (makerOpen) { const fx = PL.x + Math.sin(PL.yaw) * 7.5, fz = PL.z + Math.cos(PL.yaw) * 7.5; cam.position.lerp(new THREE.Vector3(fx + Math.cos(PL.yaw) * (innerWidth > 760 ? 2.2 : 0), PL.y + 3, fz - Math.sin(PL.yaw) * (innerWidth > 760 ? 2.2 : 0)), 1 - Math.exp(-dt * 6)); cam.lookAt(PL.x + Math.cos(PL.yaw) * (innerWidth > 760 ? 1.4 : 0), PL.y + 2.2 + (innerWidth > 760 ? 0 : -1.2), PL.z - Math.sin(PL.yaw) * (innerWidth > 760 ? 1.4 : 0)); }
+  else { const cx = PL.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist, cz = PL.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist, cy = PL.y + 2.4 + Math.sin(camPitch) * camDist; cam.position.lerp(new THREE.Vector3(cx, Math.max(cy, groundH(cx, cz) + 0.8), cz), 1 - Math.exp(-dt * 10)); cam.lookAt(PL.x, PL.y + 2.4, PL.z); }
+  R.render(scene, cam);
+  drawMini();
+}
+function walkPose(o, dt) {
+  const s = o.speed || 0; o.walk = (o.walk || 0) + dt * (s > 0 ? s * 1.6 : 0); const a = Math.min(1, s / 6) * 38, w = o.walk;
+  const idle = Math.sin(T0 * 2 + (o.x || 0)) * 2;
+  return { 'armL.x': Math.sin(w) * a, 'armR.x': -Math.sin(w) * a, 'legL.x': -Math.sin(w) * a, 'legR.x': Math.sin(w) * a, 'armL.z': 6 + idle, 'armR.z': 6 + idle, hop: Math.abs(Math.sin(w)) * 0.12 * Math.min(1, s / 6), 'head.z': idle };
+}
+$('goBtn').onclick = () => { $('intro').hidden = true; audioStart(); };
+renderBar(); requestAnimationFrame(frame);
+window.FMP = { PL, NPCS, PRESETS, parseCode, toCode, sample, playSlot, toggleMaker, get ED() { return ED; }, SV, me, cam, camState: () => ({ camYaw, camPitch, camDist }), setCam: (y, p, d) => { camYaw = y; camPitch = p; camDist = d; } };
+</script>
+<script src="bdp.js" defer></script>
+</body>
+</html>
