@@ -26,7 +26,8 @@ body { background:repeating-linear-gradient(90deg, #f4ead8 0 60px, #efe2cc 60px 
 #top .grow { flex:1 }
 #game { position:fixed; left:0; right:0; top:56px; bottom:0; display:flex; gap:22px; padding:10px 22px 18px; align-items:stretch; justify-content:center }
 #easel { flex:0 1 auto; display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0 }
-#prompt { font:700 34px/1 var(--ui); text-align:center; min-height:40px } #prompt small { display:block; font:600 14px var(--ui); color:#8a7a6a; letter-spacing:2px; text-transform:uppercase; margin-bottom:2px }
+#prompt .src { display:inline-block; margin-left:8px; font:700 11px var(--ui); letter-spacing:1px; background:#4a9ae8; color:#fff; border-radius:8px; padding:2px 7px; vertical-align:middle }
+#prompt { font:700 34px/1.05 var(--ui); text-align:center; min-height:40px; max-width:820px } #prompt u { text-decoration:none; color:#b3261e; border-bottom:4px solid #ffcf4a } #prompt small { display:block; font:600 14px var(--ui); color:#8a7a6a; letter-spacing:2px; text-transform:uppercase; margin-bottom:2px }
 #frame { position:relative; padding:14px; background:linear-gradient(135deg,#c8902a,#8a5a1a 50%,#c8902a); border:4px solid var(--ink); border-radius:8px; box-shadow:0 10px 0 rgba(0,0,0,.18) }
 #cv { display:block; background:var(--paper); touch-action:none; cursor:crosshair; border:3px solid var(--ink); border-radius:2px }
 #cv.locked { cursor:not-allowed }
@@ -86,8 +87,13 @@ body { background:repeating-linear-gradient(90deg, #f4ead8 0 60px, #efe2cc 60px 
   <div id="tJudge" style="width:140px;height:140px;margin:0 auto"></div>
   <h1>Two-Second <em>Painter</em></h1>
   <p>Every painting gets exactly <b>two seconds of ink</b>. The clock only runs while your brush touches the paper.</p>
-  <p class="muted">Paint what the card says, then the Judge, a very serious art critic, guesses what it is. Get it right fast for big points. The Judge learns your style as you play.</p>
+  <p class="muted">Every prompt is randomly generated, like <i>a grumpy cat at the beach</i>. Paint it, then the Judge, a very serious art critic, guesses what it is. Get it right fast for big points. The Judge learns your style as you play.</p>
   <div class="rowb"><button class="btn big go" id="playBtn">Paint 8 masterpieces</button><button class="btn big" id="freeBtn">Free paint</button></div>
+  <div id="aiBox" style="margin-top:12px;background:#eef6ff;border:3px solid var(--ink);border-radius:14px;padding:10px 14px;text-align:left">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="flex:1;min-width:200px">&#129302; AI prompts: <span id="aiState">off</span></b><button class="btn sm" id="aiBtn">Turn on</button></div>
+    <div class="muted" id="aiInfo" style="font-size:13px;margin-top:4px"></div>
+    <div id="aiBar" hidden style="height:12px;border:2px solid var(--ink);border-radius:7px;background:#fff;overflow:hidden;margin-top:6px"><i style="display:block;height:100%;width:0;background:#4a9ae8"></i></div>
+  </div>
   <p class="muted" id="best" style="margin-top:12px"></p>
   <div class="muted" style="font-size:13px;margin-top:8px">The Judge knows 22 things:</div><div class="chips" id="known"></div>
 </div></div>
@@ -156,6 +162,132 @@ const T = {
 };
 const NAMES = { cat: 'a cat', house: 'a house', sun: 'the sun', fish: 'a fish', boat: 'a boat', tree: 'a tree', star: 'a star', heart: 'a heart', car: 'a car', flower: 'a flower', snowman: 'a snowman', moon: 'the moon', cloud: 'a cloud', apple: 'an apple', umbrella: 'an umbrella', glasses: 'glasses', mug: 'a mug', smiley: 'a smiley face', icecream: 'an ice cream', lightning: 'lightning', mountain: 'a mountain', rocket: 'a rocket', balloon: 'a balloon' };
 const SHORT = k => NAMES[k].replace(/^(a|an|the) /, '');
+// random prompts: one thing the Judge knows, dressed up with a random style and situation
+const NOUN = { glasses: 'pair of glasses', lightning: 'lightning bolt', smiley: 'smiley face', icecream: 'ice cream', sun: 'sun', moon: 'moon' };
+const ADJ = ['grumpy', 'sleepy', 'haunted', 'tiny', 'enormous', 'happy', 'nervous', 'royal', 'ancient', 'futuristic', 'confused', 'heroic', 'shy', 'fancy', 'sad', 'angry', 'dizzy', 'brave',
+  'lonely', 'suspicious', 'very proud', 'lazy', 'famous', 'secret', 'jolly', 'evil', 'polite', 'wobbly', 'magical', 'robot', 'baby', 'giant', 'invisible-ish', 'tired', 'excited', 'cursed', 'lucky',
+  'frozen', 'sparkly', 'spooky', 'retired', 'rich', 'dramatic', 'sneaky', 'gentle', 'chaotic', 'speedy', 'elegant', 'clumsy', 'hungry', 'bored', 'surprised', 'legendary', 'tiny but mighty', 'upside-down'];
+const SIT = ['at the beach', 'in the rain', 'on the moon', 'at a birthday party', 'in space', 'on holiday', 'at night', 'in a hurry', 'on a Monday', 'in the jungle', 'at the dentist', 'in a snowstorm',
+  'on a skateboard', 'made of cheese', 'made of jelly', 'in love', 'on fire (safely)', 'at a job interview', 'in the year 3000', 'underwater', 'in a museum', 'at a wedding', 'on stage', 'in the desert',
+  'after a long day', 'before breakfast', 'in a haunted house', 'at the zoo', 'in a tiny hat', 'on a roller coaster', 'at the top of a mountain', 'in a traffic jam', 'with a secret', 'running late',
+  'on a first date', 'in a library', 'at the North Pole', 'in a fancy restaurant', 'in a dream', 'at sunset', 'winning a medal', 'stuck in a lift', 'on its day off', 'at a disco', 'in a thunderstorm'];
+const art = w => /^[aeiou]/i.test(w) ? 'an' : 'a';
+function makePrompt(k) {
+  const noun = NOUN[k] || SHORT(k), r = Math.random(), adj = ADJ[Math.floor(Math.random() * ADJ.length)], sit = SIT[Math.floor(Math.random() * SIT.length)];
+  const thing = '<u>' + noun + '</u>';
+  if (r < 0.34) return art(adj) + ' ' + adj + ' ' + thing;
+  if (r < 0.67) return art(noun) + ' ' + thing + ' ' + sit;
+  return art(adj) + ' ' + adj + ' ' + thing + ' ' + sit;
+}
+const plain = h => h.replace(/<[^>]+>/g, '');
+
+// ---- OPTIONAL in-browser AI prompt writer: a tiny open language model (SmolLM2, Apache-2.0) run by transformers.js in a
+// Web Worker on the player's own device (WebGPU if available, else WebAssembly). No keys, no server. The only network traffic
+// is the one-time download of the library and model from public CDNs, which the browser caches (shared with Bubble Gum Inventor).
+const AI_LIB = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+const AI_MODEL = { id: 'HuggingFaceTB/SmolLM2-360M-Instruct', mb: { webgpu: 298, wasm: 390 } };
+const AI_DTYPE = { webgpu: 'q4f16', wasm: 'q8' }, AI_FILE = { webgpu: 'model_q4f16.onnx', wasm: 'model_quantized.onnx' };
+const AI = { state: 'off', backend: null, worker: null, loaded: 0, total: 0, err: '', jobs: {}, seq: 0 };
+const AI_WORKER_SRC = `
+import { pipeline, env } from '${AI_LIB}';
+env.allowLocalModels = false;
+let gen = null;
+self.onmessage = async (e) => {
+  const m = e.data;
+  if (m.type === 'load') {
+    try {
+      const files = {};
+      gen = await pipeline('text-generation', m.model, { device: m.device, dtype: m.dtype, progress_callback: (p) => {
+        if (p.status === 'progress' && p.total) { files[p.file] = [p.loaded, p.total]; let l = 0, t = 0; for (const k in files) { l += files[k][0]; t += files[k][1]; }
+          self.postMessage({ type: 'progress', loaded: l, total: t }); } } });
+      self.postMessage({ type: 'ready' });
+    } catch (err) { self.postMessage({ type: 'error', error: String((err && err.message) || err) }); }
+  } else if (m.type === 'gen') {
+    try {
+      const out = await gen(m.messages, { max_new_tokens: m.max || 20, do_sample: true, temperature: m.temp || 0.9, top_p: 0.92, repetition_penalty: 1.15 });
+      const g = out[0].generated_text, text = Array.isArray(g) ? g[g.length - 1].content : String(g);
+      self.postMessage({ type: 'out', id: m.id, text });
+    } catch (err) { self.postMessage({ type: 'out', id: m.id, error: String((err && err.message) || err) }); }
+  }
+};`;
+const aiSupported = () => typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined' && typeof Blob !== 'undefined';
+async function aiBackend() { try { if (navigator.gpu) { const ad = await navigator.gpu.requestAdapter(); if (ad) return 'webgpu'; } } catch (e) {} return 'wasm'; }
+async function aiCached() { try { const be = AI.backend || await aiBackend(), c = await caches.open('transformers-cache'); return !!(await c.match('https://huggingface.co/' + AI_MODEL.id + '/resolve/main/onnx/' + AI_FILE[be])); } catch (e) { return false; } }
+function aiSet(st, err) { AI.state = st; if (err != null) AI.err = err; aiUI(); }
+async function aiStart(force) {
+  if (!aiSupported()) { aiSet('unsupported'); return; }
+  if (AI.worker) return;
+  AI.backend = AI.backend || await aiBackend();
+  if (!force && !(await aiCached())) { aiSet('off'); return; }        // never download without the player asking
+  let w; try { w = new Worker(URL.createObjectURL(new Blob([AI_WORKER_SRC], { type: 'text/javascript' })), { type: 'module' }); } catch (e) { aiSet('error', 'Your browser cannot run the AI worker.'); return; }
+  AI.worker = w; AI.loaded = 0; AI.total = 0; aiSet('loading', '');
+  w.onmessage = e => { const m = e.data;
+    if (m.type === 'progress') { AI.loaded = m.loaded; AI.total = m.total; aiUI(); }
+    else if (m.type === 'ready') { SV.ai = true; store(); aiSet('ready'); }
+    else if (m.type === 'error') { aiStop(); aiSet('error', m.error); }
+    else if (m.type === 'out') { const j = AI.jobs[m.id]; delete AI.jobs[m.id]; if (j) j(m.error ? null : m.text); } };
+  w.onerror = e => { aiStop(); aiSet('error', (e && e.message) || 'The AI worker crashed.'); };
+  w.postMessage({ type: 'load', model: AI_MODEL.id, device: AI.backend, dtype: AI_DTYPE[AI.backend] });
+}
+function aiStop() { if (AI.worker) { try { AI.worker.terminate(); } catch (e) {} } AI.worker = null; for (const k in AI.jobs) { AI.jobs[k](null); delete AI.jobs[k]; } AI.state = 'off'; aiUI(); }
+function aiRaw(messages, max, temp) {
+  return new Promise(res => { if (!AI.worker || AI.state !== 'ready') { res(null); return; }
+    const id = ++AI.seq, to = setTimeout(() => { if (AI.jobs[id]) { delete AI.jobs[id]; res(null); } }, 25000);
+    AI.jobs[id] = t => { clearTimeout(to); res(t); }; AI.worker.postMessage({ type: 'gen', id, messages, max, temp }); });
+}
+// the tiny model only supplies two pieces (a describing word and a situation); the game builds the sentence around the
+// object itself, so the prompt always names something the Judge knows and always reads properly
+function aiMessages(noun) {
+  return [
+    { role: 'system', content: 'You help a funny drawing game for kids. For the given object reply with ONE funny describing word, then a semicolon, then a short funny situation of 2 to 6 words. Nothing else.' },
+    { role: 'user', content: 'Object: cat' }, { role: 'assistant', content: 'grumpy; stuck in a traffic jam' },
+    { role: 'user', content: 'Object: rocket' }, { role: 'assistant', content: 'cheesy; heading for Mars' },
+    { role: 'user', content: 'Object: mug' }, { role: 'assistant', content: 'sleepy; on a Monday morning' },
+    { role: 'user', content: 'Object: tree' }, { role: 'assistant', content: 'nervous; on its first day of school' },
+    { role: 'user', content: 'Object: fish' }, { role: 'assistant', content: 'fancy; at a royal wedding' },
+    { role: 'user', content: 'Object: ' + noun },
+  ];
+}
+const AI_BAD = /\b(fuck|shit|bitch|cunt|dick|piss|bastard|damn|hell|sex|kill|die|dead|drug|beer|wine|vodka|alcohol|blood|gun|stupid|idiot|hate|ugly|naked|object|drunk|accident|crash|war|bomb|fight|weapon|scary|terror|cry)\w*/i;
+const AI_EX = /^(grumpy|cheesy|sleepy|nervous|fancy)$|traffic jam|heading for mars|monday morning|first day of school|royal wedding/i;
+const AI_USED = new Set();
+function aiClean(t, noun) {
+  if (!t) return null;
+  t = String(t).replace(/<[^>]*>/g, ' ').replace(/[*_`#"\u201c\u201d\u00ab\u00bb\[\]{}&<>()]/g, '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  const parts = t.split(/\s*[;|]\s*|\s+-\s+/); if (parts.length < 2) return null;
+  let adj = parts[0].toLowerCase().replace(/^(a|an|the)\s+/, '').replace(/[^a-z' -]/g, '').trim();
+  let sit = parts[1].replace(/[.!?,:]+$/, '').replace(/\s+/g, ' ').trim();
+  if (!/^[a-z]{3,12}$/.test(adj) || /(.)\1\1/.test(adj)) return null;
+  // real describing words almost always end like one (grumpy, careful, famous, sleepy, excited...); this drops made-up words
+  if (!/(y|ful|ous|ish|ing|ed|ic|al|ive|ent|ant|ble|less|ly|est|er)$/.test(adj) && !/^(sad|mad|shy|odd|bad|big|tiny|cool|wild|calm|bold|brave|proud|rude|wise|fancy|happy|lazy|lost|royal|giant|evil|kind|cute|grand|zany|loud|quiet|smart|super|mean)$/.test(adj)) return null;
+  const sw = sit.split(' '); if (sw.length < 2 || sw.length > 7 || !/^[A-Za-z ]+$/.test(sit)) return null;
+  if (!/^(at|in|on|under|inside|with|after|before|during|near|behind|without|from|for|over|into|[a-z]+ing)$/i.test(sw[0])) return null;
+  sit = sit[0].toLowerCase() + sit.slice(1);
+  const nl = noun.toLowerCase(); if (adj.includes(nl) || new RegExp('\\b' + nl.split(' ').pop() + '\\b', 'i').test(sit)) return null;   // no "a sunny sun"
+  if (AI_BAD.test(adj + ' ' + sit) || AI_EX.test(adj) || AI_EX.test(sit) || AI_USED.has(adj + '|' + sit)) return null;
+  AI_USED.add(adj + '|' + sit);
+  return art(adj) + ' ' + adj + ' <u>' + noun + '</u> ' + sit;
+}
+async function aiPrompt(k) {
+  const noun = NOUN[k] || SHORT(k);
+  for (let tryN = 0; tryN < 3; tryN++) { const r = aiClean(await aiRaw(aiMessages(noun), 16, 0.7 + tryN * 0.15), noun); if (r) return r; }
+  return false;   // false = the AI gave up on this one, use the built-in generator right away
+}
+async function aiUI() {
+  const st = $('aiState'); if (!st) return;
+  const be = AI.backend || (AI.backend = await aiBackend()), mb = AI_MODEL.mb[be];
+  st.textContent = { off: 'off', loading: 'downloading\u2026', ready: 'ON', error: 'error', unsupported: 'not supported here' }[AI.state] || 'off';
+  const btn = $('aiBtn'), info = $('aiInfo'), bar = $('aiBar');
+  bar.hidden = AI.state !== 'loading'; if (AI.state === 'loading') bar.firstChild.style.width = (AI.total ? AI.loaded / AI.total * 100 : 3) + '%';
+  btn.hidden = AI.state === 'loading' || AI.state === 'unsupported';
+  btn.textContent = AI.state === 'ready' ? 'Turn off' : AI.state === 'error' ? 'Try again' : 'Turn on';
+  info.innerHTML = AI.state === 'ready' ? 'A tiny open-source AI (SmolLM2 from Hugging Face) writes a fresh prompt for every painting. It runs <b>on your device</b>, so nothing is sent anywhere.'
+    : AI.state === 'loading' ? 'Downloading the AI once (' + mb + ' MB). Next time it loads from your browser cache.' + (AI.total ? ' ' + Math.round(AI.loaded / 1048576) + ' / ' + Math.round(AI.total / 1048576) + ' MB' : '')
+    : AI.state === 'error' ? 'The AI could not start: ' + escH(String(AI.err).slice(0, 120)) + '. The built-in random prompts still work.'
+    : AI.state === 'unsupported' ? 'This browser cannot run the AI, so prompts come from the built-in random generator.'
+    : 'Let a tiny open-source AI from Hugging Face write every prompt. It runs on your device (' + (be === 'webgpu' ? 'graphics card' : 'processor') + ') and downloads once: about <b>' + mb + ' MB</b>. Off: prompts come from the built-in random generator.';
+}
+const escH = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const CLASSES = Object.keys(T);
 
 // $P point-cloud recognizer (multistroke, order and direction free)
@@ -304,17 +436,31 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 // ================================================================= rounds
+function queueAI() {
+  G.aiQ = {}; if (AI.state !== 'ready' || G.mode === 'free') return;
+  (async () => { const myGame = G.rounds; for (let i = 0; i < G.rounds.length; i++) { if (G.rounds !== myGame) return; const r = await aiPrompt(G.rounds[i]); if (G.rounds !== myGame) return; G.aiQ[i] = r || false; } })();
+}
 function startGame(mode) {
   ac(); G.mode = mode; G.score = 0; G.results = []; G.round = 0;
   const pool = CLASSES.slice().sort(() => Math.random() - 0.5); G.rounds = mode === 'free' ? [] : pool.slice(0, 8);
-  $('title').hidden = true; $('gal').hidden = true; $('roundP').hidden = mode === 'free'; updateTop(); fit(); nextRound();
+  $('title').hidden = true; $('gal').hidden = true; $('roundP').hidden = mode === 'free'; updateTop(); fit(); queueAI(); nextRound();
 }
 function updateTop() { $('roundP').textContent = 'Round ' + Math.min(G.round + 1, 8) + ' / 8'; $('scoreP').textContent = G.mode === 'free' ? 'Free paint' : G.score + ' pts'; }
+// with the AI on, give it a moment to finish writing this round's prompt (it writes the rest while you paint)
 function nextRound() {
+  if (G.mode !== 'free' && AI.state === 'ready' && G.aiQ && G.aiQ[G.round] === undefined) {
+    const t0 = performance.now(), myRound = G.round, myGame = G.rounds;
+    G.locked = true; $('prompt').innerHTML = '<small>Paint <span class="src">AI</span></small>&#129302; the AI is writing your prompt…';
+    const wait = () => { if (G.rounds !== myGame || G.round !== myRound) return; if (G.aiQ[myRound] !== undefined || performance.now() - t0 > 8000 || AI.state !== 'ready') nextRoundNow(); else setTimeout(wait, 150); };
+    wait(); return;
+  }
+  nextRoundNow();
+}
+function nextRoundNow() {
   G.strokes = []; G.ink = INK_MAX; G.locked = true; G.color = COLORS[G.round % COLORS.length]; redraw();
   $('guesses').innerHTML = ''; $('pts').textContent = ''; $('nextBtn').hidden = true; $('doneBtn').hidden = false; $('doneBtn').disabled = true; setJudge('idle');
-  const k = G.mode === 'free' ? null : G.rounds[G.round]; G.target = k;
-  $('prompt').innerHTML = k ? '<small>Paint</small>' + NAMES[k] : '<small>Free paint</small>anything you like';
+  const k = G.mode === 'free' ? null : G.rounds[G.round]; G.target = k; G.promptAI = !!(k && G.aiQ && G.aiQ[G.round]); G.prompt = k ? (G.promptAI ? G.aiQ[G.round] : makePrompt(k)) : '';
+  $('prompt').innerHTML = k ? '<small>Paint' + (G.promptAI ? ' <span class="src">AI</span>' : '') + '</small>' + G.prompt : '<small>Free paint</small>anything you like';
   $('say').textContent = k ? 'Two seconds of ink. Make them count.' : 'Paint any of the 22 things. I will tell you what it is.';
   updateTop();
   const cd = $('count'); cd.hidden = false; let n = 3;
@@ -343,7 +489,7 @@ function judge() {
     }
     $('say').textContent = line; $('pts').textContent = t ? (pts ? '+' + pts + (rank === 0 && G.ink > 0.05 ? '  (' + G.ink.toFixed(2) + 's left!)' : '') : '0') : '';
     G.score += pts; updateTop();
-    G.results.push({ t, guess: r ? r.list[0].k : null, rank, pts, img, used });
+    G.results.push({ t, prompt: G.prompt, guess: r ? r.list[0].k : null, rank, pts, img, used });
     $('nextBtn').hidden = false; $('nextBtn').textContent = G.mode === 'free' ? 'Paint another ➜' : G.round >= 7 ? 'See the exhibition ➜' : 'Next ➜';
   }, 900);
 }
@@ -354,21 +500,23 @@ function gallery() {
   const rank = G.score >= 1300 ? 'Old Master' : G.score >= 1000 ? 'Gallery Darling' : G.score >= 700 ? 'Rising Star' : G.score >= 400 ? 'Promising Student' : 'Starving Artist';
   $('gTitle').textContent = rank;
   $('gStats').innerHTML = '<div><span>' + G.score + '</span>points' + (isBest ? ' · best!' : '') + '</div><div><span>' + right + ' / 8</span>Judge got it</div><div><span>' + avgInk.toFixed(2) + 's</span>ink per painting</div>';
-  $('galWall').innerHTML = G.results.map((r, i) => '<div class="art"><div class="fr"><img src="' + r.img + '" alt=""></div><div class="pl"><b>"' + SHORT(r.t).replace(/^./, c => c.toUpperCase()) + '"</b>' + (r.rank === 0 ? '✓ The Judge saw ' + NAMES[r.guess] : r.guess ? 'The Judge saw ' + NAMES[r.guess] : 'A blank canvas') + ' · ' + r.used.toFixed(2) + 's</div></div>').join('');
+  $('galWall').innerHTML = G.results.map((r, i) => '<div class="art"><div class="fr"><img src="' + r.img + '" alt=""></div><div class="pl"><b>"' + plain(r.prompt).replace(/^(a|an) /, '').replace(/^./, c => c.toUpperCase()) + '"</b>' + (r.rank === 0 ? '✓ The Judge saw ' + NAMES[r.guess] : r.guess ? 'The Judge saw ' + NAMES[r.guess] : 'A blank canvas') + ' · ' + r.used.toFixed(2) + 's</div></div>').join('');
   $('gal').hidden = false;
 }
 $('saveBtn').onclick = () => {
   const c = document.createElement('canvas'), w = 300, h = 240, pad = 30; c.width = 4 * (w + pad) + pad; c.height = 2 * (h + pad + 40) + pad + 60; const x = c.getContext('2d');
   x.fillStyle = '#f4ead8'; x.fillRect(0, 0, c.width, c.height); x.fillStyle = INK; x.font = '700 34px Playfair Display, Georgia, serif'; x.textAlign = 'center'; x.fillText('Two-Second Painter · ' + G.score + ' pts', c.width / 2, 48);
   let left = G.results.length;
-  G.results.forEach((r, i) => { const im = new Image(); im.onload = () => { const X = pad + (i % 4) * (w + pad), Y = 70 + Math.floor(i / 4) * (h + pad + 40); x.fillStyle = '#a8742a'; x.fillRect(X - 8, Y - 8, w + 16, h + 16); x.drawImage(im, X, Y, w, h); x.fillStyle = INK; x.font = '600 18px Fredoka, Arial'; x.fillText('"' + SHORT(r.t) + '"' + (r.rank === 0 ? ' ✓' : ''), X + w / 2, Y + h + 32);
+  G.results.forEach((r, i) => { const im = new Image(); im.onload = () => { const X = pad + (i % 4) * (w + pad), Y = 70 + Math.floor(i / 4) * (h + pad + 40); x.fillStyle = '#a8742a'; x.fillRect(X - 8, Y - 8, w + 16, h + 16); x.drawImage(im, X, Y, w, h); x.fillStyle = INK; x.font = '600 18px Fredoka, Arial'; x.font = '600 15px Fredoka, Arial'; x.fillText('"' + plain(r.prompt).replace(/^(a|an) /, '') + '"' + (r.rank === 0 ? ' ✓' : ''), X + w / 2, Y + h + 32);
     if (--left === 0) { const a = document.createElement('a'); a.download = 'two-second-painter.png'; a.href = c.toDataURL('image/png'); a.click(); } }; im.src = r.img; });
 };
+$('aiBtn').onclick = () => { if (AI.state === 'ready') { aiStop(); SV.ai = false; store(); } else { AI.state = 'off'; aiStart(true); } };
+aiUI(); aiCached().then(c => { if (c || SV.ai) aiStart(false); });
 $('playBtn').onclick = () => startGame('play'); $('freeBtn').onclick = () => startGame('free');
 $('againBtn').onclick = () => startGame('play'); $('menuBtn').onclick = showTitle;
 function showTitle() { G.mode = 'menu'; G.locked = true; $('gal').hidden = true; $('title').hidden = false; $('best').textContent = SV.best ? 'Best exhibition: ' + SV.best + ' points' : ''; }
 fit(); showTitle();
-window.TSP = { recognise, cloud, T, CLASSES, G, judge, buildLib, get SV() { return SV; } };
+window.TSP = { aiPrompt: k => aiPrompt(k), recognise, cloud, T, CLASSES, G, judge, buildLib, get SV() { return SV; } };
 })();
 </script>
 <script src="bdp.js" defer></script>
